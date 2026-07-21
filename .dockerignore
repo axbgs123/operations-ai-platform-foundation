@@ -1,0 +1,9 @@
+.git
+.env
+**/.next
+**/.venv
+**/__pycache__
+**/node_modules
+**/*.tsbuildinfo
+coverage
+test-results

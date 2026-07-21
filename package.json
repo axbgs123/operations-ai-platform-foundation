@@ -1,0 +1,11 @@
+{
+  "name": "operations-ai-platform",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "lint": "pnpm --filter web lint",
+    "test": "pnpm --filter web test:run",
+    "typecheck": "pnpm --filter web typecheck"
+  }
+}
