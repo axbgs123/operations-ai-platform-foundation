@@ -13,6 +13,12 @@ class Settings(BaseSettings):
         "@localhost:55432/operations_ai"
     )
     web_origin: str = "http://localhost:3000"
+    s3_endpoint: str = "http://localhost:9000"
+    s3_public_endpoint: str = "http://localhost:9000"
+    s3_bucket: str = "operations-ai"
+    s3_access_key: str = "operations-ai"
+    s3_secret_key: str = "local-development-only"
+    storage_signing_secret: str = "local-development-signing-secret-change-me"
 
 
 @lru_cache

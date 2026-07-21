@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.modules.content.account_router import router as account_router
+from app.modules.content.router import router as content_router
 from app.modules.demo.router import router as demo_router
 from app.modules.workspace.router import router as workspace_router
 
@@ -17,6 +18,7 @@ app.add_middleware(
 app.include_router(workspace_router)
 app.include_router(demo_router)
 app.include_router(account_router)
+app.include_router(content_router)
 
 
 @app.get("/healthz")
