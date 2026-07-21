@@ -60,3 +60,35 @@ def test_docker_build_context_excludes_generated_artifacts() -> None:
     assert "**/.next" in ignored
     assert "**/node_modules" in ignored
     assert "**/.venv" in ignored
+
+
+def test_compose_applies_migrations_before_starting_api() -> None:
+    root = Path(__file__).parents[3]
+    compose = yaml.safe_load(
+        (root / "infra" / "docker" / "compose.yml").read_text()
+    )
+    api_dockerfile = (root / "infra" / "docker" / "api.Dockerfile").read_text()
+
+    assert "COPY --chown=appuser:appuser apps/api/migrations migrations" in api_dockerfile
+    assert "COPY --chown=appuser:appuser apps/api/alembic.ini alembic.ini" in api_dockerfile
+    assert compose["services"]["migrate"]["command"] == [
+        "/app/.venv/bin/alembic",
+        "-c",
+        "/app/alembic.ini",
+        "upgrade",
+        "head",
+    ]
+    assert compose["services"]["api"]["depends_on"]["migrate"]["condition"] == (
+        "service_completed_successfully"
+    )
+
+
+def test_api_worker_and_migrator_reuse_one_application_image() -> None:
+    compose_path = Path(__file__).parents[3] / "infra" / "docker" / "compose.yml"
+    services = yaml.safe_load(compose_path.read_text())["services"]
+
+    assert services["api"]["image"] == "operations-ai-platform-api"
+    assert services["worker"]["image"] == services["api"]["image"]
+    assert services["migrate"]["image"] == services["api"]["image"]
+    assert "build" not in services["worker"]
+    assert "build" not in services["migrate"]

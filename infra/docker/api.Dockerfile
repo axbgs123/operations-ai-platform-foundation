@@ -17,6 +17,8 @@ COPY apps/api/pyproject.toml apps/api/uv.lock ./
 RUN uv sync --frozen --no-dev
 
 COPY --chown=appuser:appuser apps/api/app app
+COPY --chown=appuser:appuser apps/api/migrations migrations
+COPY --chown=appuser:appuser apps/api/alembic.ini alembic.ini
 
 USER appuser
 
