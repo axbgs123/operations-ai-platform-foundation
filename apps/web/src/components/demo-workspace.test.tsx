@@ -8,6 +8,7 @@ test("labels synthetic data and mock generation clearly", () => {
   render(
     <DemoWorkspace
       initialWorkspace={{
+        id: "public-demo",
         name: "内容运营示例工作区",
         label: "示例数据",
         synthetic: true,

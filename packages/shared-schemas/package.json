@@ -1,0 +1,20 @@
+{
+  "name": "@operations-ai/shared-schemas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "../../apps/api/.venv/bin/python scripts/export_openapi.py && openapi-typescript openapi.json -o src/schema.ts",
+    "check": "pnpm generate && git diff --exit-code -- openapi.json src/schema.ts"
+  },
+  "dependencies": {
+    "openapi-fetch": "0.15.0"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.10.1",
+    "typescript": "^5"
+  }
+}

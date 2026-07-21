@@ -1,0 +1,78 @@
+name: Foundation quality gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --project apps/api --frozen
+
+      - name: Start integration dependencies
+        run: docker compose -f infra/docker/compose.yml up -d --wait postgres redis object-storage
+
+      - name: Apply migrations
+        working-directory: apps/api
+        run: uv run alembic upgrade head
+
+      - name: Verify generated contracts
+        run: pnpm schemas:check
+
+      - name: Lint and typecheck
+        run: |
+          pnpm lint
+          pnpm typecheck
+
+      - name: Run unit and integration tests
+        run: |
+          pnpm test
+          uv run --project apps/api pytest apps/api/tests -q -W error::DeprecationWarning
+
+      - name: Verify migration graph is current
+        working-directory: apps/api
+        run: uv run alembic check
+
+      - name: Validate deployment and secrets
+        run: |
+          docker compose -f infra/docker/compose.yml config --quiet
+          pnpm secret:scan
+          docker compose -f infra/docker/compose.yml build api web
+
+      - name: Run foundation browser smoke
+        run: |
+          pnpm --filter e2e exec playwright install --with-deps chrome
+          pnpm --filter e2e test
+
+      - name: Show service logs after failure
+        if: failure()
+        run: docker compose -f infra/docker/compose.yml logs --no-color
+
+      - name: Stop integration dependencies
+        if: always()
+        run: docker compose -f infra/docker/compose.yml down -v

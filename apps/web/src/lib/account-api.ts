@@ -1,15 +1,10 @@
+import type { components } from "@operations-ai/shared-schemas";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export type EffectiveAccountConfiguration = {
-  source: string;
-  objective_profile: {
-    id: string;
-    version: number;
-    objectives: string[];
-    metric_weights: Record<string, number>;
-  };
-  benchmark_profile: { id: string; version: number; sample_size: number };
-};
+export type EffectiveAccountConfiguration =
+  components["schemas"]["EffectiveConfigurationRead"];
+type ConfigurationInput = components["schemas"]["ConfigurationInput"];
 
 async function accountRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -34,11 +29,7 @@ export function saveAccountConfiguration(
   workspaceId: string,
   accountId: string,
   csrfToken: string,
-  data: {
-    objectives: string[];
-    metric_weights: Record<string, number>;
-    benchmark_sample_size: number;
-  },
+  data: ConfigurationInput,
 ) {
   return accountRequest(
     `/v1/workspaces/${workspaceId}/accounts/${accountId}/configuration`,

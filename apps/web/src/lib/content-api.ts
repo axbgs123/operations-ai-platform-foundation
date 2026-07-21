@@ -1,30 +1,13 @@
+import type { components } from "@operations-ai/shared-schemas";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export type ContentAssetData = {
-  id: string;
-  category: "cover" | "screenshot" | "reference_image" | "document";
-  file_name: string;
-  mime_type: string;
-  size: number;
-  download_url?: string | null;
-};
-
-export type ContentData = {
-  id: string;
-  workspace_id: string;
-  account_id: string;
-  account_name: string;
-  platform: "douyin" | "xiaohongshu";
-  title: string;
-  body: string;
-  status: "draft" | "published" | "archived";
-  column_campaign_name: string | null;
-  published_at: string | null;
-  published_title?: string | null;
-  work_url: string | null;
-  deleted_at?: string | null;
-  assets: ContentAssetData[];
-};
+export type ContentAssetData = components["schemas"]["AssetRead"];
+export type ContentData = components["schemas"]["ContentRead"];
+type AssetUploadGrant = components["schemas"]["AssetUploadGrantRead"];
+type AssetPresignRequest = components["schemas"]["AssetPresignRequest"];
+type ContentCreate = components["schemas"]["ContentCreate"];
+type ContentUpdate = components["schemas"]["ContentUpdate"];
 
 async function contentRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -44,14 +27,7 @@ export function loadContent(contentId: string) {
   return contentRequest<ContentData>(`/v1/contents/${contentId}`);
 }
 
-export function createContent(data: {
-  workspace_id: string;
-  account_id: string;
-  platform: "douyin" | "xiaohongshu";
-  title: string;
-  body: string;
-  work_url?: string;
-}, csrfToken: string) {
+export function createContent(data: ContentCreate, csrfToken: string) {
   return contentRequest<ContentData>("/v1/contents", {
     method: "POST",
     headers: { "X-CSRF-Token": csrfToken },
@@ -59,7 +35,7 @@ export function createContent(data: {
   });
 }
 
-export function updateContent(contentId: string, data: Record<string, unknown>, csrfToken: string) {
+export function updateContent(contentId: string, data: ContentUpdate, csrfToken: string) {
   return contentRequest<ContentData>(`/v1/contents/${contentId}`, {
     method: "PATCH",
     headers: { "X-CSRF-Token": csrfToken },
@@ -77,14 +53,10 @@ export function deleteContent(contentId: string, csrfToken: string) {
 export async function uploadContentAsset(
   contentId: string,
   file: File,
-  category: "cover" | "screenshot" | "reference_image" | "document",
+  category: AssetPresignRequest["category"],
   csrfToken: string,
 ) {
-  const grant = await contentRequest<{
-    upload_url: string;
-    upload_headers: Record<string, string>;
-    upload_token: string;
-  }>(`/v1/contents/${contentId}/assets/presign`, {
+  const grant = await contentRequest<AssetUploadGrant>(`/v1/contents/${contentId}/assets/presign`, {
     method: "POST",
     headers: { "X-CSRF-Token": csrfToken },
     body: JSON.stringify({

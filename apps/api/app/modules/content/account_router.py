@@ -36,6 +36,56 @@ class ColumnCampaignUpdate(BaseModel):
     restore_account_defaults: Literal[True]
 
 
+class ObjectiveProfileRead(BaseModel):
+    id: UUID
+    version: int
+    objectives: list[str]
+    metric_weights: dict[str, float]
+
+
+class BenchmarkProfileRead(BaseModel):
+    id: UUID
+    version: int
+    sample_size: int
+
+
+class AccountRead(BaseModel):
+    id: UUID
+    workspace_id: UUID
+    platform: Literal["douyin", "xiaohongshu"]
+    name: str
+    objective_profile: ObjectiveProfileRead
+    benchmark_profile: BenchmarkProfileRead
+
+
+class AccountSummaryRead(BaseModel):
+    id: UUID
+    workspace_id: UUID
+    platform: Literal["douyin", "xiaohongshu"]
+    name: str
+
+
+class EffectiveConfigurationRead(BaseModel):
+    source: Literal["account_default", "column_override", "campaign_override"]
+    objective_profile: ObjectiveProfileRead
+    benchmark_profile: BenchmarkProfileRead
+
+
+class ConfigurationVersionsRead(BaseModel):
+    objectives: list[ObjectiveProfileRead]
+    benchmarks: list[BenchmarkProfileRead]
+
+
+class ColumnCampaignRead(BaseModel):
+    id: UUID
+    name: str
+    kind: Literal["column", "campaign"]
+    starts_at: datetime | None
+    ends_at: datetime | None
+    objective_profile_id: UUID | None
+    benchmark_profile_id: UUID | None
+
+
 class ColumnCampaignCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     kind: Literal["column", "campaign"]
@@ -122,7 +172,7 @@ def _column_campaign_payload(item) -> dict:
     }
 
 
-@router.post("/accounts", status_code=201)
+@router.post("/accounts", response_model=AccountRead, status_code=201)
 def create_account(
     workspace_id: UUID,
     data: AccountCreate,
@@ -147,7 +197,7 @@ def create_account(
     return _account_payload(account, objective, benchmark)
 
 
-@router.get("/accounts")
+@router.get("/accounts", response_model=list[AccountSummaryRead])
 def list_accounts(
     workspace_id: UUID,
     session: DatabaseSession,
@@ -169,7 +219,7 @@ def list_accounts(
     ]
 
 
-@router.patch("/accounts/{account_id}")
+@router.patch("/accounts/{account_id}", response_model=AccountSummaryRead)
 def update_account(
     workspace_id: UUID,
     account_id: UUID,
@@ -213,7 +263,10 @@ def delete_account(
     return Response(status_code=204)
 
 
-@router.patch("/accounts/{account_id}/configuration")
+@router.patch(
+    "/accounts/{account_id}/configuration",
+    response_model=AccountRead,
+)
 def update_account_configuration(
     workspace_id: UUID,
     account_id: UUID,
@@ -240,7 +293,10 @@ def update_account_configuration(
     return _account_payload(account, objective, benchmark)
 
 
-@router.get("/accounts/{account_id}/configuration/versions")
+@router.get(
+    "/accounts/{account_id}/configuration/versions",
+    response_model=ConfigurationVersionsRead,
+)
 def read_configuration_versions(
     workspace_id: UUID,
     account_id: UUID,
@@ -259,7 +315,11 @@ def read_configuration_versions(
     }
 
 
-@router.post("/accounts/{account_id}/columns-campaigns", status_code=201)
+@router.post(
+    "/accounts/{account_id}/columns-campaigns",
+    response_model=ColumnCampaignRead,
+    status_code=201,
+)
 def create_column_campaign(
     workspace_id: UUID,
     account_id: UUID,
@@ -290,7 +350,10 @@ def create_column_campaign(
     return _column_campaign_payload(item)
 
 
-@router.get("/accounts/{account_id}/columns-campaigns")
+@router.get(
+    "/accounts/{account_id}/columns-campaigns",
+    response_model=list[ColumnCampaignRead],
+)
 def list_column_campaigns(
     workspace_id: UUID,
     account_id: UUID,
@@ -307,7 +370,10 @@ def list_column_campaigns(
     return [_column_campaign_payload(item) for item in items]
 
 
-@router.patch("/accounts/{account_id}/columns-campaigns/{item_id}")
+@router.patch(
+    "/accounts/{account_id}/columns-campaigns/{item_id}",
+    response_model=ColumnCampaignRead,
+)
 def update_column_campaign(
     workspace_id: UUID,
     account_id: UUID,
@@ -348,7 +414,10 @@ def delete_column_campaign(
     return Response(status_code=204)
 
 
-@router.get("/accounts/{account_id}/effective-configuration")
+@router.get(
+    "/accounts/{account_id}/effective-configuration",
+    response_model=EffectiveConfigurationRead,
+)
 def read_effective_configuration(
     workspace_id: UUID,
     account_id: UUID,

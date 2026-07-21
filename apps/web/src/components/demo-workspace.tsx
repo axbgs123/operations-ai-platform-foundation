@@ -1,30 +1,12 @@
 "use client";
 
+import type { components } from "@operations-ai/shared-schemas";
 import { useEffect, useState } from "react";
 
 import { DemoBanner } from "@/components/demo-banner";
 import { createDemoSession, generateDemoTitle, loadDemoWorkspace } from "@/lib/demo-api";
 
-type DemoPost = {
-  id: string;
-  title: string;
-  synthetic: true;
-  metrics: { views: number; likes: number; comments: number };
-};
-
-export type DemoWorkspaceData = {
-  id?: string;
-  name: string;
-  label: string;
-  synthetic: boolean;
-  accounts: Array<{
-    id: string;
-    name: string;
-    platform: "douyin" | "xiaohongshu";
-    synthetic: boolean;
-    posts: DemoPost[];
-  }>;
-};
+export type DemoWorkspaceData = components["schemas"]["DemoWorkspaceRead"];
 
 export function DemoWorkspace({
   initialWorkspace,

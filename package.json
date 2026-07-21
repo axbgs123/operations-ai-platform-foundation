@@ -4,6 +4,9 @@
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev:web": "pnpm --filter web dev",
+    "schemas:generate": "pnpm --filter @operations-ai/shared-schemas generate",
+    "schemas:check": "pnpm --filter @operations-ai/shared-schemas check",
+    "secret:scan": "bash scripts/secret-scan.sh",
     "lint": "pnpm --filter web lint",
     "test": "pnpm --filter web test:run",
     "typecheck": "pnpm --filter web typecheck"

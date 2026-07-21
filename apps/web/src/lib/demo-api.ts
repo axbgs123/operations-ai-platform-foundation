@@ -1,7 +1,12 @@
+import type { components } from "@operations-ai/shared-schemas";
+
 import type { DemoWorkspaceData } from "@/components/demo-workspace";
 
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+type DemoGenerateRequest = components["schemas"]["DemoGenerateRequest"];
+type DemoGenerateResponse = components["schemas"]["DemoGenerateResponse"];
+type DemoSessionCreated = components["schemas"]["DemoSessionCreated"];
 
 async function demoRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -21,20 +26,15 @@ export function loadDemoWorkspace() {
 }
 
 export function createDemoSession() {
-  return demoRequest<{ generation_limit: number }>("/v1/demo/sessions", {
+  return demoRequest<DemoSessionCreated>("/v1/demo/sessions", {
     method: "POST",
   });
 }
 
 export function generateDemoTitle(prompt: string) {
-  return demoRequest<{
-    content: string;
-    label: string;
-    mock: true;
-    session_remaining: number;
-    ip_remaining: number;
-  }>("/v1/demo/generations", {
+  const payload: DemoGenerateRequest = { prompt };
+  return demoRequest<DemoGenerateResponse>("/v1/demo/generations", {
     method: "POST",
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify(payload),
   });
 }

@@ -9,7 +9,15 @@ from app.core.database import get_session
 from app.core.storage import InvalidUploadToken, Storage, get_storage
 from app.modules.content.account_models import ColumnCampaign, Platform, PlatformAccount
 from app.modules.content.models import AssetCategory, Content, ContentAsset
-from app.modules.content.schemas import AssetConfirmRequest, AssetPresignRequest, ContentCreate, ContentUpdate
+from app.modules.content.schemas import (
+    AssetConfirmRequest,
+    AssetPresignRequest,
+    AssetRead,
+    AssetUploadGrantRead,
+    ContentCreate,
+    ContentRead,
+    ContentUpdate,
+)
 from app.modules.content.service import ContentService
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.permissions import PermissionDenied
@@ -93,7 +101,7 @@ def _payload(session: Session, content: Content, storage: Storage | None = None)
     }
 
 
-@router.post("", status_code=201)
+@router.post("", response_model=ContentRead, status_code=201)
 def create_content(
     data: ContentCreate,
     session: DatabaseSession,
@@ -126,7 +134,7 @@ def create_content(
     return _payload(session, content)
 
 
-@router.get("")
+@router.get("", response_model=list[ContentRead])
 def list_contents(
     workspace_id: UUID,
     session: DatabaseSession,
@@ -144,7 +152,7 @@ def list_contents(
     return [_payload(session, content, storage) for content in contents]
 
 
-@router.get("/{content_id}")
+@router.get("/{content_id}", response_model=ContentRead)
 def read_content(
     content_id: UUID,
     session: DatabaseSession,
@@ -161,7 +169,7 @@ def read_content(
     return _payload(session, content, storage)
 
 
-@router.patch("/{content_id}")
+@router.patch("/{content_id}", response_model=ContentRead)
 def update_content(
     content_id: UUID,
     data: ContentUpdate,
@@ -203,7 +211,11 @@ def delete_content(
     return Response(status_code=204)
 
 
-@router.post("/{content_id}/assets/presign", status_code=201)
+@router.post(
+    "/{content_id}/assets/presign",
+    response_model=AssetUploadGrantRead,
+    status_code=201,
+)
 def presign_asset(
     content_id: UUID,
     data: AssetPresignRequest,
@@ -238,7 +250,11 @@ def presign_asset(
     }
 
 
-@router.post("/{content_id}/assets/confirm", status_code=201)
+@router.post(
+    "/{content_id}/assets/confirm",
+    response_model=AssetRead,
+    status_code=201,
+)
 def confirm_asset(
     content_id: UUID,
     data: AssetConfirmRequest,

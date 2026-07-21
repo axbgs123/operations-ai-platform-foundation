@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Cookie, HTTPException, Request, Response
 from pydantic import BaseModel, Field
@@ -23,12 +23,46 @@ class DemoGenerateResponse(BaseModel):
     ip_remaining: int
 
 
-@router.get("/workspace")
+class DemoSessionCreated(BaseModel):
+    generation_limit: int
+
+
+class DemoPostMetrics(BaseModel):
+    views: int
+    likes: int
+    comments: int
+
+
+class DemoPostRead(BaseModel):
+    id: str
+    title: str
+    published_at: str
+    metrics: DemoPostMetrics
+    synthetic: bool
+
+
+class DemoAccountRead(BaseModel):
+    id: str
+    name: str
+    platform: Literal["douyin", "xiaohongshu"]
+    synthetic: bool
+    posts: list[DemoPostRead]
+
+
+class DemoWorkspaceRead(BaseModel):
+    id: str
+    name: str
+    label: str
+    synthetic: bool
+    accounts: list[DemoAccountRead]
+
+
+@router.get("/workspace", response_model=DemoWorkspaceRead)
 def read_demo_workspace() -> dict[str, Any]:
     return demo_service.workspace()
 
 
-@router.post("/sessions", status_code=201)
+@router.post("/sessions", response_model=DemoSessionCreated, status_code=201)
 def create_demo_session(response: Response) -> dict[str, int]:
     token = demo_service.create_session()
     response.set_cookie(

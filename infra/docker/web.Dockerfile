@@ -10,10 +10,12 @@ WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/package.json
+COPY packages/shared-schemas/package.json packages/shared-schemas/package.json
 RUN pnpm install --filter web... --frozen-lockfile
 
 COPY apps/web apps/web
-RUN chown -R node:node /app/apps/web
+COPY packages/shared-schemas packages/shared-schemas
+RUN chown -R node:node /app/apps/web /app/packages/shared-schemas
 
 WORKDIR /app/apps/web
 

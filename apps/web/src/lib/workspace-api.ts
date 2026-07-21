@@ -1,15 +1,10 @@
+import type { components } from "@operations-ai/shared-schemas";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-type SessionCreated = {
-  workspace_id: string;
-  member_id: string;
-  csrf_token: string;
-};
-
-type MemberCodeCreated = {
-  code: string;
-  role: "admin" | "editor" | "viewer";
-};
+type SessionCreated = components["schemas"]["SessionCreated"];
+type MemberCodeCreated = components["schemas"]["MemberCodeCreated"];
+type MemberCodeCreate = components["schemas"]["MemberCodeCreate"];
 
 async function request<T>(path: string, init: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -35,7 +30,7 @@ export function enterWorkspace(code: string, displayName: string) {
 
 export function createMemberCode(
   workspaceId: string,
-  role: "admin" | "editor" | "viewer",
+  role: MemberCodeCreate["role"],
   csrfToken: string,
 ) {
   return request<MemberCodeCreated>(
