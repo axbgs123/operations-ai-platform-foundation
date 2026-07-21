@@ -12,6 +12,7 @@ class Settings(BaseSettings):
         "postgresql+psycopg://operations_ai:local-development-only"
         "@localhost:55432/operations_ai"
     )
+    web_origin: str = "http://localhost:3000"
 
 
 @lru_cache

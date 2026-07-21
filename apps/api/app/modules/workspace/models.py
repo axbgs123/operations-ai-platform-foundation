@@ -3,10 +3,16 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, Index, String, Text, Uuid
+from sqlalchemy import JSON, Enum, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin, utc_now
+from app.core.database import (
+    Base,
+    TimestampMixin,
+    UTCDateTime,
+    UUIDPrimaryKeyMixin,
+    utc_now,
+)
 
 
 class MemberRole(StrEnum):
@@ -41,7 +47,7 @@ class WorkspaceMember(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(80))
     role: Mapped[MemberRole] = mapped_column(role_type)
     revoked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         default=None,
     )
 
@@ -62,11 +68,35 @@ class WorkspaceAccessCode(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=None,
     )
     expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         default=None,
     )
     revoked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
+        default=None,
+    )
+
+
+class WorkspaceSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "workspace_sessions"
+    __table_args__ = (
+        Index("ix_workspace_sessions_token_hash", "token_hash", unique=True),
+        Index("ix_workspace_sessions_workspace_id", "workspace_id"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="CASCADE"),
+    )
+    token_hash: Mapped[str] = mapped_column(String(64))
+    csrf_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(),
         default=None,
     )
 
@@ -92,7 +122,7 @@ class AuditLog(UUIDPrimaryKeyMixin, Base):
     )
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         init=False,
         default_factory=utc_now,
     )

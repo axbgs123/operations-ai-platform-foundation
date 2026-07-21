@@ -1,9 +1,12 @@
 import secrets
 import time
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import DateTime, Uuid, create_engine
+from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -30,6 +33,35 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+class UTCDateTime(TypeDecorator[datetime]):
+    """Persist aware datetimes and restore UTC when a dialect drops tzinfo."""
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(
+        self,
+        value: datetime | None,
+        dialect: Dialect,
+    ) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            raise ValueError("timezone-aware datetime required")
+        return value.astimezone(UTC)
+
+    def process_result_value(
+        self,
+        value: datetime | None,
+        dialect: Dialect,
+    ) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
+
+
 class Base(MappedAsDataclass, DeclarativeBase, kw_only=True):
     pass
 
@@ -45,12 +77,12 @@ class UUIDPrimaryKeyMixin(MappedAsDataclass):
 
 class TimestampMixin(MappedAsDataclass):
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         init=False,
         default_factory=utc_now,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         init=False,
         default_factory=utc_now,
         onupdate=utc_now,
@@ -60,3 +92,11 @@ class TimestampMixin(MappedAsDataclass):
 def create_session_factory(database_url: str | None = None) -> sessionmaker:
     engine = create_engine(database_url or get_settings().database_url)
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+SessionFactory = create_session_factory()
+
+
+def get_session() -> Iterator:
+    with SessionFactory() as session:
+        yield session

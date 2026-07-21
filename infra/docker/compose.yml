@@ -68,6 +68,7 @@ services:
     environment:
       APP_ENV: development
       APP_MOCK_MODE: "true"
+      WEB_ORIGIN: http://localhost:3000
       DATABASE_URL: postgresql+psycopg://operations_ai:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/operations_ai
       REDIS_URL: redis://redis:6379/0
       S3_ENDPOINT: http://object-storage:9000

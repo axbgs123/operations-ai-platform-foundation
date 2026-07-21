@@ -41,6 +41,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "audit_logs",
             "workspace_access_codes",
             "workspace_members",
+            "workspace_sessions",
             "workspaces",
         } <= tables
 
