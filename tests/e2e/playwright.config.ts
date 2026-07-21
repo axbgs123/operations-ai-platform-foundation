@@ -13,7 +13,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "WEB_ORIGIN=http://127.0.0.1:3100 DATABASE_URL=postgresql+psycopg://operations_ai:local-development-only@localhost:55432/operations_ai uv run --project apps/api fastapi dev apps/api/app/main.py --host 127.0.0.1 --port 8100",
+        "WEB_ORIGIN=http://127.0.0.1:3100 DATABASE_URL=postgresql+psycopg://operations_ai:local-development-only@localhost:55432/operations_ai apps/api/.venv/bin/fastapi dev apps/api/app/main.py --host 127.0.0.1 --port 8100",
       cwd: "../..",
       url: "http://127.0.0.1:8100/healthz",
       reuseExistingServer: true,

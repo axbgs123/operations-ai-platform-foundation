@@ -1,0 +1,1 @@
+"""Public demo workspace module."""

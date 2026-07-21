@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.modules.demo.router import router as demo_router
 from app.modules.workspace.router import router as workspace_router
 
 app = FastAPI(title="Operations AI Platform API")
@@ -13,6 +14,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-CSRF-Token"],
 )
 app.include_router(workspace_router)
+app.include_router(demo_router)
 
 
 @app.get("/healthz")
