@@ -8,6 +8,7 @@ from app.core.security import WorkspaceContext
 from app.modules.content.account_models import ColumnCampaign, Platform, PlatformAccount
 from app.modules.content.account_service import AccountConfigurationService
 from app.modules.content.models import AssetCategory, Content, ContentAsset, ContentStatus, DeletedItem
+from app.modules.metrics.models import ContentType
 from app.modules.workspace.models import AuditLog
 from app.modules.workspace.permissions import Permission, require_permission
 
@@ -34,6 +35,7 @@ class ContentService:
         *,
         account_id: UUID,
         platform: Platform,
+        content_type: ContentType,
         title: str,
         body: str,
         column_campaign_id: UUID | None,
@@ -71,6 +73,7 @@ class ContentService:
             workspace_id=self._context.workspace_id,
             account_id=account.id,
             platform=platform,
+            content_type=content_type,
             title=title,
             body=body,
             objective_profile_id=effective.objective_profile.id,

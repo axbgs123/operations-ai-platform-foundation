@@ -176,10 +176,10 @@ def get_metric_definitions(
 def validate_metric_values(
     platform: Platform,
     content_type: ContentType,
-    values: Mapping[str, float | int | None],
+    values: Mapping[str, Decimal | float | int | None],
     *,
     custom_definitions: Iterable[MetricDefinition] = (),
-) -> dict[str, float | None]:
+) -> dict[str, Decimal | None]:
     compatible_keys = {
         definition.key for definition in get_metric_definitions(platform, content_type)
     }
@@ -197,7 +197,7 @@ def validate_metric_values(
         )
 
     return {
-        key: None if value is None else float(value)
+        key: None if value is None else Decimal(str(value))
         for key, value in values.items()
     }
 
@@ -205,29 +205,27 @@ def validate_metric_values(
 def derive_metrics(
     platform: Platform,
     content_type: ContentType,
-    values: Mapping[str, float | int | None],
+    values: Mapping[str, Decimal | float | int | None],
 ) -> dict[str, Decimal]:
     validated = validate_metric_values(platform, content_type, values)
     derived: dict[str, Decimal] = {}
 
     views = validated.get("views")
     engagement_keys = ("likes", "comments", "shares", "favorites")
-    engagement_values = [
-        validated[key]
-        for key in engagement_keys
-        if key in validated and validated[key] is not None
-    ]
+    engagement_values: list[Decimal] = []
+    for key in engagement_keys:
+        value = validated.get(key)
+        if value is not None:
+            engagement_values.append(value)
     if views is not None and views > 0 and engagement_values:
         derived["engagement_rate"] = sum(
-            (Decimal(str(value)) for value in engagement_values),
+            engagement_values,
             start=Decimal(0),
-        ) / Decimal(str(views))
+        ) / views
 
     profile_visits = validated.get("profile_visits")
     if views is not None and views > 0 and profile_visits is not None:
-        derived["profile_visit_rate"] = Decimal(str(profile_visits)) / Decimal(
-            str(views)
-        )
+        derived["profile_visit_rate"] = profile_visits / views
 
     followers_gained = validated.get("followers_gained")
     if (
@@ -235,8 +233,6 @@ def derive_metrics(
         and profile_visits > 0
         and followers_gained is not None
     ):
-        derived["follow_conversion_rate"] = Decimal(
-            str(followers_gained)
-        ) / Decimal(str(profile_visits))
+        derived["follow_conversion_rate"] = followers_gained / profile_visits
 
     return derived

@@ -594,6 +594,15 @@
             ],
             "title": "Column Campaign Id"
           },
+          "content_type": {
+            "default": "video",
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
           "platform": {
             "enum": [
               "douyin",
@@ -686,6 +695,14 @@
               }
             ],
             "title": "Column Campaign Name"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
           },
           "deleted_at": {
             "anyOf": [
@@ -787,6 +804,7 @@
           "account_id",
           "account_name",
           "platform",
+          "content_type",
           "title",
           "body",
           "status",
@@ -1239,6 +1257,313 @@
           "csrf_token"
         ],
         "title": "SessionCreated",
+        "type": "object"
+      },
+      "SnapshotCompletenessRead": {
+        "properties": {
+          "missing": {
+            "items": {
+              "enum": [
+                "1h",
+                "24h",
+                "72h",
+                "7d"
+              ],
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "observed": {
+            "items": {
+              "enum": [
+                "1h",
+                "24h",
+                "72h",
+                "7d"
+              ],
+              "type": "string"
+            },
+            "title": "Observed",
+            "type": "array"
+          },
+          "ratio": {
+            "title": "Ratio",
+            "type": "number"
+          }
+        },
+        "required": [
+          "observed",
+          "missing",
+          "ratio"
+        ],
+        "title": "SnapshotCompletenessRead",
+        "type": "object"
+      },
+      "SnapshotCreate": {
+        "properties": {
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotMetricInput"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Metrics",
+            "type": "array"
+          },
+          "original_screenshot_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Screenshot Asset Id"
+          },
+          "source": {
+            "enum": [
+              "manual",
+              "tabular_import",
+              "screenshot",
+              "extension"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "collected_at",
+          "source",
+          "metrics"
+        ],
+        "title": "SnapshotCreate",
+        "type": "object"
+      },
+      "SnapshotMetricInput": {
+        "properties": {
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,79}$",
+            "title": "Key",
+            "type": "string"
+          },
+          "ocr_confidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Confidence"
+          },
+          "raw_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Value"
+          }
+        },
+        "required": [
+          "key",
+          "raw_value"
+        ],
+        "title": "SnapshotMetricInput",
+        "type": "object"
+      },
+      "SnapshotMetricRead": {
+        "properties": {
+          "eligible_for_benchmark": {
+            "title": "Eligible For Benchmark",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "normalized_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Normalized Value"
+          },
+          "ocr_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Confidence"
+          },
+          "raw_value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Value"
+          }
+        },
+        "required": [
+          "key",
+          "raw_value",
+          "normalized_value",
+          "ocr_confidence",
+          "eligible_for_benchmark"
+        ],
+        "title": "SnapshotMetricRead",
+        "type": "object"
+      },
+      "SnapshotRead": {
+        "properties": {
+          "age_seconds": {
+            "title": "Age Seconds",
+            "type": "integer"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/SnapshotCompletenessRead"
+          },
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "maturity_bucket": {
+            "enum": [
+              "1h",
+              "24h",
+              "72h",
+              "7d"
+            ],
+            "title": "Maturity Bucket",
+            "type": "string"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotMetricRead"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "original_screenshot_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Screenshot Asset Id"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "manual",
+              "tabular_import",
+              "screenshot",
+              "extension"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "content_id",
+          "platform",
+          "content_type",
+          "collected_at",
+          "age_seconds",
+          "maturity_bucket",
+          "source",
+          "confirmed",
+          "confirmed_at",
+          "original_screenshot_asset_id",
+          "metrics",
+          "completeness"
+        ],
+        "title": "SnapshotRead",
         "type": "object"
       },
       "ValidationError": {
@@ -1949,6 +2274,306 @@
         "summary": "Presign Asset",
         "tags": [
           "contents"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/snapshots": {
+      "get": {
+        "operationId": "list_snapshots_v1_contents__content_id__snapshots_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SnapshotRead"
+                  },
+                  "title": "Response List Snapshots V1 Contents  Content Id  Snapshots Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Snapshots",
+        "tags": [
+          "metrics"
+        ]
+      },
+      "post": {
+        "operationId": "create_snapshot_v1_contents__content_id__snapshots_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnapshotCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Snapshot",
+        "tags": [
+          "metrics"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/snapshots/{snapshot_id}": {
+      "get": {
+        "operationId": "read_snapshot_v1_contents__content_id__snapshots__snapshot_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Snapshot",
+        "tags": [
+          "metrics"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/snapshots/{snapshot_id}/confirm": {
+      "post": {
+        "operationId": "confirm_snapshot_v1_contents__content_id__snapshots__snapshot_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Snapshot",
+        "tags": [
+          "metrics"
         ]
       }
     },

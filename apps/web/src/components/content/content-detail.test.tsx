@@ -13,6 +13,7 @@ test("shows content identity, lifecycle, completeness, and later module entrance
         account_id: "account-1",
         account_name: "城市穿搭研究所",
         platform: "douyin",
+        content_type: "video",
         title: "一件衬衫，两种通勤穿法",
         body: "正文",
         status: "draft",

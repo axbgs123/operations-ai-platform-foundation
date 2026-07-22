@@ -9,6 +9,7 @@ class ContentCreate(BaseModel):
     workspace_id: UUID
     account_id: UUID
     platform: Literal["douyin", "xiaohongshu"]
+    content_type: Literal["video", "image_text"] = "video"
     title: str = Field(min_length=1, max_length=300)
     body: str = Field(max_length=100_000)
     column_campaign_id: UUID | None = None
@@ -74,6 +75,7 @@ class ContentRead(BaseModel):
     account_id: UUID
     account_name: str
     platform: Literal["douyin", "xiaohongshu"]
+    content_type: Literal["video", "image_text"]
     title: str
     body: str
     status: Literal["draft", "published", "archived"]

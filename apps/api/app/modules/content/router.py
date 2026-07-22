@@ -19,6 +19,7 @@ from app.modules.content.schemas import (
     ContentUpdate,
 )
 from app.modules.content.service import ContentService
+from app.modules.metrics.models import ContentType
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.permissions import PermissionDenied
 
@@ -85,6 +86,7 @@ def _payload(session: Session, content: Content, storage: Storage | None = None)
         "account_id": content.account_id,
         "account_name": account.name if account else "",
         "platform": content.platform.value,
+        "content_type": content.content_type.value,
         "title": content.title,
         "body": content.body,
         "status": content.status.value,
@@ -119,6 +121,7 @@ def create_content(
         content = service.create(
             account_id=data.account_id,
             platform=Platform(data.platform),
+            content_type=ContentType(data.content_type),
             title=data.title,
             body=data.body,
             column_campaign_id=data.column_campaign_id,

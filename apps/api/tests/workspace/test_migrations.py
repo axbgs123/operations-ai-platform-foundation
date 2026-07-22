@@ -44,6 +44,9 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "workspace_sessions",
             "workspaces",
             "metric_definitions",
+            "data_snapshots",
+            "snapshot_metric_values",
+            "metric_outbox_events",
         } <= tables
 
         access_code_columns = {
@@ -68,6 +71,11 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "aggregation",
             "higher_is_better",
         } <= metric_columns
+        content_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("contents")
+        }
+        assert "content_type" in content_columns
         command.check(config)
     finally:
         with admin_engine.connect() as connection:

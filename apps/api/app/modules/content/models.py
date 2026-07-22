@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin, utc_now
 from app.modules.content.account_models import Platform, platform_type
+from app.modules.metrics.models import ContentType, content_type_enum
 
 
 class ContentStatus(StrEnum):
@@ -57,6 +58,9 @@ class Content(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     benchmark_profile_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("benchmark_profiles.id", ondelete="RESTRICT")
+    )
+    content_type: Mapped[ContentType] = mapped_column(
+        content_type_enum, default=ContentType.VIDEO
     )
     column_campaign_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("columns_campaigns.id", ondelete="SET NULL"), default=None

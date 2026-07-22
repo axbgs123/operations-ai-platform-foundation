@@ -92,6 +92,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/contents/{content_id}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Snapshots */
+        get: operations["list_snapshots_v1_contents__content_id__snapshots_get"];
+        put?: never;
+        /** Create Snapshot */
+        post: operations["create_snapshot_v1_contents__content_id__snapshots_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contents/{content_id}/snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Snapshot */
+        get: operations["read_snapshot_v1_contents__content_id__snapshots__snapshot_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contents/{content_id}/snapshots/{snapshot_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Snapshot */
+        post: operations["confirm_snapshot_v1_contents__content_id__snapshots__snapshot_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/demo/generations": {
         parameters: {
             query?: never;
@@ -596,6 +648,12 @@ export interface components {
             /** Column Campaign Id */
             column_campaign_id?: string | null;
             /**
+             * Content Type
+             * @default video
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /**
              * Platform
              * @enum {string}
              */
@@ -632,6 +690,11 @@ export interface components {
             column_campaign_id: string | null;
             /** Column Campaign Name */
             column_campaign_name: string | null;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
             /** Deleted At */
             deleted_at: string | null;
             /**
@@ -829,6 +892,108 @@ export interface components {
              * Format: uuid
              */
             member_id: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** SnapshotCompletenessRead */
+        SnapshotCompletenessRead: {
+            /** Missing */
+            missing: ("1h" | "24h" | "72h" | "7d")[];
+            /** Observed */
+            observed: ("1h" | "24h" | "72h" | "7d")[];
+            /** Ratio */
+            ratio: number;
+        };
+        /** SnapshotCreate */
+        SnapshotCreate: {
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Metrics */
+            metrics: components["schemas"]["SnapshotMetricInput"][];
+            /** Original Screenshot Asset Id */
+            original_screenshot_asset_id?: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual" | "tabular_import" | "screenshot" | "extension";
+        };
+        /** SnapshotMetricInput */
+        SnapshotMetricInput: {
+            /** Key */
+            key: string;
+            /** Ocr Confidence */
+            ocr_confidence?: number | null;
+            /** Raw Value */
+            raw_value: number | string | null;
+        };
+        /** SnapshotMetricRead */
+        SnapshotMetricRead: {
+            /** Eligible For Benchmark */
+            eligible_for_benchmark: boolean;
+            /** Key */
+            key: string;
+            /** Normalized Value */
+            normalized_value: string | null;
+            /** Ocr Confidence */
+            ocr_confidence: number | null;
+            /** Raw Value */
+            raw_value: string | null;
+        };
+        /** SnapshotRead */
+        SnapshotRead: {
+            /** Age Seconds */
+            age_seconds: number;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            completeness: components["schemas"]["SnapshotCompletenessRead"];
+            /** Confirmed */
+            confirmed: boolean;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Maturity Bucket
+             * @enum {string}
+             */
+            maturity_bucket: "1h" | "24h" | "72h" | "7d";
+            /** Metrics */
+            metrics: components["schemas"]["SnapshotMetricRead"][];
+            /** Original Screenshot Asset Id */
+            original_screenshot_asset_id: string | null;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual" | "tabular_import" | "screenshot" | "extension";
             /**
              * Workspace Id
              * Format: uuid
@@ -1164,6 +1329,148 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssetUploadGrantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_snapshots_v1_contents__content_id__snapshots_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_snapshot_v1_contents__content_id__snapshots_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                content_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnapshotCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_snapshot_v1_contents__content_id__snapshots__snapshot_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_id: string;
+                snapshot_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_snapshot_v1_contents__content_id__snapshots__snapshot_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                content_id: string;
+                snapshot_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotRead"];
                 };
             };
             /** @description Validation Error */
