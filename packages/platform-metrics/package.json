@@ -1,0 +1,16 @@
+{
+  "name": "@operations-ai/platform-metrics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "PYTHONPATH=../../apps/api ../../apps/api/.venv/bin/python scripts/generate.py",
+    "check": "pnpm generate && git diff --exit-code -- src/index.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

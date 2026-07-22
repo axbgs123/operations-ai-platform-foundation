@@ -43,6 +43,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "workspace_members",
             "workspace_sessions",
             "workspaces",
+            "metric_definitions",
         } <= tables
 
         access_code_columns = {
@@ -54,6 +55,19 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         assert "code_hash" in access_code_columns
         assert "code" not in access_code_columns
         assert "plain_code" not in access_code_columns
+        metric_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("metric_definitions")
+        }
+        assert {
+            "workspace_id",
+            "platform",
+            "content_type",
+            "key",
+            "unit",
+            "aggregation",
+            "higher_is_better",
+        } <= metric_columns
         command.check(config)
     finally:
         with admin_engine.connect() as connection:

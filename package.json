@@ -6,6 +6,8 @@
     "dev:web": "pnpm --filter web dev",
     "schemas:generate": "pnpm --filter @operations-ai/shared-schemas generate",
     "schemas:check": "pnpm --filter @operations-ai/shared-schemas check",
+    "metrics:generate": "pnpm --filter @operations-ai/platform-metrics generate",
+    "metrics:check": "pnpm --filter @operations-ai/platform-metrics check",
     "secret:scan": "bash scripts/secret-scan.sh",
     "lint": "pnpm --filter web lint",
     "test": "pnpm --filter web test:run",
