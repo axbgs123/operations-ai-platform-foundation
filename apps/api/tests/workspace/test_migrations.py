@@ -47,6 +47,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "data_snapshots",
             "snapshot_metric_values",
             "metric_outbox_events",
+            "benchmark_runs",
         } <= tables
 
         access_code_columns = {

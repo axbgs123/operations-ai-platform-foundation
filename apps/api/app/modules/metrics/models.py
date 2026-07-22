@@ -214,3 +214,28 @@ class MetricOutboxEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     idempotency_key: Mapped[str] = mapped_column(String(200))
     payload: Mapped[dict[str, str]] = mapped_column(JSON)
     processed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
+
+
+class BenchmarkRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "benchmark_runs"
+    __table_args__ = (
+        Index("ix_benchmark_runs_workspace_id", "workspace_id"),
+        Index("ix_benchmark_runs_account_id", "account_id"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    account_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("platform_accounts.id", ondelete="CASCADE")
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    content_type: Mapped[ContentType] = mapped_column(content_type_enum)
+    maturity_bucket: Mapped[str] = mapped_column(String(8))
+    range_settings: Mapped[dict[str, object]] = mapped_column(JSON)
+    sample_snapshot_ids: Mapped[list[str]] = mapped_column(JSON)
+    sample_count: Mapped[int] = mapped_column(Integer)
+    percentile_values: Mapped[dict[str, object]] = mapped_column(JSON)
+    weights: Mapped[dict[str, str]] = mapped_column(JSON)
+    confidence: Mapped[str] = mapped_column(String(32))
+    algorithm_version: Mapped[str] = mapped_column(String(80))
