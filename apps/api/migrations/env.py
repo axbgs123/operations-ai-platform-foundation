@@ -11,6 +11,7 @@ from app.modules.content import account_models  # noqa: F401
 from app.modules.content import models as content_models  # noqa: F401
 from app.modules.metrics import models as metric_models  # noqa: F401
 from app.modules.imports import models as import_models  # noqa: F401
+from app.modules.models import models as model_config_models  # noqa: F401
 from app.modules.workspace import models  # noqa: F401
 
 

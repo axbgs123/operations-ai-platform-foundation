@@ -243,6 +243,16 @@
         "title": "AccountUpdate",
         "type": "object"
       },
+      "AdapterStatus": {
+        "enum": [
+          "verified",
+          "experimental",
+          "community",
+          "incompatible"
+        ],
+        "title": "AdapterStatus",
+        "type": "string"
+      },
       "AnalysisFeedbackInput": {
         "additionalProperties": false,
         "properties": {
@@ -818,6 +828,16 @@
         ],
         "title": "Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post",
         "type": "object"
+      },
+      "Capability": {
+        "enum": [
+          "text",
+          "vision",
+          "image",
+          "embedding"
+        ],
+        "title": "Capability",
+        "type": "string"
       },
       "ColumnCampaignCreate": {
         "properties": {
@@ -2616,6 +2636,105 @@
           "role"
         ],
         "title": "MemberCodeCreated",
+        "type": "object"
+      },
+      "ModelConfigCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "api_key": {
+            "format": "password",
+            "title": "Api Key",
+            "type": "string",
+            "writeOnly": true
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "minItems": 1,
+            "title": "Capabilities",
+            "type": "array",
+            "uniqueItems": true
+          },
+          "model_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Model Id",
+            "type": "string"
+          },
+          "provider": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdapterStatus"
+          }
+        },
+        "required": [
+          "provider",
+          "model_id",
+          "capabilities",
+          "status",
+          "api_key"
+        ],
+        "title": "ModelConfigCreate",
+        "type": "object"
+      },
+      "ModelConfigRead": {
+        "properties": {
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdapterStatus"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "provider",
+          "model_id",
+          "capabilities",
+          "status"
+        ],
+        "title": "ModelConfigRead",
+        "type": "object"
+      },
+      "ModelConfigStatusUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AdapterStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ModelConfigStatusUpdate",
         "type": "object"
       },
       "NextExperiment": {
@@ -7707,6 +7826,314 @@
         "summary": "Update Member",
         "tags": [
           "workspace"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/model-configs": {
+      "get": {
+        "operationId": "list_model_configs_v1_workspaces__workspace_id__model_configs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ModelConfigRead"
+                  },
+                  "title": "Response List Model Configs V1 Workspaces  Workspace Id  Model Configs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Model Configs",
+        "tags": [
+          "model-configs"
+        ]
+      },
+      "post": {
+        "operationId": "create_model_config_v1_workspaces__workspace_id__model_configs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelConfigCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConfigRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Model Config",
+        "tags": [
+          "model-configs"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/model-configs/selection": {
+      "get": {
+        "operationId": "select_model_config_v1_workspaces__workspace_id__model_configs_selection_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "capability",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConfigRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Model Config",
+        "tags": [
+          "model-configs"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/model-configs/{config_id}": {
+      "patch": {
+        "operationId": "update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "config_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Config Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelConfigStatusUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConfigRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Model Config Status",
+        "tags": [
+          "model-configs"
         ]
       }
     },

@@ -7,6 +7,7 @@ class Permission(StrEnum):
     READ_CONTENT = "read_content"
     WRITE_CONTENT = "write_content"
     MANAGE_MEMBERS = "manage_members"
+    MANAGE_MODELS = "manage_models"
 
 
 class PermissionDenied(Exception):

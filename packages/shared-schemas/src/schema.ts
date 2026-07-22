@@ -712,6 +712,58 @@ export interface paths {
         patch: operations["update_member_v1_workspaces__workspace_id__members__member_id__patch"];
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/model-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Model Configs */
+        get: operations["list_model_configs_v1_workspaces__workspace_id__model_configs_get"];
+        put?: never;
+        /** Create Model Config */
+        post: operations["create_model_config_v1_workspaces__workspace_id__model_configs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/model-configs/selection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Select Model Config */
+        get: operations["select_model_config_v1_workspaces__workspace_id__model_configs_selection_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/model-configs/{config_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Model Config Status */
+        patch: operations["update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch"];
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/viral-candidates": {
         parameters: {
             query?: never;
@@ -908,6 +960,11 @@ export interface components {
             /** Name */
             name: string;
         };
+        /**
+         * AdapterStatus
+         * @enum {string}
+         */
+        AdapterStatus: "verified" | "experimental" | "community" | "incompatible";
         /** AnalysisFeedbackInput */
         AnalysisFeedbackInput: {
             /**
@@ -1145,6 +1202,11 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * Capability
+         * @enum {string}
+         */
+        Capability: "text" | "vision" | "image" | "embedding";
         /** ColumnCampaignCreate */
         ColumnCampaignCreate: {
             /** Benchmark Sample Size */
@@ -1787,6 +1849,45 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "editor" | "viewer";
+        };
+        /** ModelConfigCreate */
+        ModelConfigCreate: {
+            /**
+             * Api Key
+             * Format: password
+             */
+            api_key: string;
+            /** Capabilities */
+            capabilities: components["schemas"]["Capability"][];
+            /** Model Id */
+            model_id: string;
+            /** Provider */
+            provider: string;
+            status: components["schemas"]["AdapterStatus"];
+        };
+        /** ModelConfigRead */
+        ModelConfigRead: {
+            /** Capabilities */
+            capabilities: components["schemas"]["Capability"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Model Id */
+            model_id: string;
+            /** Provider */
+            provider: string;
+            status: components["schemas"]["AdapterStatus"];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** ModelConfigStatusUpdate */
+        ModelConfigStatusUpdate: {
+            status: components["schemas"]["AdapterStatus"];
         };
         /** NextExperiment */
         NextExperiment: {
@@ -4085,6 +4186,153 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceMemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_model_configs_v1_workspaces__workspace_id__model_configs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelConfigRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_model_config_v1_workspaces__workspace_id__model_configs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelConfigCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_model_config_v1_workspaces__workspace_id__model_configs_selection_get: {
+        parameters: {
+            query: {
+                capability: components["schemas"]["Capability"];
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                config_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelConfigStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelConfigRead"];
                 };
             };
             /** @description Validation Error */

@@ -22,6 +22,7 @@ def test_openapi_has_unique_operations_and_typed_core_responses() -> None:
         "ContentRead",
         "DemoWorkspaceRead",
         "EffectiveConfigurationRead",
+        "ModelConfigRead",
     }
     assert expected_components <= set(schema["components"]["schemas"])
 
@@ -30,6 +31,7 @@ def test_openapi_has_unique_operations_and_typed_core_responses() -> None:
         ("/v1/workspaces/{workspace_id}/accounts", "post", "201"),
         ("/v1/contents", "post", "201"),
         ("/v1/contents/{content_id}", "get", "200"),
+        ("/v1/workspaces/{workspace_id}/model-configs", "post", "201"),
     ]
     for path, method, status in core_operations:
         response_schema = schema["paths"][path][method]["responses"][status][

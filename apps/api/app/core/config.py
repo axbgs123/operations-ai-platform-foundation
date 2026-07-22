@@ -1,6 +1,13 @@
 from functools import lru_cache
+from typing import Self
 
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_MODEL_SECRET_ENCRYPTION_KEY = (
+    "local-development-model-secret-change-me"
+)
 
 
 class Settings(BaseSettings):
@@ -23,6 +30,23 @@ class Settings(BaseSettings):
     analysis_adapter_token: str | None = None
     analysis_model_version: str = "configured-analysis-v1"
     analysis_request_timeout_seconds: float = 30.0
+    model_secret_encryption_key: SecretStr = SecretStr(
+        DEFAULT_MODEL_SECRET_ENCRYPTION_KEY
+    )
+
+    @model_validator(mode="after")
+    def reject_development_model_key_outside_development(self) -> Self:
+        if self.app_env != "development":
+            key = self.model_secret_encryption_key.get_secret_value()
+            if key == DEFAULT_MODEL_SECRET_ENCRYPTION_KEY:
+                raise ValueError(
+                    "model secret encryption key must be configured outside development"
+                )
+            if len(key) < 32:
+                raise ValueError(
+                    "model secret encryption key must be at least 32 characters"
+                )
+        return self
 
 
 @lru_cache

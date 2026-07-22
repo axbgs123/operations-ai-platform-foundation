@@ -10,6 +10,7 @@ from app.modules.demo.router import router as demo_router
 from app.modules.imports.router import router as imports_router
 from app.modules.metrics.dashboard_router import router as dashboard_router
 from app.modules.metrics.router import router as metrics_router
+from app.modules.models.router import router as model_configs_router
 from app.modules.workspace.router import router as workspace_router
 
 app = FastAPI(title="Operations AI Platform API")
@@ -26,6 +27,7 @@ app.include_router(imports_router)
 app.include_router(account_router)
 app.include_router(content_router)
 app.include_router(metrics_router)
+app.include_router(model_configs_router)
 app.include_router(dashboard_router)
 app.include_router(viral_router)
 app.include_router(analysis_router)
