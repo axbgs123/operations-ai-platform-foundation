@@ -328,6 +328,34 @@
         "title": "BenchmarkProfileRead",
         "type": "object"
       },
+      "Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "content_type": {
+            "$ref": "#/components/schemas/ContentType"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          }
+        },
+        "required": [
+          "account_id",
+          "platform",
+          "content_type",
+          "file"
+        ],
+        "title": "Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post",
+        "type": "object"
+      },
       "ColumnCampaignCreate": {
         "properties": {
           "benchmark_sample_size": {
@@ -611,6 +639,18 @@
             "title": "Platform",
             "type": "string"
           },
+          "platform_content_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Content Id"
+          },
           "title": {
             "maxLength": 300,
             "minLength": 1,
@@ -734,6 +774,17 @@
             "title": "Platform",
             "type": "string"
           },
+          "platform_content_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform Content Id"
+          },
           "published_at": {
             "anyOf": [
               {
@@ -811,6 +862,7 @@
           "column_campaign_id",
           "column_campaign_name",
           "work_url",
+          "platform_content_id",
           "published_title",
           "published_body",
           "published_at",
@@ -821,6 +873,14 @@
         ],
         "title": "ContentRead",
         "type": "object"
+      },
+      "ContentType": {
+        "enum": [
+          "video",
+          "image_text"
+        ],
+        "title": "ContentType",
+        "type": "string"
       },
       "ContentUpdate": {
         "properties": {
@@ -1136,6 +1196,367 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HeaderMappingRead": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "high_confidence": {
+            "title": "High Confidence",
+            "type": "boolean"
+          },
+          "source_header": {
+            "title": "Source Header",
+            "type": "string"
+          },
+          "target_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Field"
+          }
+        },
+        "required": [
+          "source_header",
+          "target_field",
+          "confidence",
+          "high_confidence"
+        ],
+        "title": "HeaderMappingRead",
+        "type": "object"
+      },
+      "HeaderMappingUpdate": {
+        "properties": {
+          "mapping": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 100,
+            "minProperties": 1,
+            "title": "Mapping",
+            "type": "object"
+          }
+        },
+        "required": [
+          "mapping"
+        ],
+        "title": "HeaderMappingUpdate",
+        "type": "object"
+      },
+      "ImportBatchRead": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "file_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Name"
+          },
+          "header_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/HeaderMappingRead"
+            },
+            "title": "Header Mappings",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ImportRowRead"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "source_kind": {
+            "enum": [
+              "manual",
+              "csv",
+              "xlsx"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "preview",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ImportSummaryRead"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "account_id",
+          "platform",
+          "content_type",
+          "source_kind",
+          "status",
+          "file_name",
+          "header_mappings",
+          "rows",
+          "summary"
+        ],
+        "title": "ImportBatchRead",
+        "type": "object"
+      },
+      "ImportConfirmRequest": {
+        "properties": {
+          "selected_row_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Selected Row Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "selected_row_ids"
+        ],
+        "title": "ImportConfirmRequest",
+        "type": "object"
+      },
+      "ImportConfirmationRead": {
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "content_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Content Ids",
+            "type": "array"
+          },
+          "skipped_row_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Skipped Row Ids",
+            "type": "array"
+          },
+          "snapshot_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Snapshot Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch_id",
+          "content_ids",
+          "snapshot_ids",
+          "skipped_row_ids"
+        ],
+        "title": "ImportConfirmationRead",
+        "type": "object"
+      },
+      "ImportErrorRead": {
+        "properties": {
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "title": "ImportErrorRead",
+        "type": "object"
+      },
+      "ImportRowRead": {
+        "properties": {
+          "dedupe_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dedupe Reason"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ImportErrorRead"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "matched_content_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Content Id"
+          },
+          "normalized_data": {
+            "additionalProperties": true,
+            "title": "Normalized Data",
+            "type": "object"
+          },
+          "raw_data": {
+            "additionalProperties": true,
+            "title": "Raw Data",
+            "type": "object"
+          },
+          "row_number": {
+            "title": "Row Number",
+            "type": "integer"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "new",
+              "update",
+              "suspected_duplicate",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "row_number",
+          "status",
+          "selected",
+          "raw_data",
+          "normalized_data",
+          "errors",
+          "matched_content_id",
+          "dedupe_reason"
+        ],
+        "title": "ImportRowRead",
+        "type": "object"
+      },
+      "ImportRowUpdate": {
+        "properties": {
+          "changes": {
+            "additionalProperties": true,
+            "maxProperties": 100,
+            "minProperties": 1,
+            "title": "Changes",
+            "type": "object"
+          },
+          "selected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected"
+          }
+        },
+        "required": [
+          "changes"
+        ],
+        "title": "ImportRowUpdate",
+        "type": "object"
+      },
+      "ImportSummaryRead": {
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "new": {
+            "title": "New",
+            "type": "integer"
+          },
+          "suspected_duplicate": {
+            "title": "Suspected Duplicate",
+            "type": "integer"
+          },
+          "update": {
+            "title": "Update",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "new",
+          "update",
+          "suspected_duplicate",
+          "failed"
+        ],
+        "title": "ImportSummaryRead",
+        "type": "object"
+      },
       "InviteLogin": {
         "properties": {
           "code": {
@@ -1156,6 +1577,49 @@
           "display_name"
         ],
         "title": "InviteLogin",
+        "type": "object"
+      },
+      "ManualPreviewRequest": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "account_id",
+          "platform",
+          "content_type",
+          "rows"
+        ],
+        "title": "ManualPreviewRequest",
         "type": "object"
       },
       "MemberCodeCreate": {
@@ -1233,6 +1697,14 @@
         ],
         "title": "ObjectiveProfileRead",
         "type": "object"
+      },
+      "Platform": {
+        "enum": [
+          "douyin",
+          "xiaohongshu"
+        ],
+        "title": "Platform",
+        "type": "string"
       },
       "SessionCreated": {
         "properties": {
@@ -2714,6 +3186,271 @@
         ]
       }
     },
+    "/v1/imports/{batch_id}/confirm": {
+      "post": {
+        "operationId": "confirm_import_v1_imports__batch_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportConfirmationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Import",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/v1/imports/{batch_id}/mapping": {
+      "patch": {
+        "operationId": "update_import_mapping_v1_imports__batch_id__mapping_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeaderMappingUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Import Mapping",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/v1/imports/{batch_id}/rows/{row_id}": {
+      "patch": {
+        "operationId": "update_import_row_v1_imports__batch_id__rows__row_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Row Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportRowUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Import Row",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/v1/sessions/current": {
       "delete": {
         "operationId": "delete_current_session_v1_sessions_current_delete",
@@ -3792,6 +4529,176 @@
         "summary": "Read Effective Configuration",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/imports/manual/preview": {
+      "post": {
+        "operationId": "preview_manual_import_v1_workspaces__workspace_id__imports_manual_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Manual Import",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/imports/tabular/preview": {
+      "post": {
+        "operationId": "preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Tabular Import",
+        "tags": [
+          "imports"
         ]
       }
     },

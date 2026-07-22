@@ -213,6 +213,57 @@ export interface paths {
         patch: operations["reject_demo_mutation_v1_demo_workspace_patch"];
         trace?: never;
     };
+    "/v1/imports/{batch_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Import */
+        post: operations["confirm_import_v1_imports__batch_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/imports/{batch_id}/mapping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Import Mapping */
+        patch: operations["update_import_mapping_v1_imports__batch_id__mapping_patch"];
+        trace?: never;
+    };
+    "/v1/imports/{batch_id}/rows/{row_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Import Row */
+        patch: operations["update_import_row_v1_imports__batch_id__rows__row_id__patch"];
+        trace?: never;
+    };
     "/v1/sessions/current": {
         parameters: {
             query?: never;
@@ -381,6 +432,40 @@ export interface paths {
         get: operations["read_effective_configuration_v1_workspaces__workspace_id__accounts__account_id__effective_configuration_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/imports/manual/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Manual Import */
+        post: operations["preview_manual_import_v1_workspaces__workspace_id__imports_manual_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/imports/tabular/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Tabular Import */
+        post: operations["preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -565,6 +650,18 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post */
+        Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            content_type: components["schemas"]["ContentType"];
+            /** File */
+            file: string;
+            platform: components["schemas"]["Platform"];
+        };
         /** ColumnCampaignCreate */
         ColumnCampaignCreate: {
             /** Benchmark Sample Size */
@@ -658,6 +755,8 @@ export interface components {
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+            /** Platform Content Id */
+            platform_content_id?: string | null;
             /** Title */
             title: string;
             /** Work Url */
@@ -712,6 +811,8 @@ export interface components {
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+            /** Platform Content Id */
+            platform_content_id: string | null;
             /** Published At */
             published_at: string | null;
             /** Published Body */
@@ -733,6 +834,11 @@ export interface components {
              */
             workspace_id: string;
         };
+        /**
+         * ContentType
+         * @enum {string}
+         */
+        ContentType: "video" | "image_text";
         /** ContentUpdate */
         ContentUpdate: {
             /** Body */
@@ -842,12 +948,174 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** HeaderMappingRead */
+        HeaderMappingRead: {
+            /** Confidence */
+            confidence: number;
+            /** High Confidence */
+            high_confidence: boolean;
+            /** Source Header */
+            source_header: string;
+            /** Target Field */
+            target_field: string | null;
+        };
+        /** HeaderMappingUpdate */
+        HeaderMappingUpdate: {
+            /** Mapping */
+            mapping: {
+                [key: string]: string;
+            };
+        };
+        /** ImportBatchRead */
+        ImportBatchRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /** File Name */
+            file_name: string | null;
+            /** Header Mappings */
+            header_mappings: components["schemas"]["HeaderMappingRead"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Rows */
+            rows: components["schemas"]["ImportRowRead"][];
+            /**
+             * Source Kind
+             * @enum {string}
+             */
+            source_kind: "manual" | "csv" | "xlsx";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "preview" | "confirmed";
+            summary: components["schemas"]["ImportSummaryRead"];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** ImportConfirmRequest */
+        ImportConfirmRequest: {
+            /** Selected Row Ids */
+            selected_row_ids: string[];
+        };
+        /** ImportConfirmationRead */
+        ImportConfirmationRead: {
+            /**
+             * Batch Id
+             * Format: uuid
+             */
+            batch_id: string;
+            /** Content Ids */
+            content_ids: string[];
+            /** Skipped Row Ids */
+            skipped_row_ids: string[];
+            /** Snapshot Ids */
+            snapshot_ids: string[];
+        };
+        /** ImportErrorRead */
+        ImportErrorRead: {
+            /** Field */
+            field: string;
+            /** Message */
+            message: string;
+        };
+        /** ImportRowRead */
+        ImportRowRead: {
+            /** Dedupe Reason */
+            dedupe_reason: string | null;
+            /** Errors */
+            errors: components["schemas"]["ImportErrorRead"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Matched Content Id */
+            matched_content_id: string | null;
+            /** Normalized Data */
+            normalized_data: {
+                [key: string]: unknown;
+            };
+            /** Raw Data */
+            raw_data: {
+                [key: string]: unknown;
+            };
+            /** Row Number */
+            row_number: number;
+            /** Selected */
+            selected: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "new" | "update" | "suspected_duplicate" | "failed";
+        };
+        /** ImportRowUpdate */
+        ImportRowUpdate: {
+            /** Changes */
+            changes: {
+                [key: string]: unknown;
+            };
+            /** Selected */
+            selected?: boolean | null;
+        };
+        /** ImportSummaryRead */
+        ImportSummaryRead: {
+            /** Failed */
+            failed: number;
+            /** New */
+            new: number;
+            /** Suspected Duplicate */
+            suspected_duplicate: number;
+            /** Update */
+            update: number;
+        };
         /** InviteLogin */
         InviteLogin: {
             /** Code */
             code: string;
             /** Display Name */
             display_name: string;
+        };
+        /** ManualPreviewRequest */
+        ManualPreviewRequest: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
         };
         /** MemberCodeCreate */
         MemberCodeCreate: {
@@ -883,6 +1151,11 @@ export interface components {
             /** Version */
             version: number;
         };
+        /**
+         * Platform
+         * @enum {string}
+         */
+        Platform: "douyin" | "xiaohongshu";
         /** SessionCreated */
         SessionCreated: {
             /** Csrf Token */
@@ -1599,6 +1872,124 @@ export interface operations {
             };
         };
     };
+    confirm_import_v1_imports__batch_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                batch_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportConfirmationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_import_mapping_v1_imports__batch_id__mapping_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                batch_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeaderMappingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_import_row_v1_imports__batch_id__rows__row_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                batch_id: string;
+                row_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRowUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_current_session_v1_sessions_current_delete: {
         parameters: {
             query?: never;
@@ -2090,6 +2481,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EffectiveConfigurationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_manual_import_v1_workspaces__workspace_id__imports_manual_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchRead"];
                 };
             };
             /** @description Validation Error */

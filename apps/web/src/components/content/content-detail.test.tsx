@@ -25,6 +25,7 @@ test("shows content identity, lifecycle, completeness, and later module entrance
         published_body: null,
         published_at: null,
         work_url: null,
+        platform_content_id: null,
         deleted_at: null,
         assets: [],
       }}

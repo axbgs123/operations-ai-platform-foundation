@@ -66,6 +66,7 @@ class Content(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("columns_campaigns.id", ondelete="SET NULL"), default=None
     )
     work_url: Mapped[str | None] = mapped_column(String(2048), default=None)
+    platform_content_id: Mapped[str | None] = mapped_column(String(255), default=None)
     status: Mapped[ContentStatus] = mapped_column(content_status_type, default=ContentStatus.DRAFT)
     published_title: Mapped[str | None] = mapped_column(String(300), default=None)
     published_body: Mapped[str | None] = mapped_column(Text, default=None)

@@ -48,6 +48,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "snapshot_metric_values",
             "metric_outbox_events",
             "benchmark_runs",
+            "import_batches",
+            "import_rows",
         } <= tables
 
         access_code_columns = {
@@ -77,6 +79,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             for column in inspect(migrated_engine).get_columns("contents")
         }
         assert "content_type" in content_columns
+        assert "platform_content_id" in content_columns
         command.check(config)
     finally:
         with admin_engine.connect() as connection:

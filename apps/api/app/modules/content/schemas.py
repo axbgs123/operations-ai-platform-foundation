@@ -14,6 +14,7 @@ class ContentCreate(BaseModel):
     body: str = Field(max_length=100_000)
     column_campaign_id: UUID | None = None
     work_url: AnyHttpUrl | None = None
+    platform_content_id: str | None = Field(default=None, max_length=255)
 
 
 class ContentUpdate(BaseModel):
@@ -82,6 +83,7 @@ class ContentRead(BaseModel):
     column_campaign_id: UUID | None
     column_campaign_name: str | None
     work_url: str | None
+    platform_content_id: str | None
     published_title: str | None
     published_body: str | None
     published_at: datetime | None

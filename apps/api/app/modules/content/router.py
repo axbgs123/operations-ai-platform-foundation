@@ -93,6 +93,7 @@ def _payload(session: Session, content: Content, storage: Storage | None = None)
         "column_campaign_id": content.column_campaign_id,
         "column_campaign_name": column_campaign.name if column_campaign else None,
         "work_url": content.work_url,
+        "platform_content_id": content.platform_content_id,
         "published_title": content.published_title,
         "published_body": content.published_body,
         "published_at": content.published_at,
@@ -127,6 +128,7 @@ def create_content(
             column_campaign_id=data.column_campaign_id,
             work_url=str(data.work_url) if data.work_url else None,
         )
+        content.platform_content_id = data.platform_content_id
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
