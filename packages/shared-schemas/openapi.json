@@ -1966,6 +1966,44 @@
         "title": "EffectiveConfigurationRead",
         "type": "object"
       },
+      "EffectiveStyleRead": {
+        "properties": {
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "account_default",
+              "column_override"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "style": {
+            "additionalProperties": true,
+            "title": "Style",
+            "type": "object"
+          },
+          "switches": {
+            "$ref": "#/components/schemas/StyleInheritanceSwitches"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source",
+          "profile_id",
+          "version",
+          "switches",
+          "style"
+        ],
+        "title": "EffectiveStyleRead",
+        "type": "object"
+      },
       "EvidenceCitation": {
         "additionalProperties": false,
         "properties": {
@@ -2849,6 +2887,47 @@
         "title": "ProductEventAck",
         "type": "object"
       },
+      "ProhibitedStyle": {
+        "additionalProperties": false,
+        "properties": {
+          "colors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Colors",
+            "type": "array"
+          },
+          "expressions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Expressions",
+            "type": "array"
+          },
+          "layouts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Layouts",
+            "type": "array"
+          },
+          "visual_styles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Visual Styles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "expressions",
+          "colors",
+          "layouts",
+          "visual_styles"
+        ],
+        "title": "ProhibitedStyle",
+        "type": "object"
+      },
       "Recommendation": {
         "additionalProperties": false,
         "properties": {
@@ -3228,6 +3307,270 @@
           "completeness"
         ],
         "title": "SnapshotRead",
+        "type": "object"
+      },
+      "StyleCandidateRead": {
+        "properties": {
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_id",
+          "title",
+          "published_at",
+          "selected"
+        ],
+        "title": "StyleCandidateRead",
+        "type": "object"
+      },
+      "StyleExtractionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "prohibited": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProhibitedStyle"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "StyleExtractionInput",
+        "type": "object"
+      },
+      "StyleInheritanceSwitches": {
+        "additionalProperties": false,
+        "properties": {
+          "copy": {
+            "default": true,
+            "title": "Copy",
+            "type": "boolean"
+          },
+          "cover": {
+            "default": true,
+            "title": "Cover",
+            "type": "boolean"
+          },
+          "title": {
+            "default": true,
+            "title": "Title",
+            "type": "boolean"
+          }
+        },
+        "title": "StyleInheritanceSwitches",
+        "type": "object"
+      },
+      "StyleProfileRead": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By"
+          },
+          "diff": {
+            "additionalProperties": true,
+            "title": "Diff",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sample_sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sample Sources",
+            "type": "array"
+          },
+          "scope_key": {
+            "title": "Scope Key",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending_confirmation",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "style": {
+            "additionalProperties": true,
+            "title": "Style",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "account_id",
+          "scope_key",
+          "column_campaign_id",
+          "version",
+          "status",
+          "style",
+          "sample_sources",
+          "diff",
+          "confirmed_by",
+          "confirmed_at"
+        ],
+        "title": "StyleProfileRead",
+        "type": "object"
+      },
+      "StyleSampleInput": {
+        "additionalProperties": false,
+        "properties": {
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_id"
+        ],
+        "title": "StyleSampleInput",
+        "type": "object"
+      },
+      "StyleSampleRead": {
+        "properties": {
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "selected_at": {
+            "format": "date-time",
+            "title": "Selected At",
+            "type": "string"
+          },
+          "selected_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected By"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content_id",
+          "title",
+          "selected_by",
+          "selected_at"
+        ],
+        "title": "StyleSampleRead",
         "type": "object"
       },
       "SuggestionAdoptionInput": {
@@ -7125,6 +7468,580 @@
         ]
       }
     },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/effective-style": {
+      "get": {
+        "operationId": "read_effective_style_v1_workspaces__workspace_id__accounts__account_id__effective_style_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "column_campaign_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Column Campaign Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "at",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "At"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inherit_title",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Inherit Title",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inherit_copy",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Inherit Copy",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "inherit_cover",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Inherit Cover",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectiveStyleRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Effective Style",
+        "tags": [
+          "style-profiles"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-profiles": {
+      "get": {
+        "operationId": "list_style_profiles_v1_workspaces__workspace_id__accounts__account_id__style_profiles_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StyleProfileRead"
+                  },
+                  "title": "Response List Style Profiles V1 Workspaces  Workspace Id  Accounts  Account Id  Style Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Style Profiles",
+        "tags": [
+          "style-profiles"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-profiles/extract": {
+      "post": {
+        "operationId": "extract_style_profile_v1_workspaces__workspace_id__accounts__account_id__style_profiles_extract_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleExtractionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleProfileRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extract Style Profile",
+        "tags": [
+          "style-profiles"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-samples": {
+      "get": {
+        "operationId": "list_style_samples_v1_workspaces__workspace_id__accounts__account_id__style_samples_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "column_campaign_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Column Campaign Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StyleSampleRead"
+                  },
+                  "title": "Response List Style Samples V1 Workspaces  Workspace Id  Accounts  Account Id  Style Samples Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Style Samples",
+        "tags": [
+          "style-profiles"
+        ]
+      },
+      "post": {
+        "operationId": "select_style_sample_v1_workspaces__workspace_id__accounts__account_id__style_samples_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleSampleInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleSampleRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Style Sample",
+        "tags": [
+          "style-profiles"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-samples/candidates": {
+      "get": {
+        "operationId": "list_style_candidates_v1_workspaces__workspace_id__accounts__account_id__style_samples_candidates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "column_campaign_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Column Campaign Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StyleCandidateRead"
+                  },
+                  "title": "Response List Style Candidates V1 Workspaces  Workspace Id  Accounts  Account Id  Style Samples Candidates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Style Candidates",
+        "tags": [
+          "style-profiles"
+        ]
+      }
+    },
     "/v1/workspaces/{workspace_id}/accounts/{account_id}/viral-candidates/evaluate": {
       "post": {
         "operationId": "evaluate_viral_candidates_v1_workspaces__workspace_id__accounts__account_id__viral_candidates_evaluate_post",
@@ -8134,6 +9051,91 @@
         "summary": "Update Model Config Status",
         "tags": [
           "model-configs"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/style-profiles/{profile_id}/confirm": {
+      "post": {
+        "operationId": "confirm_style_profile_v1_workspaces__workspace_id__style_profiles__profile_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Profile Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleProfileRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Style Profile",
+        "tags": [
+          "style-profiles"
         ]
       }
     },

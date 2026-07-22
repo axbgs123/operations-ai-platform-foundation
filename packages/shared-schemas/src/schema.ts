@@ -592,6 +592,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/effective-style": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Effective Style */
+        get: operations["read_effective_style_v1_workspaces__workspace_id__accounts__account_id__effective_style_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Style Profiles */
+        get: operations["list_style_profiles_v1_workspaces__workspace_id__accounts__account_id__style_profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-profiles/extract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Extract Style Profile */
+        post: operations["extract_style_profile_v1_workspaces__workspace_id__accounts__account_id__style_profiles_extract_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Style Samples */
+        get: operations["list_style_samples_v1_workspaces__workspace_id__accounts__account_id__style_samples_get"];
+        put?: never;
+        /** Select Style Sample */
+        post: operations["select_style_sample_v1_workspaces__workspace_id__accounts__account_id__style_samples_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/style-samples/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Style Candidates */
+        get: operations["list_style_candidates_v1_workspaces__workspace_id__accounts__account_id__style_samples_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/accounts/{account_id}/viral-candidates/evaluate": {
         parameters: {
             query?: never;
@@ -762,6 +848,23 @@ export interface paths {
         head?: never;
         /** Update Model Config Status */
         patch: operations["update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch"];
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/style-profiles/{profile_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Style Profile */
+        post: operations["confirm_style_profile_v1_workspaces__workspace_id__style_profiles__profile_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/workspaces/{workspace_id}/viral-candidates": {
@@ -1600,6 +1703,26 @@ export interface components {
              */
             source: "account_default" | "column_override" | "campaign_override";
         };
+        /** EffectiveStyleRead */
+        EffectiveStyleRead: {
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "account_default" | "column_override";
+            /** Style */
+            style: {
+                [key: string]: unknown;
+            };
+            switches: components["schemas"]["StyleInheritanceSwitches"];
+            /** Version */
+            version: number;
+        };
         /** EvidenceCitation */
         EvidenceCitation: {
             /** Evidence Id */
@@ -1936,6 +2059,17 @@ export interface components {
              */
             id: string;
         };
+        /** ProhibitedStyle */
+        ProhibitedStyle: {
+            /** Colors */
+            colors: string[];
+            /** Expressions */
+            expressions: string[];
+            /** Layouts */
+            layouts: string[];
+            /** Visual Styles */
+            visual_styles: string[];
+        };
         /** Recommendation */
         Recommendation: {
             /** Action */
@@ -2068,6 +2202,121 @@ export interface components {
              * Format: uuid
              */
             workspace_id: string;
+        };
+        /** StyleCandidateRead */
+        StyleCandidateRead: {
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /** Published At */
+            published_at: string | null;
+            /** Selected */
+            selected: boolean;
+            /** Title */
+            title: string;
+        };
+        /** StyleExtractionInput */
+        StyleExtractionInput: {
+            /** Column Campaign Id */
+            column_campaign_id?: string | null;
+            prohibited?: components["schemas"]["ProhibitedStyle"] | null;
+        };
+        /** StyleInheritanceSwitches */
+        StyleInheritanceSwitches: {
+            /**
+             * Copy
+             * @default true
+             */
+            copy: boolean;
+            /**
+             * Cover
+             * @default true
+             */
+            cover: boolean;
+            /**
+             * Title
+             * @default true
+             */
+            title: boolean;
+        };
+        /** StyleProfileRead */
+        StyleProfileRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Column Campaign Id */
+            column_campaign_id: string | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Confirmed By */
+            confirmed_by: string | null;
+            /** Diff */
+            diff: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sample Sources */
+            sample_sources: {
+                [key: string]: unknown;
+            }[];
+            /** Scope Key */
+            scope_key: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending_confirmation" | "confirmed";
+            /** Style */
+            style: {
+                [key: string]: unknown;
+            };
+            /** Version */
+            version: number;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** StyleSampleInput */
+        StyleSampleInput: {
+            /** Column Campaign Id */
+            column_campaign_id?: string | null;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+        };
+        /** StyleSampleRead */
+        StyleSampleRead: {
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Selected At
+             * Format: date-time
+             */
+            selected_at: string;
+            /** Selected By */
+            selected_by: string | null;
+            /** Title */
+            title: string;
         };
         /** SuggestionAdoptionInput */
         SuggestionAdoptionInput: {
@@ -3889,6 +4138,232 @@ export interface operations {
             };
         };
     };
+    read_effective_style_v1_workspaces__workspace_id__accounts__account_id__effective_style_get: {
+        parameters: {
+            query?: {
+                column_campaign_id?: string | null;
+                at?: string | null;
+                inherit_title?: boolean;
+                inherit_copy?: boolean;
+                inherit_cover?: boolean;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveStyleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_style_profiles_v1_workspaces__workspace_id__accounts__account_id__style_profiles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleProfileRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extract_style_profile_v1_workspaces__workspace_id__accounts__account_id__style_profiles_extract_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StyleExtractionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_style_samples_v1_workspaces__workspace_id__accounts__account_id__style_samples_get: {
+        parameters: {
+            query?: {
+                column_campaign_id?: string | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleSampleRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_style_sample_v1_workspaces__workspace_id__accounts__account_id__style_samples_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StyleSampleInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleSampleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_style_candidates_v1_workspaces__workspace_id__accounts__account_id__style_samples_candidates_get: {
+        parameters: {
+            query?: {
+                column_campaign_id?: string | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleCandidateRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     evaluate_viral_candidates_v1_workspaces__workspace_id__accounts__account_id__viral_candidates_evaluate_post: {
         parameters: {
             query?: never;
@@ -4333,6 +4808,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_style_profile_v1_workspaces__workspace_id__style_profiles__profile_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                profile_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StyleProfileRead"];
                 };
             };
             /** @description Validation Error */
