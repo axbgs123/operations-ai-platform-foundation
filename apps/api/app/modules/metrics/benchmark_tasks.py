@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.modules.content.account_models import BenchmarkProfile, ObjectiveProfile
 from app.modules.content.models import Content
-from app.modules.metrics.benchmark import BenchmarkInput, calculate_benchmark
+from app.modules.metrics.benchmark import (
+    BenchmarkInput,
+    BenchmarkRange,
+    BenchmarkRangeKind,
+    calculate_benchmark,
+)
+from app.modules.metrics.maturity import MaturityBucket
 from app.modules.metrics.models import DataSnapshot, MetricOutboxEvent
 
 
@@ -73,11 +79,11 @@ def process_snapshot_confirmed_event(
             platform=snapshot.platform,
             account_id=snapshot.account_id,
             content_type=snapshot.content_type,
-            maturity_bucket=snapshot.maturity_bucket,
-            range={
-                "kind": "latest_n",
-                "latest_n": benchmark_profile.sample_size,
-            },
+            maturity_bucket=MaturityBucket(snapshot.maturity_bucket),
+            range=BenchmarkRange(
+                kind=BenchmarkRangeKind.LATEST_N,
+                latest_n=benchmark_profile.sample_size,
+            ),
             version=BENCHMARK_ALGORITHM_VERSION,
         ),
         weights={

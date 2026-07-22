@@ -70,14 +70,20 @@ def _json_value(value: object) -> object:
 
 def read_tabular(file_name: str, data: bytes) -> ParsedTable:
     suffix = file_name.lower().rsplit(".", 1)[-1]
+    records: list[list[object]]
     if suffix == "csv":
         text = data.decode("utf-8-sig")
         reader = csv.reader(StringIO(text))
-        records = list(reader)
+        records = [[value for value in row] for row in reader]
     elif suffix == "xlsx":
         workbook = load_workbook(BytesIO(data), read_only=True, data_only=True)
         sheet = workbook.active
-        records = [list(row) for row in sheet.iter_rows(values_only=True)]
+        if sheet is None:
+            workbook.close()
+            raise ValueError("import workbook has no active sheet")
+        records = [
+            [value for value in row] for row in sheet.iter_rows(values_only=True)
+        ]
         workbook.close()
     else:
         raise ValueError("only .csv and .xlsx files are supported")
@@ -244,7 +250,11 @@ def normalize_manual_row(
         )
     else:
         try:
-            validate_metric_values(platform, content_type, normalized_metrics)
+            validate_metric_values(
+                platform,
+                content_type,
+                {key: Decimal(value) for key, value in normalized_metrics.items()},
+            )
         except ValueError as error:
             row_errors.append({"field": "metrics", "message": str(error)})
     normalized["metrics"] = normalized_metrics

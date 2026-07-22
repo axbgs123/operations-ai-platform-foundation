@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Literal
@@ -266,7 +267,7 @@ class DashboardService:
         samples: list[SnapshotSample],
         definitions: dict,
         metric_key: str,
-        base_filter: dict,
+        base_filter: Mapping[str, object],
     ) -> list[DashboardChart]:
         definition = definitions[metric_key]
         chronological = sorted(
@@ -294,8 +295,8 @@ class DashboardService:
                     sample_count=len(trend_points),
                     explanation=f"同口径有效样本 {len(trend_points)} 条。",
                     points=trend_points,
-                    drill_down_filter=DrillDownFilter(
-                        **base_filter, metric_key=metric_key
+                    drill_down_filter=DrillDownFilter.model_validate(
+                        {**base_filter, "metric_key": metric_key}
                     ),
                 )
             )
@@ -328,17 +329,19 @@ class DashboardService:
                                 x="阅读/播放量", y=float(sum(views))
                             ),
                         ],
-                        drill_down_filter=DrillDownFilter(
-                            **base_filter,
-                            required_metric_keys=["impressions", "views"],
+                        drill_down_filter=DrillDownFilter.model_validate(
+                            {
+                                **base_filter,
+                                "required_metric_keys": ["impressions", "views"],
+                            }
                         ),
                     )
                 )
 
         publication_samples = [
-            sample
+            (sample, published_at)
             for sample in samples
-            if sample.content.published_at is not None
+            if (published_at := sample.content.published_at) is not None
             and metric_key in sample.values
         ]
         if len(publication_samples) >= 10:
@@ -355,15 +358,15 @@ class DashboardService:
                     ),
                     points=[
                         DashboardChartPoint(
-                            x=f"{sample.content.published_at.hour:02d}:00",
-                            y=float(sample.content.published_at.weekday()),
+                            x=f"{published_at.hour:02d}:00",
+                            y=float(published_at.weekday()),
                             value=float(sample.values[metric_key]),
                             content_id=sample.content.id,
                         )
-                        for sample in publication_samples
+                        for sample, published_at in publication_samples
                     ],
-                    drill_down_filter=DrillDownFilter(
-                        **base_filter, metric_key=metric_key
+                    drill_down_filter=DrillDownFilter.model_validate(
+                        {**base_filter, "metric_key": metric_key}
                     ),
                 )
             )
@@ -387,7 +390,7 @@ class DashboardService:
         metric_key: str,
         metric_label: str,
         higher_is_better: bool,
-        base_filter: dict,
+        base_filter: Mapping[str, object],
     ) -> list[DashboardAttentionItem]:
         valued = [sample for sample in samples if metric_key in sample.values]
         if len(valued) < 10:
@@ -410,10 +413,12 @@ class DashboardService:
                     f"（P{int(high_quantile * 100)} 参考值 "
                     f"{float(high_threshold):g}）。"
                 ),
-                drill_down_filter=DrillDownFilter(
-                    **base_filter,
-                    metric_key=metric_key,
-                    attention="candidate",
+                drill_down_filter=DrillDownFilter.model_validate(
+                    {
+                        **base_filter,
+                        "metric_key": metric_key,
+                        "attention": "candidate",
+                    }
                 ),
             ),
             DashboardAttentionItem(
@@ -425,10 +430,12 @@ class DashboardService:
                     f"（P{int(low_quantile * 100)} 参考值 "
                     f"{float(low_threshold):g}）。"
                 ),
-                drill_down_filter=DrillDownFilter(
-                    **base_filter,
-                    metric_key=metric_key,
-                    attention="anomaly",
+                drill_down_filter=DrillDownFilter.model_validate(
+                    {
+                        **base_filter,
+                        "metric_key": metric_key,
+                        "attention": "anomaly",
+                    }
                 ),
             ),
         ]
@@ -502,9 +509,8 @@ class DashboardService:
                         f"该指标有效样本 {len(history)} 条，"
                         f"置信度为 {confidence_band(len(history)).value}。"
                     ),
-                    drill_down_filter=DrillDownFilter(
-                        **base_filter,
-                        metric_key=metric_key,
+                    drill_down_filter=DrillDownFilter.model_validate(
+                        {**base_filter, "metric_key": metric_key}
                     ),
                 )
             )

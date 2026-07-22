@@ -1,6 +1,7 @@
 import hashlib
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -327,9 +328,14 @@ class ImportService:
             merged, batch.platform, batch.content_type
         )
         if batch.source_kind == ImportSourceKind.SCREENSHOT:
-            previous_metrics = dict(row.normalized_data.get("metrics", {}))
+            previous_metrics = dict(
+                cast(dict[str, object], row.normalized_data.get("metrics", {}))
+            )
             previous_confidences = dict(
-                row.normalized_data.get("metric_confidences", {})
+                cast(
+                    dict[str, object],
+                    row.normalized_data.get("metric_confidences", {}),
+                )
             )
             changed_metrics = changes.get("metrics")
             submitted_metrics = (
@@ -342,7 +348,7 @@ class ImportService:
                     and str(previous_metrics[key]) == str(submitted_metrics.get(key))
                     else 1.0
                 )
-                for key in dict(normalized["metrics"])
+                for key in dict(cast(dict[str, object], normalized["metrics"]))
             }
         other_tokens = set().union(
             *(
@@ -429,19 +435,26 @@ class ImportService:
             else:
                 content = self._new_content(batch, row.normalized_data)
 
-            confidences = dict(row.normalized_data.get("metric_confidences", {}))
+            confidences = dict(
+                cast(
+                    dict[str, object],
+                    row.normalized_data.get("metric_confidences", {}),
+                )
+            )
             metrics = [
                 SnapshotMetricInput(
                     key=key,
                     raw_value=Decimal(str(value)),
                     ocr_confidence=(
-                        float(confidences[key])
+                        float(str(confidences[key]))
                         if batch.source_kind == ImportSourceKind.SCREENSHOT
                         and key in confidences
                         else None
                     ),
                 )
-                for key, value in dict(row.normalized_data["metrics"]).items()
+                for key, value in dict(
+                    cast(dict[str, object], row.normalized_data["metrics"])
+                ).items()
             ]
             snapshot = snapshot_service.create(
                 content.id,

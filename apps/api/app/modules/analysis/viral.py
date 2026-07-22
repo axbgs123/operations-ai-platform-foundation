@@ -97,6 +97,15 @@ class ViralCandidateRead(BaseModel):
     status: ViralCandidateStatus
 
 
+class ViralCandidateEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sample_snapshot_ids: list[UUID]
+    comparison_started_at: datetime
+    comparison_ended_at: datetime
+    algorithm_version: Literal["viral-candidate-v1"]
+
+
 ShortLabel = Annotated[str, Field(min_length=1, max_length=80)]
 
 
@@ -439,7 +448,12 @@ class ViralService:
         created: list[ViralCandidate] = []
         for rule_data in threshold_profile.rules:
             rule = ViralThresholdRule.model_validate(rule_data)
-            valued = [sample for sample in samples if rule.metric_key in sample.values]
+            valued = [
+                sample
+                for sample in samples
+                if rule.metric_key in sample.values
+                and sample.content.published_at is not None
+            ]
             if len(valued) < 10:
                 continue
             history = [sample.values[rule.metric_key] for sample in valued]
@@ -477,16 +491,20 @@ class ViralService:
                     threshold_profile_version=threshold_profile.version,
                     objective_profile_id=threshold_profile.objective_profile_id,
                     benchmark_profile_id=threshold_profile.benchmark_profile_id,
-                    evidence={
-                        "sample_snapshot_ids": [str(item.snapshot.id) for item in valued],
-                        "comparison_started_at": min(
-                            item.content.published_at for item in valued
-                        ).isoformat(),
-                        "comparison_ended_at": max(
-                            item.content.published_at for item in valued
-                        ).isoformat(),
-                        "algorithm_version": "viral-candidate-v1",
-                    },
+                    evidence=ViralCandidateEvidence(
+                        sample_snapshot_ids=[item.snapshot.id for item in valued],
+                        comparison_started_at=min(
+                            published_at
+                            for item in valued
+                            if (published_at := item.content.published_at) is not None
+                        ),
+                        comparison_ended_at=max(
+                            published_at
+                            for item in valued
+                            if (published_at := item.content.published_at) is not None
+                        ),
+                        algorithm_version="viral-candidate-v1",
+                    ).model_dump(mode="json"),
                     reason=(
                         f"{rule.metric_key} 进入账号历史前 10%，"
                         f"且达到绝对门槛 {rule.minimum_value}."
@@ -656,6 +674,7 @@ class ViralService:
 
     def candidate_payload(self, candidate: ViralCandidate) -> ViralCandidateRead:
         content = self._session.get(Content, candidate.content_id)
+        evidence = ViralCandidateEvidence.model_validate(candidate.evidence)
         return ViralCandidateRead(
             id=candidate.id,
             workspace_id=candidate.workspace_id,
@@ -676,9 +695,9 @@ class ViralService:
             threshold_profile_version=candidate.threshold_profile_version,
             objective_profile_id=candidate.objective_profile_id,
             benchmark_profile_id=candidate.benchmark_profile_id,
-            sample_snapshot_ids=candidate.evidence["sample_snapshot_ids"],
-            comparison_started_at=candidate.evidence["comparison_started_at"],
-            comparison_ended_at=candidate.evidence["comparison_ended_at"],
+            sample_snapshot_ids=evidence.sample_snapshot_ids,
+            comparison_started_at=evidence.comparison_started_at,
+            comparison_ended_at=evidence.comparison_ended_at,
             reason=candidate.reason,
             status=candidate.status,
         )

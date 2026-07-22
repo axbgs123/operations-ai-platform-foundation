@@ -2,7 +2,7 @@ import hashlib
 import json
 from datetime import timedelta
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -37,8 +37,14 @@ from app.modules.analysis.schemas import (
 )
 from app.modules.content.account_models import BenchmarkProfile, ObjectiveProfile, PlatformAccount
 from app.modules.content.models import AssetCategory, Content, ContentAsset
-from app.modules.metrics.benchmark import BenchmarkInput, calculate_benchmark
+from app.modules.metrics.benchmark import (
+    BenchmarkInput,
+    BenchmarkRange,
+    BenchmarkRangeKind,
+    calculate_benchmark,
+)
 from app.modules.metrics.benchmark_tasks import BENCHMARK_ALGORITHM_VERSION
+from app.modules.metrics.maturity import MaturityBucket
 from app.modules.metrics.models import BenchmarkRun, DataSnapshot, SnapshotMetricValue
 from app.modules.workspace.permissions import Permission, require_permission
 
@@ -325,8 +331,11 @@ class AnalysisService:
                 platform=content.platform,
                 account_id=content.account_id,
                 content_type=content.content_type,
-                maturity_bucket=latest.maturity_bucket,
-                range={"kind": "latest_n", "latest_n": profile.sample_size},
+                maturity_bucket=MaturityBucket(latest.maturity_bucket),
+                range=BenchmarkRange(
+                    kind=BenchmarkRangeKind.LATEST_N,
+                    latest_n=profile.sample_size,
+                ),
                 version=BENCHMARK_ALGORITHM_VERSION,
             ),
             weights={
@@ -365,11 +374,14 @@ class AnalysisService:
             for value in benchmark.sample_snapshot_ids
             if UUID(value) not in {snapshot.id for snapshot in snapshots}
         ]
-        if comparison_snapshot_ids and benchmark.percentile_values:
+        percentile_values = cast(
+            dict[str, dict[str, str]], benchmark.percentile_values
+        )
+        if comparison_snapshot_ids and percentile_values:
             weighted_metrics = {
                 key: Decimal(str(value))
                 for key, value in benchmark.weights.items()
-                if key in benchmark.percentile_values
+                if key in percentile_values
             }
             comparison_metric = (
                 max(
@@ -377,9 +389,9 @@ class AnalysisService:
                     key=lambda key: (weighted_metrics[key], key),
                 )
                 if weighted_metrics
-                else sorted(benchmark.percentile_values)[0]
+                else sorted(percentile_values)[0]
             )
-            thresholds = benchmark.percentile_values[comparison_metric]
+            thresholds = percentile_values[comparison_metric]
             median = Decimal(str(thresholds["median"]))
             p90 = Decimal(str(thresholds["p90"]))
             comparison_rows = self.session.execute(
@@ -409,7 +421,13 @@ class AnalysisService:
             low: list[ComparableContentEvidenceInput] = []
             for other_content_id, title, snapshot_id, normalized_value in comparison_rows:
                 assert normalized_value is not None
-                band = "high" if normalized_value >= p90 else "low" if normalized_value <= median else None
+                band: Literal["high", "low"] | None = (
+                    "high"
+                    if normalized_value >= p90
+                    else "low"
+                    if normalized_value <= median
+                    else None
+                )
                 if band is None:
                     continue
                 candidate = ComparableContentEvidenceInput(
@@ -444,7 +462,10 @@ class AnalysisService:
                 SnapshotEvidenceInput(
                     id=snapshot.id,
                     collected_at=snapshot.collected_at,
-                    maturity_bucket=snapshot.maturity_bucket,
+                    maturity_bucket=cast(
+                        Literal["1h", "24h", "72h", "7d"],
+                        snapshot.maturity_bucket,
+                    ),
                     metrics=metrics_by_snapshot.get(snapshot.id, []),
                 )
                 for snapshot in snapshots
@@ -452,8 +473,11 @@ class AnalysisService:
             BenchmarkEvidenceInput(
                 id=benchmark.id,
                 sample_count=benchmark.sample_count,
-                confidence=benchmark.confidence,
-                percentiles=benchmark.percentile_values,
+                confidence=cast(
+                    Literal["raw_only", "low_confidence", "normal"],
+                    benchmark.confidence,
+                ),
+                percentiles=percentile_values,
             ),
             comparisons,
         )
