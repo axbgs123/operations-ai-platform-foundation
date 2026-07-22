@@ -438,6 +438,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Account Dashboard */
+        get: operations["read_account_dashboard_v1_workspaces__workspace_id__accounts__account_id__dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/dashboard/contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Dashboard Contents */
+        get: operations["read_dashboard_contents_v1_workspaces__workspace_id__accounts__account_id__dashboard_contents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/accounts/{account_id}/effective-configuration": {
         parameters: {
             query?: never;
@@ -561,6 +595,48 @@ export interface components {
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+        };
+        /** AccountDashboard */
+        AccountDashboard: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Account Name */
+            account_name: string;
+            /** Attention Items */
+            attention_items: components["schemas"]["DashboardAttentionItem"][];
+            /** Charts */
+            charts: components["schemas"]["DashboardChart"][];
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "raw_only" | "low_confidence" | "normal";
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /** Explanation */
+            explanation: string;
+            /** Goal Cards */
+            goal_cards: components["schemas"]["GoalMetricCard"][];
+            /**
+             * Maturity Bucket
+             * @enum {string}
+             */
+            maturity_bucket: "1h" | "24h" | "72h" | "7d";
+            /** Next Actions */
+            next_actions: string[];
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Sample Count */
+            sample_count: number;
         };
         /** AccountRead */
         AccountRead: {
@@ -916,6 +992,75 @@ export interface components {
             /** Work Url */
             work_url?: string | null;
         };
+        /** DashboardAttentionItem */
+        DashboardAttentionItem: {
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            drill_down_filter: components["schemas"]["DrillDownFilter"];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "candidate" | "anomaly";
+            /** Reason */
+            reason: string;
+            /** Title */
+            title: string;
+        };
+        /** DashboardChart */
+        DashboardChart: {
+            drill_down_filter: components["schemas"]["DrillDownFilter"];
+            /** Explanation */
+            explanation: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "line" | "funnel" | "heatmap";
+            /** Metric Key */
+            metric_key: string | null;
+            /** Points */
+            points: components["schemas"]["DashboardChartPoint"][];
+            /** Sample Count */
+            sample_count: number;
+            /** Title */
+            title: string;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "count" | "ratio" | "seconds" | "number";
+        };
+        /** DashboardChartPoint */
+        DashboardChartPoint: {
+            /** Content Id */
+            content_id?: string | null;
+            /** Value */
+            value?: number | null;
+            /** X */
+            x: string;
+            /** Y */
+            y: number;
+        };
+        /** DashboardContentItem */
+        DashboardContentItem: {
+            /** Account Name */
+            account_name: string;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
         /** DemoAccountRead */
         DemoAccountRead: {
             /** Id */
@@ -995,6 +1140,40 @@ export interface components {
             /** Synthetic */
             synthetic: boolean;
         };
+        /** DrillDownFilter */
+        DrillDownFilter: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Attention */
+            attention?: ("candidate" | "anomaly") | null;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /**
+             * Maturity Bucket
+             * @enum {string}
+             */
+            maturity_bucket: "1h" | "24h" | "72h" | "7d";
+            /** Metric Key */
+            metric_key?: string | null;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Required Metric Keys */
+            required_metric_keys?: string[];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
         /** EffectiveConfigurationRead */
         EffectiveConfigurationRead: {
             benchmark_profile: components["schemas"]["BenchmarkProfileRead"];
@@ -1004,6 +1183,36 @@ export interface components {
              * @enum {string}
              */
             source: "account_default" | "column_override" | "campaign_override";
+        };
+        /** GoalMetricCard */
+        GoalMetricCard: {
+            /** Change Rate */
+            change_rate: number | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "raw_only" | "low_confidence" | "normal";
+            /** Current Value */
+            current_value: number | null;
+            /** Data Completeness */
+            data_completeness: number;
+            drill_down_filter: components["schemas"]["DrillDownFilter"];
+            /** Explanation */
+            explanation: string;
+            /** Historical Percentile */
+            historical_percentile: number | null;
+            /** Label */
+            label: string;
+            /** Metric Key */
+            metric_key: string;
+            /** Sample Count */
+            sample_count: number;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "count" | "ratio" | "seconds" | "number";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1183,6 +1392,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /**
+         * MaturityBucket
+         * @enum {string}
+         */
+        MaturityBucket: "1h" | "24h" | "72h" | "7d";
         /** MemberCodeCreate */
         MemberCodeCreate: {
             /**
@@ -2543,6 +2757,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigurationVersionsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_account_dashboard_v1_workspaces__workspace_id__accounts__account_id__dashboard_get: {
+        parameters: {
+            query: {
+                content_type: components["schemas"]["ContentType"];
+                maturity_bucket: components["schemas"]["MaturityBucket"];
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountDashboard"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_dashboard_contents_v1_workspaces__workspace_id__accounts__account_id__dashboard_contents_get: {
+        parameters: {
+            query: {
+                content_type: components["schemas"]["ContentType"];
+                maturity_bucket: components["schemas"]["MaturityBucket"];
+                metric_key?: string | null;
+                required_metric_keys?: string[] | null;
+                attention?: ("candidate" | "anomaly") | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardContentItem"][];
                 };
             };
             /** @description Validation Error */

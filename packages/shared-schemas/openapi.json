@@ -52,6 +52,106 @@
         "title": "AccountCreate",
         "type": "object"
       },
+      "AccountDashboard": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "account_name": {
+            "title": "Account Name",
+            "type": "string"
+          },
+          "attention_items": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardAttentionItem"
+            },
+            "title": "Attention Items",
+            "type": "array"
+          },
+          "charts": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardChart"
+            },
+            "title": "Charts",
+            "type": "array"
+          },
+          "confidence": {
+            "enum": [
+              "raw_only",
+              "low_confidence",
+              "normal"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "goal_cards": {
+            "items": {
+              "$ref": "#/components/schemas/GoalMetricCard"
+            },
+            "title": "Goal Cards",
+            "type": "array"
+          },
+          "maturity_bucket": {
+            "enum": [
+              "1h",
+              "24h",
+              "72h",
+              "7d"
+            ],
+            "title": "Maturity Bucket",
+            "type": "string"
+          },
+          "next_actions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Next Actions",
+            "type": "array"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account_id",
+          "account_name",
+          "platform",
+          "content_type",
+          "maturity_bucket",
+          "sample_count",
+          "confidence",
+          "explanation",
+          "goal_cards",
+          "charts",
+          "attention_items",
+          "next_actions"
+        ],
+        "title": "AccountDashboard",
+        "type": "object"
+      },
       "AccountRead": {
         "properties": {
           "benchmark_profile": {
@@ -1023,6 +1123,186 @@
         "title": "ContentUpdate",
         "type": "object"
       },
+      "DashboardAttentionItem": {
+        "properties": {
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "drill_down_filter": {
+            "$ref": "#/components/schemas/DrillDownFilter"
+          },
+          "kind": {
+            "enum": [
+              "candidate",
+              "anomaly"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_id",
+          "title",
+          "kind",
+          "reason",
+          "drill_down_filter"
+        ],
+        "title": "DashboardAttentionItem",
+        "type": "object"
+      },
+      "DashboardChart": {
+        "properties": {
+          "drill_down_filter": {
+            "$ref": "#/components/schemas/DrillDownFilter"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "line",
+              "funnel",
+              "heatmap"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "metric_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metric Key"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardChartPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unit": {
+            "enum": [
+              "count",
+              "ratio",
+              "seconds",
+              "number"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "title",
+          "metric_key",
+          "unit",
+          "sample_count",
+          "explanation",
+          "points",
+          "drill_down_filter"
+        ],
+        "title": "DashboardChart",
+        "type": "object"
+      },
+      "DashboardChartPoint": {
+        "properties": {
+          "content_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Id"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "x": {
+            "title": "X",
+            "type": "string"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "DashboardChartPoint",
+        "type": "object"
+      },
+      "DashboardContentItem": {
+        "properties": {
+          "account_name": {
+            "title": "Account Name",
+            "type": "string"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_id",
+          "title",
+          "account_name",
+          "status"
+        ],
+        "title": "DashboardContentItem",
+        "type": "object"
+      },
       "DemoAccountRead": {
         "properties": {
           "id": {
@@ -1215,6 +1495,88 @@
         "title": "DemoWorkspaceRead",
         "type": "object"
       },
+      "DrillDownFilter": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "attention": {
+            "anyOf": [
+              {
+                "enum": [
+                  "candidate",
+                  "anomaly"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attention"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "maturity_bucket": {
+            "enum": [
+              "1h",
+              "24h",
+              "72h",
+              "7d"
+            ],
+            "title": "Maturity Bucket",
+            "type": "string"
+          },
+          "metric_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metric Key"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "required_metric_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Metric Keys",
+            "type": "array"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "account_id",
+          "platform",
+          "content_type",
+          "maturity_bucket"
+        ],
+        "title": "DrillDownFilter",
+        "type": "object"
+      },
       "EffectiveConfigurationRead": {
         "properties": {
           "benchmark_profile": {
@@ -1239,6 +1601,100 @@
           "benchmark_profile"
         ],
         "title": "EffectiveConfigurationRead",
+        "type": "object"
+      },
+      "GoalMetricCard": {
+        "properties": {
+          "change_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Rate"
+          },
+          "confidence": {
+            "enum": [
+              "raw_only",
+              "low_confidence",
+              "normal"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "current_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Value"
+          },
+          "data_completeness": {
+            "title": "Data Completeness",
+            "type": "number"
+          },
+          "drill_down_filter": {
+            "$ref": "#/components/schemas/DrillDownFilter"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "historical_percentile": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Historical Percentile"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "metric_key": {
+            "title": "Metric Key",
+            "type": "string"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "unit": {
+            "enum": [
+              "count",
+              "ratio",
+              "seconds",
+              "number"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric_key",
+          "label",
+          "unit",
+          "current_value",
+          "change_rate",
+          "historical_percentile",
+          "data_completeness",
+          "sample_count",
+          "confidence",
+          "explanation",
+          "drill_down_filter"
+        ],
+        "title": "GoalMetricCard",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1710,6 +2166,16 @@
         ],
         "title": "ManualPreviewRequest",
         "type": "object"
+      },
+      "MaturityBucket": {
+        "enum": [
+          "1h",
+          "24h",
+          "72h",
+          "7d"
+        ],
+        "title": "MaturityBucket",
+        "type": "string"
       },
       "MemberCodeCreate": {
         "properties": {
@@ -4574,6 +5040,235 @@
         "summary": "Read Configuration Versions",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/dashboard": {
+      "get": {
+        "operationId": "read_account_dashboard_v1_workspaces__workspace_id__accounts__account_id__dashboard_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ContentType"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maturity_bucket",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/MaturityBucket"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountDashboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Account Dashboard",
+        "tags": [
+          "dashboard"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/dashboard/contents": {
+      "get": {
+        "operationId": "read_dashboard_contents_v1_workspaces__workspace_id__accounts__account_id__dashboard_contents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ContentType"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maturity_bucket",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/MaturityBucket"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "required_metric_keys",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Required Metric Keys"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attention",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "candidate",
+                    "anomaly"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attention"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DashboardContentItem"
+                  },
+                  "title": "Response Read Dashboard Contents V1 Workspaces  Workspace Id  Accounts  Account Id  Dashboard Contents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Dashboard Contents",
+        "tags": [
+          "dashboard"
         ]
       }
     },
