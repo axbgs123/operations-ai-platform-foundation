@@ -9,4 +9,13 @@ celery_app = Celery(
     broker=redis_url,
     backend=redis_url,
 )
-celery_app.conf.imports = ("app.modules.imports.screenshot",)
+celery_app.conf.imports = (
+    "app.modules.imports.screenshot",
+    "app.modules.analysis.tasks",
+)
+celery_app.conf.beat_schedule = {
+    "recover-pending-analysis-runs": {
+        "task": "analysis.recover_pending",
+        "schedule": 30.0,
+    }
+}

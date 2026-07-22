@@ -50,6 +50,10 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "benchmark_runs",
             "import_batches",
             "import_rows",
+            "analysis_runs",
+            "account_analysis_settings",
+            "analysis_suggestions",
+            "product_events",
         } <= tables
 
         access_code_columns = {

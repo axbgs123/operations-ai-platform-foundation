@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useState } from "react";
+import Link from "next/link";
 
 import { ContentData, deleteContent, updateContent, uploadContentAsset } from "@/lib/content-api";
 
@@ -114,7 +115,7 @@ export function ContentDetail({ initialContent }: { initialContent: ContentDetai
 
           <aside className="space-y-4">
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6"><h2 className="font-semibold">数据完整度</h2><p className="mt-2 text-sm text-slate-400">数据完整度待计算</p></section>
-            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6"><h2 className="font-semibold">后续模块</h2><p className="mt-3 text-sm text-slate-400">数据诊断（即将开放）</p><p className="mt-2 text-sm text-slate-400">内容生成（即将开放）</p></section>
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6"><h2 className="font-semibold">后续模块</h2><Link className="mt-3 inline-block text-sm font-medium text-cyan-300" href={`/workspaces/${content.workspace_id}/contents/${content.id}/analysis`}>进入深度分析</Link><p className="mt-2 text-sm text-slate-400">内容生成（即将开放）</p></section>
           </aside>
         </div>
       </div>

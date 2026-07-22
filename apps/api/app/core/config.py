@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     s3_access_key: str = "operations-ai"
     s3_secret_key: str = "local-development-only"
     storage_signing_secret: str = "local-development-signing-secret-change-me"
+    analysis_adapter_url: str | None = None
+    analysis_adapter_token: str | None = None
+    analysis_model_version: str = "configured-analysis-v1"
+    analysis_request_timeout_seconds: float = 30.0
 
 
 @lru_cache

@@ -58,6 +58,91 @@ export interface paths {
         patch: operations["update_content_v1_contents__content_id__patch"];
         trace?: never;
     };
+    "/v1/contents/{content_id}/analysis-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Analysis */
+        post: operations["request_analysis_v1_contents__content_id__analysis_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contents/{content_id}/analysis-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Analysis */
+        get: operations["read_analysis_v1_contents__content_id__analysis_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contents/{content_id}/analysis-runs/{run_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Analysis Feedback */
+        post: operations["create_analysis_feedback_v1_contents__content_id__analysis_runs__run_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contents/{content_id}/analysis-runs/{run_id}/suggestions/{recommendation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Analysis Suggestion */
+        post: operations["save_analysis_suggestion_v1_contents__content_id__analysis_runs__run_id__suggestions__recommendation_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contents/{content_id}/analysis-suggestions/{suggestion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Analysis Suggestion */
+        patch: operations["update_analysis_suggestion_v1_contents__content_id__analysis_suggestions__suggestion_id__patch"];
+        trace?: never;
+    };
     "/v1/contents/{content_id}/assets/confirm": {
         parameters: {
             query?: never;
@@ -366,6 +451,24 @@ export interface paths {
         head?: never;
         /** Update Account */
         patch: operations["update_account_v1_workspaces__workspace_id__accounts__account_id__patch"];
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/analysis-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Analysis Setting */
+        get: operations["read_analysis_setting_v1_workspaces__workspace_id__accounts__account_id__analysis_settings_get"];
+        /** Update Analysis Setting */
+        put: operations["update_analysis_setting_v1_workspaces__workspace_id__accounts__account_id__analysis_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/workspaces/{workspace_id}/accounts/{account_id}/columns-campaigns": {
@@ -805,6 +908,128 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** AnalysisFeedbackInput */
+        AnalysisFeedbackInput: {
+            /**
+             * Rating
+             * @enum {string}
+             */
+            rating: "useful" | "not_useful";
+        };
+        /** AnalysisReport */
+        AnalysisReport: {
+            /** Causal Hypotheses */
+            causal_hypotheses: components["schemas"]["EvidenceGroundedItem"][];
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Copy Issues */
+            copy_issues: components["schemas"]["EvidenceGroundedItem"][];
+            /** Cover Issues */
+            cover_issues: components["schemas"]["EvidenceGroundedItem"][];
+            data_performance: components["schemas"]["DataPerformance"];
+            /** Degradation Notice */
+            degradation_notice?: string | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceCitation"][];
+            /** Next Experiments */
+            next_experiments: components["schemas"]["NextExperiment"][];
+            /** Recommendations */
+            recommendations: components["schemas"]["Recommendation"][];
+            /** Title Issues */
+            title_issues: components["schemas"]["EvidenceGroundedItem"][];
+        };
+        /** AnalysisRunRead */
+        AnalysisRunRead: {
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Benchmark Algorithm Version */
+            benchmark_algorithm_version: string;
+            /**
+             * Benchmark Run Id
+             * Format: uuid
+             */
+            benchmark_run_id: string;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Model Version */
+            model_version: string;
+            /** Prompt Version */
+            prompt_version: string;
+            report: components["schemas"]["AnalysisReport"] | null;
+            /** Snapshot Ids */
+            snapshot_ids: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "succeeded" | "failed";
+            /**
+             * Trigger Kind
+             * @enum {string}
+             */
+            trigger_kind: "manual" | "auto";
+        };
+        /** AnalysisSettingInput */
+        AnalysisSettingInput: {
+            /** Auto Analyze */
+            auto_analyze: boolean;
+        };
+        /** AnalysisSettingRead */
+        AnalysisSettingRead: {
+            /** Auto Analyze */
+            auto_analyze: boolean;
+        };
+        /** AnalysisSuggestionRead */
+        AnalysisSuggestionRead: {
+            /**
+             * Adoption Status
+             * @enum {string}
+             */
+            adoption_status: "saved" | "adopted" | "rejected";
+            /**
+             * Analysis Run Id
+             * Format: uuid
+             */
+            analysis_run_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            recommendation: components["schemas"]["Recommendation"];
+            /** Recommendation Id */
+            recommendation_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** AssetConfirmRequest */
         AssetConfirmRequest: {
             /** Upload Token */
@@ -1181,6 +1406,15 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** DataPerformance */
+        DataPerformance: {
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Summary */
+            summary: string;
+            /** Trend Conclusion */
+            trend_conclusion?: string | null;
+        };
         /** DemoAccountRead */
         DemoAccountRead: {
             /** Id */
@@ -1303,6 +1537,25 @@ export interface components {
              * @enum {string}
              */
             source: "account_default" | "column_override" | "campaign_override";
+        };
+        /** EvidenceCitation */
+        EvidenceCitation: {
+            /** Evidence Id */
+            evidence_id: string;
+            /** Interpretation */
+            interpretation: string;
+        };
+        /** EvidenceGroundedItem */
+        EvidenceGroundedItem: {
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Summary */
+            summary: string;
         };
         /** GoalMetricCard */
         GoalMetricCard: {
@@ -1535,6 +1788,22 @@ export interface components {
              */
             role: "admin" | "editor" | "viewer";
         };
+        /** NextExperiment */
+        NextExperiment: {
+            /** Change */
+            change: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Success Metric */
+            success_metric: string;
+            /** Summary */
+            summary: string;
+        };
         /** ObjectiveProfileRead */
         ObjectiveProfileRead: {
             /**
@@ -1556,6 +1825,32 @@ export interface components {
          * @enum {string}
          */
         Platform: "douyin" | "xiaohongshu";
+        /** ProductEventAck */
+        ProductEventAck: {
+            /** Event Name */
+            event_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /** Recommendation */
+        Recommendation: {
+            /** Action */
+            action: string;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high";
+            /** Evidence Ids */
+            evidence_ids: string[];
+            /** Id */
+            id: string;
+            /** Summary */
+            summary: string;
+        };
         /** SessionCreated */
         SessionCreated: {
             /** Csrf Token */
@@ -1672,6 +1967,14 @@ export interface components {
              * Format: uuid
              */
             workspace_id: string;
+        };
+        /** SuggestionAdoptionInput */
+        SuggestionAdoptionInput: {
+            /**
+             * Adoption Status
+             * @enum {string}
+             */
+            adoption_status: "adopted" | "rejected";
         };
         /** ValidationError */
         ValidationError: {
@@ -2145,6 +2448,192 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_analysis_v1_contents__content_id__analysis_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                content_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_analysis_v1_contents__content_id__analysis_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_analysis_feedback_v1_contents__content_id__analysis_runs__run_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                content_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalysisFeedbackInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductEventAck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_analysis_suggestion_v1_contents__content_id__analysis_runs__run_id__suggestions__recommendation_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                content_id: string;
+                run_id: string;
+                recommendation_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisSuggestionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_analysis_suggestion_v1_contents__content_id__analysis_suggestions__suggestion_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                content_id: string;
+                suggestion_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuggestionAdoptionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisSuggestionRead"];
                 };
             };
             /** @description Validation Error */
@@ -2874,6 +3363,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountSummaryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_analysis_setting_v1_workspaces__workspace_id__accounts__account_id__analysis_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisSettingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_analysis_setting_v1_workspaces__workspace_id__accounts__account_id__analysis_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalysisSettingInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisSettingRead"];
                 };
             };
             /** @description Validation Error */

@@ -1,10 +1,13 @@
+from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
+from app.modules.analysis.service import AnalysisService, account_auto_analysis_enabled
+from app.modules.analysis.tasks import get_auto_analysis_enqueuer
 from app.modules.metrics.models import DataSnapshot, SnapshotSource
 from app.modules.metrics.schemas import SnapshotCreate, SnapshotRead
 from app.modules.metrics.snapshot_service import SnapshotService
@@ -133,7 +136,11 @@ def read_snapshot(
 def confirm_snapshot(
     content_id: UUID,
     snapshot_id: UUID,
+    background_tasks: BackgroundTasks,
     session: DatabaseSession,
+    auto_enqueuer: Annotated[
+        Callable[[UUID], None], Depends(get_auto_analysis_enqueuer)
+    ],
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> dict:
@@ -144,5 +151,22 @@ def confirm_snapshot(
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    auto_enabled = account_auto_analysis_enabled(
+        session,
+        snapshot.workspace_id,
+        snapshot.account_id,
+    )
+    analysis_run = None
+    should_enqueue = False
+    if auto_enabled:
+        assert session_token is not None
+        context = InviteAuthService(session).authenticate(session_token)
+        assert context is not None
+        analysis_run, should_enqueue = AnalysisService(session, context).request(
+            content_id,
+            trigger_kind="auto",
+        )
     session.commit()
+    if analysis_run is not None and should_enqueue:
+        background_tasks.add_task(auto_enqueuer, analysis_run.id)
     return _payload(service, snapshot)

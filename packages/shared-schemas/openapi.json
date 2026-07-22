@@ -243,6 +243,311 @@
         "title": "AccountUpdate",
         "type": "object"
       },
+      "AnalysisFeedbackInput": {
+        "additionalProperties": false,
+        "properties": {
+          "rating": {
+            "enum": [
+              "useful",
+              "not_useful"
+            ],
+            "title": "Rating",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rating"
+        ],
+        "title": "AnalysisFeedbackInput",
+        "type": "object"
+      },
+      "AnalysisReport": {
+        "additionalProperties": false,
+        "properties": {
+          "causal_hypotheses": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceGroundedItem"
+            },
+            "title": "Causal Hypotheses",
+            "type": "array"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "copy_issues": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceGroundedItem"
+            },
+            "title": "Copy Issues",
+            "type": "array"
+          },
+          "cover_issues": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceGroundedItem"
+            },
+            "title": "Cover Issues",
+            "type": "array"
+          },
+          "data_performance": {
+            "$ref": "#/components/schemas/DataPerformance"
+          },
+          "degradation_notice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Degradation Notice"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceCitation"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "next_experiments": {
+            "items": {
+              "$ref": "#/components/schemas/NextExperiment"
+            },
+            "minItems": 1,
+            "title": "Next Experiments",
+            "type": "array"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/Recommendation"
+            },
+            "minItems": 1,
+            "title": "Recommendations",
+            "type": "array"
+          },
+          "title_issues": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceGroundedItem"
+            },
+            "title": "Title Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data_performance",
+          "title_issues",
+          "copy_issues",
+          "cover_issues",
+          "evidence",
+          "causal_hypotheses",
+          "confidence",
+          "recommendations",
+          "next_experiments"
+        ],
+        "title": "AnalysisReport",
+        "type": "object"
+      },
+      "AnalysisRunRead": {
+        "properties": {
+          "algorithm_version": {
+            "title": "Algorithm Version",
+            "type": "string"
+          },
+          "benchmark_algorithm_version": {
+            "title": "Benchmark Algorithm Version",
+            "type": "string"
+          },
+          "benchmark_run_id": {
+            "format": "uuid",
+            "title": "Benchmark Run Id",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalysisReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "snapshot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Snapshot Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trigger_kind": {
+            "enum": [
+              "manual",
+              "auto"
+            ],
+            "title": "Trigger Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content_id",
+          "benchmark_run_id",
+          "snapshot_ids",
+          "status",
+          "trigger_kind",
+          "report",
+          "error_code",
+          "model_version",
+          "prompt_version",
+          "algorithm_version",
+          "benchmark_algorithm_version",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "AnalysisRunRead",
+        "type": "object"
+      },
+      "AnalysisSettingInput": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_analyze": {
+            "title": "Auto Analyze",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_analyze"
+        ],
+        "title": "AnalysisSettingInput",
+        "type": "object"
+      },
+      "AnalysisSettingRead": {
+        "properties": {
+          "auto_analyze": {
+            "title": "Auto Analyze",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "auto_analyze"
+        ],
+        "title": "AnalysisSettingRead",
+        "type": "object"
+      },
+      "AnalysisSuggestionRead": {
+        "properties": {
+          "adoption_status": {
+            "enum": [
+              "saved",
+              "adopted",
+              "rejected"
+            ],
+            "title": "Adoption Status",
+            "type": "string"
+          },
+          "analysis_run_id": {
+            "format": "uuid",
+            "title": "Analysis Run Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "recommendation": {
+            "$ref": "#/components/schemas/Recommendation"
+          },
+          "recommendation_id": {
+            "title": "Recommendation Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "analysis_run_id",
+          "recommendation_id",
+          "recommendation",
+          "adoption_status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AnalysisSuggestionRead",
+        "type": "object"
+      },
       "AssetConfirmRequest": {
         "properties": {
           "upload_token": {
@@ -1303,6 +1608,44 @@
         "title": "DashboardContentItem",
         "type": "object"
       },
+      "DataPerformance": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "trend_conclusion": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend Conclusion"
+          }
+        },
+        "required": [
+          "summary",
+          "evidence_ids"
+        ],
+        "title": "DataPerformance",
+        "type": "object"
+      },
       "DemoAccountRead": {
         "properties": {
           "id": {
@@ -1601,6 +1944,63 @@
           "benchmark_profile"
         ],
         "title": "EffectiveConfigurationRead",
+        "type": "object"
+      },
+      "EvidenceCitation": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_id": {
+            "title": "Evidence Id",
+            "type": "string"
+          },
+          "interpretation": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Interpretation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "evidence_id",
+          "interpretation"
+        ],
+        "title": "EvidenceCitation",
+        "type": "object"
+      },
+      "EvidenceGroundedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "summary": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "evidence_ids",
+          "confidence"
+        ],
+        "title": "EvidenceGroundedItem",
         "type": "object"
       },
       "GoalMetricCard": {
@@ -2218,6 +2618,56 @@
         "title": "MemberCodeCreated",
         "type": "object"
       },
+      "NextExperiment": {
+        "additionalProperties": false,
+        "properties": {
+          "change": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Change",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "success_metric": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Success Metric",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "evidence_ids",
+          "confidence",
+          "change",
+          "success_metric"
+        ],
+        "title": "NextExperiment",
+        "type": "object"
+      },
       "ObjectiveProfileRead": {
         "properties": {
           "id": {
@@ -2260,6 +2710,74 @@
         ],
         "title": "Platform",
         "type": "string"
+      },
+      "ProductEventAck": {
+        "properties": {
+          "event_name": {
+            "title": "Event Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_name"
+        ],
+        "title": "ProductEventAck",
+        "type": "object"
+      },
+      "Recommendation": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Action",
+            "type": "string"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-z][a-z0-9_-]{0,79}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "evidence_ids",
+          "confidence",
+          "id",
+          "action"
+        ],
+        "title": "Recommendation",
+        "type": "object"
       },
       "SessionCreated": {
         "properties": {
@@ -2591,6 +3109,24 @@
           "completeness"
         ],
         "title": "SnapshotRead",
+        "type": "object"
+      },
+      "SuggestionAdoptionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption_status": {
+            "enum": [
+              "adopted",
+              "rejected"
+            ],
+            "title": "Adoption Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "adoption_status"
+        ],
+        "title": "SuggestionAdoptionInput",
         "type": "object"
       },
       "ValidationError": {
@@ -3636,6 +4172,434 @@
         "summary": "Update Content",
         "tags": [
           "contents"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/analysis-runs": {
+      "post": {
+        "operationId": "request_analysis_v1_contents__content_id__analysis_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Analysis",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/analysis-runs/{run_id}": {
+      "get": {
+        "operationId": "read_analysis_v1_contents__content_id__analysis_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Analysis",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/analysis-runs/{run_id}/feedback": {
+      "post": {
+        "operationId": "create_analysis_feedback_v1_contents__content_id__analysis_runs__run_id__feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisFeedbackInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductEventAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Analysis Feedback",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/analysis-runs/{run_id}/suggestions/{recommendation_id}": {
+      "post": {
+        "operationId": "save_analysis_suggestion_v1_contents__content_id__analysis_runs__run_id__suggestions__recommendation_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "recommendation_id",
+            "required": true,
+            "schema": {
+              "title": "Recommendation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisSuggestionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Analysis Suggestion",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/analysis-suggestions/{suggestion_id}": {
+      "patch": {
+        "operationId": "update_analysis_suggestion_v1_contents__content_id__analysis_suggestions__suggestion_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestionAdoptionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisSuggestionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Analysis Suggestion",
+        "tags": [
+          "analysis"
         ]
       }
     },
@@ -5024,6 +5988,168 @@
         "summary": "Update Account",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/analysis-settings": {
+      "get": {
+        "operationId": "read_analysis_setting_v1_workspaces__workspace_id__accounts__account_id__analysis_settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisSettingRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Analysis Setting",
+        "tags": [
+          "analysis"
+        ]
+      },
+      "put": {
+        "operationId": "update_analysis_setting_v1_workspaces__workspace_id__accounts__account_id__analysis_settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisSettingInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisSettingRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Analysis Setting",
+        "tags": [
+          "analysis"
         ]
       }
     },
