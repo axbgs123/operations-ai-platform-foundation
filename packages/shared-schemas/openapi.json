@@ -356,6 +356,64 @@
         "title": "Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post",
         "type": "object"
       },
+      "Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 100000,
+            "title": "Body",
+            "type": "string"
+          },
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "content_type": {
+            "$ref": "#/components/schemas/ContentType"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "published_at": {
+            "format": "date-time",
+            "title": "Published At",
+            "type": "string"
+          },
+          "retention_policy": {
+            "title": "Retention Policy",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "platform",
+          "content_type",
+          "title",
+          "body",
+          "published_at",
+          "collected_at",
+          "retention_policy",
+          "file"
+        ],
+        "title": "Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post",
+        "type": "object"
+      },
       "ColumnCampaignCreate": {
         "properties": {
           "benchmark_sample_size": {
@@ -1295,6 +1353,34 @@
             "title": "Platform",
             "type": "string"
           },
+          "recognition_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognition Error"
+          },
+          "recognition_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pending",
+                  "processing",
+                  "ready",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognition Status"
+          },
           "rows": {
             "items": {
               "$ref": "#/components/schemas/ImportRowRead"
@@ -1306,7 +1392,8 @@
             "enum": [
               "manual",
               "csv",
-              "xlsx"
+              "xlsx",
+              "screenshot"
             ],
             "title": "Source Kind",
             "type": "string"
@@ -1336,6 +1423,8 @@
           "content_type",
           "source_kind",
           "status",
+          "recognition_status",
+          "recognition_error",
           "file_name",
           "header_mappings",
           "rows",
@@ -3186,6 +3275,65 @@
         ]
       }
     },
+    "/v1/imports/{batch_id}": {
+      "get": {
+        "operationId": "read_import_batch_v1_imports__batch_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Import Batch",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/v1/imports/{batch_id}/confirm": {
       "post": {
         "operationId": "confirm_import_v1_imports__batch_id__confirm_post",
@@ -4612,6 +4760,91 @@
           }
         },
         "summary": "Preview Manual Import",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/imports/screenshot/recognitions": {
+      "post": {
+        "operationId": "stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportBatchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stage Screenshot Recognition",
         "tags": [
           "imports"
         ]

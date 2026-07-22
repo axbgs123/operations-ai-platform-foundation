@@ -1,4 +1,5 @@
 import { ImportReview } from "@/components/imports/import-review";
+import { ScreenshotReview } from "@/components/imports/screenshot-review";
 
 
 export default async function ImportsPage({
@@ -20,6 +21,11 @@ export default async function ImportsPage({
     <main className="min-h-screen bg-slate-950 px-5 py-10 text-slate-100 sm:px-8">
       <div className="mx-auto max-w-6xl">
         <ImportReview
+          accountId={query.accountId}
+          platform={query.platform as "douyin" | "xiaohongshu"}
+          workspaceId={workspaceId}
+        />
+        <ScreenshotReview
           accountId={query.accountId}
           platform={query.platform as "douyin" | "xiaohongshu"}
           workspaceId={workspaceId}

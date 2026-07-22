@@ -80,6 +80,18 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         }
         assert "content_type" in content_columns
         assert "platform_content_id" in content_columns
+        import_batch_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("import_batches")
+        }
+        assert {
+            "recognition_status",
+            "recognition_error",
+            "screenshot_bytes",
+            "screenshot_sha256",
+            "screenshot_retention_policy",
+            "recognition_output",
+        } <= import_batch_columns
         command.check(config)
     finally:
         with admin_engine.connect() as connection:

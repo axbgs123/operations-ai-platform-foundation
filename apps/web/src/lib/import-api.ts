@@ -49,6 +49,52 @@ export async function previewTabularImport(
   );
 }
 
+export async function stageScreenshotRecognition(
+  workspaceId: string,
+  data: {
+    accountId: string;
+    platform: "douyin" | "xiaohongshu";
+    contentType: "video" | "image_text";
+    title: string;
+    body: string;
+    publishedAt: string;
+    collectedAt: string;
+    retentionPolicy: "delete_after_confirm" | "retain_as_evidence";
+    file: File;
+  },
+  csrfToken: string,
+) {
+  const form = new FormData();
+  form.set("account_id", data.accountId);
+  form.set("platform", data.platform);
+  form.set("content_type", data.contentType);
+  form.set("title", data.title);
+  form.set("body", data.body);
+  form.set("published_at", data.publishedAt);
+  form.set("collected_at", data.collectedAt);
+  form.set("retention_policy", data.retentionPolicy);
+  form.set("file", data.file);
+  return readResponse<ImportBatchData>(
+    await fetch(
+      `${API_URL}/v1/workspaces/${workspaceId}/imports/screenshot/recognitions`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: { "X-CSRF-Token": csrfToken },
+        body: form,
+      },
+    ),
+  );
+}
+
+export async function readImportBatch(batchId: string) {
+  return readResponse<ImportBatchData>(
+    await fetch(`${API_URL}/v1/imports/${batchId}`, {
+      credentials: "include",
+    }),
+  );
+}
+
 export function previewManualImport(
   workspaceId: string,
   data: ManualPreviewRequest,

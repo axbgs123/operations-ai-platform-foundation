@@ -2,7 +2,17 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import JSON, Boolean, Enum, ForeignKey, Index, Integer, String, Uuid
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
@@ -14,6 +24,14 @@ class ImportSourceKind(StrEnum):
     MANUAL = "manual"
     CSV = "csv"
     XLSX = "xlsx"
+    SCREENSHOT = "screenshot"
+
+
+class ScreenshotRecognitionStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
 
 
 class ImportBatchStatus(StrEnum):
@@ -43,6 +61,12 @@ import_batch_status_enum = Enum(
 import_row_status_enum = Enum(
     ImportRowStatus,
     name="import_row_status",
+    native_enum=False,
+    values_callable=lambda members: [member.value for member in members],
+)
+screenshot_recognition_status_enum = Enum(
+    ScreenshotRecognitionStatus,
+    name="screenshot_recognition_status",
     native_enum=False,
     values_callable=lambda members: [member.value for member in members],
 )
@@ -78,6 +102,22 @@ class ImportBatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=None,
     )
     confirmation_result: Mapped[dict[str, object] | None] = mapped_column(
+        JSON, default=None
+    )
+    recognition_status: Mapped[ScreenshotRecognitionStatus | None] = mapped_column(
+        screenshot_recognition_status_enum, default=None
+    )
+    recognition_error: Mapped[str | None] = mapped_column(String(500), default=None)
+    screenshot_mime_type: Mapped[str | None] = mapped_column(String(120), default=None)
+    screenshot_sha256: Mapped[str | None] = mapped_column(String(64), default=None)
+    screenshot_bytes: Mapped[bytes | None] = mapped_column(LargeBinary, default=None)
+    screenshot_metadata: Mapped[dict[str, object] | None] = mapped_column(
+        JSON, default=None
+    )
+    screenshot_retention_policy: Mapped[str | None] = mapped_column(
+        String(40), default=None
+    )
+    recognition_output: Mapped[dict[str, object] | None] = mapped_column(
         JSON, default=None
     )
 

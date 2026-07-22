@@ -19,6 +19,8 @@ const preview = {
   content_type: "video" as const,
   source_kind: "csv" as const,
   status: "preview" as const,
+  recognition_status: null,
+  recognition_error: null,
   file_name: "synthetic.csv",
   header_mappings: [
     {

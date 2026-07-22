@@ -61,8 +61,10 @@ class ImportBatchRead(BaseModel):
     account_id: UUID
     platform: Literal["douyin", "xiaohongshu"]
     content_type: Literal["video", "image_text"]
-    source_kind: Literal["manual", "csv", "xlsx"]
+    source_kind: Literal["manual", "csv", "xlsx", "screenshot"]
     status: Literal["preview", "confirmed"]
+    recognition_status: Literal["pending", "processing", "ready", "failed"] | None
+    recognition_error: str | None
     file_name: str | None
     header_mappings: list[HeaderMappingRead]
     rows: list[ImportRowRead]

@@ -213,6 +213,23 @@ export interface paths {
         patch: operations["reject_demo_mutation_v1_demo_workspace_patch"];
         trace?: never;
     };
+    "/v1/imports/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Import Batch */
+        get: operations["read_import_batch_v1_imports__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/imports/{batch_id}/confirm": {
         parameters: {
             query?: never;
@@ -455,6 +472,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/imports/screenshot/recognitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stage Screenshot Recognition */
+        post: operations["stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/imports/tabular/preview": {
         parameters: {
             query?: never;
@@ -661,6 +695,34 @@ export interface components {
             /** File */
             file: string;
             platform: components["schemas"]["Platform"];
+        };
+        /** Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post */
+        Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Body */
+            body: string;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            content_type: components["schemas"]["ContentType"];
+            /** File */
+            file: string;
+            platform: components["schemas"]["Platform"];
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Retention Policy */
+            retention_policy: string;
+            /** Title */
+            title: string;
         };
         /** ColumnCampaignCreate */
         ColumnCampaignCreate: {
@@ -992,13 +1054,17 @@ export interface components {
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+            /** Recognition Error */
+            recognition_error: string | null;
+            /** Recognition Status */
+            recognition_status: ("pending" | "processing" | "ready" | "failed") | null;
             /** Rows */
             rows: components["schemas"]["ImportRowRead"][];
             /**
              * Source Kind
              * @enum {string}
              */
-            source_kind: "manual" | "csv" | "xlsx";
+            source_kind: "manual" | "csv" | "xlsx" | "screenshot";
             /**
              * Status
              * @enum {string}
@@ -1872,6 +1938,39 @@ export interface operations {
             };
         };
     };
+    read_import_batch_v1_imports__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     confirm_import_v1_imports__batch_id__confirm_post: {
         parameters: {
             query?: never;
@@ -2515,6 +2614,45 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

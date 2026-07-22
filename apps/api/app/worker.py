@@ -9,3 +9,4 @@ celery_app = Celery(
     broker=redis_url,
     backend=redis_url,
 )
+celery_app.conf.imports = ("app.modules.imports.screenshot",)

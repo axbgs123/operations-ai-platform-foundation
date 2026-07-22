@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -16,6 +17,7 @@ from app.modules.imports.models import (
     ImportRow,
     ImportRowStatus,
     ImportSourceKind,
+    ScreenshotRecognitionStatus,
 )
 from app.modules.imports.parsers.tabular import (
     normalize_manual_row,
@@ -69,6 +71,10 @@ class ImportService:
                 .order_by(ImportRow.row_number, ImportRow.id)
             )
         )
+
+    def read_batch(self, batch_id: UUID) -> ImportBatch:
+        require_permission(self._context.role, Permission.READ_CONTENT)
+        return self._batch(batch_id)
 
     def _classify(
         self,
@@ -208,6 +214,52 @@ class ImportService:
         self._add_rows(batch, rows, tabular=False)
         return batch
 
+    def preview_screenshot(
+        self,
+        *,
+        account_id: UUID,
+        platform: Platform,
+        content_type: ContentType,
+        file_name: str,
+        mime_type: str,
+        image: bytes,
+        title: str,
+        body: str,
+        published_at: datetime,
+        collected_at: datetime,
+        retention_policy: str,
+    ) -> ImportBatch:
+        require_permission(self._context.role, Permission.WRITE_CONTENT)
+        self._account(account_id, platform)
+        if mime_type not in {"image/jpeg", "image/png", "image/webp"}:
+            raise ValueError("screenshot must be JPEG, PNG, or WebP")
+        if not image or len(image) > 10 * 1024 * 1024:
+            raise ValueError("screenshot must be between 1 byte and 10 MiB")
+        if retention_policy not in {"delete_after_confirm", "retain_as_evidence"}:
+            raise ValueError("invalid screenshot retention policy")
+        batch = ImportBatch(
+            workspace_id=self._context.workspace_id,
+            account_id=account_id,
+            platform=platform,
+            content_type=content_type,
+            source_kind=ImportSourceKind.SCREENSHOT,
+            recognition_status=ScreenshotRecognitionStatus.PENDING,
+            file_name=file_name,
+            screenshot_mime_type=mime_type,
+            screenshot_sha256=hashlib.sha256(image).hexdigest(),
+            screenshot_bytes=image,
+            screenshot_metadata={
+                "title": title,
+                "body": body,
+                "published_at": published_at.isoformat(),
+                "collected_at": collected_at.isoformat(),
+            },
+            screenshot_retention_policy=retention_policy,
+        )
+        self._session.add(batch)
+        self._session.flush()
+        return batch
+
     def update_mapping(
         self, batch_id: UUID, mapping: dict[str, str]
     ) -> ImportBatch:
@@ -274,6 +326,24 @@ class ImportService:
         normalized, errors = normalize_manual_row(
             merged, batch.platform, batch.content_type
         )
+        if batch.source_kind == ImportSourceKind.SCREENSHOT:
+            previous_metrics = dict(row.normalized_data.get("metrics", {}))
+            previous_confidences = dict(
+                row.normalized_data.get("metric_confidences", {})
+            )
+            changed_metrics = changes.get("metrics")
+            submitted_metrics = (
+                dict(changed_metrics) if isinstance(changed_metrics, dict) else {}
+            )
+            normalized["metric_confidences"] = {
+                key: (
+                    previous_confidences.get(key, 1.0)
+                    if key in previous_metrics
+                    and str(previous_metrics[key]) == str(submitted_metrics.get(key))
+                    else 1.0
+                )
+                for key in dict(normalized["metrics"])
+            }
         other_tokens = set().union(
             *(
                 self._exact_tokens(other.normalized_data)
@@ -327,6 +397,11 @@ class ImportService:
         if batch.status == ImportBatchStatus.CONFIRMED:
             assert batch.confirmation_result is not None
             return batch.confirmation_result
+        if (
+            batch.source_kind == ImportSourceKind.SCREENSHOT
+            and batch.recognition_status != ScreenshotRecognitionStatus.READY
+        ):
+            raise ValueError("screenshot recognition is not ready for confirmation")
 
         selected = set(selected_row_ids)
         content_ids: list[str] = []
@@ -354,8 +429,18 @@ class ImportService:
             else:
                 content = self._new_content(batch, row.normalized_data)
 
+            confidences = dict(row.normalized_data.get("metric_confidences", {}))
             metrics = [
-                SnapshotMetricInput(key=key, raw_value=Decimal(str(value)))
+                SnapshotMetricInput(
+                    key=key,
+                    raw_value=Decimal(str(value)),
+                    ocr_confidence=(
+                        float(confidences[key])
+                        if batch.source_kind == ImportSourceKind.SCREENSHOT
+                        and key in confidences
+                        else None
+                    ),
+                )
                 for key, value in dict(row.normalized_data["metrics"]).items()
             ]
             snapshot = snapshot_service.create(
@@ -366,7 +451,11 @@ class ImportService:
                 source=(
                     SnapshotSource.MANUAL
                     if batch.source_kind == ImportSourceKind.MANUAL
-                    else SnapshotSource.TABULAR_IMPORT
+                    else (
+                        SnapshotSource.SCREENSHOT
+                        if batch.source_kind == ImportSourceKind.SCREENSHOT
+                        else SnapshotSource.TABULAR_IMPORT
+                    )
                 ),
                 metrics=metrics,
                 original_screenshot_asset_id=None,
@@ -385,5 +474,10 @@ class ImportService:
         batch.confirmed_at = datetime.now(UTC)
         batch.confirmed_by = self._context.member_id
         batch.confirmation_result = result
+        if (
+            batch.source_kind == ImportSourceKind.SCREENSHOT
+            and batch.screenshot_retention_policy == "delete_after_confirm"
+        ):
+            batch.screenshot_bytes = None
         self._session.flush()
         return result
