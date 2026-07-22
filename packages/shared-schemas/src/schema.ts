@@ -489,6 +489,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/viral-candidates/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evaluate Viral Candidates */
+        post: operations["evaluate_viral_candidates_v1_workspaces__workspace_id__accounts__account_id__viral_candidates_evaluate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/viral-thresholds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Viral Thresholds */
+        get: operations["read_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_get"];
+        /** Configure Viral Thresholds */
+        put: operations["configure_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/imports/manual/preview": {
         parameters: {
             query?: never;
@@ -572,6 +607,91 @@ export interface paths {
         head?: never;
         /** Update Member */
         patch: operations["update_member_v1_workspaces__workspace_id__members__member_id__patch"];
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/viral-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Viral Candidates */
+        get: operations["list_viral_candidates_v1_workspaces__workspace_id__viral_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/viral-candidates/{candidate_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Viral Candidate */
+        post: operations["confirm_viral_candidate_v1_workspaces__workspace_id__viral_candidates__candidate_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/viral-library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Viral Library */
+        get: operations["list_viral_library_v1_workspaces__workspace_id__viral_library_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/viral-library/generation-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Generation Viral Sources */
+        get: operations["list_generation_viral_sources_v1_workspaces__workspace_id__viral_library_generation_sources_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/viral-library/{item_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Viral Library Item */
+        post: operations["revoke_viral_library_item_v1_workspaces__workspace_id__viral_library__item_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -1565,6 +1685,227 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** ViralCandidateRead */
+        ViralCandidateRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Actual Value */
+            actual_value: number;
+            /**
+             * Benchmark Profile Id
+             * Format: uuid
+             */
+            benchmark_profile_id: string;
+            category: components["schemas"]["ViralCategory"];
+            /**
+             * Comparison Ended At
+             * Format: date-time
+             */
+            comparison_ended_at: string;
+            /**
+             * Comparison Started At
+             * Format: date-time
+             */
+            comparison_started_at: string;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            content_type: components["schemas"]["ContentType"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Maturity Bucket */
+            maturity_bucket: string;
+            /** Metric Key */
+            metric_key: string;
+            /**
+             * Objective Profile Id
+             * Format: uuid
+             */
+            objective_profile_id: string;
+            /** Percentile */
+            percentile: number;
+            platform: components["schemas"]["Platform"];
+            /** Reason */
+            reason: string;
+            /** Sample Count */
+            sample_count: number;
+            /** Sample Snapshot Ids */
+            sample_snapshot_ids: string[];
+            /**
+             * Snapshot Id
+             * Format: uuid
+             */
+            snapshot_id: string;
+            status: components["schemas"]["ViralCandidateStatus"];
+            /**
+             * Threshold Profile Id
+             * Format: uuid
+             */
+            threshold_profile_id: string;
+            /** Threshold Profile Version */
+            threshold_profile_version: number;
+            /** Threshold Value */
+            threshold_value: number;
+            /** Title */
+            title: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /**
+         * ViralCandidateStatus
+         * @enum {string}
+         */
+        ViralCandidateStatus: "recommended" | "confirmed" | "revoked";
+        /**
+         * ViralCategory
+         * @enum {string}
+         */
+        ViralCategory: "traffic" | "engagement" | "growth" | "conversion";
+        /** ViralConfirmationInput */
+        ViralConfirmationInput: {
+            /** Applicable Scenarios */
+            applicable_scenarios: string[];
+            /** Strategy Tags */
+            strategy_tags: string[];
+            /** Structure Summary */
+            structure_summary: string;
+        };
+        /** ViralEvaluationInput */
+        ViralEvaluationInput: {
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /**
+             * Maturity Bucket
+             * @enum {string}
+             */
+            maturity_bucket: "1h" | "24h" | "72h" | "7d";
+        };
+        /** ViralLibraryItemRead */
+        ViralLibraryItemRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Active */
+            active: boolean;
+            /** Applicable Scenarios */
+            applicable_scenarios: string[];
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            category: components["schemas"]["ViralCategory"];
+            /**
+             * Confirmed At
+             * Format: date-time
+             */
+            confirmed_at: string;
+            /** Confirmed By */
+            confirmed_by: string | null;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /** Generation Eligible */
+            generation_eligible: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revocation Reason */
+            revocation_reason: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Revoked By */
+            revoked_by: string | null;
+            /** Strategy Tags */
+            strategy_tags: string[];
+            /** Structure Summary */
+            structure_summary: string;
+            /** Title */
+            title: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** ViralRevocationInput */
+        ViralRevocationInput: {
+            /** Reason */
+            reason: string;
+        };
+        /** ViralThresholdInput */
+        ViralThresholdInput: {
+            /** Rules */
+            rules: components["schemas"]["ViralThresholdRule-Input"][];
+        };
+        /** ViralThresholdRead */
+        ViralThresholdRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Benchmark Profile Id
+             * Format: uuid
+             */
+            benchmark_profile_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Objective Profile Id
+             * Format: uuid
+             */
+            objective_profile_id: string;
+            /** Rules */
+            rules: components["schemas"]["ViralThresholdRule-Output"][];
+            /** Version */
+            version: number;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** ViralThresholdRule */
+        "ViralThresholdRule-Input": {
+            category: components["schemas"]["ViralCategory"];
+            /** Metric Key */
+            metric_key: string;
+            /** Minimum Value */
+            minimum_value: number | string;
+        };
+        /** ViralThresholdRule */
+        "ViralThresholdRule-Output": {
+            category: components["schemas"]["ViralCategory"];
+            /** Metric Key */
+            metric_key: string;
+            /** Minimum Value */
+            minimum_value: string;
         };
         /** WorkspaceCreate */
         WorkspaceCreate: {
@@ -2884,6 +3225,120 @@ export interface operations {
             };
         };
     };
+    evaluate_viral_candidates_v1_workspaces__workspace_id__accounts__account_id__viral_candidates_evaluate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViralEvaluationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralCandidateRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralThresholdRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                account_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViralThresholdInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralThresholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_manual_import_v1_workspaces__workspace_id__imports_manual_preview_post: {
         parameters: {
             query?: never;
@@ -3067,6 +3522,191 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceMemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_viral_candidates_v1_workspaces__workspace_id__viral_candidates_get: {
+        parameters: {
+            query: {
+                account_id: string;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralCandidateRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_viral_candidate_v1_workspaces__workspace_id__viral_candidates__candidate_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                candidate_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViralConfirmationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralLibraryItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_viral_library_v1_workspaces__workspace_id__viral_library_get: {
+        parameters: {
+            query: {
+                account_id: string;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralLibraryItemRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_generation_viral_sources_v1_workspaces__workspace_id__viral_library_generation_sources_get: {
+        parameters: {
+            query: {
+                account_id: string;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralLibraryItemRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_viral_library_item_v1_workspaces__workspace_id__viral_library__item_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                item_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViralRevocationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViralLibraryItemRead"];
                 };
             };
             /** @description Validation Error */

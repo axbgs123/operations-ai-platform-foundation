@@ -2633,6 +2633,511 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "ViralCandidateRead": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "actual_value": {
+            "title": "Actual Value",
+            "type": "number"
+          },
+          "benchmark_profile_id": {
+            "format": "uuid",
+            "title": "Benchmark Profile Id",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ViralCategory"
+          },
+          "comparison_ended_at": {
+            "format": "date-time",
+            "title": "Comparison Ended At",
+            "type": "string"
+          },
+          "comparison_started_at": {
+            "format": "date-time",
+            "title": "Comparison Started At",
+            "type": "string"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "content_type": {
+            "$ref": "#/components/schemas/ContentType"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "maturity_bucket": {
+            "title": "Maturity Bucket",
+            "type": "string"
+          },
+          "metric_key": {
+            "title": "Metric Key",
+            "type": "string"
+          },
+          "objective_profile_id": {
+            "format": "uuid",
+            "title": "Objective Profile Id",
+            "type": "string"
+          },
+          "percentile": {
+            "title": "Percentile",
+            "type": "number"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "sample_snapshot_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Sample Snapshot Ids",
+            "type": "array"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ViralCandidateStatus"
+          },
+          "threshold_profile_id": {
+            "format": "uuid",
+            "title": "Threshold Profile Id",
+            "type": "string"
+          },
+          "threshold_profile_version": {
+            "title": "Threshold Profile Version",
+            "type": "integer"
+          },
+          "threshold_value": {
+            "title": "Threshold Value",
+            "type": "number"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "account_id",
+          "content_id",
+          "snapshot_id",
+          "title",
+          "platform",
+          "content_type",
+          "maturity_bucket",
+          "category",
+          "metric_key",
+          "actual_value",
+          "percentile",
+          "sample_count",
+          "threshold_value",
+          "threshold_profile_id",
+          "threshold_profile_version",
+          "objective_profile_id",
+          "benchmark_profile_id",
+          "sample_snapshot_ids",
+          "comparison_started_at",
+          "comparison_ended_at",
+          "reason",
+          "status"
+        ],
+        "title": "ViralCandidateRead",
+        "type": "object"
+      },
+      "ViralCandidateStatus": {
+        "enum": [
+          "recommended",
+          "confirmed",
+          "revoked"
+        ],
+        "title": "ViralCandidateStatus",
+        "type": "string"
+      },
+      "ViralCategory": {
+        "enum": [
+          "traffic",
+          "engagement",
+          "growth",
+          "conversion"
+        ],
+        "title": "ViralCategory",
+        "type": "string"
+      },
+      "ViralConfirmationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "applicable_scenarios": {
+            "items": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Applicable Scenarios",
+            "type": "array"
+          },
+          "strategy_tags": {
+            "items": {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Strategy Tags",
+            "type": "array"
+          },
+          "structure_summary": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Structure Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy_tags",
+          "applicable_scenarios",
+          "structure_summary"
+        ],
+        "title": "ViralConfirmationInput",
+        "type": "object"
+      },
+      "ViralEvaluationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "maturity_bucket": {
+            "enum": [
+              "1h",
+              "24h",
+              "72h",
+              "7d"
+            ],
+            "title": "Maturity Bucket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_type",
+          "maturity_bucket"
+        ],
+        "title": "ViralEvaluationInput",
+        "type": "object"
+      },
+      "ViralLibraryItemRead": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "applicable_scenarios": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applicable Scenarios",
+            "type": "array"
+          },
+          "candidate_id": {
+            "format": "uuid",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ViralCategory"
+          },
+          "confirmed_at": {
+            "format": "date-time",
+            "title": "Confirmed At",
+            "type": "string"
+          },
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "generation_eligible": {
+            "title": "Generation Eligible",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "revocation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revocation Reason"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "revoked_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked By"
+          },
+          "strategy_tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strategy Tags",
+            "type": "array"
+          },
+          "structure_summary": {
+            "title": "Structure Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "account_id",
+          "candidate_id",
+          "content_id",
+          "title",
+          "category",
+          "strategy_tags",
+          "applicable_scenarios",
+          "structure_summary",
+          "confirmed_by",
+          "confirmed_at",
+          "active",
+          "generation_eligible",
+          "revoked_by",
+          "revoked_at",
+          "revocation_reason"
+        ],
+        "title": "ViralLibraryItemRead",
+        "type": "object"
+      },
+      "ViralRevocationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "ViralRevocationInput",
+        "type": "object"
+      },
+      "ViralThresholdInput": {
+        "additionalProperties": false,
+        "properties": {
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/ViralThresholdRule-Input"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules"
+        ],
+        "title": "ViralThresholdInput",
+        "type": "object"
+      },
+      "ViralThresholdRead": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "benchmark_profile_id": {
+            "format": "uuid",
+            "title": "Benchmark Profile Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "objective_profile_id": {
+            "format": "uuid",
+            "title": "Objective Profile Id",
+            "type": "string"
+          },
+          "rules": {
+            "items": {
+              "$ref": "#/components/schemas/ViralThresholdRule-Output"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "account_id",
+          "version",
+          "rules",
+          "objective_profile_id",
+          "benchmark_profile_id"
+        ],
+        "title": "ViralThresholdRead",
+        "type": "object"
+      },
+      "ViralThresholdRule-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ViralCategory"
+          },
+          "metric_key": {
+            "pattern": "^[a-z][a-z0-9_]{0,79}$",
+            "title": "Metric Key",
+            "type": "string"
+          },
+          "minimum_value": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Minimum Value"
+          }
+        },
+        "required": [
+          "category",
+          "metric_key",
+          "minimum_value"
+        ],
+        "title": "ViralThresholdRule",
+        "type": "object"
+      },
+      "ViralThresholdRule-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/ViralCategory"
+          },
+          "metric_key": {
+            "pattern": "^[a-z][a-z0-9_]{0,79}$",
+            "title": "Metric Key",
+            "type": "string"
+          },
+          "minimum_value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Minimum Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category",
+          "metric_key",
+          "minimum_value"
+        ],
+        "title": "ViralThresholdRule",
+        "type": "object"
+      },
       "WorkspaceCreate": {
         "properties": {
           "name": {
@@ -5375,6 +5880,275 @@
         ]
       }
     },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/viral-candidates/evaluate": {
+      "post": {
+        "operationId": "evaluate_viral_candidates_v1_workspaces__workspace_id__accounts__account_id__viral_candidates_evaluate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViralEvaluationInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ViralCandidateRead"
+                  },
+                  "title": "Response Evaluate Viral Candidates V1 Workspaces  Workspace Id  Accounts  Account Id  Viral Candidates Evaluate Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Evaluate Viral Candidates",
+        "tags": [
+          "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/accounts/{account_id}/viral-thresholds": {
+      "get": {
+        "operationId": "read_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ViralThresholdRead"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Read Viral Thresholds V1 Workspaces  Workspace Id  Accounts  Account Id  Viral Thresholds Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Viral Thresholds",
+        "tags": [
+          "viral-library"
+        ]
+      },
+      "put": {
+        "operationId": "configure_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViralThresholdInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViralThresholdRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configure Viral Thresholds",
+        "tags": [
+          "viral-library"
+        ]
+      }
+    },
     "/v1/workspaces/{workspace_id}/imports/manual/preview": {
       "post": {
         "operationId": "preview_manual_import_v1_workspaces__workspace_id__imports_manual_preview_post",
@@ -5807,6 +6581,415 @@
         "summary": "Update Member",
         "tags": [
           "workspace"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/viral-candidates": {
+      "get": {
+        "operationId": "list_viral_candidates_v1_workspaces__workspace_id__viral_candidates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ViralCandidateRead"
+                  },
+                  "title": "Response List Viral Candidates V1 Workspaces  Workspace Id  Viral Candidates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Viral Candidates",
+        "tags": [
+          "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/viral-candidates/{candidate_id}/confirm": {
+      "post": {
+        "operationId": "confirm_viral_candidate_v1_workspaces__workspace_id__viral_candidates__candidate_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViralConfirmationInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViralLibraryItemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Viral Candidate",
+        "tags": [
+          "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/viral-library": {
+      "get": {
+        "operationId": "list_viral_library_v1_workspaces__workspace_id__viral_library_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ViralLibraryItemRead"
+                  },
+                  "title": "Response List Viral Library V1 Workspaces  Workspace Id  Viral Library Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Viral Library",
+        "tags": [
+          "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/viral-library/generation-sources": {
+      "get": {
+        "operationId": "list_generation_viral_sources_v1_workspaces__workspace_id__viral_library_generation_sources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ViralLibraryItemRead"
+                  },
+                  "title": "Response List Generation Viral Sources V1 Workspaces  Workspace Id  Viral Library Generation Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Generation Viral Sources",
+        "tags": [
+          "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/viral-library/{item_id}/revoke": {
+      "post": {
+        "operationId": "revoke_viral_library_item_v1_workspaces__workspace_id__viral_library__item_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViralRevocationInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViralLibraryItemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Viral Library Item",
+        "tags": [
+          "viral-library"
         ]
       }
     }
