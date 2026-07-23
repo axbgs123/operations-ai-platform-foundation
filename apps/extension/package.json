@@ -11,6 +11,9 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@operations-ai/shared-schemas": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^20",
     "@typescript-eslint/parser": "8.64.0",

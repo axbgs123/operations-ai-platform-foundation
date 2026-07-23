@@ -9,12 +9,14 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_session
 from app.main import app
+from app.modules.imports.extension_router import binding_attempts
 from app.modules.workspace.router import invite_attempts
 
 
 @contextmanager
 def configured_client() -> Iterator[tuple[TestClient, object]]:
     invite_attempts.clear()
+    binding_attempts.clear()
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},

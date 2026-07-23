@@ -1,15 +1,11 @@
-type ExtensionState = {
-  serverOrigin?: string;
-  flow: "idle";
-};
-
-const initialState: ExtensionState = { flow: "idle" };
+import { createSessionBindingStore } from "./auth/storage";
 
 declare const chrome: {
   storage: {
     session: {
-      get(keys: string[]): Promise<Record<string, unknown>>;
+      get(key: string): Promise<Record<string, unknown>>;
       set(values: Record<string, unknown>): Promise<void>;
+      remove(key: string): Promise<void>;
     };
   };
   runtime: {
@@ -18,17 +14,26 @@ declare const chrome: {
         listener: (
           message: { type?: string },
           sender: unknown,
-          sendResponse: (response: ExtensionState) => void,
-        ) => void,
+          sendResponse: (response: unknown) => void,
+        ) => boolean | void,
       ): void;
     };
   };
 };
 
 chrome.runtime.onMessage.addListener((_message, _sender, sendResponse) => {
-  void chrome.storage.session.get(["extensionState"]).then((stored) => {
-    sendResponse(
-      (stored.extensionState as ExtensionState | undefined) ?? initialState,
-    );
+  const store = createSessionBindingStore(chrome.storage.session);
+  void store.load().then(async (binding) => {
+    if (binding && Date.parse(binding.expiresAt) <= Date.now()) {
+      await store.clear();
+      sendResponse({ bound: false, reason: "expired" });
+      return;
+    }
+    sendResponse({
+      bound: binding !== null,
+      serverOrigin: binding?.serverOrigin,
+      expiresAt: binding?.expiresAt,
+    });
   });
+  return true;
 });

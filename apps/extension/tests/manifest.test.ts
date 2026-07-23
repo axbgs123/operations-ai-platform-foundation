@@ -8,6 +8,7 @@ type Manifest = {
   version: string;
   permissions?: string[];
   host_permissions?: string[];
+  optional_host_permissions?: string[];
   background?: { service_worker?: string; type?: string };
   content_scripts?: Array<{ matches?: string[]; js?: string[] }>;
   content_security_policy?: { extension_pages?: string };
@@ -61,6 +62,13 @@ describe("least-privilege Manifest V3", () => {
     expect(manifest.content_scripts?.flatMap((script) => script.matches ?? [])).toEqual(
       manifest.host_permissions,
     );
+    expect(manifest.optional_host_permissions).toEqual([
+      "https://*/*",
+      "http://localhost/*",
+      "http://127.0.0.1/*",
+      "http://[::1]/*",
+    ]);
+    expect(manifest.optional_host_permissions).not.toContain("<all_urls>");
   });
 
   it("uses a local module service worker and a restrictive extension CSP", async () => {
@@ -72,9 +80,6 @@ describe("least-privilege Manifest V3", () => {
     });
     expect(manifest.content_security_policy?.extension_pages).toBe(
       "script-src 'self'; object-src 'self'",
-    );
-    expect(JSON.stringify(manifest)).not.toMatch(
-      /https?:\/\/(?!creator\.(douyin|xiaohongshu)\.com)/,
     );
   });
 
@@ -101,7 +106,7 @@ describe("least-privilege Manifest V3", () => {
     const files = await readdir(distRoot, { recursive: true });
     const forbiddenName = /(screenshot|cookie|invite|token|account|private)/i;
     const forbiddenContent =
-      /(sk-[a-z0-9_-]{20,}|BEGIN .* PRIVATE KEY|localhost:|api[_-]?key|invite[_-]?code)/i;
+      /(sk-[a-z0-9_-]{20,}|BEGIN .* PRIVATE KEY|synthetic-invite|opaque-session-token|https:\/\/ops\.example\.com)/i;
 
     expect(files).not.toEqual(
       expect.arrayContaining([expect.stringMatching(forbiddenName)]),

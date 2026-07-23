@@ -7,6 +7,7 @@ from app.modules.analysis.router import router as analysis_router
 from app.modules.content.account_router import router as account_router
 from app.modules.content.router import router as content_router
 from app.modules.demo.router import router as demo_router
+from app.modules.imports.extension_router import router as extension_router
 from app.modules.imports.router import router as imports_router
 from app.modules.metrics.dashboard_router import router as dashboard_router
 from app.modules.metrics.router import router as metrics_router
@@ -29,11 +30,18 @@ app.add_middleware(
     allow_origins=[get_settings().web_origin],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "X-CSRF-Token"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "X-CSRF-Token",
+        "X-Extension-Client",
+    ],
 )
 app.include_router(workspace_router)
 app.include_router(demo_router)
 app.include_router(imports_router)
+app.include_router(extension_router)
 app.include_router(account_router)
 app.include_router(content_router)
 app.include_router(metrics_router)

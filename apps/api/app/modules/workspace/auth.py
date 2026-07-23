@@ -126,39 +126,11 @@ class InviteAuthService:
         display_name: str,
         client_key: str,
     ) -> AuthenticatedSession:
-        self._record_attempt(client_key)
-        try:
-            raw_id, secret = raw_code.split(".", maxsplit=1)
-            code_id = UUID(raw_id)
-        except (ValueError, AttributeError) as error:
-            raise InvalidInviteCode from error
-
-        access_code = self._authentication.get_access_code(code_id)
-        if access_code is None or access_code.revoked_at is not None:
-            raise InvalidInviteCode
-        if access_code.expires_at is not None and access_code.expires_at <= self._now():
-            raise InvalidInviteCode
-        try:
-            self._password_hasher.verify(access_code.code_hash, secret)
-        except (InvalidHashError, VerifyMismatchError) as error:
-            raise InvalidInviteCode from error
-
-        member = (
-            self._authentication.get_member(access_code.member_id)
-            if access_code.member_id is not None
-            else None
+        member = self.redeem_member(
+            raw_code,
+            display_name=display_name,
+            client_key=client_key,
         )
-        if member is None:
-            member = WorkspaceMember(
-                workspace_id=access_code.workspace_id,
-                display_name=display_name,
-                role=access_code.role,
-            )
-            self._session.add(member)
-            self._session.flush()
-            access_code.member_id = member.id
-        if member.revoked_at is not None:
-            raise InvalidInviteCode
         self._session.flush()
 
         session_token = secrets.token_urlsafe(32)
@@ -194,6 +166,50 @@ class InviteAuthService:
             expires_at=expires_at,
             context=context,
         )
+
+    def redeem_member(
+        self,
+        raw_code: str,
+        *,
+        display_name: str,
+        client_key: str,
+    ) -> WorkspaceMember:
+        self._record_attempt(client_key)
+        try:
+            raw_id, secret = raw_code.split(".", maxsplit=1)
+            code_id = UUID(raw_id)
+        except (ValueError, AttributeError) as error:
+            raise InvalidInviteCode from error
+
+        access_code = self._authentication.get_access_code(code_id)
+        if access_code is None or access_code.revoked_at is not None:
+            raise InvalidInviteCode
+        if access_code.expires_at is not None and access_code.expires_at <= self._now():
+            raise InvalidInviteCode
+        try:
+            self._password_hasher.verify(access_code.code_hash, secret)
+        except (InvalidHashError, VerifyMismatchError) as error:
+            raise InvalidInviteCode from error
+
+        member = (
+            self._authentication.get_member(access_code.member_id)
+            if access_code.member_id is not None
+            else None
+        )
+        if member is None:
+            member = WorkspaceMember(
+                workspace_id=access_code.workspace_id,
+                display_name=display_name,
+                role=access_code.role,
+            )
+            self._session.add(member)
+            self._session.flush()
+            access_code.member_id = member.id
+        if member.revoked_at is not None:
+            raise InvalidInviteCode
+        self._session.flush()
+
+        return member
 
     def authenticate(self, session_token: str) -> WorkspaceContext | None:
         stored_session = self._authentication.get_session_by_token_hash(

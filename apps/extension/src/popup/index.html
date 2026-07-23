@@ -8,7 +8,22 @@
   <body>
     <main>
       <h1>运营数据采集</h1>
-      <p id="status">仅支持受支持运营详情页。</p>
+      <form id="binding-form">
+        <label>
+          目标服务器
+          <input id="server-origin" name="serverOrigin" type="url" required />
+        </label>
+        <label>
+          成员邀请码
+          <input id="invite-code" name="inviteCode" type="password" required />
+        </label>
+        <button type="submit">绑定服务器</button>
+      </form>
+      <p id="destination">截图将上传到：尚未绑定</p>
+      <p>处理方式：Mock OCR/视觉处理</p>
+      <p>识别数据仍需人工确认</p>
+      <p id="status">需要绑定后才能继续。</p>
+      <button id="unbind" type="button">解绑</button>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

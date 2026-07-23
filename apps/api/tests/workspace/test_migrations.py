@@ -63,7 +63,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "risk_chunk_embeddings",
             "risk_scans",
             "risk_scan_feedback",
-            "risk_feedback_events",
+                "risk_feedback_events",
+                "extension_tokens",
         } <= tables
 
         access_code_columns = {
@@ -233,10 +234,27 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "actor_id",
             "safe_note",
         } <= risk_feedback_event_columns
+        extension_token_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "extension_tokens"
+            )
+        }
+        assert {
+            "workspace_id",
+            "member_id",
+            "token_hash",
+            "client_id",
+            "exchange_fingerprint",
+            "scopes",
+            "issued_at",
+            "expires_at",
+            "revoked_at",
+        } <= extension_token_columns
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260723_0020",
+                expected_head="20260723_0021",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -244,6 +262,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "risk_scans",
                     "risk_scan_feedback",
                     "risk_feedback_events",
+                    "extension_tokens",
                 },
             )
             extensions = set(

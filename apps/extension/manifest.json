@@ -19,6 +19,12 @@
     "https://creator.douyin.com/creator-micro/content/manage*",
     "https://creator.xiaohongshu.com/publish/publish-manage*"
   ],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://[::1]/*"
+  ],
   "content_scripts": [
     {
       "matches": [

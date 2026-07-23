@@ -46,6 +46,13 @@ class ImportRowStatus(StrEnum):
     FAILED = "failed"
 
 
+class ExtensionTokenScope(StrEnum):
+    CAPTURE_CREATE = "capture:create"
+    CAPTURE_UPLOAD = "capture:upload"
+    CAPTURE_READ = "capture:read"
+    CONFIRM_SNAPSHOT = "snapshot:confirm"
+
+
 import_source_kind_enum = Enum(
     ImportSourceKind,
     name="import_source_kind",
@@ -147,3 +154,26 @@ class ImportRow(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=None,
     )
     dedupe_reason: Mapped[str | None] = mapped_column(String(80), default=None)
+
+
+class ExtensionToken(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "extension_tokens"
+    __table_args__ = (
+        Index("ix_extension_tokens_token_hash", "token_hash", unique=True),
+        Index("ix_extension_tokens_workspace_id", "workspace_id"),
+        Index("ix_extension_tokens_member_id", "member_id"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspace_members.id", ondelete="CASCADE")
+    )
+    token_hash: Mapped[str] = mapped_column(String(64))
+    client_id: Mapped[str] = mapped_column(String(120))
+    exchange_fingerprint: Mapped[str] = mapped_column(String(64), unique=True)
+    scopes: Mapped[list[str]] = mapped_column(JSON)
+    issued_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
