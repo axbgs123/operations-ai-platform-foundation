@@ -23,6 +23,7 @@ from app.modules.risk_rag.models import (
 )
 from app.modules.risk_rag.repository import RiskDocumentRepository
 from app.modules.workspace.models import Workspace, WorkspaceMember
+from app.modules.workspace.permissions import PermissionDenied
 from tests.imports.helpers import configured_client
 
 
@@ -262,6 +263,43 @@ def test_public_active_documents_are_visible_but_private_chunks_stay_scoped(
         public
     ]
     assert repository.list_chunks(private.id) == []
+
+
+def test_workspace_admin_cannot_transition_system_public_document(
+    session: Session,
+) -> None:
+    workspace = Workspace(name="合成公共库权限工作区")
+    admin = WorkspaceMember(
+        workspace_id=workspace.id,
+        display_name="合成公共库管理员",
+        role="admin",
+    )
+    session.add_all([workspace, admin])
+    session.flush()
+    public = RiskDocument(
+        workspace_id=None,
+        platform=Platform.DOUYIN,
+        scope=RiskDocumentScope.PUBLIC,
+        source_level=RiskSourceLevel.S1,
+        title="人工合成系统公共材料",
+        source_url="https://example.invalid/system-public",
+        authorization_status=RiskAuthorizationStatus.AUTHORIZED,
+        status=RiskDocumentStatus.DRAFT,
+        version=1,
+    )
+    session.add(public)
+    session.commit()
+    repository = RiskDocumentRepository(
+        session,
+        context=WorkspaceContext(
+            workspace_id=workspace.id,
+            member_id=admin.id,
+            role="admin",
+        ),
+    )
+
+    with pytest.raises(PermissionDenied, match="system public"):
+        repository.transition(public.id, RiskDocumentStatus.PARSED)
 
 
 def test_historical_lookup_can_trace_superseded_version_in_same_workspace(

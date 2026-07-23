@@ -34,6 +34,13 @@ class Storage(Protocol):
     def verify_upload_token(self, token: str) -> dict: ...
     def inspect_object(self, object_key: str) -> StoredObject | None: ...
     def presign_download(self, object_key: str) -> tuple[str, datetime]: ...
+    def put_object(
+        self,
+        object_key: str,
+        content: bytes,
+        *,
+        mime_type: str,
+    ) -> None: ...
 
 
 class InvalidUploadToken(Exception):
@@ -192,6 +199,30 @@ class S3Storage:
             if error.code == 404:
                 return None
             raise
+
+    def put_object(
+        self,
+        object_key: str,
+        content: bytes,
+        *,
+        mime_type: str,
+    ) -> None:
+        self._ensure_bucket()
+        url = self._presign(
+            "PUT",
+            object_key,
+            endpoint=self._endpoint,
+            expires=60,
+            content_type=mime_type,
+        )
+        request = Request(
+            url,
+            data=content,
+            method="PUT",
+            headers={"Content-Type": mime_type},
+        )
+        with self._opener.open(request, timeout=10):
+            pass
 
     def presign_download(self, object_key: str) -> tuple[str, datetime]:
         expires_at = datetime.now(UTC) + timedelta(minutes=5)

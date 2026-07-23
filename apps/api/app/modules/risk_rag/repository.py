@@ -18,7 +18,11 @@ from app.modules.risk_rag.lifecycle import (
     transition_status,
     validate_source_policy,
 )
-from app.modules.workspace.permissions import Permission, require_permission
+from app.modules.workspace.permissions import (
+    Permission,
+    PermissionDenied,
+    require_permission,
+)
 
 
 class RiskDocumentRepository:
@@ -102,6 +106,10 @@ class RiskDocumentRepository:
         document = self.get(document_id)
         if document is None:
             return None
+        if document.scope is RiskDocumentScope.PUBLIC:
+            raise PermissionDenied(
+                "system public risk library cannot be changed by a workspace"
+            )
         reviewer_id = (
             self._context.member_id
             if target is RiskDocumentStatus.ACTIVE

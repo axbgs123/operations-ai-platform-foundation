@@ -59,6 +59,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "fact_items",
             "risk_documents",
             "risk_chunks",
+            "risk_chunk_embeddings",
         } <= tables
 
         access_code_columns = {
@@ -125,6 +126,13 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "previous_version_id",
             "version",
             "status",
+            "file_name",
+            "mime_type",
+            "object_key",
+            "content_sha256",
+            "resolved_ips",
+            "untrusted_data",
+            "redistribution_authorized",
         } <= risk_document_columns
         risk_chunk_columns = {
             column["name"]
@@ -140,6 +148,42 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "text",
             "metadata",
         } <= risk_chunk_columns
+        risk_embedding_columns = {
+            column["name"]: column
+            for column in inspect(migrated_engine).get_columns(
+                "risk_chunk_embeddings"
+            )
+        }
+        assert {
+            "workspace_id",
+            "chunk_id",
+            "platform",
+            "scope",
+            "model_id",
+            "dimension",
+            "embedding_version",
+            "vector",
+        } <= risk_embedding_columns.keys()
+        with migrated_engine.connect() as connection:
+            extensions = set(
+                connection.execute(
+                    text("SELECT extname FROM pg_extension")
+                ).scalars()
+            )
+            vector_type = connection.scalar(
+                text(
+                    """
+                    SELECT format_type(attribute.atttypid, attribute.atttypmod)
+                    FROM pg_attribute AS attribute
+                    WHERE attribute.attrelid =
+                        'risk_chunk_embeddings'::regclass
+                      AND attribute.attname = 'vector'
+                      AND NOT attribute.attisdropped
+                    """
+                )
+            )
+        assert "vector" in extensions
+        assert vector_type in {"vector", "public.vector"}
         command.check(config)
     finally:
         with admin_engine.connect() as connection:

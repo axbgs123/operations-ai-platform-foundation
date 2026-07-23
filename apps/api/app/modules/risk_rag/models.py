@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Enum,
     ForeignKey,
@@ -13,8 +14,12 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    event,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql.base import ischema_names
+from pgvector.sqlalchemy import Vector
 
 from app.core.database import (
     Base,
@@ -23,6 +28,29 @@ from app.core.database import (
     UUIDPrimaryKeyMixin,
 )
 from app.modules.content.account_models import Platform, platform_type
+
+
+ischema_names["public.vector"] = Vector
+
+
+@event.listens_for(Base.metadata, "before_create")
+def _prepare_pgvector_extension(
+    target,
+    connection,
+    **kwargs,
+) -> None:
+    if connection.dialect.name != "postgresql":
+        return
+    connection.execute(
+        text("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public")
+    )
+    connection.execute(
+        text(
+            "SELECT set_config("
+            "'search_path', current_schema() || ', public', true"
+            ")"
+        )
+    )
 
 
 class RiskSourceLevel(StrEnum):
@@ -85,6 +113,7 @@ class RiskDocument(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_risk_documents_scope", "scope"),
         Index("ix_risk_documents_status", "status"),
         Index("ix_risk_documents_previous_version_id", "previous_version_id"),
+        Index("ix_risk_documents_content_sha256", "content_sha256"),
         Index(
             "ix_risk_documents_current_lookup",
             "workspace_id",
@@ -136,6 +165,21 @@ class RiskDocument(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("risk_documents.id", ondelete="RESTRICT"),
         default=None,
     )
+    file_name: Mapped[str | None] = mapped_column(String(255), default=None)
+    mime_type: Mapped[str | None] = mapped_column(String(160), default=None)
+    object_key: Mapped[str | None] = mapped_column(String(1024), default=None)
+    content_sha256: Mapped[str | None] = mapped_column(
+        String(64), default=None
+    )
+    resolved_ips: Mapped[list[str]] = mapped_column(
+        JSON,
+        default_factory=list,
+    )
+    untrusted_data: Mapped[bool] = mapped_column(Boolean, default=True)
+    redistribution_authorized: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+    )
 
 
 class RiskChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -177,3 +221,49 @@ class RiskChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         JSON,
         default_factory=dict,
     )
+
+
+class RiskChunkEmbedding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "risk_chunk_embeddings"
+    __table_args__ = (
+        CheckConstraint(
+            "(scope = 'public' AND workspace_id IS NULL) OR "
+            "(scope = 'private' AND workspace_id IS NOT NULL)",
+            name="ck_risk_chunk_embeddings_scope_workspace",
+        ),
+        CheckConstraint(
+            "dimension > 0",
+            name="ck_risk_chunk_embeddings_dimension",
+        ),
+        UniqueConstraint(
+            "chunk_id",
+            name="uq_risk_chunk_embeddings_chunk_id",
+        ),
+        Index("ix_risk_chunk_embeddings_workspace_id", "workspace_id"),
+        Index("ix_risk_chunk_embeddings_chunk_id", "chunk_id"),
+        Index("ix_risk_chunk_embeddings_platform", "platform"),
+        Index(
+            "ix_risk_chunk_embeddings_model",
+            "workspace_id",
+            "platform",
+            "model_id",
+            "embedding_version",
+        ),
+    )
+
+    workspace_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    chunk_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("risk_chunks.id", ondelete="CASCADE"),
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    scope: Mapped[RiskDocumentScope] = mapped_column(
+        enum_type(RiskDocumentScope, "risk_embedding_scope")
+    )
+    model_id: Mapped[str] = mapped_column(String(160))
+    dimension: Mapped[int] = mapped_column(Integer)
+    embedding_version: Mapped[str] = mapped_column(String(80))
+    vector: Mapped[list[float]] = mapped_column(Vector())
