@@ -1861,6 +1861,8 @@ export interface components {
              * @enum {string}
              */
             conflict_status: "clear" | "unresolved" | "resolved";
+            /** Field Code */
+            field_code: string;
             /** Field Name */
             field_name: string;
             /**

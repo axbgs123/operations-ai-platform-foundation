@@ -16,6 +16,7 @@ const candidate = {
   id: "fact-1",
   source_id: "source-1",
   field_name: "面料",
+  field_code: "fabric",
   value: "100% 棉",
   source_location: "line 2",
   confidence: 0.85,

@@ -113,6 +113,7 @@ class FactItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (
         Index("ix_fact_items_workspace_id", "workspace_id"),
         Index("ix_fact_items_source_id", "source_id"),
+        Index("ix_fact_items_field_code", "field_code"),
         Index("ix_fact_items_status", "status"),
         Index("ix_fact_items_conflict_status", "conflict_status"),
     )
@@ -124,6 +125,7 @@ class FactItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Uuid(as_uuid=True), ForeignKey("fact_sources.id", ondelete="CASCADE")
     )
     field_name: Mapped[str] = mapped_column(String(120))
+    field_code: Mapped[str] = mapped_column(String(160))
     value: Mapped[str] = mapped_column(Text)
     source_location: Mapped[str] = mapped_column(String(500))
     confidence: Mapped[float] = mapped_column(Float)

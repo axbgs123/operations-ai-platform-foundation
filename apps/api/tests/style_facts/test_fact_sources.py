@@ -268,6 +268,10 @@ def test_text_link_and_web_sources_create_traceable_untrusted_candidates() -> No
             ("产品名称", "合成测试夹克"),
             ("面料", "100% 棉"),
         ]
+        assert [item["field_code"] for item in text_source["items"]] == [
+            "custom:产品名称",
+            "fabric",
+        ]
         assert [item["source_location"] for item in text_source["items"]] == [
             "line 1",
             "line 7",
@@ -298,6 +302,10 @@ def test_text_link_and_web_sources_create_traceable_untrusted_candidates() -> No
             assert source["status_detail"]["code"] == "USER_SUPPLIED_SNAPSHOT"
             assert source["published_at"] == "2026-07-20T08:00:00Z"
             assert {item["field_name"] for item in source["items"]} == {"颜色", "价格"}
+            assert {item["field_code"] for item in source["items"]} == {
+                "color",
+                "price",
+            }
 
 
 def test_document_and_image_uploads_validate_type_size_and_model_degradation() -> None:

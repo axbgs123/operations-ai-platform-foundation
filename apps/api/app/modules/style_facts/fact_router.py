@@ -60,6 +60,7 @@ class FactItemRead(BaseModel):
     id: UUID
     source_id: UUID
     field_name: str
+    field_code: str
     value: str
     source_location: str
     confidence: float
@@ -126,6 +127,7 @@ def _item_payload(item: FactItem) -> dict[str, object]:
         "id": item.id,
         "source_id": item.source_id,
         "field_name": item.field_name,
+        "field_code": item.field_code,
         "value": item.value,
         "source_location": item.source_location,
         "confidence": item.confidence,
@@ -304,6 +306,8 @@ def confirm_fact_item(
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     session.commit()
     return _item_payload(item)
 

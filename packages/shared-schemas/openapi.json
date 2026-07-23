@@ -2160,6 +2160,10 @@
             "title": "Conflict Status",
             "type": "string"
           },
+          "field_code": {
+            "title": "Field Code",
+            "type": "string"
+          },
           "field_name": {
             "title": "Field Name",
             "type": "string"
@@ -2207,6 +2211,7 @@
           "id",
           "source_id",
           "field_name",
+          "field_code",
           "value",
           "source_location",
           "confidence",

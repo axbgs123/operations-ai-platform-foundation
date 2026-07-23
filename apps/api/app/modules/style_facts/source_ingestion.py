@@ -25,6 +25,12 @@ from app.modules.style_facts.fact_models import (
     FactSourceLevel,
     FactSourceStatus,
 )
+from app.modules.style_facts.fact_policy import (
+    FactUseDisposition,
+    canonicalize_fact_field,
+    classify_fact_use,
+    reconcile_fact_conflicts,
+)
 from app.modules.style_facts.url_safety import validate_source_url
 from app.modules.workspace.models import AuditLog
 from app.modules.workspace.permissions import Permission, require_permission
@@ -207,6 +213,7 @@ class FactSourceService:
                 workspace_id=self._context.workspace_id,
                 source_id=source.id,
                 field_name=field_name,
+                field_code=canonicalize_fact_field(field_name).code,
                 value=value,
                 source_location=location,
                 confidence=_CONFIDENCE[source.level],
@@ -229,6 +236,7 @@ class FactSourceService:
                 workspace_id=self._context.workspace_id,
                 source_id=source.id,
                 field_name=field_name,
+                field_code=canonicalize_fact_field(field_name).code,
                 value=value,
                 source_location=source_location,
                 confidence=confidence,
@@ -397,11 +405,22 @@ class FactSourceService:
         )
         if item is None:
             raise LookupError("fact item not found")
+        source = self.source(item.source_id)
+        if (
+            classify_fact_use(item.field_code, source.level).disposition
+            is FactUseDisposition.CANDIDATE_ONLY
+        ):
+            raise ValueError("candidate-only visual fact cannot be confirmed")
         if item.status is FactItemStatus.CONFIRMED:
             return item
         item.status = FactItemStatus.CONFIRMED
         item.confirmed_by = self._context.member_id
         item.confirmed_at = utc_now()
+        reconcile_fact_conflicts(
+            self._session,
+            self._context,
+            field_code=item.field_code,
+        )
         self._session.add(
             AuditLog(
                 workspace_id=self._context.workspace_id,
@@ -480,8 +499,28 @@ class FactSourceService:
         require_permission(self._context.role, Permission.READ_CONTENT)
         sources = self.sources()
         items = self.items()
-        confirmed = [item for item in items if item.status is FactItemStatus.CONFIRMED]
-        candidates = [item for item in items if item.status is FactItemStatus.CANDIDATE]
+        source_levels = {source.id: source.level for source in sources}
+        candidate_only_ids = {
+            item.id
+            for item in items
+            if classify_fact_use(
+                item.field_code,
+                source_levels[item.source_id],
+            ).disposition
+            is FactUseDisposition.CANDIDATE_ONLY
+        }
+        confirmed = [
+            item
+            for item in items
+            if item.status is FactItemStatus.CONFIRMED
+            and item.id not in candidate_only_ids
+        ]
+        candidates = [
+            item
+            for item in items
+            if item.status is FactItemStatus.CANDIDATE
+            or item.id in candidate_only_ids
+        ]
         return {
             "unconstrained_facts": not confirmed,
             "has_sources": bool(sources),
