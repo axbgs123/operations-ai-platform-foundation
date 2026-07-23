@@ -24,13 +24,14 @@ _ALLOWED_TRANSITIONS: dict[
         {RiskDocumentStatus.PENDING_REVIEW}
     ),
     RiskDocumentStatus.PENDING_REVIEW: frozenset(
-        {RiskDocumentStatus.ACTIVE}
+        {RiskDocumentStatus.ACTIVE, RiskDocumentStatus.REJECTED}
     ),
     RiskDocumentStatus.ACTIVE: frozenset(
         {RiskDocumentStatus.SUPERSEDED, RiskDocumentStatus.EXPIRED}
     ),
     RiskDocumentStatus.SUPERSEDED: frozenset(),
     RiskDocumentStatus.EXPIRED: frozenset(),
+    RiskDocumentStatus.REJECTED: frozenset({RiskDocumentStatus.DRAFT}),
 }
 
 

@@ -13,6 +13,7 @@ from app.modules.risk_rag.models import (
     RiskSourceLevel,
     RiskScanNode,
     RiskScanStatus,
+    RiskFeedbackEventType,
 )
 from app.modules.risk_rag.scanner import RiskScanOutput
 
@@ -57,6 +58,64 @@ class RiskDocumentTransition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: RiskDocumentStatus
+
+
+class RiskDocumentParseInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=20_000)
+    source_location: str = Field(min_length=1, max_length=500)
+
+
+class RiskFeedbackCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    finding_reference: str = Field(min_length=1, max_length=160)
+    feedback_type: RiskFeedbackType
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    comment: str | None = Field(default=None, max_length=500)
+
+
+class RiskFeedbackReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: RiskFeedbackStatus
+    note: str = Field(default="", max_length=500)
+
+
+class RiskFeedbackEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    feedback_id: UUID
+    event_type: RiskFeedbackEventType
+    actor_id: UUID | None
+    created_at: datetime
+
+
+class RiskRuleUpdateCandidateRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    feedback_id: UUID
+    workspace_id: UUID
+    platform: Platform
+    finding_reference: str
+    feedback_type: RiskFeedbackType
+    rule_version: str
+    evidence_version: str
+    scope: str
+    requires_manual_rule_change: bool
+    can_modify_public_rules: bool
+
+
+class RiskEvaluationRead(BaseModel):
+    platform: Platform
+    fixture_version: str
+    sample_count: int
+    quality_label: str
+    production_quality_claim_allowed: bool
+    metrics: dict[str, object]
+    gate: dict[str, object]
 
 
 class RiskChunkRead(BaseModel):

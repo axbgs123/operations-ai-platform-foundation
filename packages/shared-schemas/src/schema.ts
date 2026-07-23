@@ -1012,7 +1012,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Risk Documents */
+        get: operations["list_risk_documents_v1_workspaces__workspace_id__risk_documents_get"];
         put?: never;
         /** Create Risk Document */
         post: operations["create_risk_document_v1_workspaces__workspace_id__risk_documents_post"];
@@ -1056,6 +1057,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activate Risk Document */
+        post: operations["activate_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/check-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Update Risk Document */
+        post: operations["check_update_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__check_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/chunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Risk Document Chunks */
+        get: operations["list_risk_document_chunks_v1_workspaces__workspace_id__risk_documents__document_id__chunks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/expire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Expire Risk Document */
+        post: operations["expire_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__expire_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Parse Risk Document */
+        post: operations["parse_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__parse_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Risk Document */
+        post: operations["reject_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/submit-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Review Risk Document */
+        post: operations["submit_review_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__submit_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/supersede": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Supersede Risk Document */
+        post: operations["supersede_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__supersede_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/transitions": {
         parameters: {
             query?: never;
@@ -1067,6 +1204,125 @@ export interface paths {
         put?: never;
         /** Transition Risk Document */
         post: operations["transition_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__transitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Risk Document Versions */
+        get: operations["list_risk_document_versions_v1_workspaces__workspace_id__risk_documents__document_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Risk Evaluation */
+        get: operations["read_risk_evaluation_v1_workspaces__workspace_id__risk_evaluations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-feedback/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rule Update Candidates */
+        get: operations["list_rule_update_candidates_v1_workspaces__workspace_id__risk_feedback_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-feedback/{feedback_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Risk Feedback */
+        get: operations["get_risk_feedback_v1_workspaces__workspace_id__risk_feedback__feedback_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-feedback/{feedback_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Risk Feedback Events */
+        get: operations["list_risk_feedback_events_v1_workspaces__workspace_id__risk_feedback__feedback_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-feedback/{feedback_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Risk Feedback */
+        post: operations["review_risk_feedback_v1_workspaces__workspace_id__risk_feedback__feedback_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-feedback/{feedback_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw Risk Feedback Post */
+        post: operations["withdraw_risk_feedback_post_v1_workspaces__workspace_id__risk_feedback__feedback_id__withdraw_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1102,6 +1358,23 @@ export interface paths {
         get: operations["get_risk_scan_v1_workspaces__workspace_id__risk_scans__scan_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-scans/{scan_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Risk Feedback */
+        post: operations["submit_risk_feedback_v1_workspaces__workspace_id__risk_scans__scan_id__feedback_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2722,6 +2995,13 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** RiskDocumentParseInput */
+        RiskDocumentParseInput: {
+            /** Source Location */
+            source_location: string;
+            /** Text */
+            text: string;
+        };
         /** RiskDocumentRead */
         RiskDocumentRead: {
             /** Accessed At */
@@ -2774,11 +3054,124 @@ export interface components {
          * RiskDocumentStatus
          * @enum {string}
          */
-        RiskDocumentStatus: "draft" | "parsed" | "pending_review" | "active" | "superseded" | "expired";
+        RiskDocumentStatus: "draft" | "parsed" | "pending_review" | "active" | "superseded" | "expired" | "rejected";
         /** RiskDocumentTransition */
         RiskDocumentTransition: {
             status: components["schemas"]["RiskDocumentStatus"];
         };
+        /** RiskEvaluationRead */
+        RiskEvaluationRead: {
+            /** Fixture Version */
+            fixture_version: string;
+            /** Gate */
+            gate: {
+                [key: string]: unknown;
+            };
+            /** Metrics */
+            metrics: {
+                [key: string]: unknown;
+            };
+            platform: components["schemas"]["Platform"];
+            /** Production Quality Claim Allowed */
+            production_quality_claim_allowed: boolean;
+            /** Quality Label */
+            quality_label: string;
+            /** Sample Count */
+            sample_count: number;
+        };
+        /** RiskFeedbackCreate */
+        RiskFeedbackCreate: {
+            /** Comment */
+            comment?: string | null;
+            feedback_type: components["schemas"]["RiskFeedbackType"];
+            /** Finding Reference */
+            finding_reference: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+        };
+        /** RiskFeedbackEventRead */
+        RiskFeedbackEventRead: {
+            /** Actor Id */
+            actor_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            event_type: components["schemas"]["RiskFeedbackEventType"];
+            /**
+             * Feedback Id
+             * Format: uuid
+             */
+            feedback_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
+         * RiskFeedbackEventType
+         * @enum {string}
+         */
+        RiskFeedbackEventType: "submitted" | "approved" | "rejected" | "withdrawn";
+        /** RiskFeedbackRead */
+        RiskFeedbackRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Evidence Version */
+            evidence_version: string;
+            feedback_type: components["schemas"]["RiskFeedbackType"];
+            /** Finding Reference */
+            finding_reference: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            platform: components["schemas"]["Platform"];
+            /** Reviewed At */
+            reviewed_at: string | null;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            /** Rule Version */
+            rule_version: string;
+            /**
+             * Scan Id
+             * Format: uuid
+             */
+            scan_id: string;
+            status: components["schemas"]["RiskFeedbackStatus"];
+            /** Submitted By */
+            submitted_by: string | null;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** RiskFeedbackReview */
+        RiskFeedbackReview: {
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            status: components["schemas"]["RiskFeedbackStatus"];
+        };
+        /**
+         * RiskFeedbackStatus
+         * @enum {string}
+         */
+        RiskFeedbackStatus: "pending_review" | "approved" | "rejected" | "withdrawn";
+        /**
+         * RiskFeedbackType
+         * @enum {string}
+         */
+        RiskFeedbackType: "correct" | "false_positive" | "missed" | "outdated_rule" | "wrong_severity";
         /** RiskFinding */
         RiskFinding: {
             /**
@@ -2832,6 +3225,33 @@ export interface components {
          * @enum {string}
          */
         RiskRegion: "title" | "body" | "cover";
+        /** RiskRuleUpdateCandidateRead */
+        RiskRuleUpdateCandidateRead: {
+            /** Can Modify Public Rules */
+            can_modify_public_rules: boolean;
+            /** Evidence Version */
+            evidence_version: string;
+            /**
+             * Feedback Id
+             * Format: uuid
+             */
+            feedback_id: string;
+            feedback_type: components["schemas"]["RiskFeedbackType"];
+            /** Finding Reference */
+            finding_reference: string;
+            platform: components["schemas"]["Platform"];
+            /** Requires Manual Rule Change */
+            requires_manual_rule_change: boolean;
+            /** Rule Version */
+            rule_version: string;
+            /** Scope */
+            scope: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
         /** RiskScanInput */
         RiskScanInput: {
             /**
@@ -6257,6 +6677,41 @@ export interface operations {
             };
         };
     };
+    list_risk_documents_v1_workspaces__workspace_id__risk_documents_get: {
+        parameters: {
+            query?: {
+                platform?: components["schemas"]["Platform"] | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_risk_document_v1_workspaces__workspace_id__risk_documents_post: {
         parameters: {
             query?: never;
@@ -6366,6 +6821,298 @@ export interface operations {
             };
         };
     };
+    activate_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_update_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__check_update_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_risk_document_chunks_v1_workspaces__workspace_id__risk_documents__document_id__chunks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    expire_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__expire_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    parse_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__parse_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskDocumentParseInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_review_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__submit_review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    supersede_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__supersede_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     transition_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__transitions_post: {
         parameters: {
             query?: never;
@@ -6393,6 +7140,254 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_risk_document_versions_v1_workspaces__workspace_id__risk_documents__document_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_risk_evaluation_v1_workspaces__workspace_id__risk_evaluations_get: {
+        parameters: {
+            query: {
+                platform: components["schemas"]["Platform"];
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskEvaluationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rule_update_candidates_v1_workspaces__workspace_id__risk_feedback_candidates_get: {
+        parameters: {
+            query: {
+                platform: components["schemas"]["Platform"];
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskRuleUpdateCandidateRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_risk_feedback_v1_workspaces__workspace_id__risk_feedback__feedback_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                feedback_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskFeedbackRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_risk_feedback_events_v1_workspaces__workspace_id__risk_feedback__feedback_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                feedback_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskFeedbackEventRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_risk_feedback_v1_workspaces__workspace_id__risk_feedback__feedback_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                feedback_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskFeedbackReview"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskFeedbackRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    withdraw_risk_feedback_post_v1_workspaces__workspace_id__risk_feedback__feedback_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                feedback_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskFeedbackRead"];
                 };
             };
             /** @description Validation Error */
@@ -6501,6 +7496,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskScanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_risk_feedback_v1_workspaces__workspace_id__risk_scans__scan_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                scan_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskFeedbackCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskFeedbackRead"];
                 };
             };
             /** @description Validation Error */

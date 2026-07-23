@@ -14,6 +14,9 @@ from app.modules.models.router import router as model_configs_router
 from app.modules.risk_rag.router import (
     router as risk_documents_router,
     scan_router as risk_scans_router,
+    feedback_scan_router,
+    feedback_router,
+    evaluation_router,
 )
 from app.modules.style_facts.style_router import router as style_profiles_router
 from app.modules.style_facts.fact_router import router as fact_sources_router
@@ -43,6 +46,9 @@ app.include_router(analysis_router)
 app.include_router(generation_router)
 app.include_router(risk_documents_router)
 app.include_router(risk_scans_router)
+app.include_router(feedback_scan_router)
+app.include_router(feedback_router)
+app.include_router(evaluation_router)
 
 
 @app.get("/healthz")

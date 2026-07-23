@@ -80,6 +80,7 @@ class RiskDocumentStatus(StrEnum):
     ACTIVE = "active"
     SUPERSEDED = "superseded"
     EXPIRED = "expired"
+    REJECTED = "rejected"
 
 
 class RiskScanStatus(StrEnum):
