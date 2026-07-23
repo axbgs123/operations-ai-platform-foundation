@@ -799,6 +799,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/generation/text-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Text Generation */
+        post: operations["request_text_generation_v1_workspaces__workspace_id__generation_text_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/generation/text-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Text Generation */
+        get: operations["read_text_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit Generation */
+        patch: operations["edit_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__patch"];
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/generation/text-runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Generation */
+        post: operations["cancel_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/generation/text-runs/{run_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Generation */
+        post: operations["retry_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/imports/manual/preview": {
         parameters: {
             query?: never;
@@ -1405,6 +1474,13 @@ export interface components {
          * @enum {string}
          */
         Capability: "text" | "vision" | "image" | "embedding";
+        /** ClaimDraft */
+        ClaimDraft: {
+            /** Field Name */
+            field_name: string;
+            /** Value */
+            value: string;
+        };
         /** ColumnCampaignCreate */
         ColumnCampaignCreate: {
             /** Benchmark Sample Size */
@@ -1475,6 +1551,25 @@ export interface components {
             benchmarks: components["schemas"]["BenchmarkProfileRead"][];
             /** Objectives */
             objectives: components["schemas"]["ObjectiveProfileRead"][];
+        };
+        /** ConfirmedFactSnapshot */
+        ConfirmedFactSnapshot: {
+            /** Field Code */
+            field_code: string;
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Source Level */
+            source_level: string;
+            /** Value */
+            value: string;
         };
         /** ContentCreate */
         ContentCreate: {
@@ -1974,6 +2069,124 @@ export interface components {
              */
             workspace_id: string;
         };
+        /** GeneratedTextResult */
+        GeneratedTextResult: {
+            /** Citations */
+            citations: components["schemas"]["GenerationCitation"][];
+            /** Claims */
+            claims: components["schemas"]["ClaimDraft"][];
+            /** Copy */
+            copy: string;
+            /** Titles */
+            titles: string[];
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /** GenerationCitation */
+        GenerationCitation: {
+            /**
+             * Fact Item Id
+             * Format: uuid
+             */
+            fact_item_id: string;
+            /** Field Code */
+            field_code: string;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Value */
+            value: string;
+        };
+        /** GenerationContext */
+        GenerationContext: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Column Campaign Id */
+            column_campaign_id: string | null;
+            /** Confirmed Facts */
+            confirmed_facts: components["schemas"]["ConfirmedFactSnapshot"][];
+            /** Confirmed Facts Version */
+            confirmed_facts_version: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id?: string;
+            model: components["schemas"]["ModelSnapshot"];
+            platform: components["schemas"]["Platform"];
+            /** Risk Rule Version */
+            risk_rule_version: string;
+            /** Source Assets */
+            source_assets: components["schemas"]["SourceAssetSnapshot"][];
+            style: components["schemas"]["StyleSnapshot"] | null;
+            /** Target */
+            target: string;
+            /** User Prompt */
+            user_prompt: string;
+            /** Viral References */
+            viral_references: components["schemas"]["ViralReferenceSnapshot"][];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** GenerationInputs */
+        GenerationInputs: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Column Campaign Id */
+            column_campaign_id?: string | null;
+            /**
+             * Confirmed Fact Item Ids
+             * @default []
+             */
+            confirmed_fact_item_ids: string[];
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            platform: components["schemas"]["Platform"];
+            /** Risk Rule Version */
+            risk_rule_version: string;
+            /**
+             * Source Asset Ids
+             * @default []
+             */
+            source_asset_ids: string[];
+            /** Style Profile Id */
+            style_profile_id?: string | null;
+            style_switches?: components["schemas"]["StyleInheritanceSelection"];
+            /** Target */
+            target: string;
+            /**
+             * User Prompt
+             * @default
+             */
+            user_prompt: string;
+            /**
+             * Viral Library Item Ids
+             * @default []
+             */
+            viral_library_item_ids: string[];
+        };
         /** GoalMetricCard */
         GoalMetricCard: {
             /** Change Rate */
@@ -2244,6 +2457,22 @@ export interface components {
         ModelConfigStatusUpdate: {
             status: components["schemas"]["AdapterStatus"];
         };
+        /** ModelSnapshot */
+        ModelSnapshot: {
+            /** Capabilities */
+            capabilities: string[];
+            /**
+             * Config Id
+             * Format: uuid
+             */
+            config_id: string;
+            /** Model Id */
+            model_id: string;
+            /** Provider */
+            provider: string;
+            /** Status */
+            status: string;
+        };
         /** NextExperiment */
         NextExperiment: {
             /** Change */
@@ -2435,6 +2664,26 @@ export interface components {
              */
             workspace_id: string;
         };
+        /** SourceAssetSnapshot */
+        SourceAssetSnapshot: {
+            /** Content Sha256 */
+            content_sha256: string;
+            /** File Name */
+            file_name: string | null;
+            /** Kind */
+            kind: string;
+            /** Mime Type */
+            mime_type: string | null;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Source Url */
+            source_url: string | null;
+            /** Status */
+            status: string;
+        };
         /** StyleCandidateRead */
         StyleCandidateRead: {
             /**
@@ -2454,6 +2703,24 @@ export interface components {
             /** Column Campaign Id */
             column_campaign_id?: string | null;
             prohibited?: components["schemas"]["ProhibitedStyle"] | null;
+        };
+        /** StyleInheritanceSelection */
+        StyleInheritanceSelection: {
+            /**
+             * Copy
+             * @default true
+             */
+            copy: boolean;
+            /**
+             * Cover
+             * @default true
+             */
+            cover: boolean;
+            /**
+             * Title
+             * @default true
+             */
+            title: boolean;
         };
         /** StyleInheritanceSwitches */
         StyleInheritanceSwitches: {
@@ -2550,6 +2817,19 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** StyleSnapshot */
+        StyleSnapshot: {
+            /**
+             * Profile Id
+             * Format: uuid
+             */
+            profile_id: string;
+            /** Style Json */
+            style_json: string;
+            switches: components["schemas"]["StyleInheritanceSelection"];
+            /** Version */
+            version: number;
+        };
         /** SuggestionAdoptionInput */
         SuggestionAdoptionInput: {
             /**
@@ -2557,6 +2837,72 @@ export interface components {
              * @enum {string}
              */
             adoption_status: "adopted" | "rejected";
+        };
+        /** TextGenerationEdit */
+        TextGenerationEdit: {
+            /**
+             * Adoption Status
+             * @enum {string}
+             */
+            adoption_status: "pending" | "adopted" | "discarded";
+            /** Final Copy */
+            final_copy: string;
+            /** Final Title */
+            final_title: string;
+        };
+        /** TextGenerationRunRead */
+        TextGenerationRunRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Adoption Status
+             * @enum {string}
+             */
+            adoption_status: "pending" | "adopted" | "discarded";
+            /** Completed At */
+            completed_at: string | null;
+            context: components["schemas"]["GenerationContext"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Final Copy */
+            final_copy: string | null;
+            /** Final Title */
+            final_title: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Modification Magnitude */
+            modification_magnitude: number;
+            original_result: components["schemas"]["GeneratedTextResult"] | null;
+            /** Retry Of Run Id */
+            retry_of_run_id: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
+            /** Status Detail */
+            status_detail: string | null;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -2733,6 +3079,27 @@ export interface components {
              * Format: uuid
              */
             workspace_id: string;
+        };
+        /** ViralReferenceSnapshot */
+        ViralReferenceSnapshot: {
+            /** Applicable Scenarios */
+            applicable_scenarios: string[];
+            /** Category */
+            category: string;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /**
+             * Library Item Id
+             * Format: uuid
+             */
+            library_item_id: string;
+            /** Strategy Tags */
+            strategy_tags: string[];
+            /** Structure Summary */
+            structure_summary: string;
         };
         /** ViralRevocationInput */
         ViralRevocationInput: {
@@ -4911,6 +5278,191 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FactSourceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_text_generation_v1_workspaces__workspace_id__generation_text_runs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerationInputs"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenerationRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_text_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenerationRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TextGenerationEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenerationRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenerationRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TextGenerationRunRead"];
                 };
             };
             /** @description Validation Error */

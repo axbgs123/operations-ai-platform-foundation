@@ -14,6 +14,7 @@ from app.modules.imports import models as import_models  # noqa: F401
 from app.modules.models import models as model_config_models  # noqa: F401
 from app.modules.style_facts import style_models  # noqa: F401
 from app.modules.style_facts import fact_models  # noqa: F401
+from app.modules.generation import models as generation_models  # noqa: F401
 from app.modules.workspace import models  # noqa: F401
 
 

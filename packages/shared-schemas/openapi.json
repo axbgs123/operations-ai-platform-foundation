@@ -868,6 +868,29 @@
         "title": "Capability",
         "type": "string"
       },
+      "ClaimDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "field_name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Field Name",
+            "type": "string"
+          },
+          "value": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field_name",
+          "value"
+        ],
+        "title": "ClaimDraft",
+        "type": "object"
+      },
       "ColumnCampaignCreate": {
         "properties": {
           "benchmark_sample_size": {
@@ -1108,6 +1131,42 @@
           "benchmarks"
         ],
         "title": "ConfigurationVersionsRead",
+        "type": "object"
+      },
+      "ConfirmedFactSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "field_code": {
+            "title": "Field Code",
+            "type": "string"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_level": {
+            "title": "Source Level",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "field_code",
+          "value",
+          "source_id",
+          "source_level"
+        ],
+        "title": "ConfirmedFactSnapshot",
         "type": "object"
       },
       "ContentCreate": {
@@ -2477,6 +2536,290 @@
         "title": "FactSourceRead",
         "type": "object"
       },
+      "GeneratedTextResult": {
+        "additionalProperties": false,
+        "properties": {
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/GenerationCitation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimDraft"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "copy": {
+            "title": "Copy",
+            "type": "string"
+          },
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Titles",
+            "type": "array"
+          },
+          "warnings": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "titles",
+          "copy",
+          "claims",
+          "citations"
+        ],
+        "title": "GeneratedTextResult",
+        "type": "object"
+      },
+      "GenerationCitation": {
+        "additionalProperties": false,
+        "properties": {
+          "fact_item_id": {
+            "format": "uuid",
+            "title": "Fact Item Id",
+            "type": "string"
+          },
+          "field_code": {
+            "title": "Field Code",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_item_id",
+          "source_id",
+          "field_code",
+          "value"
+        ],
+        "title": "GenerationCitation",
+        "type": "object"
+      },
+      "GenerationContext": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "confirmed_facts": {
+            "items": {
+              "$ref": "#/components/schemas/ConfirmedFactSnapshot"
+            },
+            "title": "Confirmed Facts",
+            "type": "array"
+          },
+          "confirmed_facts_version": {
+            "title": "Confirmed Facts Version",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelSnapshot"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "risk_rule_version": {
+            "title": "Risk Rule Version",
+            "type": "string"
+          },
+          "source_assets": {
+            "items": {
+              "$ref": "#/components/schemas/SourceAssetSnapshot"
+            },
+            "title": "Source Assets",
+            "type": "array"
+          },
+          "style": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StyleSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          },
+          "user_prompt": {
+            "title": "User Prompt",
+            "type": "string"
+          },
+          "viral_references": {
+            "items": {
+              "$ref": "#/components/schemas/ViralReferenceSnapshot"
+            },
+            "title": "Viral References",
+            "type": "array"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "account_id",
+          "platform",
+          "column_campaign_id",
+          "target",
+          "confirmed_facts",
+          "confirmed_facts_version",
+          "style",
+          "viral_references",
+          "user_prompt",
+          "source_assets",
+          "risk_rule_version",
+          "model"
+        ],
+        "title": "GenerationContext",
+        "type": "object"
+      },
+      "GenerationInputs": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "confirmed_fact_item_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Confirmed Fact Item Ids",
+            "type": "array"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "risk_rule_version": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Risk Rule Version",
+            "type": "string"
+          },
+          "source_asset_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Source Asset Ids",
+            "type": "array"
+          },
+          "style_profile_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Profile Id"
+          },
+          "style_switches": {
+            "$ref": "#/components/schemas/StyleInheritanceSelection"
+          },
+          "target": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "user_prompt": {
+            "default": "",
+            "maxLength": 20000,
+            "title": "User Prompt",
+            "type": "string"
+          },
+          "viral_library_item_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Viral Library Item Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "account_id",
+          "platform",
+          "target",
+          "risk_rule_version",
+          "model_config_id"
+        ],
+        "title": "GenerationInputs",
+        "type": "object"
+      },
       "GoalMetricCard": {
         "properties": {
           "change_rate": {
@@ -3191,6 +3534,44 @@
         "title": "ModelConfigStatusUpdate",
         "type": "object"
       },
+      "ModelSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "config_id": {
+            "format": "uuid",
+            "title": "Config Id",
+            "type": "string"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "config_id",
+          "provider",
+          "model_id",
+          "capabilities",
+          "status"
+        ],
+        "title": "ModelSnapshot",
+        "type": "object"
+      },
       "NextExperiment": {
         "additionalProperties": false,
         "properties": {
@@ -3725,6 +4106,72 @@
         "title": "SnapshotRead",
         "type": "object"
       },
+      "SourceAssetSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "content_sha256": {
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "file_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Name"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "kind",
+          "content_sha256",
+          "status",
+          "file_name",
+          "mime_type",
+          "source_url"
+        ],
+        "title": "SourceAssetSnapshot",
+        "type": "object"
+      },
       "StyleCandidateRead": {
         "properties": {
           "content_id": {
@@ -3789,6 +4236,28 @@
           }
         },
         "title": "StyleExtractionInput",
+        "type": "object"
+      },
+      "StyleInheritanceSelection": {
+        "additionalProperties": false,
+        "properties": {
+          "copy": {
+            "default": true,
+            "title": "Copy",
+            "type": "boolean"
+          },
+          "cover": {
+            "default": true,
+            "title": "Cover",
+            "type": "boolean"
+          },
+          "title": {
+            "default": true,
+            "title": "Title",
+            "type": "boolean"
+          }
+        },
+        "title": "StyleInheritanceSelection",
         "type": "object"
       },
       "StyleInheritanceSwitches": {
@@ -3989,6 +4458,35 @@
         "title": "StyleSampleRead",
         "type": "object"
       },
+      "StyleSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_id": {
+            "format": "uuid",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "style_json": {
+            "title": "Style Json",
+            "type": "string"
+          },
+          "switches": {
+            "$ref": "#/components/schemas/StyleInheritanceSelection"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profile_id",
+          "version",
+          "switches",
+          "style_json"
+        ],
+        "title": "StyleSnapshot",
+        "type": "object"
+      },
       "SuggestionAdoptionInput": {
         "additionalProperties": false,
         "properties": {
@@ -4005,6 +4503,193 @@
           "adoption_status"
         ],
         "title": "SuggestionAdoptionInput",
+        "type": "object"
+      },
+      "TextGenerationEdit": {
+        "additionalProperties": false,
+        "properties": {
+          "adoption_status": {
+            "enum": [
+              "pending",
+              "adopted",
+              "discarded"
+            ],
+            "title": "Adoption Status",
+            "type": "string"
+          },
+          "final_copy": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Final Copy",
+            "type": "string"
+          },
+          "final_title": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Final Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "final_title",
+          "final_copy",
+          "adoption_status"
+        ],
+        "title": "TextGenerationEdit",
+        "type": "object"
+      },
+      "TextGenerationRunRead": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "adoption_status": {
+            "enum": [
+              "pending",
+              "adopted",
+              "discarded"
+            ],
+            "title": "Adoption Status",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "context": {
+            "$ref": "#/components/schemas/GenerationContext"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "final_copy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Copy"
+          },
+          "final_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Title"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "modification_magnitude": {
+            "title": "Modification Magnitude",
+            "type": "number"
+          },
+          "original_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeneratedTextResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retry_of_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Of Run Id"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "status_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Detail"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "account_id",
+          "model_config_id",
+          "context",
+          "status",
+          "original_result",
+          "final_title",
+          "final_copy",
+          "adoption_status",
+          "modification_magnitude",
+          "retry_of_run_id",
+          "error_code",
+          "status_detail",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "TextGenerationRunRead",
         "type": "object"
       },
       "ValidationError": {
@@ -4406,6 +5091,53 @@
           "revocation_reason"
         ],
         "title": "ViralLibraryItemRead",
+        "type": "object"
+      },
+      "ViralReferenceSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "applicable_scenarios": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applicable Scenarios",
+            "type": "array"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "library_item_id": {
+            "format": "uuid",
+            "title": "Library Item Id",
+            "type": "string"
+          },
+          "strategy_tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Strategy Tags",
+            "type": "array"
+          },
+          "structure_summary": {
+            "title": "Structure Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "library_item_id",
+          "content_id",
+          "category",
+          "strategy_tags",
+          "applicable_scenarios",
+          "structure_summary"
+        ],
+        "title": "ViralReferenceSnapshot",
         "type": "object"
       },
       "ViralRevocationInput": {
@@ -9168,6 +9900,423 @@
         "summary": "Read Fact Source",
         "tags": [
           "fact-sources"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/generation/text-runs": {
+      "post": {
+        "operationId": "request_text_generation_v1_workspaces__workspace_id__generation_text_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationInputs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenerationRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Text Generation",
+        "tags": [
+          "generation"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/generation/text-runs/{run_id}": {
+      "get": {
+        "operationId": "read_text_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenerationRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Text Generation",
+        "tags": [
+          "generation"
+        ]
+      },
+      "patch": {
+        "operationId": "edit_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextGenerationEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenerationRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit Generation",
+        "tags": [
+          "generation"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/generation/text-runs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenerationRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Generation",
+        "tags": [
+          "generation"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/generation/text-runs/{run_id}/retry": {
+      "post": {
+        "operationId": "retry_generation_v1_workspaces__workspace_id__generation_text_runs__run_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextGenerationRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Generation",
+        "tags": [
+          "generation"
         ]
       }
     },
