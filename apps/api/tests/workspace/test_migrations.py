@@ -8,6 +8,7 @@ from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
 
+from app.core.schema_consistency import assert_schema_consistent
 
 ROOT = Path(__file__).parents[4]
 DATABASE_URL = os.getenv(
@@ -60,6 +61,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "risk_documents",
             "risk_chunks",
             "risk_chunk_embeddings",
+            "risk_scans",
         } <= tables
 
         access_code_columns = {
@@ -164,7 +166,45 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "embedding_version",
             "vector",
         } <= risk_embedding_columns.keys()
+        risk_scan_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("risk_scans")
+        }
+        assert {
+            "workspace_id",
+            "account_id",
+            "content_id",
+            "cover_asset_id",
+            "previous_scan_id",
+            "requested_by",
+            "platform",
+            "node",
+            "status",
+            "idempotency_key",
+            "input_fingerprint",
+            "input_snapshot",
+            "result",
+            "error_code",
+            "diagnostics",
+            "rule_version",
+            "evidence_version",
+            "embedding_model_id",
+            "embedding_version",
+            "embedding_dimension",
+            "rag_model_version",
+            "scanner_version",
+        } <= risk_scan_columns
         with migrated_engine.connect() as connection:
+            assert_schema_consistent(
+                connection,
+                expected_head="20260723_0019",
+                required_tables={
+                    "risk_documents",
+                    "risk_chunks",
+                    "risk_chunk_embeddings",
+                    "risk_scans",
+                },
+            )
             extensions = set(
                 connection.execute(
                     text("SELECT extname FROM pg_extension")

@@ -82,6 +82,25 @@ class RiskDocumentStatus(StrEnum):
     EXPIRED = "expired"
 
 
+class RiskScanStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    RETRYING = "retrying"
+
+
+class RiskScanNode(StrEnum):
+    AFTER_INGESTION = "after_ingestion"
+    AFTER_GENERATION = "after_generation"
+    BEFORE_PUBLICATION = "before_publication"
+
+
+class ImmutableRiskScanError(RuntimeError):
+    pass
+
+
 def enum_type(enum: type[StrEnum], name: str) -> Enum:
     return Enum(
         enum,
@@ -267,3 +286,91 @@ class RiskChunkEmbedding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     dimension: Mapped[int] = mapped_column(Integer)
     embedding_version: Mapped[str] = mapped_column(String(80))
     vector: Mapped[list[float]] = mapped_column(Vector())
+
+
+class RiskScan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "risk_scans"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "idempotency_key",
+            name="uq_risk_scans_workspace_idempotency",
+        ),
+        Index("ix_risk_scans_workspace_id", "workspace_id"),
+        Index("ix_risk_scans_account_id", "account_id"),
+        Index("ix_risk_scans_content_id", "content_id"),
+        Index("ix_risk_scans_previous_scan_id", "previous_scan_id"),
+        Index(
+            "ix_risk_scans_history",
+            "workspace_id",
+            "content_id",
+            "created_at",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    account_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("platform_accounts.id", ondelete="RESTRICT"),
+    )
+    content_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("contents.id", ondelete="RESTRICT"),
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    node: Mapped[RiskScanNode] = mapped_column(
+        enum_type(RiskScanNode, "risk_scan_node")
+    )
+    status: Mapped[RiskScanStatus] = mapped_column(
+        enum_type(RiskScanStatus, "risk_scan_status")
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    input_fingerprint: Mapped[str] = mapped_column(String(64))
+    input_snapshot: Mapped[dict[str, object]] = mapped_column(JSON)
+    rule_version: Mapped[str] = mapped_column(String(160))
+    evidence_version: Mapped[str] = mapped_column(String(160))
+    embedding_model_id: Mapped[str] = mapped_column(String(160))
+    embedding_version: Mapped[str] = mapped_column(String(80))
+    embedding_dimension: Mapped[int] = mapped_column(Integer)
+    rag_model_version: Mapped[str] = mapped_column(String(160))
+    scanner_version: Mapped[str] = mapped_column(String(160))
+    result: Mapped[dict[str, object] | None] = mapped_column(
+        JSON,
+        default=None,
+    )
+    error_code: Mapped[str | None] = mapped_column(
+        String(120),
+        default=None,
+    )
+    diagnostics: Mapped[list[str]] = mapped_column(
+        JSON,
+        default_factory=list,
+    )
+    cover_asset_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("content_assets.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    previous_scan_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("risk_scans.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    requested_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="SET NULL"),
+        default=None,
+    )
+
+
+@event.listens_for(RiskScan, "before_update")
+def _reject_risk_scan_update(mapper, connection, target) -> None:
+    raise ImmutableRiskScanError("persisted risk scans are immutable")
+
+
+@event.listens_for(RiskScan, "before_delete")
+def _reject_risk_scan_delete(mapper, connection, target) -> None:
+    raise ImmutableRiskScanError("persisted risk scans cannot be deleted")

@@ -1073,6 +1073,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/risk-scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Risk Scans */
+        get: operations["list_risk_scans_v1_workspaces__workspace_id__risk_scans_get"];
+        put?: never;
+        /** Create Risk Scan */
+        post: operations["create_risk_scan_v1_workspaces__workspace_id__risk_scans_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-scans/{scan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Risk Scan */
+        get: operations["get_risk_scan_v1_workspaces__workspace_id__risk_scans__scan_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/style-profiles/{profile_id}/confirm": {
         parameters: {
             query?: never;
@@ -1542,6 +1577,32 @@ export interface components {
          * @enum {string}
          */
         Capability: "text" | "vision" | "image" | "embedding";
+        /** Citation */
+        Citation: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /** Chunk Location */
+            chunk_location: string;
+            /** Document Title */
+            document_title: string;
+            /** Document Version */
+            document_version: number;
+            /**
+             * Effective At
+             * Format: date-time
+             */
+            effective_at: string;
+            /** Excerpt */
+            excerpt: string;
+            /** Private Document Id */
+            private_document_id: string | null;
+            source_level: components["schemas"]["RiskSourceLevel"];
+            /** Source Url */
+            source_url: string | null;
+        };
         /** ClaimDraft */
         ClaimDraft: {
             /** Field Name */
@@ -2573,6 +2634,31 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** OcrRegion */
+        OcrRegion: {
+            /** Bbox */
+            bbox: [
+                number,
+                number,
+                number,
+                number
+            ];
+            /** Confidence */
+            confidence: number;
+            /** Text */
+            text: string;
+        };
+        /** OcrResult */
+        OcrResult: {
+            /** Regions */
+            regions: components["schemas"]["OcrRegion"][];
+            status: components["schemas"]["OcrStatus"];
+        };
+        /**
+         * OcrStatus
+         * @enum {string}
+         */
+        OcrStatus: "succeeded" | "empty" | "failed" | "unavailable";
         /**
          * Platform
          * @enum {string}
@@ -2693,11 +2779,212 @@ export interface components {
         RiskDocumentTransition: {
             status: components["schemas"]["RiskDocumentStatus"];
         };
+        /** RiskFinding */
+        RiskFinding: {
+            /**
+             * Citations
+             * @default []
+             */
+            citations: components["schemas"]["Citation"][];
+            /**
+             * Deterministic Confirmed
+             * @default false
+             */
+            deterministic_confirmed: boolean;
+            /**
+             * Evidence Document Ids
+             * @default []
+             */
+            evidence_document_ids: string[];
+            /** Matched Content */
+            matched_content: string;
+            /** Ocr Bbox */
+            ocr_bbox?: [
+                number,
+                number,
+                number,
+                number
+            ] | null;
+            /** Ocr Confidence */
+            ocr_confidence?: number | null;
+            origin: components["schemas"]["RiskFindingOrigin"];
+            /** Reason */
+            reason: string;
+            region: components["schemas"]["RiskRegion"];
+            /**
+             * Requires Human Review
+             * @default false
+             */
+            requires_human_review: boolean;
+            /** Risk Type */
+            risk_type: string;
+            severity: components["schemas"]["ScanSeverity"];
+            /** Suggestion */
+            suggestion: string;
+        };
+        /**
+         * RiskFindingOrigin
+         * @enum {string}
+         */
+        RiskFindingOrigin: "deterministic" | "rag" | "deterministic_and_rag";
+        /**
+         * RiskRegion
+         * @enum {string}
+         */
+        RiskRegion: "title" | "body" | "cover";
+        /** RiskScanInput */
+        RiskScanInput: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Body */
+            body: string;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /** Cover Asset Id */
+            cover_asset_id?: string | null;
+            /** Idempotency Key */
+            idempotency_key: string;
+            node: components["schemas"]["RiskScanNode"];
+            ocr: components["schemas"]["OcrResult"];
+            platform: components["schemas"]["Platform"];
+            /**
+             * Requested At
+             * Format: date-time
+             */
+            requested_at: string;
+            /** Title */
+            title: string;
+            versions: components["schemas"]["RiskScanVersions"];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /**
+         * RiskScanNode
+         * @enum {string}
+         */
+        RiskScanNode: "after_ingestion" | "after_generation" | "before_publication";
+        /** RiskScanOutput */
+        RiskScanOutput: {
+            /** Diagnostics */
+            diagnostics: string[];
+            /**
+             * Disclaimer
+             * @default 辅助判断，不保证通过平台审核
+             */
+            disclaimer: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Findings */
+            findings: components["schemas"]["RiskFinding"][];
+            ocr_status: components["schemas"]["OcrStatus"];
+            /**
+             * Scanned At
+             * Format: date-time
+             */
+            scanned_at: string;
+            versions: components["schemas"]["RiskScanVersions"];
+        };
+        /** RiskScanRead */
+        RiskScanRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /** Cover Asset Id */
+            cover_asset_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Diagnostics */
+            diagnostics: string[];
+            /** Embedding Dimension */
+            embedding_dimension: number;
+            /** Embedding Model Id */
+            embedding_model_id: string;
+            /** Embedding Version */
+            embedding_version: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Evidence Version */
+            evidence_version: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Idempotency Key */
+            idempotency_key: string;
+            /** Input Snapshot */
+            input_snapshot: {
+                [key: string]: unknown;
+            };
+            node: components["schemas"]["RiskScanNode"];
+            platform: components["schemas"]["Platform"];
+            /** Previous Scan Id */
+            previous_scan_id: string | null;
+            /** Rag Model Version */
+            rag_model_version: string;
+            result: components["schemas"]["RiskScanOutput"] | null;
+            /** Rule Version */
+            rule_version: string;
+            /** Scanner Version */
+            scanner_version: string;
+            status: components["schemas"]["RiskScanStatus"];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /**
+         * RiskScanStatus
+         * @enum {string}
+         */
+        RiskScanStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "retrying";
+        /** RiskScanVersions */
+        RiskScanVersions: {
+            /** Embedding Dimension */
+            embedding_dimension: number;
+            /** Embedding Model Id */
+            embedding_model_id: string;
+            /** Embedding Version */
+            embedding_version: string;
+            /** Evidence Version */
+            evidence_version: string;
+            /** Rag Model Version */
+            rag_model_version: string;
+            /** Rule Version */
+            rule_version: string;
+            /** Scanner Version */
+            scanner_version: string;
+        };
         /**
          * RiskSourceLevel
          * @enum {string}
          */
         RiskSourceLevel: "S1" | "S2" | "S3" | "S4" | "S5";
+        /**
+         * ScanSeverity
+         * @enum {string}
+         */
+        ScanSeverity: "low" | "medium" | "high";
         /** SessionCreated */
         SessionCreated: {
             /** Csrf Token */
@@ -6106,6 +6393,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_risk_scans_v1_workspaces__workspace_id__risk_scans_get: {
+        parameters: {
+            query: {
+                content_id: string;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskScanRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_risk_scan_v1_workspaces__workspace_id__risk_scans_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskScanInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskScanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_risk_scan_v1_workspaces__workspace_id__risk_scans__scan_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                scan_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskScanRead"];
                 };
             };
             /** @description Validation Error */

@@ -17,6 +17,14 @@ from app.modules.risk_rag.schemas import (
     RiskDocumentCreate,
     RiskDocumentRead,
     RiskDocumentTransition,
+    RiskScanRead,
+)
+from app.modules.risk_rag.scanner import (
+    IdempotencyConflict,
+    RiskScanExecutionFailed,
+    RiskScanInput,
+    RiskScanService,
+    build_default_pipeline,
 )
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.permissions import PermissionDenied
@@ -25,6 +33,10 @@ from app.modules.workspace.permissions import PermissionDenied
 router = APIRouter(
     prefix="/v1/workspaces/{workspace_id}/risk-documents",
     tags=["risk-knowledge"],
+)
+scan_router = APIRouter(
+    prefix="/v1/workspaces/{workspace_id}/risk-scans",
+    tags=["risk-scans"],
 )
 DatabaseSession = Annotated[Session, Depends(get_session)]
 
@@ -166,3 +178,87 @@ def transition_risk_document(
         raise HTTPException(status_code=404, detail="risk document not found")
     session.commit()
     return RiskDocumentRead.model_validate(document)
+
+
+@scan_router.post("", response_model=RiskScanRead, status_code=201)
+def create_risk_scan(
+    workspace_id: UUID,
+    data: RiskScanInput,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> RiskScanRead:
+    context = _context(
+        session,
+        workspace_id,
+        session_token,
+        csrf_token,
+        mutation=True,
+    )
+    service = RiskScanService(session, context=context)
+    try:
+        scan = service.execute(
+            data,
+            pipeline=build_default_pipeline(session, data),
+        )
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except IdempotencyConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except RiskScanExecutionFailed as error:
+        session.commit()
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "RISK_SCAN_VALIDATION_FAILED",
+                "scan_id": str(error.scan_id),
+            },
+        ) from error
+    session.commit()
+    return RiskScanRead.model_validate(scan)
+
+
+@scan_router.get("/{scan_id}", response_model=RiskScanRead)
+def get_risk_scan(
+    workspace_id: UUID,
+    scan_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> RiskScanRead:
+    context = _context(
+        session,
+        workspace_id,
+        session_token,
+        None,
+        mutation=False,
+    )
+    try:
+        scan = RiskScanService(session, context=context).get(scan_id)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return RiskScanRead.model_validate(scan)
+
+
+@scan_router.get("", response_model=list[RiskScanRead])
+def list_risk_scans(
+    workspace_id: UUID,
+    content_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> list[RiskScanRead]:
+    context = _context(
+        session,
+        workspace_id,
+        session_token,
+        None,
+        mutation=False,
+    )
+    return [
+        RiskScanRead.model_validate(scan)
+        for scan in RiskScanService(
+            session,
+            context=context,
+        ).history(content_id)
+    ]

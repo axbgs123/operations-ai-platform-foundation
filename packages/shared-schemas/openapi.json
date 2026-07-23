@@ -868,6 +868,74 @@
         "title": "Capability",
         "type": "string"
       },
+      "Citation": {
+        "properties": {
+          "chunk_id": {
+            "format": "uuid",
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "chunk_location": {
+            "title": "Chunk Location",
+            "type": "string"
+          },
+          "document_title": {
+            "title": "Document Title",
+            "type": "string"
+          },
+          "document_version": {
+            "title": "Document Version",
+            "type": "integer"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "private_document_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Private Document Id"
+          },
+          "source_level": {
+            "$ref": "#/components/schemas/RiskSourceLevel"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          }
+        },
+        "required": [
+          "document_title",
+          "source_level",
+          "source_url",
+          "private_document_id",
+          "document_version",
+          "effective_at",
+          "chunk_id",
+          "chunk_location",
+          "excerpt"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
       "ClaimDraft": {
         "additionalProperties": false,
         "properties": {
@@ -3657,6 +3725,81 @@
         "title": "ObjectiveProfileRead",
         "type": "object"
       },
+      "OcrRegion": {
+        "additionalProperties": false,
+        "properties": {
+          "bbox": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Bbox",
+            "type": "array"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "text": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "bbox",
+          "confidence"
+        ],
+        "title": "OcrRegion",
+        "type": "object"
+      },
+      "OcrResult": {
+        "additionalProperties": false,
+        "properties": {
+          "regions": {
+            "items": {
+              "$ref": "#/components/schemas/OcrRegion"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OcrStatus"
+          }
+        },
+        "required": [
+          "status",
+          "regions"
+        ],
+        "title": "OcrResult",
+        "type": "object"
+      },
+      "OcrStatus": {
+        "enum": [
+          "succeeded",
+          "empty",
+          "failed",
+          "unavailable"
+        ],
+        "title": "OcrStatus",
+        "type": "string"
+      },
       "Platform": {
         "enum": [
           "douyin",
@@ -4046,6 +4189,497 @@
         "title": "RiskDocumentTransition",
         "type": "object"
       },
+      "RiskFinding": {
+        "additionalProperties": false,
+        "properties": {
+          "citations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citations",
+            "type": "array"
+          },
+          "deterministic_confirmed": {
+            "default": false,
+            "title": "Deterministic Confirmed",
+            "type": "boolean"
+          },
+          "evidence_document_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Evidence Document Ids",
+            "type": "array"
+          },
+          "matched_content": {
+            "title": "Matched Content",
+            "type": "string"
+          },
+          "ocr_bbox": {
+            "anyOf": [
+              {
+                "maxItems": 4,
+                "minItems": 4,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Bbox"
+          },
+          "ocr_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Confidence"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/RiskFindingOrigin"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "region": {
+            "$ref": "#/components/schemas/RiskRegion"
+          },
+          "requires_human_review": {
+            "default": false,
+            "title": "Requires Human Review",
+            "type": "boolean"
+          },
+          "risk_type": {
+            "title": "Risk Type",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/ScanSeverity"
+          },
+          "suggestion": {
+            "title": "Suggestion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "risk_type",
+          "severity",
+          "matched_content",
+          "region",
+          "reason",
+          "suggestion",
+          "origin"
+        ],
+        "title": "RiskFinding",
+        "type": "object"
+      },
+      "RiskFindingOrigin": {
+        "enum": [
+          "deterministic",
+          "rag",
+          "deterministic_and_rag"
+        ],
+        "title": "RiskFindingOrigin",
+        "type": "string"
+      },
+      "RiskRegion": {
+        "enum": [
+          "title",
+          "body",
+          "cover"
+        ],
+        "title": "RiskRegion",
+        "type": "string"
+      },
+      "RiskScanInput": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 100000,
+            "title": "Body",
+            "type": "string"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "cover_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Asset Id"
+          },
+          "idempotency_key": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "node": {
+            "$ref": "#/components/schemas/RiskScanNode"
+          },
+          "ocr": {
+            "$ref": "#/components/schemas/OcrResult"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "requested_at": {
+            "format": "date-time",
+            "title": "Requested At",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 2000,
+            "title": "Title",
+            "type": "string"
+          },
+          "versions": {
+            "$ref": "#/components/schemas/RiskScanVersions"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "account_id",
+          "content_id",
+          "platform",
+          "node",
+          "title",
+          "body",
+          "ocr",
+          "idempotency_key",
+          "versions",
+          "requested_at"
+        ],
+        "title": "RiskScanInput",
+        "type": "object"
+      },
+      "RiskScanNode": {
+        "enum": [
+          "after_ingestion",
+          "after_generation",
+          "before_publication"
+        ],
+        "title": "RiskScanNode",
+        "type": "string"
+      },
+      "RiskScanOutput": {
+        "additionalProperties": false,
+        "properties": {
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "disclaimer": {
+            "default": "辅助判断，不保证通过平台审核",
+            "title": "Disclaimer",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/components/schemas/RiskFinding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "ocr_status": {
+            "$ref": "#/components/schemas/OcrStatus"
+          },
+          "scanned_at": {
+            "format": "date-time",
+            "title": "Scanned At",
+            "type": "string"
+          },
+          "versions": {
+            "$ref": "#/components/schemas/RiskScanVersions"
+          }
+        },
+        "required": [
+          "findings",
+          "ocr_status",
+          "diagnostics",
+          "error_code",
+          "versions",
+          "scanned_at"
+        ],
+        "title": "RiskScanOutput",
+        "type": "object"
+      },
+      "RiskScanRead": {
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "cover_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cover Asset Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "embedding_dimension": {
+            "title": "Embedding Dimension",
+            "type": "integer"
+          },
+          "embedding_model_id": {
+            "title": "Embedding Model Id",
+            "type": "string"
+          },
+          "embedding_version": {
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evidence_version": {
+            "title": "Evidence Version",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "input_snapshot": {
+            "additionalProperties": true,
+            "title": "Input Snapshot",
+            "type": "object"
+          },
+          "node": {
+            "$ref": "#/components/schemas/RiskScanNode"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "previous_scan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Scan Id"
+          },
+          "rag_model_version": {
+            "title": "Rag Model Version",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskScanOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "scanner_version": {
+            "title": "Scanner Version",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RiskScanStatus"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "account_id",
+          "content_id",
+          "cover_asset_id",
+          "previous_scan_id",
+          "platform",
+          "node",
+          "status",
+          "idempotency_key",
+          "input_snapshot",
+          "result",
+          "error_code",
+          "diagnostics",
+          "rule_version",
+          "evidence_version",
+          "embedding_model_id",
+          "embedding_version",
+          "embedding_dimension",
+          "rag_model_version",
+          "scanner_version",
+          "created_at"
+        ],
+        "title": "RiskScanRead",
+        "type": "object"
+      },
+      "RiskScanStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled",
+          "retrying"
+        ],
+        "title": "RiskScanStatus",
+        "type": "string"
+      },
+      "RiskScanVersions": {
+        "additionalProperties": false,
+        "properties": {
+          "embedding_dimension": {
+            "exclusiveMinimum": 0.0,
+            "title": "Embedding Dimension",
+            "type": "integer"
+          },
+          "embedding_model_id": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Embedding Model Id",
+            "type": "string"
+          },
+          "embedding_version": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "evidence_version": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Evidence Version",
+            "type": "string"
+          },
+          "rag_model_version": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Rag Model Version",
+            "type": "string"
+          },
+          "rule_version": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "scanner_version": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Scanner Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_version",
+          "evidence_version",
+          "embedding_model_id",
+          "embedding_version",
+          "embedding_dimension",
+          "rag_model_version",
+          "scanner_version"
+        ],
+        "title": "RiskScanVersions",
+        "type": "object"
+      },
       "RiskSourceLevel": {
         "enum": [
           "S1",
@@ -4055,6 +4689,15 @@
           "S5"
         ],
         "title": "RiskSourceLevel",
+        "type": "string"
+      },
+      "ScanSeverity": {
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "title": "ScanSeverity",
         "type": "string"
       },
       "SessionCreated": {
@@ -11673,6 +12316,231 @@
         "summary": "Transition Risk Document",
         "tags": [
           "risk-knowledge"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/risk-scans": {
+      "get": {
+        "operationId": "list_risk_scans_v1_workspaces__workspace_id__risk_scans_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RiskScanRead"
+                  },
+                  "title": "Response List Risk Scans V1 Workspaces  Workspace Id  Risk Scans Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Risk Scans",
+        "tags": [
+          "risk-scans"
+        ]
+      },
+      "post": {
+        "operationId": "create_risk_scan_v1_workspaces__workspace_id__risk_scans_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RiskScanInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskScanRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Risk Scan",
+        "tags": [
+          "risk-scans"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/risk-scans/{scan_id}": {
+      "get": {
+        "operationId": "get_risk_scan_v1_workspaces__workspace_id__risk_scans__scan_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "scan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskScanRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Risk Scan",
+        "tags": [
+          "risk-scans"
         ]
       }
     },

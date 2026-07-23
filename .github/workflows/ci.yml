@@ -56,7 +56,9 @@ jobs:
 
       - name: Verify migration graph is current
         working-directory: apps/api
-        run: uv run alembic check
+        run: |
+          uv run alembic check
+          uv run python -m app.core.schema_consistency
 
       - name: Validate deployment and secrets
         run: |

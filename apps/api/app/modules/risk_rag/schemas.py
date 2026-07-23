@@ -9,7 +9,10 @@ from app.modules.risk_rag.models import (
     RiskDocumentScope,
     RiskDocumentStatus,
     RiskSourceLevel,
+    RiskScanNode,
+    RiskScanStatus,
 )
+from app.modules.risk_rag.scanner import RiskScanOutput
 
 
 class RiskDocumentRead(BaseModel):
@@ -66,3 +69,30 @@ class RiskChunkRead(BaseModel):
     source_location: str
     text: str
     metadata_json: dict[str, object]
+
+
+class RiskScanRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    account_id: UUID
+    content_id: UUID
+    cover_asset_id: UUID | None
+    previous_scan_id: UUID | None
+    platform: Platform
+    node: RiskScanNode
+    status: RiskScanStatus
+    idempotency_key: str
+    input_snapshot: dict[str, object]
+    result: RiskScanOutput | None
+    error_code: str | None
+    diagnostics: list[str]
+    rule_version: str
+    evidence_version: str
+    embedding_model_id: str
+    embedding_version: str
+    embedding_dimension: int
+    rag_model_version: str
+    scanner_version: str
+    created_at: datetime

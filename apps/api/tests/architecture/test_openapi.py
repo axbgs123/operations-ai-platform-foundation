@@ -52,6 +52,7 @@ def test_web_api_consumers_use_generated_contracts() -> None:
         ROOT / "apps" / "web" / "src" / "lib" / "content-api.ts",
         ROOT / "apps" / "web" / "src" / "lib" / "account-api.ts",
         ROOT / "apps" / "web" / "src" / "lib" / "demo-api.ts",
+        ROOT / "apps" / "web" / "src" / "lib" / "risk-api.ts",
         ROOT / "apps" / "web" / "src" / "components" / "demo-workspace.tsx",
     ]
     for consumer in consumers:
@@ -61,6 +62,7 @@ def test_web_api_consumers_use_generated_contracts() -> None:
         "content-api.ts": {"ContentCreate", "ContentUpdate", "AssetPresignRequest"},
         "account-api.ts": {"ConfigurationInput"},
         "demo-api.ts": {"DemoGenerateRequest", "DemoGenerateResponse", "DemoSessionCreated"},
+        "risk-api.ts": {"RiskScanInput", "RiskScanRead"},
     }
     for file_name, contracts in required_contracts.items():
         source = (ROOT / "apps" / "web" / "src" / "lib" / file_name).read_text()
