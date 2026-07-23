@@ -1,0 +1,19 @@
+{
+  "synthetic_only": true,
+  "platform": "xiaohongshu",
+  "version": "synthetic-placeholder-v1",
+  "published_at": "2026-07-23T08:00:00Z",
+  "rules": [
+    {
+      "rule_id": "synthetic-xiaohongshu-marker",
+      "match_type": "term",
+      "patterns": ["SYNTHETIC_XIAOHONGSHU_TEST_MARKER"],
+      "severity": "low",
+      "scopes": ["title", "body", "cover_text"],
+      "disposition": "flag",
+      "evidence_document_ids": [
+        "00000000-0000-4000-8000-00000000a001"
+      ]
+    }
+  ]
+}
