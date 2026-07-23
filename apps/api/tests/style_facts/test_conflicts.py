@@ -224,7 +224,7 @@ def test_confirming_same_level_values_persists_unresolved_conflict_for_preflight
                 value=item.value,
                 level=FactSourceLevel.L2,
                 confirmed=item.status is FactItemStatus.CONFIRMED,
-                observed_at=item.confirmed_at or NOW,
+                observed_at=NOW,
                 max_age=None,
                 conflict_status=item.conflict_status,
                 persisted_field_code=item.field_code,
