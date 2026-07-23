@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,11 @@ from tests.generation.test_text_generation import _context
 class FailingAdapter:
     async def generate(self, request):
         raise ConnectionError("provider payload must not reach logs")
+
+
+class FailingRiskScanner:
+    def scan(self, data):
+        raise ConnectionError("risk scanner unavailable")
 
 
 def _session() -> Session:
@@ -112,6 +118,9 @@ def test_edit_preserves_original_records_adoption_and_redacted_audit():
         assert updated.final_title == "人工标题"
         assert updated.adoption_status == "adopted"
         assert 0 < updated.modification_magnitude <= 1
+        assert updated.status_detail == (
+            "未检索到有效风控证据；草稿已保存，但不能进入待发布"
+        )
         audit = session.scalar(select(AuditLog).where(AuditLog.resource_id == run.id))
         assert audit is not None
         serialized = str(audit.details)
@@ -122,3 +131,26 @@ def test_edit_preserves_original_records_adoption_and_redacted_audit():
             "final_title_length",
             "final_copy_length",
         }
+
+
+def test_failed_publication_gate_does_not_mutate_the_generation_run():
+    with _session() as session:
+        run, _ = create_text_generation(session, _context())
+        process_text_generation(session, run.id)
+        original_title = run.final_title
+        original_copy = run.final_copy
+
+        with pytest.raises(ValueError, match="RISK_SCAN_FAILED"):
+            edit_text_generation(
+                session,
+                run.id,
+                final_title="不应保留的新标题",
+                final_copy="不应保留的新文案",
+                adoption_status="adopted",
+                risk_scanner=FailingRiskScanner(),
+            )
+
+        assert run.final_title == original_title
+        assert run.final_copy == original_copy
+        assert run.adoption_status == "pending"
+        assert run.modification_magnitude == 0

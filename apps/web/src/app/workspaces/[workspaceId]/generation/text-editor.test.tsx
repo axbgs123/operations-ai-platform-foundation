@@ -53,6 +53,7 @@ beforeEach(() => {
   vi.mocked(editTextGeneration).mockResolvedValue({
     ...run,
     adoption_status: "adopted",
+    status_detail: "未检索到有效风控证据；草稿已保存，但不能进入待发布",
   });
 });
 
@@ -62,13 +63,40 @@ test("generates alternatives, shows citations, and saves the human final", async
 
   await user.type(screen.getByLabelText("账号 ID"), run.account_id);
   await user.type(screen.getByLabelText("模型配置 ID"), run.model_config_id);
+  await user.type(
+    screen.getByLabelText("栏目或活动 ID"),
+    "55555555-5555-4555-8555-555555555555",
+  );
+  await user.type(
+    screen.getByLabelText("风格档案 ID"),
+    "66666666-6666-4666-8666-666666666666",
+  );
+  await user.type(
+    screen.getByLabelText("爆款引用 ID（最多 3 条）"),
+    "77777777-7777-4777-8777-777777777777",
+  );
   await user.type(screen.getByLabelText("生成目标"), "新品发布");
   await user.click(screen.getByRole("button", { name: "生成标题与文案" }));
 
+  expect(requestTextGeneration).toHaveBeenCalledWith(
+    "workspace-1",
+    expect.objectContaining({
+      column_campaign_id: "55555555-5555-4555-8555-555555555555",
+      style_profile_id: "66666666-6666-4666-8666-666666666666",
+      style_switches: { title: true, copy: true, cover: true },
+      viral_library_item_ids: [
+        "77777777-7777-4777-8777-777777777777",
+      ],
+    }),
+    "csrf-token",
+  );
   expect(await screen.findByText("标题二")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("执行成功");
   expect(screen.getByText("price：199 元")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "采用标题二" }));
-  await user.click(screen.getByRole("button", { name: "采用并保存" }));
+  await user.click(
+    screen.getByRole("button", { name: "复检并保存草稿" }),
+  );
 
   expect(editTextGeneration).toHaveBeenCalledWith(
     "workspace-1",
@@ -79,5 +107,5 @@ test("generates alternatives, shows citations, and saves the human final", async
     }),
     "csrf-token",
   );
-  expect(await screen.findByText("已保存人工最终稿")).toBeInTheDocument();
+  expect(await screen.findByText("复检完成，草稿已保存")).toBeInTheDocument();
 });

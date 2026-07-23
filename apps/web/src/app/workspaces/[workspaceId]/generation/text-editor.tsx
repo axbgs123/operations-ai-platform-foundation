@@ -10,6 +10,7 @@ import {
   retryTextGeneration,
   TextGenerationRunData,
 } from "@/lib/generation-api";
+import { TaskStatus } from "@/components/generation/task-status";
 
 
 const delay = (milliseconds: number) =>
@@ -20,6 +21,10 @@ const splitIds = (value: string) =>
 export function TextEditor({ workspaceId }: { workspaceId: string }) {
   const [accountId, setAccountId] = useState("");
   const [modelConfigId, setModelConfigId] = useState("");
+  const [columnCampaignId, setColumnCampaignId] = useState("");
+  const [styleProfileId, setStyleProfileId] = useState("");
+  const [inheritStyle, setInheritStyle] = useState(true);
+  const [viralIds, setViralIds] = useState("");
   const [platform, setPlatform] = useState<"douyin" | "xiaohongshu">("douyin");
   const [target, setTarget] = useState("");
   const [prompt, setPrompt] = useState("");
@@ -67,12 +72,19 @@ export function TextEditor({ workspaceId }: { workspaceId: string }) {
           model_config_id: modelConfigId,
           platform,
           target,
+          column_campaign_id: columnCampaignId || null,
           risk_rule_version: "risk-v1",
           confirmed_fact_item_ids: splitIds(factIds),
           source_asset_ids: splitIds(sourceIds),
-          viral_library_item_ids: [],
+          style_profile_id:
+            inheritStyle && styleProfileId ? styleProfileId : null,
+          viral_library_item_ids: splitIds(viralIds).slice(0, 3),
           user_prompt: prompt,
-          style_switches: { title: false, copy: false, cover: false },
+          style_switches: {
+            title: inheritStyle,
+            copy: inheritStyle,
+            cover: inheritStyle,
+          },
         },
         csrf(),
       );
@@ -104,7 +116,7 @@ export function TextEditor({ workspaceId }: { workspaceId: string }) {
       setRun(updated);
       setMessage(
         adoptionStatus === "adopted"
-          ? "已保存人工最终稿"
+          ? "复检完成，草稿已保存"
           : "已保存放弃状态",
       );
     } catch (caught) {
@@ -149,16 +161,40 @@ export function TextEditor({ workspaceId }: { workspaceId: string }) {
       <form className="grid gap-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:grid-cols-2" onSubmit={generate}>
         <label className="space-y-2 text-sm">账号 ID<input aria-label="账号 ID" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setAccountId(event.target.value)} required value={accountId} /></label>
         <label className="space-y-2 text-sm">模型配置 ID<input aria-label="模型配置 ID" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setModelConfigId(event.target.value)} required value={modelConfigId} /></label>
+        <label className="space-y-2 text-sm">栏目或活动 ID<input aria-label="栏目或活动 ID" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setColumnCampaignId(event.target.value)} value={columnCampaignId} /></label>
+        <label className="space-y-2 text-sm">风格档案 ID<input aria-label="风格档案 ID" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setStyleProfileId(event.target.value)} value={styleProfileId} /></label>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2"><input checked={inheritStyle} onChange={(event) => setInheritStyle(event.target.checked)} type="checkbox" />沿用已确认历史风格（默认开启）</label>
+        <label className="space-y-2 text-sm sm:col-span-2">爆款引用 ID（最多 3 条）<input aria-label="爆款引用 ID（最多 3 条）" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setViralIds(event.target.value)} value={viralIds} /></label>
         <label className="space-y-2 text-sm">平台<select className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setPlatform(event.target.value as typeof platform)} value={platform}><option value="douyin">抖音</option><option value="xiaohongshu">小红书</option></select></label>
         <label className="space-y-2 text-sm">生成目标<input aria-label="生成目标" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setTarget(event.target.value)} required value={target} /></label>
-        <label className="space-y-2 text-sm sm:col-span-2">已确认事实 ID（逗号分隔）<input className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setFactIds(event.target.value)} value={factIds} /></label>
-        <label className="space-y-2 text-sm sm:col-span-2">资料来源 ID（逗号分隔）<input className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setSourceIds(event.target.value)} value={sourceIds} /></label>
+        <label className="space-y-2 text-sm sm:col-span-2">已确认事实 ID（逗号分隔）<input aria-label="已确认事实 ID（逗号分隔）" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setFactIds(event.target.value)} value={factIds} /></label>
+        <label className="space-y-2 text-sm sm:col-span-2">资料来源 ID（逗号分隔）<input aria-label="资料来源 ID（逗号分隔）" className="w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setSourceIds(event.target.value)} value={sourceIds} /></label>
         <label className="space-y-2 text-sm sm:col-span-2">补充提示词<textarea className="min-h-28 w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setPrompt(event.target.value)} value={prompt} /></label>
         <button className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50 sm:col-span-2" disabled={busy === "generate"} type="submit">{busy === "generate" ? "生成中…" : "生成标题与文案"}</button>
       </form>
 
       {error ? <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300">{error}</p> : null}
       {message ? <p className="rounded-xl bg-emerald-950/60 p-4 text-emerald-300">{message}</p> : null}
+      {run ? (
+        <TaskStatus
+          detail={run.status_detail}
+          errorCode={run.error_code}
+          onCancel={
+            ["queued", "running"].includes(run.status) ? cancel : undefined
+          }
+          onRetry={
+            ["failed", "cancelled"].includes(run.status) ? retry : undefined
+          }
+          progress={
+            run.status === "queued"
+              ? 10
+              : run.status === "running"
+                ? 50
+                : 100
+          }
+          status={run.status}
+        />
+      ) : null}
       {run?.original_result ? (
         <section className="space-y-6">
           {run.original_result.warnings.map((warning) => <p className="rounded-xl border border-amber-800 bg-amber-950/40 p-4 text-amber-200" key={warning}>{warning}</p>)}
@@ -171,12 +207,10 @@ export function TextEditor({ workspaceId }: { workspaceId: string }) {
             <label className="space-y-2">人工最终文案<textarea className="min-h-64 w-full rounded-lg bg-slate-950 p-3" onChange={(event) => setFinalCopy(event.target.value)} value={finalCopy} /></label>
             <div><h3 className="font-semibold">事实引用</h3><ul className="mt-2 text-sm text-slate-300">{run.original_result.citations.map((citation) => <li key={citation.fact_item_id}>{citation.field_code}：{citation.value}</li>)}</ul></div>
             <p className="text-sm text-slate-400">修改幅度 {(run.modification_magnitude * 100).toFixed(1)}%</p>
-            <div className="flex flex-wrap gap-3"><button className="rounded-lg bg-emerald-500 px-4 py-2 font-medium text-slate-950" disabled={busy === "save"} onClick={() => save("adopted")} type="button">采用并保存</button><button className="rounded-lg border border-slate-700 px-4 py-2" disabled={busy === "save"} onClick={() => save("discarded")} type="button">放弃本稿</button></div>
+            <div className="flex flex-wrap gap-3"><button className="rounded-lg bg-emerald-500 px-4 py-2 font-medium text-slate-950" disabled={busy === "save"} onClick={() => save("adopted")} type="button">复检并保存草稿</button><button className="rounded-lg border border-slate-700 px-4 py-2" disabled={busy === "save"} onClick={() => save("discarded")} type="button">放弃本稿</button></div>
           </article>
         </section>
       ) : null}
-      {run && ["queued", "running"].includes(run.status) ? <button className="rounded-lg border border-rose-700 px-4 py-2 text-rose-300" onClick={cancel} type="button">取消任务</button> : null}
-      {run && ["failed", "cancelled"].includes(run.status) ? <button className="rounded-lg border border-cyan-700 px-4 py-2 text-cyan-300" disabled={busy === "retry"} onClick={retry} type="button">按原上下文重试</button> : null}
     </div>
   );
 }

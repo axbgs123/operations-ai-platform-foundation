@@ -17,6 +17,12 @@ from app.modules.generation.models import (
     TextGenerationRun,
     TextGenerationRunStatus,
 )
+from app.modules.generation.publication_gate import (
+    DraftForPublication,
+    NoActiveRiskEvidenceScanner,
+    RiskScanner,
+    evaluate_publication_gate,
+)
 from app.modules.models.adapters.mock import MockProvider
 from app.modules.models.capabilities import Capability, ModelRequest
 from app.modules.style_facts.fact_verification import (
@@ -416,6 +422,7 @@ def edit_text_generation(
     final_title: str,
     final_copy: str,
     adoption_status: str,
+    risk_scanner: RiskScanner | None = None,
 ) -> TextGenerationRun:
     from app.modules.workspace.models import AuditLog
 
@@ -437,12 +444,52 @@ def edit_text_generation(
     )
     original_copy = str(run.original_result.get("copy", ""))
     before = f"{original_title}\n{original_copy}"
-    after = f"{final_title.strip()}\n{final_copy.strip()}"
+    normalized_title = final_title.strip()
+    normalized_copy = final_copy.strip()
+    after = f"{normalized_title}\n{normalized_copy}"
     magnitude = round(1 - SequenceMatcher(None, before, after).ratio(), 6)
-    run.final_title = final_title.strip()
-    run.final_copy = final_copy.strip()
+    status_detail = run.status_detail
+    if adoption_status == "adopted":
+        context = GenerationContext.model_validate(run.context)
+        raw_claims = cast(
+            list[object],
+            run.original_result.get("claims", []),
+        )
+        claims = tuple(
+            GeneratedClaim(
+                field_name=str(item["field_name"]),
+                value=str(item["value"]),
+            )
+            for item in raw_claims
+            if isinstance(item, dict)
+        )
+        gate = evaluate_publication_gate(
+            DraftForPublication(
+                title=normalized_title,
+                copy=normalized_copy,
+                claims=claims,
+                platform=context.platform.value,
+                risk_rule_version=context.risk_rule_version,
+            ),
+            confirmed_facts={
+                fact.field_code: fact.value for fact in context.confirmed_facts
+            },
+            risk_scanner=risk_scanner or NoActiveRiskEvidenceScanner(),
+        )
+        if not gate.can_save_draft:
+            raise ValueError(gate.error_code or "PUBLICATION_GATE_FAILED")
+        if gate.can_enter_pending_publication:
+            status_detail = "事实与风控复检通过，草稿已保存"
+        else:
+            reasons = list(gate.warnings)
+            if gate.error_code and not reasons:
+                reasons.append(gate.error_code)
+            status_detail = "；".join((*reasons, "草稿已保存，但不能进入待发布"))
+    run.final_title = normalized_title
+    run.final_copy = normalized_copy
     run.adoption_status = adoption_status
     run.modification_magnitude = magnitude
+    run.status_detail = status_detail
     session.add(
         AuditLog(
             workspace_id=run.workspace_id,
