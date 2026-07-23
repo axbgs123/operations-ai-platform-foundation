@@ -8,7 +8,7 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260723_0021"
+HEAD = "20260723_0022"
 
 
 def _database_with_version(*, include_required_tables: bool):
@@ -32,6 +32,9 @@ def _database_with_version(*, include_required_tables: bool):
             connection.execute(
                 text("CREATE TABLE risk_feedback_events (id VARCHAR)")
             )
+            connection.execute(
+                text("CREATE TABLE extension_capture_tasks (id VARCHAR)")
+            )
     return engine
 
 
@@ -50,6 +53,7 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "risk_scans",
                     "risk_scan_feedback",
                     "risk_feedback_events",
+                    "extension_capture_tasks",
                 },
             )
 
@@ -65,5 +69,6 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                 "risk_scans",
                 "risk_scan_feedback",
                 "risk_feedback_events",
+                "extension_capture_tasks",
             },
         )

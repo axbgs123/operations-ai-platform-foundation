@@ -868,6 +868,18 @@
         "title": "Capability",
         "type": "string"
       },
+      "CaptureTaskStatus": {
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "retrying",
+          "cancelled"
+        ],
+        "title": "CaptureTaskStatus",
+        "type": "string"
+      },
       "Citation": {
         "properties": {
           "chunk_id": {
@@ -2332,6 +2344,119 @@
           "expires_at"
         ],
         "title": "ExtensionBindingRead",
+        "type": "object"
+      },
+      "ExtensionCaptureRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "page_identifier": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Page Identifier",
+            "type": "string"
+          },
+          "page_version": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Page Version",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "screenshot_data_url": {
+            "maxLength": 14000000,
+            "minLength": 20,
+            "title": "Screenshot Data Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "page_version",
+          "page_identifier",
+          "collected_at",
+          "screenshot_data_url"
+        ],
+        "title": "ExtensionCaptureRequest",
+        "type": "object"
+      },
+      "ExtensionCaptureTaskRead": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "formal_snapshot_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Formal Snapshot Ids",
+            "type": "array"
+          },
+          "recognition": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognition"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "review_url": {
+            "title": "Review Url",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CaptureTaskStatus"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "workspace_id",
+          "status",
+          "request_id",
+          "review_url",
+          "expires_at",
+          "recognition",
+          "error",
+          "formal_snapshot_ids"
+        ],
+        "title": "ExtensionCaptureTaskRead",
         "type": "object"
       },
       "FactContextRead": {
@@ -6683,6 +6808,20 @@
         "title": "ViralThresholdRule",
         "type": "object"
       },
+      "WebCaptureConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "corrections": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Corrections",
+            "type": "object"
+          }
+        },
+        "title": "WebCaptureConfirmation",
+        "type": "object"
+      },
       "WorkspaceCreate": {
         "properties": {
           "name": {
@@ -8383,6 +8522,143 @@
         ]
       }
     },
+    "/v1/extension/capture-tasks/{task_id}": {
+      "get": {
+        "operationId": "read_extension_capture_task_v1_extension_capture_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionCaptureTaskRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Extension Capture Task",
+        "tags": [
+          "extension-auth"
+        ]
+      }
+    },
+    "/v1/extension/capture-tasks/{task_id}/cancel": {
+      "post": {
+        "operationId": "cancel_extension_capture_task_v1_extension_capture_tasks__task_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionCaptureTaskRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Extension Capture Task",
+        "tags": [
+          "extension-auth"
+        ]
+      }
+    },
+    "/v1/extension/capture-tasks/{task_id}/confirm": {
+      "post": {
+        "operationId": "extension_cannot_confirm_capture_task_v1_extension_capture_tasks__task_id__confirm_post",
+        "responses": {
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Extension Cannot Confirm Capture Task",
+        "tags": [
+          "extension-auth"
+        ]
+      }
+    },
     "/v1/extension/workspaces/{workspace_id}/binding": {
       "get": {
         "operationId": "read_scoped_extension_binding_v1_extension_workspaces__workspace_id__binding_get",
@@ -8439,6 +8715,304 @@
         "summary": "Read Scoped Extension Binding",
         "tags": [
           "extension-auth"
+        ]
+      }
+    },
+    "/v1/extension/workspaces/{workspace_id}/capture-tasks": {
+      "post": {
+        "operationId": "create_extension_capture_task_v1_extension_workspaces__workspace_id__capture_tasks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionCaptureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionCaptureTaskRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Extension Capture Task",
+        "tags": [
+          "extension-auth"
+        ]
+      }
+    },
+    "/v1/extension/workspaces/{workspace_id}/capture-tasks/{task_id}": {
+      "get": {
+        "operationId": "read_scoped_extension_capture_task_v1_extension_workspaces__workspace_id__capture_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionCaptureTaskRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Scoped Extension Capture Task",
+        "tags": [
+          "extension-auth"
+        ]
+      }
+    },
+    "/v1/imports/capture-tasks/{task_id}": {
+      "get": {
+        "operationId": "read_capture_task_in_web_v1_imports_capture_tasks__task_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionCaptureTaskRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Capture Task In Web",
+        "tags": [
+          "extension-capture-review"
+        ]
+      }
+    },
+    "/v1/imports/capture-tasks/{task_id}/confirm": {
+      "post": {
+        "operationId": "confirm_capture_task_in_web_v1_imports_capture_tasks__task_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "task_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Task Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebCaptureConfirmation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionCaptureTaskRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Capture Task In Web",
+        "tags": [
+          "extension-capture-review"
         ]
       }
     },

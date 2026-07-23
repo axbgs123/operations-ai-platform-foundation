@@ -65,6 +65,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "risk_scan_feedback",
                 "risk_feedback_events",
                 "extension_tokens",
+                "extension_capture_tasks",
         } <= tables
 
         access_code_columns = {
@@ -254,7 +255,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260723_0021",
+                    expected_head="20260723_0022",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -262,7 +263,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "risk_scans",
                     "risk_scan_feedback",
                     "risk_feedback_events",
-                    "extension_tokens",
+                        "extension_tokens",
+                        "extension_capture_tasks",
                 },
             )
             extensions = set(

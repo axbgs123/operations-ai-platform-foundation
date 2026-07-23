@@ -333,6 +333,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/extension/capture-tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Extension Capture Task */
+        get: operations["read_extension_capture_task_v1_extension_capture_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extension/capture-tasks/{task_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Extension Capture Task */
+        post: operations["cancel_extension_capture_task_v1_extension_capture_tasks__task_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extension/capture-tasks/{task_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Extension Cannot Confirm Capture Task */
+        post: operations["extension_cannot_confirm_capture_task_v1_extension_capture_tasks__task_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/extension/workspaces/{workspace_id}/binding": {
         parameters: {
             query?: never;
@@ -344,6 +395,74 @@ export interface paths {
         get: operations["read_scoped_extension_binding_v1_extension_workspaces__workspace_id__binding_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extension/workspaces/{workspace_id}/capture-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Extension Capture Task */
+        post: operations["create_extension_capture_task_v1_extension_workspaces__workspace_id__capture_tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extension/workspaces/{workspace_id}/capture-tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Scoped Extension Capture Task */
+        get: operations["read_scoped_extension_capture_task_v1_extension_workspaces__workspace_id__capture_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/imports/capture-tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Capture Task In Web */
+        get: operations["read_capture_task_in_web_v1_imports_capture_tasks__task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/imports/capture-tasks/{task_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Capture Task In Web */
+        post: operations["confirm_capture_task_in_web_v1_imports_capture_tasks__task_id__confirm_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1902,6 +2021,11 @@ export interface components {
          * @enum {string}
          */
         Capability: "text" | "vision" | "image" | "embedding";
+        /**
+         * CaptureTaskStatus
+         * @enum {string}
+         */
+        CaptureTaskStatus: "queued" | "running" | "succeeded" | "failed" | "retrying" | "cancelled";
         /** Citation */
         Citation: {
             /**
@@ -2440,6 +2564,52 @@ export interface components {
             member_id: string;
             /** Scopes */
             scopes: string[];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** ExtensionCaptureRequest */
+        ExtensionCaptureRequest: {
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Page Identifier */
+            page_identifier: string;
+            /** Page Version */
+            page_version: string;
+            platform: components["schemas"]["Platform"];
+            /** Screenshot Data Url */
+            screenshot_data_url: string;
+        };
+        /** ExtensionCaptureTaskRead */
+        ExtensionCaptureTaskRead: {
+            /** Error */
+            error: string | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Formal Snapshot Ids */
+            formal_snapshot_ids: string[];
+            /** Recognition */
+            recognition: {
+                [key: string]: unknown;
+            } | null;
+            /** Request Id */
+            request_id: string;
+            /** Review Url */
+            review_url: string;
+            status: components["schemas"]["CaptureTaskStatus"];
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
             /**
              * Workspace Id
              * Format: uuid
@@ -4129,6 +4299,13 @@ export interface components {
             /** Minimum Value */
             minimum_value: string;
         };
+        /** WebCaptureConfirmation */
+        WebCaptureConfirmation: {
+            /** Corrections */
+            corrections?: {
+                [key: string]: string;
+            };
+        };
         /** WorkspaceCreate */
         WorkspaceCreate: {
             /** Name */
@@ -4997,6 +5174,92 @@ export interface operations {
             };
         };
     };
+    read_extension_capture_task_v1_extension_capture_tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionCaptureTaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_extension_capture_task_v1_extension_capture_tasks__task_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionCaptureTaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extension_cannot_confirm_capture_task_v1_extension_capture_tasks__task_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     read_scoped_extension_binding_v1_extension_workspaces__workspace_id__binding_get: {
         parameters: {
             query?: never;
@@ -5017,6 +5280,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtensionBindingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_extension_capture_task_v1_extension_workspaces__workspace_id__capture_tasks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtensionCaptureRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionCaptureTaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_scoped_extension_capture_task_v1_extension_workspaces__workspace_id__capture_tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                Authorization?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionCaptureTaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_capture_task_in_web_v1_imports_capture_tasks__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionCaptureTaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_capture_task_in_web_v1_imports_capture_tasks__task_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                task_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebCaptureConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionCaptureTaskRead"];
                 };
             };
             /** @description Validation Error */

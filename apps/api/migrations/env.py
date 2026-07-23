@@ -11,6 +11,7 @@ from app.modules.content import account_models  # noqa: F401
 from app.modules.content import models as content_models  # noqa: F401
 from app.modules.metrics import models as metric_models  # noqa: F401
 from app.modules.imports import models as import_models  # noqa: F401
+from app.modules.imports import capture_models as capture_models  # noqa: F401
 from app.modules.models import models as model_config_models  # noqa: F401
 from app.modules.risk_rag import models as risk_rag_models  # noqa: F401
 from app.modules.style_facts import style_models  # noqa: F401
