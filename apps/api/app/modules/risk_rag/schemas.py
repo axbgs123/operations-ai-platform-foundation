@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.content.account_models import Platform
 from app.modules.risk_rag.models import (
+    RiskFeedbackStatus,
+    RiskFeedbackType,
     RiskAuthorizationStatus,
     RiskDocumentScope,
     RiskDocumentStatus,
@@ -95,4 +97,22 @@ class RiskScanRead(BaseModel):
     embedding_dimension: int
     rag_model_version: str
     scanner_version: str
+    created_at: datetime
+
+
+class RiskFeedbackRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    scan_id: UUID
+    platform: Platform
+    feedback_type: RiskFeedbackType
+    status: RiskFeedbackStatus
+    finding_reference: str
+    rule_version: str
+    evidence_version: str
+    submitted_by: UUID | None
+    reviewed_by: UUID | None
+    reviewed_at: datetime | None
     created_at: datetime

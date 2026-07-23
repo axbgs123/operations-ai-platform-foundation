@@ -97,7 +97,33 @@ class RiskScanNode(StrEnum):
     BEFORE_PUBLICATION = "before_publication"
 
 
+class RiskFeedbackType(StrEnum):
+    CORRECT = "correct"
+    FALSE_POSITIVE = "false_positive"
+    MISSED = "missed"
+    OUTDATED_RULE = "outdated_rule"
+    WRONG_SEVERITY = "wrong_severity"
+
+
+class RiskFeedbackStatus(StrEnum):
+    PENDING_REVIEW = "pending_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+
+
+class RiskFeedbackEventType(StrEnum):
+    SUBMITTED = "submitted"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+
+
 class ImmutableRiskScanError(RuntimeError):
+    pass
+
+
+class ImmutableRiskFeedbackEventError(RuntimeError):
     pass
 
 
@@ -366,6 +392,90 @@ class RiskScan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
 
+class RiskScanFeedback(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "risk_scan_feedback"
+    __table_args__ = (
+        Index("ix_risk_scan_feedback_workspace_id", "workspace_id"),
+        Index("ix_risk_scan_feedback_scan_id", "scan_id"),
+        Index(
+            "ix_risk_scan_feedback_review_queue",
+            "workspace_id",
+            "status",
+            "created_at",
+        ),
+        UniqueConstraint(
+            "workspace_id",
+            "idempotency_key",
+            name="uq_risk_scan_feedback_workspace_idempotency",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    scan_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("risk_scans.id", ondelete="RESTRICT"),
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    feedback_type: Mapped[RiskFeedbackType] = mapped_column(
+        enum_type(RiskFeedbackType, "risk_feedback_type")
+    )
+    status: Mapped[RiskFeedbackStatus] = mapped_column(
+        enum_type(RiskFeedbackStatus, "risk_feedback_status")
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    input_fingerprint: Mapped[str] = mapped_column(String(64))
+    finding_reference: Mapped[str] = mapped_column(String(160))
+    rule_version: Mapped[str] = mapped_column(String(160))
+    evidence_version: Mapped[str] = mapped_column(String(160))
+    submitted_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="SET NULL"),
+    )
+    comment: Mapped[str | None] = mapped_column(Text, default=None)
+    comment_untrusted_data: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+    )
+    reviewed_by: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="SET NULL"),
+        default=None,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(),
+        default=None,
+    )
+    review_note: Mapped[str | None] = mapped_column(Text, default=None)
+
+
+class RiskFeedbackEvent(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "risk_feedback_events"
+    __table_args__ = (
+        Index("ix_risk_feedback_events_workspace_id", "workspace_id"),
+        Index("ix_risk_feedback_events_feedback_id", "feedback_id"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    feedback_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("risk_scan_feedback.id", ondelete="RESTRICT"),
+    )
+    event_type: Mapped[RiskFeedbackEventType] = mapped_column(
+        enum_type(RiskFeedbackEventType, "risk_feedback_event_type")
+    )
+    actor_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="SET NULL"),
+    )
+    safe_note: Mapped[str | None] = mapped_column(String(500), default=None)
+
+
 @event.listens_for(RiskScan, "before_update")
 def _reject_risk_scan_update(mapper, connection, target) -> None:
     raise ImmutableRiskScanError("persisted risk scans are immutable")
@@ -374,3 +484,17 @@ def _reject_risk_scan_update(mapper, connection, target) -> None:
 @event.listens_for(RiskScan, "before_delete")
 def _reject_risk_scan_delete(mapper, connection, target) -> None:
     raise ImmutableRiskScanError("persisted risk scans cannot be deleted")
+
+
+@event.listens_for(RiskFeedbackEvent, "before_update")
+def _reject_risk_feedback_event_update(mapper, connection, target) -> None:
+    raise ImmutableRiskFeedbackEventError(
+        "risk feedback history is append-only"
+    )
+
+
+@event.listens_for(RiskFeedbackEvent, "before_delete")
+def _reject_risk_feedback_event_delete(mapper, connection, target) -> None:
+    raise ImmutableRiskFeedbackEventError(
+        "risk feedback history cannot be deleted"
+    )

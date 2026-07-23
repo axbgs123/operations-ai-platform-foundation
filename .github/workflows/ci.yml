@@ -54,6 +54,11 @@ jobs:
           pnpm test
           uv run --project apps/api pytest apps/api/tests -q -W error::DeprecationWarning
 
+      - name: Run fixed synthetic RiskRAG evaluation gates
+        run: >-
+          uv run --project apps/api python -m app.modules.risk_rag.evaluation
+          --fixtures apps/api/tests/fixtures/risk_eval
+
       - name: Verify migration graph is current
         working-directory: apps/api
         run: |

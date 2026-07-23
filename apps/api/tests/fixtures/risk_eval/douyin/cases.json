@@ -1,0 +1,106 @@
+{
+  "dataset_id": "douyin-risk-eval-v1",
+  "fixture_version": "2026-07-23.1",
+  "platform": "douyin",
+  "cases": [
+    {
+      "fixture_id": "douyin-explicit-001",
+      "scenario": "explicit_violation",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成明确风险样例", "body": "SYNTHETIC_EXPLICIT_HIGH_RISK_PATTERN", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": true, "severity": "high", "citation_validation": "valid", "requires_human_review": false, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-safe-001",
+      "scenario": "safe",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成安全样例", "body": "SYNTHETIC_SAFE_INFORMATIONAL_CONTENT", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": false, "severity": "none", "citation_validation": "not_required", "requires_human_review": false, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-boundary-001",
+      "scenario": "boundary",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成边界样例", "body": "SYNTHETIC_CONTEXT_REVIEW_PATTERN", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": false, "severity": "medium", "citation_validation": "valid", "requires_human_review": true, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-contact-001",
+      "scenario": "contact_variant",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成格式变体", "body": "SYN CONTACT TOKEN：A-B-C", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": true, "severity": "high", "citation_validation": "valid", "requires_human_review": false, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-image-001",
+      "scenario": "image_text_variant",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成图片文字变体", "body": "", "cover_ocr_text": "S Y N HIGH RISK", "ocr_confidence": 0.97},
+      "expected": {"high_risk": true, "severity": "high", "citation_validation": "valid", "requires_human_review": false, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-ocr-low-001",
+      "scenario": "ocr_low_confidence",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成低置信度OCR", "body": "", "cover_ocr_text": "SYN LOW CONFIDENCE CANDIDATE", "ocr_confidence": 0.31},
+      "expected": {"high_risk": true, "severity": "high", "citation_validation": "valid", "requires_human_review": true, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-no-evidence-001",
+      "scenario": "no_active_evidence",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成无证据样例", "body": "SYNTHETIC_NO_ACTIVE_EVIDENCE", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": false, "severity": "none", "citation_validation": "not_required", "requires_human_review": false, "evidence_status": "none"}
+    },
+    {
+      "fixture_id": "douyin-citation-valid-001",
+      "scenario": "citation_valid",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成正确引用", "body": "SYNTHETIC_SUPPORTED_CONTEXT", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": false, "severity": "medium", "citation_validation": "valid", "requires_human_review": false, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-citation-invalid-001",
+      "scenario": "citation_invalid",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成错误引用", "body": "SYNTHETIC_OUT_OF_BUNDLE_CITATION", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": false, "severity": "none", "citation_validation": "reject", "requires_human_review": false, "evidence_status": "active"}
+    },
+    {
+      "fixture_id": "douyin-s5-001",
+      "scenario": "s5_only_high_risk",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成S5单独证据", "body": "SYNTHETIC_S5_ONLY_HIGH_CLAIM", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": false, "severity": "low", "citation_validation": "valid", "requires_human_review": true, "evidence_status": "s5_only"}
+    },
+    {
+      "fixture_id": "douyin-historical-001",
+      "scenario": "historical_rule",
+      "source": "artificially_generated",
+      "authorization_status": "authorized_for_test",
+      "platform": "douyin",
+      "input": {"title": "人工合成历史规则", "body": "SYNTHETIC_SUPERSEDED_RULE_CONTEXT", "cover_ocr_text": "", "ocr_confidence": null},
+      "expected": {"high_risk": false, "severity": "none", "citation_validation": "not_required", "requires_human_review": false, "evidence_status": "historical"}
+    }
+  ]
+}

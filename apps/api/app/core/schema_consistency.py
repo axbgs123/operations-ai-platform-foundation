@@ -19,6 +19,8 @@ RUNTIME_REQUIRED_TABLES = {
     "risk_chunks",
     "risk_chunk_embeddings",
     "risk_scans",
+    "risk_scan_feedback",
+    "risk_feedback_events",
 }
 
 

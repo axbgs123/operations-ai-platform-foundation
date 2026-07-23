@@ -62,6 +62,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "risk_chunks",
             "risk_chunk_embeddings",
             "risk_scans",
+            "risk_scan_feedback",
+            "risk_feedback_events",
         } <= tables
 
         access_code_columns = {
@@ -194,15 +196,54 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "rag_model_version",
             "scanner_version",
         } <= risk_scan_columns
+        risk_feedback_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "risk_scan_feedback"
+            )
+        }
+        assert {
+            "workspace_id",
+            "scan_id",
+            "platform",
+            "feedback_type",
+            "status",
+            "idempotency_key",
+            "input_fingerprint",
+            "finding_reference",
+            "rule_version",
+            "evidence_version",
+            "submitted_by",
+            "comment",
+            "comment_untrusted_data",
+            "reviewed_by",
+            "reviewed_at",
+            "review_note",
+        } <= risk_feedback_columns
+        risk_feedback_event_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "risk_feedback_events"
+            )
+        }
+        assert {
+            "workspace_id",
+            "feedback_id",
+            "event_type",
+            "actor_id",
+            "safe_note",
+        } <= risk_feedback_event_columns
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260723_0019",
+                expected_head="20260723_0020",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
                     "risk_chunk_embeddings",
                     "risk_scans",
+                    "risk_scan_feedback",
+                    "risk_feedback_events",
                 },
             )
             extensions = set(
