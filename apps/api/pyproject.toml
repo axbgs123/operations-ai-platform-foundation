@@ -11,8 +11,10 @@ dependencies = [
     "cryptography>=46,<47",
     "fastapi[standard-no-fastapi-cloud-cli]>=0.139.2",
     "openpyxl>=3.1,<4",
+    "pillow>=11,<13",
     "psycopg[binary]>=3.2,<4",
     "pydantic-settings>=2.10,<3",
+    "pypdf>=5,<7",
     "sqlalchemy>=2.0,<2.1",
 ]
 

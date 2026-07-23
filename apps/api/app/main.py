@@ -12,6 +12,7 @@ from app.modules.metrics.dashboard_router import router as dashboard_router
 from app.modules.metrics.router import router as metrics_router
 from app.modules.models.router import router as model_configs_router
 from app.modules.style_facts.style_router import router as style_profiles_router
+from app.modules.style_facts.fact_router import router as fact_sources_router
 from app.modules.workspace.router import router as workspace_router
 
 app = FastAPI(title="Operations AI Platform API")
@@ -30,6 +31,7 @@ app.include_router(content_router)
 app.include_router(metrics_router)
 app.include_router(model_configs_router)
 app.include_router(style_profiles_router)
+app.include_router(fact_sources_router)
 app.include_router(dashboard_router)
 app.include_router(viral_router)
 app.include_router(analysis_router)

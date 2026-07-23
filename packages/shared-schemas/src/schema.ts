@@ -713,6 +713,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/fact-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Fact Context */
+        get: operations["read_fact_context_v1_workspaces__workspace_id__fact_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/fact-items/{item_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Fact Item */
+        post: operations["confirm_fact_item_v1_workspaces__workspace_id__fact_items__item_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/fact-sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Fact Sources */
+        get: operations["list_fact_sources_v1_workspaces__workspace_id__fact_sources_get"];
+        put?: never;
+        /** Create Fact Source */
+        post: operations["create_fact_source_v1_workspaces__workspace_id__fact_sources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/fact-sources/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Fact Source */
+        post: operations["upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/fact-sources/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Fact Source */
+        get: operations["read_fact_source_v1_workspaces__workspace_id__fact_sources__source_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/imports/manual/preview": {
         parameters: {
             query?: never;
@@ -1305,6 +1391,15 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** Body_upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post */
+        Body_upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post: {
+            /** File */
+            file: string;
+            kind: components["schemas"]["FactSourceKind"];
+            level: components["schemas"]["FactSourceLevel"];
+            /** Title */
+            title: string;
+        };
         /**
          * Capability
          * @enum {string}
@@ -1741,6 +1836,141 @@ export interface components {
             evidence_ids: string[];
             /** Summary */
             summary: string;
+        };
+        /** FactContextRead */
+        FactContextRead: {
+            /** Confirmed Items */
+            confirmed_items: components["schemas"]["FactItemRead"][];
+            /** Has Sources */
+            has_sources: boolean;
+            /** Requires Confirmation */
+            requires_confirmation: boolean;
+            /** Unconstrained Facts */
+            unconstrained_facts: boolean;
+        };
+        /** FactItemRead */
+        FactItemRead: {
+            /** Confidence */
+            confidence: number;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Confirmed By */
+            confirmed_by: string | null;
+            /**
+             * Conflict Status
+             * @enum {string}
+             */
+            conflict_status: "clear" | "unresolved" | "resolved";
+            /** Field Name */
+            field_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Override Record */
+            override_record: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Source Location */
+            source_location: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "candidate" | "confirmed";
+            /** Value */
+            value: string;
+        };
+        /** FactSourceCreate */
+        FactSourceCreate: {
+            /**
+             * Content
+             * @default
+             */
+            content: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "text" | "link" | "web";
+            level: components["schemas"]["FactSourceLevel"];
+            /** Published At */
+            published_at?: string | null;
+            /** Title */
+            title: string;
+            /** Url */
+            url?: string | null;
+        };
+        /**
+         * FactSourceKind
+         * @enum {string}
+         */
+        FactSourceKind: "document" | "image" | "link" | "text" | "web";
+        /**
+         * FactSourceLevel
+         * @enum {string}
+         */
+        FactSourceLevel: "L1" | "L2" | "L3" | "L4" | "L5";
+        /** FactSourceRead */
+        FactSourceRead: {
+            /** Accessed At */
+            accessed_at: string | null;
+            /** Content Sha256 */
+            content_sha256: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** File Name */
+            file_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Items */
+            items: components["schemas"]["FactItemRead"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "document" | "image" | "link" | "text" | "web";
+            level: components["schemas"]["FactSourceLevel"];
+            /** Mime Type */
+            mime_type: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Resolved Ips */
+            resolved_ips: string[];
+            /** Size */
+            size: number | null;
+            /** Source Url */
+            source_url: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "parsed" | "awaiting_fetch" | "awaiting_model" | "failed";
+            /** Status Detail */
+            status_detail: {
+                [key: string]: unknown;
+            };
+            /** Title */
+            title: string;
+            /** Untrusted Data */
+            untrusted_data: boolean;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** GoalMetricCard */
         GoalMetricCard: {
@@ -4465,6 +4695,220 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViralThresholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_fact_context_v1_workspaces__workspace_id__fact_context_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactContextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_fact_item_v1_workspaces__workspace_id__fact_items__item_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                item_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_fact_sources_v1_workspaces__workspace_id__fact_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactSourceRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_fact_source_v1_workspaces__workspace_id__fact_sources_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FactSourceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactSourceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactSourceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_fact_source_v1_workspaces__workspace_id__fact_sources__source_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                source_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactSourceRead"];
                 };
             };
             /** @description Validation Error */

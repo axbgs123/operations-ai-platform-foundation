@@ -9,6 +9,7 @@ class Permission(StrEnum):
     MANAGE_MEMBERS = "manage_members"
     MANAGE_MODELS = "manage_models"
     MANAGE_STYLES = "manage_styles"
+    MANAGE_FACTS = "manage_facts"
 
 
 class PermissionDenied(Exception):
@@ -17,7 +18,13 @@ class PermissionDenied(Exception):
 
 ROLE_PERMISSIONS: dict[WorkspaceRole, frozenset[Permission]] = {
     "admin": frozenset(Permission),
-    "editor": frozenset({Permission.READ_CONTENT, Permission.WRITE_CONTENT}),
+    "editor": frozenset(
+        {
+            Permission.READ_CONTENT,
+            Permission.WRITE_CONTENT,
+            Permission.MANAGE_FACTS,
+        }
+    ),
     "viewer": frozenset({Permission.READ_CONTENT}),
     "demo": frozenset({Permission.READ_CONTENT}),
 }

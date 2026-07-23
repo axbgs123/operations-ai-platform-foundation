@@ -54,6 +54,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "account_analysis_settings",
             "analysis_suggestions",
             "product_events",
+            "fact_sources",
+            "fact_items",
         } <= tables
 
         access_code_columns = {

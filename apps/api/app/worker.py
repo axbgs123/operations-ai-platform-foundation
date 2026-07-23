@@ -12,6 +12,7 @@ celery_app = Celery(
 celery_app.conf.imports = (
     "app.modules.imports.screenshot",
     "app.modules.analysis.tasks",
+    "app.modules.style_facts.fact_tasks",
 )
 celery_app.conf.beat_schedule = {
     "recover-pending-analysis-runs": {

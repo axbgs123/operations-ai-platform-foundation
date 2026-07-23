@@ -829,6 +829,35 @@
         "title": "Body_stage_screenshot_recognition_v1_workspaces__workspace_id__imports_screenshot_recognitions_post",
         "type": "object"
       },
+      "Body_upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FactSourceKind"
+          },
+          "level": {
+            "$ref": "#/components/schemas/FactSourceLevel"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "level",
+          "title",
+          "file"
+        ],
+        "title": "Body_upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post",
+        "type": "object"
+      },
       "Capability": {
         "enum": [
           "text",
@@ -2059,6 +2088,388 @@
           "confidence"
         ],
         "title": "EvidenceGroundedItem",
+        "type": "object"
+      },
+      "FactContextRead": {
+        "properties": {
+          "confirmed_items": {
+            "items": {
+              "$ref": "#/components/schemas/FactItemRead"
+            },
+            "title": "Confirmed Items",
+            "type": "array"
+          },
+          "has_sources": {
+            "title": "Has Sources",
+            "type": "boolean"
+          },
+          "requires_confirmation": {
+            "title": "Requires Confirmation",
+            "type": "boolean"
+          },
+          "unconstrained_facts": {
+            "title": "Unconstrained Facts",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "unconstrained_facts",
+          "has_sources",
+          "requires_confirmation",
+          "confirmed_items"
+        ],
+        "title": "FactContextRead",
+        "type": "object"
+      },
+      "FactItemRead": {
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "confirmed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed By"
+          },
+          "conflict_status": {
+            "enum": [
+              "clear",
+              "unresolved",
+              "resolved"
+            ],
+            "title": "Conflict Status",
+            "type": "string"
+          },
+          "field_name": {
+            "title": "Field Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "override_record": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Record"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_location": {
+            "title": "Source Location",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "candidate",
+              "confirmed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "field_name",
+          "value",
+          "source_location",
+          "confidence",
+          "status",
+          "conflict_status",
+          "confirmed_by",
+          "confirmed_at",
+          "override_record"
+        ],
+        "title": "FactItemRead",
+        "type": "object"
+      },
+      "FactSourceCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "default": "",
+            "maxLength": 500000,
+            "title": "Content",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "text",
+              "link",
+              "web"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/FactSourceLevel"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "title": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 2048,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "kind",
+          "level",
+          "title"
+        ],
+        "title": "FactSourceCreate",
+        "type": "object"
+      },
+      "FactSourceKind": {
+        "enum": [
+          "document",
+          "image",
+          "link",
+          "text",
+          "web"
+        ],
+        "title": "FactSourceKind",
+        "type": "string"
+      },
+      "FactSourceLevel": {
+        "enum": [
+          "L1",
+          "L2",
+          "L3",
+          "L4",
+          "L5"
+        ],
+        "title": "FactSourceLevel",
+        "type": "string"
+      },
+      "FactSourceRead": {
+        "properties": {
+          "accessed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accessed At"
+          },
+          "content_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Sha256"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FactItemRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "document",
+              "image",
+              "link",
+              "text",
+              "web"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/FactSourceLevel"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "resolved_ips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Resolved Ips",
+            "type": "array"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "status": {
+            "enum": [
+              "parsed",
+              "awaiting_fetch",
+              "awaiting_model",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "status_detail": {
+            "additionalProperties": true,
+            "title": "Status Detail",
+            "type": "object"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "untrusted_data": {
+            "title": "Untrusted Data",
+            "type": "boolean"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "kind",
+          "level",
+          "title",
+          "status",
+          "source_url",
+          "resolved_ips",
+          "file_name",
+          "mime_type",
+          "size",
+          "content_sha256",
+          "published_at",
+          "accessed_at",
+          "untrusted_data",
+          "status_detail",
+          "items",
+          "created_at"
+        ],
+        "title": "FactSourceRead",
         "type": "object"
       },
       "GoalMetricCard": {
@@ -8308,6 +8719,450 @@
         "summary": "Configure Viral Thresholds",
         "tags": [
           "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/fact-context": {
+      "get": {
+        "operationId": "read_fact_context_v1_workspaces__workspace_id__fact_context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactContextRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Fact Context",
+        "tags": [
+          "fact-sources"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/fact-items/{item_id}/confirm": {
+      "post": {
+        "operationId": "confirm_fact_item_v1_workspaces__workspace_id__fact_items__item_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactItemRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Fact Item",
+        "tags": [
+          "fact-sources"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/fact-sources": {
+      "get": {
+        "operationId": "list_fact_sources_v1_workspaces__workspace_id__fact_sources_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FactSourceRead"
+                  },
+                  "title": "Response List Fact Sources V1 Workspaces  Workspace Id  Fact Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Fact Sources",
+        "tags": [
+          "fact-sources"
+        ]
+      },
+      "post": {
+        "operationId": "create_fact_source_v1_workspaces__workspace_id__fact_sources_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FactSourceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactSourceRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Fact Source",
+        "tags": [
+          "fact-sources"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/fact-sources/upload": {
+      "post": {
+        "operationId": "upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactSourceRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Fact Source",
+        "tags": [
+          "fact-sources"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/fact-sources/{source_id}": {
+      "get": {
+        "operationId": "read_fact_source_v1_workspaces__workspace_id__fact_sources__source_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactSourceRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Fact Source",
+        "tags": [
+          "fact-sources"
         ]
       }
     },
