@@ -21,6 +21,7 @@ type UploadArgs = {
   collectedAt: string;
   fetcher?: typeof fetch;
   idempotencyKey: string;
+  onRebindRequired?: () => Promise<void>;
 };
 
 export async function uploadPreview(args: UploadArgs): Promise<CaptureTaskResponse> {
@@ -49,6 +50,10 @@ export async function uploadPreview(args: UploadArgs): Promise<CaptureTaskRespon
       }),
     },
   );
+  if (response.status === 401 || response.status === 403) {
+    await args.onRebindRequired?.();
+    throw new Error("rebind-required");
+  }
   if (!response.ok) throw new Error("capture upload failed");
   return response.json() as Promise<CaptureTaskResponse>;
 }
