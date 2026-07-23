@@ -1,6 +1,6 @@
-import { detectSupportedPage } from "./content/page-support";
+import { detectPage } from "./content/page-adapters/base";
 
-const pageSupport = detectSupportedPage(window.location, document.body.innerText);
-document.documentElement.dataset.operationsCaptureSupported = String(
-  pageSupport.supported,
-);
+const pageDetection = detectPage({ url: window.location.href, document });
+document.documentElement.dataset.operationsCaptureSupported = String(pageDetection.supported);
+document.documentElement.dataset.operationsCapturePlatform = pageDetection.platform ?? "unknown";
+document.documentElement.dataset.operationsCaptureSignature = pageDetection.signature;
