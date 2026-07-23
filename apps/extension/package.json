@@ -1,0 +1,22 @@
+{
+  "name": "extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "build:chrome": "vite build",
+    "build:edge": "vite build",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@typescript-eslint/parser": "8.64.0",
+    "eslint": "^9",
+    "typescript": "^5",
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
+  }
+}

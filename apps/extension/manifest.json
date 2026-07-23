@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "运营数据采集助手",
+  "description": "仅在受支持的抖音和小红书运营详情页协助用户发起安全采集。",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://creator.douyin.com/creator-micro/content/manage*",
+    "https://creator.xiaohongshu.com/publish/publish-manage*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://creator.douyin.com/creator-micro/content/manage*",
+        "https://creator.xiaohongshu.com/publish/publish-manage*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
