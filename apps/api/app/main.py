@@ -11,6 +11,7 @@ from app.modules.imports.router import router as imports_router
 from app.modules.metrics.dashboard_router import router as dashboard_router
 from app.modules.metrics.router import router as metrics_router
 from app.modules.models.router import router as model_configs_router
+from app.modules.risk_rag.router import router as risk_documents_router
 from app.modules.style_facts.style_router import router as style_profiles_router
 from app.modules.style_facts.fact_router import router as fact_sources_router
 from app.modules.generation.router import router as generation_router
@@ -37,6 +38,7 @@ app.include_router(dashboard_router)
 app.include_router(viral_router)
 app.include_router(analysis_router)
 app.include_router(generation_router)
+app.include_router(risk_documents_router)
 
 
 @app.get("/healthz")

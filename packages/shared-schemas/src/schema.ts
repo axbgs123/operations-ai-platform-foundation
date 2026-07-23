@@ -1005,6 +1005,74 @@ export interface paths {
         patch: operations["update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch"];
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/risk-documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Risk Document */
+        post: operations["create_risk_document_v1_workspaces__workspace_id__risk_documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Current Risk Documents */
+        get: operations["list_current_risk_documents_v1_workspaces__workspace_id__risk_documents_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Risk Document */
+        get: operations["get_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transition Risk Document */
+        post: operations["transition_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__transitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/style-profiles/{profile_id}/confirm": {
         parameters: {
             query?: never;
@@ -2547,6 +2615,89 @@ export interface components {
             /** Summary */
             summary: string;
         };
+        /**
+         * RiskAuthorizationStatus
+         * @enum {string}
+         */
+        RiskAuthorizationStatus: "not_required" | "authorized" | "unverified" | "restricted";
+        /** RiskDocumentCreate */
+        RiskDocumentCreate: {
+            /** Accessed At */
+            accessed_at?: string | null;
+            authorization_status: components["schemas"]["RiskAuthorizationStatus"];
+            /** Effective At */
+            effective_at?: string | null;
+            platform: components["schemas"]["Platform"];
+            /** Private Document Id */
+            private_document_id: string;
+            /** Published At */
+            published_at?: string | null;
+            source_level: components["schemas"]["RiskSourceLevel"];
+            /** Title */
+            title: string;
+        };
+        /** RiskDocumentRead */
+        RiskDocumentRead: {
+            /** Accessed At */
+            accessed_at: string | null;
+            authorization_status: components["schemas"]["RiskAuthorizationStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Effective At */
+            effective_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            platform: components["schemas"]["Platform"];
+            /** Previous Version Id */
+            previous_version_id: string | null;
+            /** Private Document Id */
+            private_document_id: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Reviewed By */
+            reviewed_by: string | null;
+            scope: components["schemas"]["RiskDocumentScope"];
+            source_level: components["schemas"]["RiskSourceLevel"];
+            /** Source Url */
+            source_url: string | null;
+            status: components["schemas"]["RiskDocumentStatus"];
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /** Workspace Id */
+            workspace_id: string | null;
+        };
+        /**
+         * RiskDocumentScope
+         * @enum {string}
+         */
+        RiskDocumentScope: "public" | "private";
+        /**
+         * RiskDocumentStatus
+         * @enum {string}
+         */
+        RiskDocumentStatus: "draft" | "parsed" | "pending_review" | "active" | "superseded" | "expired";
+        /** RiskDocumentTransition */
+        RiskDocumentTransition: {
+            status: components["schemas"]["RiskDocumentStatus"];
+        };
+        /**
+         * RiskSourceLevel
+         * @enum {string}
+         */
+        RiskSourceLevel: "S1" | "S2" | "S3" | "S4" | "S5";
         /** SessionCreated */
         SessionCreated: {
             /** Csrf Token */
@@ -5806,6 +5957,155 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_risk_document_v1_workspaces__workspace_id__risk_documents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskDocumentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_current_risk_documents_v1_workspaces__workspace_id__risk_documents_current_get: {
+        parameters: {
+            query: {
+                platform: components["schemas"]["Platform"];
+                at: string;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transition_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__transitions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskDocumentTransition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
                 };
             };
             /** @description Validation Error */

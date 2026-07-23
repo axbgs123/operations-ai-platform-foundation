@@ -57,6 +57,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "product_events",
             "fact_sources",
             "fact_items",
+            "risk_documents",
+            "risk_chunks",
         } <= tables
 
         access_code_columns = {
@@ -104,6 +106,40 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             for column in inspect(migrated_engine).get_columns("fact_items")
         }
         assert "field_code" in fact_item_columns
+        risk_document_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("risk_documents")
+        }
+        assert {
+            "workspace_id",
+            "platform",
+            "scope",
+            "source_level",
+            "source_url",
+            "private_document_id",
+            "published_at",
+            "effective_at",
+            "accessed_at",
+            "authorization_status",
+            "reviewed_by",
+            "previous_version_id",
+            "version",
+            "status",
+        } <= risk_document_columns
+        risk_chunk_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("risk_chunks")
+        }
+        assert {
+            "workspace_id",
+            "document_id",
+            "platform",
+            "scope",
+            "chunk_index",
+            "source_location",
+            "text",
+            "metadata",
+        } <= risk_chunk_columns
         command.check(config)
     finally:
         with admin_engine.connect() as connection:

@@ -10,6 +10,7 @@ class Permission(StrEnum):
     MANAGE_MODELS = "manage_models"
     MANAGE_STYLES = "manage_styles"
     MANAGE_FACTS = "manage_facts"
+    MANAGE_RISK_KNOWLEDGE = "manage_risk_knowledge"
 
 
 class PermissionDenied(Exception):
