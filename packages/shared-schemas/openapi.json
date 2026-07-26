@@ -743,6 +743,20 @@
         "title": "BenchmarkProfileRead",
         "type": "object"
       },
+      "Body_create_zip_restore_v1_workspaces__workspace_id__zip_restores_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_create_zip_restore_v1_workspaces__workspace_id__zip_restores_post",
+        "type": "object"
+      },
       "Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post": {
         "properties": {
           "file": {
@@ -2262,7 +2276,8 @@
             "enum": [
               "csv",
               "markdown",
-              "json"
+              "json",
+              "zip"
             ],
             "title": "Kind",
             "type": "string"
@@ -2342,7 +2357,8 @@
             "enum": [
               "csv",
               "markdown",
-              "json"
+              "json",
+              "zip"
             ],
             "title": "Kind",
             "type": "string"
@@ -3004,6 +3020,130 @@
           "created_at"
         ],
         "title": "FactSourceRead",
+        "type": "object"
+      },
+      "FullRestoreConfirm": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest_fingerprint": {
+            "title": "Manifest Fingerprint",
+            "type": "string"
+          },
+          "preview_id": {
+            "title": "Preview Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "preview_id",
+          "manifest_fingerprint"
+        ],
+        "title": "FullRestoreConfirm",
+        "type": "object"
+      },
+      "FullRestoreRead": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "knowledge_index_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Knowledge Index Message"
+          },
+          "manifest_fingerprint": {
+            "title": "Manifest Fingerprint",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "new",
+              "merge"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "phase": {
+            "enum": [
+              "uploaded",
+              "validating",
+              "preview_ready",
+              "database",
+              "moving_objects",
+              "rebuilding_index",
+              "completed",
+              "failed",
+              "compensation_required"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "preview": {
+            "additionalProperties": true,
+            "title": "Preview",
+            "type": "object"
+          },
+          "preview_id": {
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "retrying",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "target_workspace_id": {
+            "format": "uuid",
+            "title": "Target Workspace Id",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "target_workspace_id",
+          "mode",
+          "status",
+          "phase",
+          "preview_id",
+          "manifest_fingerprint",
+          "preview",
+          "error_code",
+          "knowledge_index_message"
+        ],
+        "title": "FullRestoreRead",
         "type": "object"
       },
       "GeneratedTextResult": {
@@ -16258,6 +16398,281 @@
         "summary": "Revoke Viral Library Item",
         "tags": [
           "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/zip-restores": {
+      "post": {
+        "operationId": "create_zip_restore_v1_workspaces__workspace_id__zip_restores_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/RestoreMode"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_zip_restore_v1_workspaces__workspace_id__zip_restores_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FullRestoreRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Zip Restore",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/zip-restores/{restore_id}": {
+      "get": {
+        "operationId": "read_zip_restore_v1_workspaces__workspace_id__zip_restores__restore_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "restore_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Restore Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FullRestoreRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Zip Restore",
+        "tags": [
+          "exports"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/zip-restores/{restore_id}/confirm": {
+      "post": {
+        "operationId": "confirm_zip_restore_v1_workspaces__workspace_id__zip_restores__restore_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "restore_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Restore Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FullRestoreConfirm"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FullRestoreRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Zip Restore",
+        "tags": [
+          "exports"
         ]
       }
     }

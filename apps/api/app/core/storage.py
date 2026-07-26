@@ -41,6 +41,8 @@ class Storage(Protocol):
         *,
         mime_type: str,
     ) -> None: ...
+    def get_object(self, object_key: str) -> bytes: ...
+    def delete_object(self, object_key: str) -> None: ...
 
 
 class InvalidUploadToken(Exception):
@@ -223,6 +225,41 @@ class S3Storage:
         )
         with self._opener.open(request, timeout=10):
             pass
+
+    def get_object(self, object_key: str) -> bytes:
+        url = self._presign(
+            "GET",
+            object_key,
+            endpoint=self._endpoint,
+            expires=60,
+        )
+        try:
+            with self._opener.open(
+                Request(url, method="GET"),
+                timeout=10,
+            ) as response:
+                return response.read()
+        except HTTPError as error:
+            if error.code == 404:
+                raise FileNotFoundError(object_key) from error
+            raise
+
+    def delete_object(self, object_key: str) -> None:
+        url = self._presign(
+            "DELETE",
+            object_key,
+            endpoint=self._endpoint,
+            expires=60,
+        )
+        try:
+            with self._opener.open(
+                Request(url, method="DELETE"),
+                timeout=10,
+            ):
+                pass
+        except HTTPError as error:
+            if error.code != 404:
+                raise
 
     def presign_download(self, object_key: str) -> tuple[str, datetime]:
         expires_at = datetime.now(UTC) + timedelta(minutes=5)

@@ -8,7 +8,7 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260726_0023"
+HEAD = "20260726_0024"
 
 
 def _database_with_version(*, include_required_tables: bool):
@@ -36,6 +36,10 @@ def _database_with_version(*, include_required_tables: bool):
                 text("CREATE TABLE extension_capture_tasks (id VARCHAR)")
             )
             connection.execute(text("CREATE TABLE export_jobs (id VARCHAR)"))
+            connection.execute(text("CREATE TABLE restore_jobs (id VARCHAR)"))
+            connection.execute(
+                text("CREATE TABLE knowledge_index_rebuilds (id VARCHAR)")
+            )
     return engine
 
 
@@ -56,6 +60,8 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "risk_feedback_events",
                     "extension_capture_tasks",
                     "export_jobs",
+                    "restore_jobs",
+                    "knowledge_index_rebuilds",
                 },
             )
 
@@ -73,5 +79,7 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                 "risk_feedback_events",
                 "extension_capture_tasks",
                 "export_jobs",
+                "restore_jobs",
+                "knowledge_index_rebuilds",
             },
         )

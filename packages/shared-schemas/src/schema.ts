@@ -1705,6 +1705,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/zip-restores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Zip Restore */
+        post: operations["create_zip_restore_v1_workspaces__workspace_id__zip_restores_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/zip-restores/{restore_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Zip Restore */
+        get: operations["read_zip_restore_v1_workspaces__workspace_id__zip_restores__restore_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/zip-restores/{restore_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Zip Restore */
+        post: operations["confirm_zip_restore_v1_workspaces__workspace_id__zip_restores__restore_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2017,6 +2068,11 @@ export interface components {
             sample_size: number;
             /** Version */
             version: number;
+        };
+        /** Body_create_zip_restore_v1_workspaces__workspace_id__zip_restores_post */
+        Body_create_zip_restore_v1_workspaces__workspace_id__zip_restores_post: {
+            /** File */
+            file: string;
         };
         /** Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post */
         Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post: {
@@ -2574,7 +2630,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "csv" | "markdown" | "json";
+            kind: "csv" | "markdown" | "json" | "zip";
         };
         /** ExportTaskRead */
         ExportTaskRead: {
@@ -2597,7 +2653,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "csv" | "markdown" | "json";
+            kind: "csv" | "markdown" | "json" | "zip";
             /** Mime Type */
             mime_type: string | null;
             /**
@@ -2848,6 +2904,58 @@ export interface components {
             title: string;
             /** Untrusted Data */
             untrusted_data: boolean;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** FullRestoreConfirm */
+        FullRestoreConfirm: {
+            /** Manifest Fingerprint */
+            manifest_fingerprint: string;
+            /** Preview Id */
+            preview_id: string;
+        };
+        /** FullRestoreRead */
+        FullRestoreRead: {
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Knowledge Index Message */
+            knowledge_index_message: string | null;
+            /** Manifest Fingerprint */
+            manifest_fingerprint: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "new" | "merge";
+            /**
+             * Phase
+             * @enum {string}
+             */
+            phase: "uploaded" | "validating" | "preview_ready" | "database" | "moving_objects" | "rebuilding_index" | "completed" | "failed" | "compensation_required";
+            /** Preview */
+            preview: {
+                [key: string]: unknown;
+            };
+            /** Preview Id */
+            preview_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "retrying" | "cancelled";
+            /**
+             * Target Workspace Id
+             * Format: uuid
+             */
+            target_workspace_id: string;
             /**
              * Workspace Id
              * Format: uuid
@@ -8669,6 +8777,123 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViralLibraryItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_zip_restore_v1_workspaces__workspace_id__zip_restores_post: {
+        parameters: {
+            query: {
+                mode: components["schemas"]["RestoreMode"];
+            };
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_zip_restore_v1_workspaces__workspace_id__zip_restores_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FullRestoreRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_zip_restore_v1_workspaces__workspace_id__zip_restores__restore_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                restore_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FullRestoreRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_zip_restore_v1_workspaces__workspace_id__zip_restores__restore_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                restore_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FullRestoreConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FullRestoreRead"];
                 };
             };
             /** @description Validation Error */

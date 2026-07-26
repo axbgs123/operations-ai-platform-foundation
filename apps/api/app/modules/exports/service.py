@@ -17,6 +17,7 @@ from app.modules.exports.models import ExportKind, ExportStatus, ExportTask
 from app.modules.exports.json_backup import render_lightweight_json
 from app.modules.exports.report import render_analysis_markdown
 from app.modules.exports.tabular import render_workspace_csv, safe_export_filename
+from app.modules.exports.zip_backup import build_full_backup_zip
 from app.modules.workspace.models import WorkspaceMember
 from app.modules.workspace.permissions import Permission, PermissionDenied, require_permission
 
@@ -202,12 +203,18 @@ def process_export_task(
                 f"content-{content_id}-analysis", "md"
             )
             mime_type = "text/markdown"
-        else:
+        elif kind is ExportKind.JSON:
             content = render_lightweight_json(session, context)
             file_name = safe_export_filename(
                 f"workspace-{workspace_id}-backup", "json"
             )
             mime_type = "application/json"
+        else:
+            content = build_full_backup_zip(session, context, storage)
+            file_name = safe_export_filename(
+                f"workspace-{workspace_id}-full-backup", "zip"
+            )
+            mime_type = "application/zip"
         heartbeat()
         object_key = (
             f"workspaces/{workspace_id}/exports/{task_id}/"
