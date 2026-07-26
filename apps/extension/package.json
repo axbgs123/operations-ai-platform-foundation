@@ -7,6 +7,9 @@
     "build": "vite build",
     "build:chrome": "vite build",
     "build:edge": "vite build",
+    "package": "vite build && node scripts/package-extension.mjs",
+    "package:chrome": "vite build && node scripts/package-extension.mjs",
+    "package:edge": "vite build && node scripts/package-extension.mjs",
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

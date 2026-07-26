@@ -1,0 +1,58 @@
+[
+  {
+    "platform": "douyin",
+    "urlPattern": "https://creator.douyin.com/creator-micro/content/manage*",
+    "pageName": "抖音创作者中心作品管理详情页",
+    "pageVersion": "douyin-creator-v1",
+    "pageSignature": "douyin:00000000b2e2e525",
+    "signaturePrefix": "douyin:",
+    "requiredAnchors": ["作品管理"],
+    "captureRegion": { "x": 40, "y": 80, "width": 640, "height": 360 },
+    "sensitiveRegions": [
+      "avatar",
+      "nickname",
+      "phone",
+      "email",
+      "dm",
+      "internal-id"
+    ],
+    "recognizableFields": ["platform", "content_identifier", "metric_candidates"],
+    "knownMissingFields": ["hidden_fields", "offscreen_content", "private_messages"],
+    "fixtureVerifiedAt": "2026-07-23",
+    "realPageVerifiedAt": null,
+    "verifiedBrowsers": [],
+    "verifiedOperatingSystems": [],
+    "fixtureEnvironment": "Vitest + JSDOM脱敏静态页面；不是浏览器真实页面验证",
+    "verificationStatus": "fixture_verified",
+    "staleAfterDays": 120,
+    "degradation": "URL、锚点、页面版本、signature或敏感区域变化时停止采集并退回安全模式。"
+  },
+  {
+    "platform": "xiaohongshu",
+    "urlPattern": "https://creator.xiaohongshu.com/publish/publish-manage*",
+    "pageName": "小红书创作服务平台笔记管理详情页",
+    "pageVersion": "xiaohongshu-creator-v1",
+    "pageSignature": "xiaohongshu:00000000cf6f9aab",
+    "signaturePrefix": "xiaohongshu:",
+    "requiredAnchors": ["笔记管理"],
+    "captureRegion": { "x": 24, "y": 64, "width": 720, "height": 420 },
+    "sensitiveRegions": [
+      "avatar",
+      "nickname",
+      "phone",
+      "email",
+      "dm",
+      "internal-id"
+    ],
+    "recognizableFields": ["platform", "content_identifier", "metric_candidates"],
+    "knownMissingFields": ["hidden_fields", "offscreen_content", "private_messages"],
+    "fixtureVerifiedAt": "2026-07-23",
+    "realPageVerifiedAt": null,
+    "verifiedBrowsers": [],
+    "verifiedOperatingSystems": [],
+    "fixtureEnvironment": "Vitest + JSDOM脱敏静态页面；不是浏览器真实页面验证",
+    "verificationStatus": "fixture_verified",
+    "staleAfterDays": 120,
+    "degradation": "URL、锚点、页面版本、signature或敏感区域变化时停止采集并退回安全模式。"
+  }
+]
