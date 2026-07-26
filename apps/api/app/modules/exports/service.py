@@ -14,6 +14,7 @@ from app.core.security import WorkspaceContext
 from app.core.storage import Storage
 from app.modules.content.models import Content
 from app.modules.exports.models import ExportKind, ExportStatus, ExportTask
+from app.modules.exports.json_backup import render_lightweight_json
 from app.modules.exports.report import render_analysis_markdown
 from app.modules.exports.tabular import render_workspace_csv, safe_export_filename
 from app.modules.workspace.models import WorkspaceMember
@@ -80,7 +81,7 @@ def create_export_task(
         if content is None:
             raise LookupError("content not found")
     elif content_id is not None:
-        raise ValueError("CSV workspace export does not accept content_id")
+        raise ValueError("workspace backup export does not accept content_id")
     task = ExportTask(
         workspace_id=context.workspace_id,
         requested_by=context.member_id,
@@ -192,7 +193,7 @@ def process_export_task(
                 f"workspace-{workspace_id}-data", "csv"
             )
             mime_type = "text/csv"
-        else:
+        elif kind is ExportKind.MARKDOWN:
             if content_id is None:
                 raise ValueError("markdown export is missing content")
             markdown = render_analysis_markdown(session, context, content_id)
@@ -201,6 +202,12 @@ def process_export_task(
                 f"content-{content_id}-analysis", "md"
             )
             mime_type = "text/markdown"
+        else:
+            content = render_lightweight_json(session, context)
+            file_name = safe_export_filename(
+                f"workspace-{workspace_id}-backup", "json"
+            )
+            mime_type = "application/json"
         heartbeat()
         object_key = (
             f"workspaces/{workspace_id}/exports/{task_id}/"

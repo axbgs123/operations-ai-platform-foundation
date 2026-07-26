@@ -11,6 +11,7 @@ from app.core.database import Base, TimestampMixin, UTCDateTime, UUIDPrimaryKeyM
 class ExportKind(StrEnum):
     CSV = "csv"
     MARKDOWN = "markdown"
+    JSON = "json"
 
 
 class ExportStatus(StrEnum):

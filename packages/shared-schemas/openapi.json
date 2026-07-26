@@ -743,6 +743,20 @@
         "title": "BenchmarkProfileRead",
         "type": "object"
       },
+      "Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post",
+        "type": "object"
+      },
       "Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post": {
         "properties": {
           "account_id": {
@@ -2247,7 +2261,8 @@
           "kind": {
             "enum": [
               "csv",
-              "markdown"
+              "markdown",
+              "json"
             ],
             "title": "Kind",
             "type": "string"
@@ -2326,7 +2341,8 @@
           "kind": {
             "enum": [
               "csv",
-              "markdown"
+              "markdown",
+              "json"
             ],
             "title": "Kind",
             "type": "string"
@@ -4301,6 +4317,150 @@
           "action"
         ],
         "title": "Recommendation",
+        "type": "object"
+      },
+      "RecordType": {
+        "enum": [
+          "platform_account",
+          "objective_profile",
+          "benchmark_profile",
+          "column_campaign",
+          "metric_definition",
+          "content",
+          "asset_reference",
+          "data_snapshot",
+          "snapshot_metric_value",
+          "style_profile",
+          "style_sample",
+          "fact_source_metadata",
+          "fact_item",
+          "risk_document_metadata"
+        ],
+        "title": "RecordType",
+        "type": "string"
+      },
+      "RestoreAction": {
+        "enum": [
+          "create",
+          "overwrite",
+          "skip",
+          "conflict"
+        ],
+        "title": "RestoreAction",
+        "type": "string"
+      },
+      "RestoreMode": {
+        "enum": [
+          "new",
+          "merge"
+        ],
+        "title": "RestoreMode",
+        "type": "string"
+      },
+      "RestorePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "blocked": {
+            "title": "Blocked",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RestorePreviewItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "manifest_fingerprint": {
+            "title": "Manifest Fingerprint",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/RestoreMode"
+          },
+          "preview_id": {
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "target_workspace_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Workspace Id"
+          }
+        },
+        "required": [
+          "preview_id",
+          "manifest_fingerprint",
+          "mode",
+          "target_workspace_id",
+          "items",
+          "blocked"
+        ],
+        "title": "RestorePreview",
+        "type": "object"
+      },
+      "RestorePreviewItem": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/RestoreAction"
+          },
+          "blocking": {
+            "title": "Blocking",
+            "type": "boolean"
+          },
+          "conflict_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conflict Summary"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "record_type": {
+            "$ref": "#/components/schemas/RecordType"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          }
+        },
+        "required": [
+          "record_type",
+          "source_id",
+          "target_id",
+          "action",
+          "reason",
+          "blocking"
+        ],
+        "title": "RestorePreviewItem",
         "type": "object"
       },
       "RiskAuthorizationStatus": {
@@ -13563,6 +13723,108 @@
         "summary": "Update Model Config Status",
         "tags": [
           "model-configs"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/restore-previews": {
+      "post": {
+        "operationId": "preview_restore_v1_workspaces__workspace_id__restore_previews_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/RestoreMode"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestorePreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Restore",
+        "tags": [
+          "exports"
         ]
       }
     },

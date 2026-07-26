@@ -3,7 +3,15 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    UploadFile,
+)
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +19,16 @@ from sqlalchemy.orm import Session
 from app.core.database import get_session
 from app.core.storage import Storage, get_storage
 from app.modules.exports.models import ExportKind, ExportStatus, ExportTask
+from app.modules.exports.manifest import (
+    MAX_BACKUP_BYTES,
+    BackupFormatError,
+    parse_manifest_json,
+)
+from app.modules.exports.restore_preview import (
+    RestoreMode,
+    RestorePreview,
+    build_restore_preview,
+)
 from app.modules.exports.service import (
     ExportIdempotencyConflict,
     create_export_task,
@@ -21,6 +39,10 @@ from app.modules.workspace.permissions import Permission, PermissionDenied, requ
 
 
 router = APIRouter(prefix="/v1/workspaces/{workspace_id}/exports", tags=["exports"])
+restore_router = APIRouter(
+    prefix="/v1/workspaces/{workspace_id}/restore-previews",
+    tags=["exports"],
+)
 DatabaseSession = Annotated[Session, Depends(get_session)]
 ObjectStorage = Annotated[Storage, Depends(get_storage)]
 
@@ -28,14 +50,14 @@ ObjectStorage = Annotated[Storage, Depends(get_storage)]
 class ExportCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["csv", "markdown"]
+    kind: Literal["csv", "markdown", "json"]
     content_id: UUID | None = None
 
 
 class ExportTaskRead(BaseModel):
     id: UUID
     workspace_id: UUID
-    kind: Literal["csv", "markdown"]
+    kind: Literal["csv", "markdown", "json"]
     content_id: UUID | None
     status: Literal["queued", "running", "succeeded", "failed"]
     file_name: str | None
@@ -166,3 +188,43 @@ def read_export(
     if task is None:
         raise HTTPException(status_code=404, detail="export not found")
     return _payload(task, storage)
+
+
+@restore_router.post("", response_model=RestorePreview)
+async def preview_restore(
+    workspace_id: UUID,
+    mode: RestoreMode,
+    file: Annotated[UploadFile, File()],
+    session: DatabaseSession,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> RestorePreview:
+    context = _context(
+        session,
+        workspace_id,
+        session_token,
+        csrf_token,
+        mutation=True,
+    )
+    if context.role != "admin":
+        raise HTTPException(status_code=403, detail="permission denied")
+    if file.content_type not in {"application/json", "text/json"}:
+        raise HTTPException(status_code=415, detail="JSON backup required")
+    if file.filename and not file.filename.lower().endswith(".json"):
+        raise HTTPException(status_code=422, detail="invalid backup file")
+    raw = await file.read(MAX_BACKUP_BYTES + 1)
+    try:
+        manifest = parse_manifest_json(raw)
+        return build_restore_preview(
+            session,
+            context,
+            manifest,
+            mode=mode,
+            idempotency_key=idempotency_key,
+        )
+    except (BackupFormatError, ValueError) as error:
+        raise HTTPException(
+            status_code=422,
+            detail="invalid backup manifest",
+        ) from error

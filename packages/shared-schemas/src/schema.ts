@@ -1210,6 +1210,23 @@ export interface paths {
         patch: operations["update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch"];
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/restore-previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Restore */
+        post: operations["preview_restore_v1_workspaces__workspace_id__restore_previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/risk-documents": {
         parameters: {
             query?: never;
@@ -2001,6 +2018,11 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post */
+        Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post: {
+            /** File */
+            file: string;
+        };
         /** Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post */
         Body_preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post: {
             /**
@@ -2552,7 +2574,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "csv" | "markdown";
+            kind: "csv" | "markdown" | "json";
         };
         /** ExportTaskRead */
         ExportTaskRead: {
@@ -2575,7 +2597,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "csv" | "markdown";
+            kind: "csv" | "markdown" | "json";
             /** Mime Type */
             mime_type: string | null;
             /**
@@ -3334,6 +3356,53 @@ export interface components {
             id: string;
             /** Summary */
             summary: string;
+        };
+        /**
+         * RecordType
+         * @enum {string}
+         */
+        RecordType: "platform_account" | "objective_profile" | "benchmark_profile" | "column_campaign" | "metric_definition" | "content" | "asset_reference" | "data_snapshot" | "snapshot_metric_value" | "style_profile" | "style_sample" | "fact_source_metadata" | "fact_item" | "risk_document_metadata";
+        /**
+         * RestoreAction
+         * @enum {string}
+         */
+        RestoreAction: "create" | "overwrite" | "skip" | "conflict";
+        /**
+         * RestoreMode
+         * @enum {string}
+         */
+        RestoreMode: "new" | "merge";
+        /** RestorePreview */
+        RestorePreview: {
+            /** Blocked */
+            blocked: boolean;
+            /** Items */
+            items: components["schemas"]["RestorePreviewItem"][];
+            /** Manifest Fingerprint */
+            manifest_fingerprint: string;
+            mode: components["schemas"]["RestoreMode"];
+            /** Preview Id */
+            preview_id: string;
+            /** Target Workspace Id */
+            target_workspace_id: string | null;
+        };
+        /** RestorePreviewItem */
+        RestorePreviewItem: {
+            action: components["schemas"]["RestoreAction"];
+            /** Blocking */
+            blocking: boolean;
+            /** Conflict Summary */
+            conflict_summary?: string | null;
+            /** Reason */
+            reason: string;
+            record_type: components["schemas"]["RecordType"];
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Target Id */
+            target_id: string | null;
         };
         /**
          * RiskAuthorizationStatus
@@ -7465,6 +7534,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_restore_v1_workspaces__workspace_id__restore_previews_post: {
+        parameters: {
+            query: {
+                mode: components["schemas"]["RestoreMode"];
+            };
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_restore_v1_workspaces__workspace_id__restore_previews_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestorePreview"];
                 };
             };
             /** @description Validation Error */
