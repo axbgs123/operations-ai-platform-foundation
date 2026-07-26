@@ -66,7 +66,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "risk_feedback_events",
                 "extension_tokens",
                 "extension_capture_tasks",
-        } <= tables
+                "export_jobs",
+            } <= tables
 
         access_code_columns = {
             column["name"]
@@ -252,10 +253,31 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "expires_at",
             "revoked_at",
         } <= extension_token_columns
+        export_job_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("export_jobs")
+        }
+        assert {
+            "workspace_id",
+            "requested_by",
+            "kind",
+            "content_id",
+            "idempotency_key",
+            "request_fingerprint",
+            "status",
+            "object_key",
+            "file_name",
+            "mime_type",
+            "error_code",
+            "enqueued_at",
+            "claim_token",
+            "lease_expires_at",
+            "completed_at",
+        } <= export_job_columns
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260723_0022",
+                expected_head="20260726_0023",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -263,8 +285,9 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "risk_scans",
                     "risk_scan_feedback",
                     "risk_feedback_events",
-                        "extension_tokens",
-                        "extension_capture_tasks",
+                    "extension_tokens",
+                    "extension_capture_tasks",
+                    "export_jobs",
                 },
             )
             extensions = set(

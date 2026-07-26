@@ -14,10 +14,15 @@ celery_app.conf.imports = (
     "app.modules.analysis.tasks",
     "app.modules.style_facts.fact_tasks",
     "app.modules.generation.tasks",
+    "app.modules.exports.tasks",
 )
 celery_app.conf.beat_schedule = {
     "recover-pending-analysis-runs": {
         "task": "analysis.recover_pending",
         "schedule": 30.0,
-    }
+    },
+    "recover-pending-export-jobs": {
+        "task": "exports.recover_pending",
+        "schedule": 30.0,
+    },
 }

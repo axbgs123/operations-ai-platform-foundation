@@ -884,6 +884,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Export */
+        post: operations["create_export_v1_workspaces__workspace_id__exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/exports/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Export */
+        get: operations["read_export_v1_workspaces__workspace_id__exports__task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/fact-context": {
         parameters: {
             query?: never;
@@ -2509,6 +2543,51 @@ export interface components {
             evidence_ids: string[];
             /** Summary */
             summary: string;
+        };
+        /** ExportCreate */
+        ExportCreate: {
+            /** Content Id */
+            content_id?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "csv" | "markdown";
+        };
+        /** ExportTaskRead */
+        ExportTaskRead: {
+            /** Content Id */
+            content_id: string | null;
+            /** Download Expires At */
+            download_expires_at: string | null;
+            /** Download Url */
+            download_url: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /** File Name */
+            file_name: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "csv" | "markdown";
+            /** Mime Type */
+            mime_type: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed";
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** ExtensionBindRequest */
         ExtensionBindRequest: {
@@ -6570,6 +6649,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViralThresholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_export_v1_workspaces__workspace_id__exports_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportTaskRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_export_v1_workspaces__workspace_id__exports__task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                task_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportTaskRead"];
                 };
             };
             /** @description Validation Error */

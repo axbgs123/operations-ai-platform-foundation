@@ -7,6 +7,7 @@ from app.modules.analysis.router import router as analysis_router
 from app.modules.content.account_router import router as account_router
 from app.modules.content.router import router as content_router
 from app.modules.demo.router import router as demo_router
+from app.modules.exports.router import router as exports_router
 from app.modules.imports.extension_router import router as extension_router
 from app.modules.imports.extension_router import review_router as extension_review_router
 from app.modules.imports.router import router as imports_router
@@ -41,6 +42,7 @@ app.add_middleware(
 )
 app.include_router(workspace_router)
 app.include_router(demo_router)
+app.include_router(exports_router)
 app.include_router(imports_router)
 app.include_router(extension_router)
 app.include_router(extension_review_router)
