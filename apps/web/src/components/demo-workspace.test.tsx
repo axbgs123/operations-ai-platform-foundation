@@ -11,6 +11,7 @@ test("labels synthetic data and mock generation clearly", () => {
         id: "public-demo",
         name: "内容运营示例工作区",
         label: "示例数据",
+        seed_version: "synthetic-ai-tech-v1",
         synthetic: true,
         accounts: [
           { id: "douyin-demo", name: "城市穿搭研究所", platform: "douyin", synthetic: true, posts: [] },

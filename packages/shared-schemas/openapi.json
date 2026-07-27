@@ -2316,6 +2316,31 @@
             "title": "Accounts",
             "type": "array"
           },
+          "analysis": {
+            "additionalProperties": true,
+            "title": "Analysis",
+            "type": "object"
+          },
+          "benchmark": {
+            "additionalProperties": true,
+            "title": "Benchmark",
+            "type": "object"
+          },
+          "confirmed_fact": {
+            "additionalProperties": true,
+            "title": "Confirmed Fact",
+            "type": "object"
+          },
+          "confirmed_snapshot": {
+            "additionalProperties": true,
+            "title": "Confirmed Snapshot",
+            "type": "object"
+          },
+          "draft": {
+            "additionalProperties": true,
+            "title": "Draft",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -2328,6 +2353,30 @@
             "title": "Name",
             "type": "string"
           },
+          "published_content": {
+            "additionalProperties": true,
+            "title": "Published Content",
+            "type": "object"
+          },
+          "risk_knowledge": {
+            "additionalProperties": true,
+            "title": "Risk Knowledge",
+            "type": "object"
+          },
+          "seed_version": {
+            "title": "Seed Version",
+            "type": "string"
+          },
+          "style_sample": {
+            "additionalProperties": true,
+            "title": "Style Sample",
+            "type": "object"
+          },
+          "suggestion": {
+            "additionalProperties": true,
+            "title": "Suggestion",
+            "type": "object"
+          },
           "synthetic": {
             "title": "Synthetic",
             "type": "boolean"
@@ -2337,6 +2386,7 @@
           "id",
           "name",
           "label",
+          "seed_version",
           "synthetic",
           "accounts"
         ],

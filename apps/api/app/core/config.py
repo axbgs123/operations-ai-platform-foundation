@@ -8,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DEFAULT_MODEL_SECRET_ENCRYPTION_KEY = (
     "local-development-model-secret-change-me"
 )
+DEFAULT_SESSION_SIGNING_SECRET = "local-development-session-secret-change-me"
 
 
 class Settings(BaseSettings):
@@ -15,6 +16,8 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     app_mock_mode: bool = True
+    demo_seed_enabled: bool = False
+    session_signing_secret: SecretStr = SecretStr(DEFAULT_SESSION_SIGNING_SECRET)
     database_url: str = (
         "postgresql+psycopg://operations_ai:local-development-only"
         "@localhost:55432/operations_ai"
@@ -45,16 +48,29 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def reject_development_model_key_outside_development(self) -> Self:
-        if self.app_env != "development":
-            key = self.model_secret_encryption_key.get_secret_value()
-            if key == DEFAULT_MODEL_SECRET_ENCRYPTION_KEY:
-                raise ValueError(
-                    "model secret encryption key must be configured outside development"
-                )
-            if len(key) < 32:
-                raise ValueError(
-                    "model secret encryption key must be at least 32 characters"
-                )
+        if self.app_env == "development":
+            return self
+        key = self.model_secret_encryption_key.get_secret_value()
+        insecure_values = {
+            "local-development-only",
+            "local-development-signing-secret-change-me",
+            DEFAULT_MODEL_SECRET_ENCRYPTION_KEY,
+        }
+        if key in insecure_values:
+            raise ValueError("model secret encryption key must be configured outside development")
+        if len(key) < 32:
+            raise ValueError("model secret encryption key must be at least 32 characters")
+        if self.s3_secret_key in insecure_values:
+            raise ValueError("S3 secret key must be configured outside development")
+        if self.storage_signing_secret in insecure_values or len(self.storage_signing_secret) < 32:
+            raise ValueError("storage signing secret must be configured outside development")
+        session_secret = self.session_signing_secret.get_secret_value()
+        if session_secret == DEFAULT_SESSION_SIGNING_SECRET:
+            raise ValueError("session signing secret must be configured outside development")
+        if len(session_secret) < 32:
+            raise ValueError("session signing secret must be at least 32 characters")
+        if "local-development-only" in self.database_url:
+            raise ValueError("database password must be configured outside development")
         return self
 
 

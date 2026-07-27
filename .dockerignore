@@ -1,5 +1,7 @@
 .git
 .env
+.env.*
+.gitignore
 **/.next
 **/.venv
 **/__pycache__
@@ -7,3 +9,12 @@
 **/*.tsbuildinfo
 coverage
 test-results
+playwright-report
+**/test-results
+**/*.sqlite*
+backups
+*.bak
+.DS_Store
+.idea
+.vscode
+extension/dist

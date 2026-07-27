@@ -339,6 +339,10 @@ def test_non_development_settings_reject_default_model_encryption_key() -> None:
     configured = Settings(
         app_env="production",
         model_secret_encryption_key=SecretStr("production-test-only-high-entropy-key"),
+        database_url="postgresql+psycopg://operations_ai:production-password@db/operations_ai",
+        s3_secret_key="production-test-only-s3-secret",
+        storage_signing_secret="production-test-only-storage-secret",
+        session_signing_secret=SecretStr("production-test-only-session-signing-secret"),
     )
     assert configured.model_secret_encryption_key.get_secret_value().startswith(
         "production-test-only"
@@ -351,6 +355,20 @@ def test_non_development_settings_reject_weak_model_encryption_key() -> None:
             app_env="production",
             model_secret_encryption_key=SecretStr("weak-key"),
         )
+
+
+def test_non_development_settings_reject_default_or_short_session_signing_secret() -> None:
+    base = {
+        "app_env": "production",
+        "model_secret_encryption_key": SecretStr("production-model-encryption-key-0000000000"),
+        "database_url": "postgresql+psycopg://operations_ai:production-password@db/operations_ai",
+        "s3_secret_key": "production-s3-secret",
+        "storage_signing_secret": "production-storage-signing-secret-000000000",
+    }
+    with pytest.raises(ValidationError, match="session signing secret"):
+        Settings(**base)
+    with pytest.raises(ValidationError, match="at least 32 characters"):
+        Settings(**base, session_signing_secret=SecretStr("short"))
 
 
 def test_model_config_api_never_returns_secret_and_supports_status_changes() -> None:

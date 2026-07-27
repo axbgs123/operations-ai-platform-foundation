@@ -1,21 +1,39 @@
 name: operations-ai-platform
 
+x-api-environment: &api-environment
+  APP_ENV: ${APP_ENV:-development}
+  APP_MOCK_MODE: ${APP_MOCK_MODE:-true}
+  WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-operations_ai}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-operations_ai}
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT: http://object-storage:9000
+  S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+  S3_BUCKET: ${S3_BUCKET:-operations-ai}
+  S3_ACCESS_KEY: ${S3_ACCESS_KEY:-operations-ai}
+  S3_SECRET_KEY: ${S3_SECRET_KEY:-local-development-only}
+  STORAGE_SIGNING_SECRET: ${STORAGE_SIGNING_SECRET:-local-development-signing-secret-change-me}
+  MODEL_SECRET_ENCRYPTION_KEY: ${MODEL_SECRET_ENCRYPTION_KEY:-local-development-model-secret-change-me}
+  SESSION_SIGNING_SECRET: ${SESSION_SIGNING_SECRET:-local-development-session-secret-change-me}
+
 services:
   postgres:
     image: pgvector/pgvector:0.8.2-pg18-trixie
     environment:
-      POSTGRES_DB: operations_ai
-      POSTGRES_USER: operations_ai
+      POSTGRES_DB: ${POSTGRES_DB:-operations_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-operations_ai}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U operations_ai -d operations_ai"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 10s
     ports:
-      - "55432:5432"
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-55432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
+    networks: [backend]
+    stop_grace_period: 30s
 
   redis:
     image: redis:8.2.1-alpine
@@ -24,9 +42,12 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 12
+      start_period: 5s
     volumes:
       - redis-data:/data
+    networks: [backend]
+    stop_grace_period: 20s
 
   object-storage:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
@@ -38,48 +59,66 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 10s
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${S3_BIND_ADDRESS:-127.0.0.1}:${S3_PORT:-9000}:9000"
+      - "${S3_BIND_ADDRESS:-127.0.0.1}:${S3_CONSOLE_PORT:-9001}:9001"
     volumes:
       - object-storage-data:/data
+    networks: [backend]
+    stop_grace_period: 30s
 
   migrate:
-    image: operations-ai-platform-api
-    command:
-      [
-        "/app/.venv/bin/alembic",
-        "-c",
-        "/app/alembic.ini",
-        "upgrade",
-        "head",
-      ]
-    environment:
-      DATABASE_URL: postgresql+psycopg://operations_ai:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/operations_ai
+    image: operations-ai-platform-api:${IMAGE_TAG:-local}
+    restart: "no"
+    command: ["/app/.venv/bin/alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    environment: *api-environment
     depends_on:
       postgres:
         condition: service_healthy
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+
+  bucket-init:
+    image: operations-ai-platform-api:${IMAGE_TAG:-local}
+    restart: "no"
+    command: ["/app/.venv/bin/python", "-m", "app.bucket_init"]
+    environment: *api-environment
+    depends_on:
+      object-storage:
+        condition: service_healthy
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+
+  demo-seed:
+    image: operations-ai-platform-api:${IMAGE_TAG:-local}
+    restart: "no"
+    profiles: ["demo"]
+    command: ["/app/.venv/bin/python", "-m", "app.demo_seed"]
+    environment:
+      <<: *api-environment
+      DEMO_SEED_ENABLED: "true"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      bucket-init:
+        condition: service_completed_successfully
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
 
   api:
-    image: operations-ai-platform-api
+    image: operations-ai-platform-api:${IMAGE_TAG:-local}
     build:
       context: ../..
       dockerfile: infra/docker/api.Dockerfile
-    environment:
-      APP_ENV: development
-      APP_MOCK_MODE: "true"
-      WEB_ORIGIN: http://localhost:3000
-      DATABASE_URL: postgresql+psycopg://operations_ai:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/operations_ai
-      REDIS_URL: redis://redis:6379/0
-      S3_ENDPOINT: http://object-storage:9000
-      S3_PUBLIC_ENDPOINT: http://localhost:9000
-      S3_BUCKET: operations-ai
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-operations-ai}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-local-development-only}
-      STORAGE_SIGNING_SECRET: ${STORAGE_SIGNING_SECRET:-local-development-signing-secret-change-me}
+      args:
+        VCS_REF: ${VCS_REF:-unknown}
+    environment: *api-environment
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      bucket-init:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -88,47 +127,83 @@ services:
       object-storage:
         condition: service_healthy
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')",
-        ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 10s
     ports:
-      - "8000:8000"
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8000}:8000"
+    networks: [backend, frontend]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 30s
 
   worker:
-    image: operations-ai-platform-api
-    command:
-      [
-        "/app/.venv/bin/celery",
-        "-A",
-        "app.worker:celery_app",
-        "worker",
-        "--loglevel=INFO",
-      ]
-    environment:
-      REDIS_URL: redis://redis:6379/0
+    image: operations-ai-platform-api:${IMAGE_TAG:-local}
+    command: ["/app/.venv/bin/celery", "-A", "app.worker:celery_app", "worker", "--loglevel=INFO"]
+    environment: *api-environment
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
+    networks: [backend]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 30s
 
   web:
+    image: operations-ai-platform-web:${IMAGE_TAG:-local}
     build:
       context: ../..
       dockerfile: infra/docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
-      NEXT_PUBLIC_MOCK_MODE: "true"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/demo').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     ports:
-      - "3000:3000"
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    networks: [frontend]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 20s
+
+  e2e:
+    build:
+      context: ../..
+      dockerfile: infra/docker/e2e.Dockerfile
+    image: operations-ai-platform-e2e:${IMAGE_TAG:-local}
+    profiles: ["e2e"]
+    environment:
+      FRESH_INSTALL_WEB_URL: http://web:3000
+      FRESH_INSTALL_API_URL: http://api:8000
+    depends_on:
+      web:
+        condition: service_healthy
+    networks: [frontend, backend]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+networks:
+  backend:
+    internal: true
+  frontend:
 
 volumes:
   object-storage-data:

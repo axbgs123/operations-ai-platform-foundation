@@ -53,6 +53,18 @@ export function DemoWorkspace({
       </main>
     );
   }
+  const demo = workspace as DemoWorkspaceData & Record<string, Record<string, string | boolean | number>>;
+  const closureCards: Array<[string, unknown]> = [
+    ["已发布内容", demo.published_content?.title],
+    ["正式确认数据快照", demo.confirmed_snapshot?.label],
+    ["动态基准 / 图表", demo.benchmark?.label],
+    ["Mock 分析", demo.analysis?.summary],
+    ["建议", demo.suggestion?.text],
+    ["风格样本", demo.style_sample?.label],
+    ["已确认事实", demo.confirmed_fact?.value],
+    ["合成风控知识", demo.risk_knowledge?.rule],
+    ["生成草稿", demo.draft?.title],
+  ];
 
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
@@ -76,6 +88,15 @@ export function DemoWorkspace({
                 {account.platform === "douyin" ? "抖音" : "小红书"} · {account.name}
               </h2>
               <p className="mt-2 text-sm text-slate-400">{account.posts.length} 条合成作品记录</p>
+            </article>
+          ))}
+        </section>
+
+        <section aria-label="示例运营闭环" className="grid gap-4 md:grid-cols-3">
+          {closureCards.map(([title, detail]) => (
+            <article key={title} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <h2 className="font-semibold">{title}</h2>
+              <p className="mt-2 text-sm text-slate-400">{detail === undefined ? "示例数据加载中" : String(detail)}</p>
             </article>
           ))}
         </section>

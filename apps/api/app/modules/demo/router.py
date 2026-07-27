@@ -1,9 +1,11 @@
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Cookie, HTTPException, Request, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.database import get_session
 from app.modules.demo.service import DemoLimitReached, DemoService, DemoSessionInvalid
 
 
@@ -53,13 +55,26 @@ class DemoWorkspaceRead(BaseModel):
     id: str
     name: str
     label: str
+    seed_version: str
     synthetic: bool
     accounts: list[DemoAccountRead]
+    published_content: dict[str, Any] = Field(default_factory=dict)
+    confirmed_snapshot: dict[str, Any] = Field(default_factory=dict)
+    benchmark: dict[str, Any] = Field(default_factory=dict)
+    analysis: dict[str, Any] = Field(default_factory=dict)
+    suggestion: dict[str, Any] = Field(default_factory=dict)
+    style_sample: dict[str, Any] = Field(default_factory=dict)
+    confirmed_fact: dict[str, Any] = Field(default_factory=dict)
+    risk_knowledge: dict[str, Any] = Field(default_factory=dict)
+    draft: dict[str, Any] = Field(default_factory=dict)
 
 
 @router.get("/workspace", response_model=DemoWorkspaceRead)
-def read_demo_workspace() -> dict[str, Any]:
-    return demo_service.workspace()
+def read_demo_workspace(session: Session = Depends(get_session)) -> dict[str, Any]:
+    try:
+        return demo_service.workspace(session)
+    except LookupError as error:
+        raise HTTPException(status_code=503, detail="demo seed is not installed") from error
 
 
 @router.post("/sessions", response_model=DemoSessionCreated, status_code=201)

@@ -3004,12 +3004,50 @@ export interface components {
         DemoWorkspaceRead: {
             /** Accounts */
             accounts: components["schemas"]["DemoAccountRead"][];
+            /** Analysis */
+            analysis?: {
+                [key: string]: unknown;
+            };
+            /** Benchmark */
+            benchmark?: {
+                [key: string]: unknown;
+            };
+            /** Confirmed Fact */
+            confirmed_fact?: {
+                [key: string]: unknown;
+            };
+            /** Confirmed Snapshot */
+            confirmed_snapshot?: {
+                [key: string]: unknown;
+            };
+            /** Draft */
+            draft?: {
+                [key: string]: unknown;
+            };
             /** Id */
             id: string;
             /** Label */
             label: string;
             /** Name */
             name: string;
+            /** Published Content */
+            published_content?: {
+                [key: string]: unknown;
+            };
+            /** Risk Knowledge */
+            risk_knowledge?: {
+                [key: string]: unknown;
+            };
+            /** Seed Version */
+            seed_version: string;
+            /** Style Sample */
+            style_sample?: {
+                [key: string]: unknown;
+            };
+            /** Suggestion */
+            suggestion?: {
+                [key: string]: unknown;
+            };
             /** Synthetic */
             synthetic: boolean;
         };

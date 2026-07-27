@@ -138,6 +138,10 @@ class S3Storage:
                 raise
         self._bucket_ready = True
 
+    def ensure_bucket(self) -> None:
+        """Create the configured bucket if it does not already exist."""
+        self._ensure_bucket()
+
     def check_ready(self) -> None:
         url = self._presign("HEAD", None, endpoint=self._endpoint, expires=30)
         with self._opener.open(Request(url, method="HEAD"), timeout=2):
