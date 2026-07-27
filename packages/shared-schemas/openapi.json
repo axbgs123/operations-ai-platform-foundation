@@ -1241,6 +1241,29 @@
         "title": "ConfigurationVersionsRead",
         "type": "object"
       },
+      "ConfirmationRead": {
+        "properties": {
+          "confirmation_token": {
+            "title": "Confirmation Token",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "impact": {
+            "$ref": "#/components/schemas/WorkspaceDeletionImpact"
+          }
+        },
+        "required": [
+          "confirmation_token",
+          "expires_at",
+          "impact"
+        ],
+        "title": "ConfirmationRead",
+        "type": "object"
+      },
       "ConfirmedFactSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -1862,6 +1885,83 @@
         "title": "DataPerformance",
         "type": "object"
       },
+      "DeletionConfirmRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation_token": {
+            "maxLength": 200,
+            "minLength": 20,
+            "title": "Confirmation Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmation_token"
+        ],
+        "title": "DeletionConfirmRequest",
+        "type": "object"
+      },
+      "DeletionJobRead": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "inventory": {
+            "additionalProperties": true,
+            "title": "Inventory",
+            "type": "object"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "status",
+          "phase",
+          "error_code",
+          "inventory",
+          "completed_at"
+        ],
+        "title": "DeletionJobRead",
+        "type": "object"
+      },
       "DemoAccountRead": {
         "properties": {
           "id": {
@@ -2198,6 +2298,150 @@
           "style"
         ],
         "title": "EffectiveStyleRead",
+        "type": "object"
+      },
+      "Envelope_ConfirmationRead_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfirmationRead"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[ConfirmationRead]",
+        "type": "object"
+      },
+      "Envelope_DeletionJobRead_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/DeletionJobRead"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[DeletionJobRead]",
+        "type": "object"
+      },
+      "Envelope_RestoredContentRead_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RestoredContentRead"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[RestoredContentRead]",
+        "type": "object"
+      },
+      "Envelope_RetentionPolicyRead_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/RetentionPolicyRead"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[RetentionPolicyRead]",
+        "type": "object"
+      },
+      "Envelope_TrashItemRead_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/TrashItemRead"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[TrashItemRead]",
+        "type": "object"
+      },
+      "Envelope_WorkspaceDeletionImpact_": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/WorkspaceDeletionImpact"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[WorkspaceDeletionImpact]",
+        "type": "object"
+      },
+      "Envelope_list_TrashItemRead__": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/TrashItemRead"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "error": {
+            "title": "Error",
+            "type": "null"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "Envelope[list[TrashItemRead]]",
         "type": "object"
       },
       "EvidenceCitation": {
@@ -4479,6 +4723,32 @@
         "title": "RecordType",
         "type": "string"
       },
+      "ResponseMeta": {
+        "properties": {
+          "request_id": {
+            "format": "uuid",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "title": "ResponseMeta",
+        "type": "object"
+      },
       "RestoreAction": {
         "enum": [
           "create",
@@ -4601,6 +4871,111 @@
           "blocking"
         ],
         "title": "RestorePreviewItem",
+        "type": "object"
+      },
+      "RestoredContentRead": {
+        "properties": {
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "platform",
+          "deleted_at"
+        ],
+        "title": "RestoredContentRead",
+        "type": "object"
+      },
+      "RetentionPolicyRead": {
+        "properties": {
+          "effective_at": {
+            "format": "date-time",
+            "title": "Effective At",
+            "type": "string"
+          },
+          "retention_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Seconds"
+          },
+          "strategy": {
+            "title": "Strategy",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "strategy",
+          "retention_seconds",
+          "effective_at"
+        ],
+        "title": "RetentionPolicyRead",
+        "type": "object"
+      },
+      "RetentionPolicyWrite": {
+        "additionalProperties": false,
+        "properties": {
+          "retention_seconds": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Seconds"
+          },
+          "strategy": {
+            "enum": [
+              "immediate",
+              "scheduled",
+              "evidence"
+            ],
+            "title": "Strategy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "strategy"
+        ],
+        "title": "RetentionPolicyWrite",
         "type": "object"
       },
       "RiskAuthorizationStatus": {
@@ -6660,6 +7035,105 @@
         "title": "TextGenerationRunRead",
         "type": "object"
       },
+      "TrashDeleteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "TrashDeleteRequest",
+        "type": "object"
+      },
+      "TrashItemRead": {
+        "properties": {
+          "deleted_at": {
+            "format": "date-time",
+            "title": "Deleted At",
+            "type": "string"
+          },
+          "deleted_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted By"
+          },
+          "deletion_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Reason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "resource_id": {
+            "format": "uuid",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "title": "Resource Type",
+            "type": "string"
+          },
+          "restored_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored At"
+          },
+          "scheduled_purge_at": {
+            "format": "date-time",
+            "title": "Scheduled Purge At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "resource_type",
+          "resource_id",
+          "deleted_by",
+          "deleted_at",
+          "scheduled_purge_at",
+          "deletion_reason",
+          "status",
+          "restored_at"
+        ],
+        "title": "TrashItemRead",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -7298,6 +7772,64 @@
           "admin_code"
         ],
         "title": "WorkspaceCreated",
+        "type": "object"
+      },
+      "WorkspaceDeletionImpact": {
+        "additionalProperties": false,
+        "properties": {
+          "assets": {
+            "title": "Assets",
+            "type": "integer"
+          },
+          "cache_prefixes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cache Prefixes",
+            "type": "array"
+          },
+          "compensation_required_jobs": {
+            "title": "Compensation Required Jobs",
+            "type": "integer"
+          },
+          "evidence_retained_objects": {
+            "title": "Evidence Retained Objects",
+            "type": "integer"
+          },
+          "private_knowledge_documents": {
+            "title": "Private Knowledge Documents",
+            "type": "integer"
+          },
+          "staging_tasks": {
+            "title": "Staging Tasks",
+            "type": "integer"
+          },
+          "structured_records": {
+            "title": "Structured Records",
+            "type": "integer"
+          },
+          "vectors": {
+            "title": "Vectors",
+            "type": "integer"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "structured_records",
+          "assets",
+          "private_knowledge_documents",
+          "vectors",
+          "staging_tasks",
+          "cache_prefixes",
+          "compensation_required_jobs",
+          "evidence_retained_objects"
+        ],
+        "title": "WorkspaceDeletionImpact",
         "type": "object"
       },
       "WorkspaceMemberRead": {
@@ -12099,6 +12631,303 @@
         ]
       }
     },
+    "/v1/workspaces/{workspace_id}/deletion-confirmations": {
+      "post": {
+        "operationId": "request_deletion_confirmation_v1_workspaces__workspace_id__deletion_confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_ConfirmationRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Deletion Confirmation",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/deletion-impact": {
+      "get": {
+        "operationId": "deletion_impact_v1_workspaces__workspace_id__deletion_impact_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_WorkspaceDeletionImpact_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deletion Impact",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/deletions": {
+      "post": {
+        "operationId": "confirm_workspace_deletion_v1_workspaces__workspace_id__deletions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeletionConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_DeletionJobRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Workspace Deletion",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/deletions/{job_id}": {
+      "get": {
+        "operationId": "read_workspace_deletion_v1_workspaces__workspace_id__deletions__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_DeletionJobRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Workspace Deletion",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
     "/v1/workspaces/{workspace_id}/exports": {
       "post": {
         "operationId": "create_export_v1_workspaces__workspace_id__exports_post",
@@ -13965,6 +14794,148 @@
         "summary": "Preview Restore",
         "tags": [
           "exports"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/retention-policy": {
+      "get": {
+        "operationId": "read_retention_policy_v1_workspaces__workspace_id__retention_policy_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RetentionPolicyRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Retention Policy",
+        "tags": [
+          "deletion"
+        ]
+      },
+      "put": {
+        "operationId": "configure_retention_policy_v1_workspaces__workspace_id__retention_policy_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionPolicyWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RetentionPolicyRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configure Retention Policy",
+        "tags": [
+          "deletion"
         ]
       }
     },
@@ -15989,6 +16960,245 @@
         "summary": "Confirm Style Profile",
         "tags": [
           "style-profiles"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/trash": {
+      "get": {
+        "operationId": "list_trash_v1_workspaces__workspace_id__trash_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_TrashItemRead__"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Trash",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/trash/contents/{content_id}": {
+      "post": {
+        "operationId": "soft_delete_content_v1_workspaces__workspace_id__trash_contents__content_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrashDeleteRequest",
+                "default": {}
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_TrashItemRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Soft Delete Content",
+        "tags": [
+          "deletion"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/trash/contents/{content_id}/restore": {
+      "post": {
+        "operationId": "restore_content_v1_workspaces__workspace_id__trash_contents__content_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_RestoredContentRead_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Content",
+        "tags": [
+          "deletion"
         ]
       }
     },

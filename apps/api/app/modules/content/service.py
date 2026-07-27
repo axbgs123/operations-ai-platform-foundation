@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.security import WorkspaceContext
 from app.modules.content.account_models import ColumnCampaign, Platform, PlatformAccount
 from app.modules.content.account_service import AccountConfigurationService
-from app.modules.content.models import AssetCategory, Content, ContentAsset, ContentStatus, DeletedItem
+from app.modules.content.models import AssetCategory, Content, ContentAsset, ContentStatus
 from app.modules.metrics.models import ContentType
 from app.modules.workspace.models import AuditLog
 from app.modules.workspace.permissions import Permission, require_permission
@@ -212,40 +212,20 @@ class ContentService:
         return content
 
     def delete(self, content_id: UUID) -> None:
-        require_permission(self._context.role, Permission.WRITE_CONTENT)
-        content = self._get(content_id)
-        content.deleted_at = datetime.now(UTC)
-        self._session.add(
-            DeletedItem(
-                workspace_id=self._context.workspace_id,
-                resource_type="content",
-                resource_id=content.id,
-                deleted_by=self._context.member_id,
-            )
-        )
-        self._audit("content.deleted", content.id)
-        self._session.flush()
+        from app.modules.exports.deletion import TrashService
+
+        TrashService(
+            self._session,
+            self._context,
+        ).soft_delete_content(content_id)
 
     def restore(self, content_id: UUID) -> Content:
-        content = self._get(content_id, include_deleted=True)
-        if content.deleted_at is None:
-            raise ValueError("content is not deleted")
-        content.deleted_at = None
-        deleted_item = self._session.scalar(
-            select(DeletedItem)
-            .where(
-                DeletedItem.workspace_id == self._context.workspace_id,
-                DeletedItem.resource_type == "content",
-                DeletedItem.resource_id == content.id,
-                DeletedItem.restored_at.is_(None),
-            )
-            .order_by(DeletedItem.deleted_at.desc())
-        )
-        if deleted_item is not None:
-            deleted_item.restored_at = datetime.now(UTC)
-        self._audit("content.restored", content.id)
-        self._session.flush()
-        return content
+        from app.modules.exports.deletion import TrashService
+
+        return TrashService(
+            self._session,
+            self._context,
+        ).restore_content(content_id)
 
     def _audit(self, action: str, resource_id: UUID) -> None:
         self._session.add(

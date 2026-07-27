@@ -23,6 +23,13 @@ class AssetCategory(StrEnum):
     DOCUMENT = "document"
 
 
+class DeletedItemStatus(StrEnum):
+    RECOVERABLE = "recoverable"
+    RESTORED = "restored"
+    PURGING = "purging"
+    PURGED = "purged"
+
+
 content_status_type = Enum(
     ContentStatus,
     name="content_status",
@@ -32,6 +39,12 @@ content_status_type = Enum(
 asset_category_type = Enum(
     AssetCategory,
     name="asset_category",
+    native_enum=False,
+    values_callable=lambda members: [member.value for member in members],
+)
+deleted_item_status_type = Enum(
+    DeletedItemStatus,
+    name="deleted_item_status",
     native_enum=False,
     values_callable=lambda members: [member.value for member in members],
 )
@@ -107,8 +120,16 @@ class DeletedItem(UUIDPrimaryKeyMixin, Base):
     )
     resource_type: Mapped[str] = mapped_column(String(80))
     resource_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True))
+    scheduled_purge_at: Mapped[datetime] = mapped_column(UTCDateTime())
     deleted_by: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("workspace_members.id", ondelete="SET NULL"), default=None
     )
     deleted_at: Mapped[datetime] = mapped_column(UTCDateTime(), default_factory=utc_now)
+    deletion_reason: Mapped[str | None] = mapped_column(
+        String(240), default=None
+    )
+    status: Mapped[DeletedItemStatus] = mapped_column(
+        deleted_item_status_type,
+        default=DeletedItemStatus.RECOVERABLE,
+    )
     restored_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)

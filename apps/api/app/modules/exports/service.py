@@ -14,6 +14,7 @@ from app.core.security import WorkspaceContext
 from app.core.storage import Storage
 from app.modules.content.models import Content
 from app.modules.exports.models import ExportKind, ExportStatus, ExportTask
+from app.modules.exports.models import ManagedObjectState
 from app.modules.exports.json_backup import render_lightweight_json
 from app.modules.exports.report import render_analysis_markdown
 from app.modules.exports.tabular import render_workspace_csv, safe_export_filename
@@ -220,6 +221,21 @@ def process_export_task(
             f"workspaces/{workspace_id}/exports/{task_id}/"
             f"{claim_token}/{file_name}"
         )
+        from app.modules.exports.deletion import RetentionService
+
+        managed_object = RetentionService(
+            session,
+            context,
+        ).register_managed_object(
+            owner_type="export_job",
+            owner_id=task_id,
+            object_key=object_key,
+            managed_prefix=f"workspaces/{workspace_id}/exports/{task_id}/",
+            purge_at=datetime.now(UTC) + timedelta(minutes=15),
+            claim_token=claim_token,
+            lease_expires_at=task.lease_expires_at,
+        )
+        session.commit()
         storage.put_object(object_key, content, mime_type=mime_type)
     except Exception:
         _finalize_export_failure(
@@ -229,7 +245,7 @@ def process_export_task(
             error_code="export_failed",
         )
         return
-    _finalize_export_success(
+    finalized = _finalize_export_success(
         session,
         task_id,
         claim_token,
@@ -237,6 +253,14 @@ def process_export_task(
         file_name=file_name,
         mime_type=mime_type,
     )
+    if finalized:
+        managed = session.get(type(managed_object), managed_object.id)
+        if managed is not None:
+            managed.state = ManagedObjectState.REFERENCED
+            managed.claim_token = None
+            managed.lease_expires_at = None
+            managed.purge_at = None
+            session.commit()
 
 
 def _renew_export_lease(

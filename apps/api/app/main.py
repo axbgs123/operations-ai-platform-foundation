@@ -12,6 +12,7 @@ from app.modules.exports.router import (
     router as exports_router,
     zip_restore_router,
 )
+from app.modules.exports.deletion_router import router as deletion_router
 from app.modules.imports.extension_router import router as extension_router
 from app.modules.imports.extension_router import review_router as extension_review_router
 from app.modules.imports.router import router as imports_router
@@ -49,6 +50,7 @@ app.include_router(demo_router)
 app.include_router(exports_router)
 app.include_router(restore_router)
 app.include_router(zip_restore_router)
+app.include_router(deletion_router)
 app.include_router(imports_router)
 app.include_router(extension_router)
 app.include_router(extension_review_router)

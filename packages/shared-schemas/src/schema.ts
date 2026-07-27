@@ -884,6 +884,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/deletion-confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Deletion Confirmation */
+        post: operations["request_deletion_confirmation_v1_workspaces__workspace_id__deletion_confirmations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/deletion-impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deletion Impact */
+        get: operations["deletion_impact_v1_workspaces__workspace_id__deletion_impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/deletions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Workspace Deletion */
+        post: operations["confirm_workspace_deletion_v1_workspaces__workspace_id__deletions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/deletions/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Workspace Deletion */
+        get: operations["read_workspace_deletion_v1_workspaces__workspace_id__deletions__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/exports": {
         parameters: {
             query?: never;
@@ -1221,6 +1289,24 @@ export interface paths {
         put?: never;
         /** Preview Restore */
         post: operations["preview_restore_v1_workspaces__workspace_id__restore_previews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/retention-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Retention Policy */
+        get: operations["read_retention_policy_v1_workspaces__workspace_id__retention_policy_get"];
+        /** Configure Retention Policy */
+        put: operations["configure_retention_policy_v1_workspaces__workspace_id__retention_policy_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1614,6 +1700,57 @@ export interface paths {
         put?: never;
         /** Confirm Style Profile */
         post: operations["confirm_style_profile_v1_workspaces__workspace_id__style_profiles__profile_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Trash */
+        get: operations["list_trash_v1_workspaces__workspace_id__trash_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/trash/contents/{content_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Soft Delete Content */
+        post: operations["soft_delete_content_v1_workspaces__workspace_id__trash_contents__content_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/trash/contents/{content_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Content */
+        post: operations["restore_content_v1_workspaces__workspace_id__trash_contents__content_id__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2242,6 +2379,17 @@ export interface components {
             /** Objectives */
             objectives: components["schemas"]["ObjectiveProfileRead"][];
         };
+        /** ConfirmationRead */
+        ConfirmationRead: {
+            /** Confirmation Token */
+            confirmation_token: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            impact: components["schemas"]["WorkspaceDeletionImpact"];
+        };
         /** ConfirmedFactSnapshot */
         ConfirmedFactSnapshot: {
             /** Field Code */
@@ -2460,6 +2608,36 @@ export interface components {
             /** Trend Conclusion */
             trend_conclusion?: string | null;
         };
+        /** DeletionConfirmRequest */
+        DeletionConfirmRequest: {
+            /** Confirmation Token */
+            confirmation_token: string;
+        };
+        /** DeletionJobRead */
+        DeletionJobRead: {
+            /** Completed At */
+            completed_at: string | null;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Inventory */
+            inventory: {
+                [key: string]: unknown;
+            };
+            /** Phase */
+            phase: string;
+            /** Status */
+            status: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
         /** DemoAccountRead */
         DemoAccountRead: {
             /** Id */
@@ -2602,6 +2780,56 @@ export interface components {
             switches: components["schemas"]["StyleInheritanceSwitches"];
             /** Version */
             version: number;
+        };
+        /** Envelope[ConfirmationRead] */
+        Envelope_ConfirmationRead_: {
+            data: components["schemas"]["ConfirmationRead"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** Envelope[DeletionJobRead] */
+        Envelope_DeletionJobRead_: {
+            data: components["schemas"]["DeletionJobRead"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** Envelope[RestoredContentRead] */
+        Envelope_RestoredContentRead_: {
+            data: components["schemas"]["RestoredContentRead"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** Envelope[RetentionPolicyRead] */
+        Envelope_RetentionPolicyRead_: {
+            data: components["schemas"]["RetentionPolicyRead"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** Envelope[TrashItemRead] */
+        Envelope_TrashItemRead_: {
+            data: components["schemas"]["TrashItemRead"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** Envelope[WorkspaceDeletionImpact] */
+        Envelope_WorkspaceDeletionImpact_: {
+            data: components["schemas"]["WorkspaceDeletionImpact"];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
+        };
+        /** Envelope[list[TrashItemRead]] */
+        Envelope_list_TrashItemRead__: {
+            /** Data */
+            data: components["schemas"]["TrashItemRead"][];
+            /** Error */
+            error?: null;
+            meta: components["schemas"]["ResponseMeta"];
         };
         /** EvidenceCitation */
         EvidenceCitation: {
@@ -3470,6 +3698,16 @@ export interface components {
          * @enum {string}
          */
         RecordType: "platform_account" | "objective_profile" | "benchmark_profile" | "column_campaign" | "metric_definition" | "content" | "asset_reference" | "data_snapshot" | "snapshot_metric_value" | "style_profile" | "style_sample" | "fact_source_metadata" | "fact_item" | "risk_document_metadata";
+        /** ResponseMeta */
+        ResponseMeta: {
+            /**
+             * Request Id
+             * Format: uuid
+             */
+            request_id: string;
+            /** Task Id */
+            task_id?: string | null;
+        };
         /**
          * RestoreAction
          * @enum {string}
@@ -3511,6 +3749,47 @@ export interface components {
             source_id: string;
             /** Target Id */
             target_id: string | null;
+        };
+        /** RestoredContentRead */
+        RestoredContentRead: {
+            /** Deleted At */
+            deleted_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Platform */
+            platform: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** RetentionPolicyRead */
+        RetentionPolicyRead: {
+            /**
+             * Effective At
+             * Format: date-time
+             */
+            effective_at: string;
+            /** Retention Seconds */
+            retention_seconds: number | null;
+            /** Strategy */
+            strategy: string;
+            /** Version */
+            version: number;
+        };
+        /** RetentionPolicyWrite */
+        RetentionPolicyWrite: {
+            /** Retention Seconds */
+            retention_seconds?: number | null;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "immediate" | "scheduled" | "evidence";
         };
         /**
          * RiskAuthorizationStatus
@@ -4300,6 +4579,44 @@ export interface components {
              */
             workspace_id: string;
         };
+        /** TrashDeleteRequest */
+        TrashDeleteRequest: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** TrashItemRead */
+        TrashItemRead: {
+            /**
+             * Deleted At
+             * Format: date-time
+             */
+            deleted_at: string;
+            /** Deleted By */
+            deleted_by: string | null;
+            /** Deletion Reason */
+            deletion_reason: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Resource Id
+             * Format: uuid
+             */
+            resource_id: string;
+            /** Resource Type */
+            resource_type: string;
+            /** Restored At */
+            restored_at: string | null;
+            /**
+             * Scheduled Purge At
+             * Format: date-time
+             */
+            scheduled_purge_at: string;
+            /** Status */
+            status: string;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -4571,6 +4888,30 @@ export interface components {
         WorkspaceCreated: {
             /** Admin Code */
             admin_code: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** WorkspaceDeletionImpact */
+        WorkspaceDeletionImpact: {
+            /** Assets */
+            assets: number;
+            /** Cache Prefixes */
+            cache_prefixes: string[];
+            /** Compensation Required Jobs */
+            compensation_required_jobs: number;
+            /** Evidence Retained Objects */
+            evidence_retained_objects: number;
+            /** Private Knowledge Documents */
+            private_knowledge_documents: number;
+            /** Staging Tasks */
+            staging_tasks: number;
+            /** Structured Records */
+            structured_records: number;
+            /** Vectors */
+            vectors: number;
             /**
              * Workspace Id
              * Format: uuid
@@ -6839,6 +7180,148 @@ export interface operations {
             };
         };
     };
+    request_deletion_confirmation_v1_workspaces__workspace_id__deletion_confirmations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ConfirmationRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deletion_impact_v1_workspaces__workspace_id__deletion_impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_WorkspaceDeletionImpact_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_workspace_deletion_v1_workspaces__workspace_id__deletions_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeletionConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DeletionJobRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_workspace_deletion_v1_workspaces__workspace_id__deletions__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                job_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DeletionJobRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_export_v1_workspaces__workspace_id__exports_post: {
         parameters: {
             query?: never;
@@ -7684,6 +8167,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RestorePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_retention_policy_v1_workspaces__workspace_id__retention_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RetentionPolicyRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_retention_policy_v1_workspaces__workspace_id__retention_policy_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionPolicyWrite"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RetentionPolicyRead_"];
                 };
             };
             /** @description Validation Error */
@@ -8592,6 +9147,115 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StyleProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_trash_v1_workspaces__workspace_id__trash_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_TrashItemRead__"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    soft_delete_content_v1_workspaces__workspace_id__trash_contents__content_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                content_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TrashDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_TrashItemRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_content_v1_workspaces__workspace_id__trash_contents__content_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                content_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RestoredContentRead_"];
                 };
             };
             /** @description Validation Error */

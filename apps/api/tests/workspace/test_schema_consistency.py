@@ -8,7 +8,7 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260726_0024"
+HEAD = "20260727_0025"
 
 
 def _database_with_version(*, include_required_tables: bool):
@@ -40,6 +40,24 @@ def _database_with_version(*, include_required_tables: bool):
             connection.execute(
                 text("CREATE TABLE knowledge_index_rebuilds (id VARCHAR)")
             )
+            connection.execute(
+                text("CREATE TABLE retention_policies (id VARCHAR)")
+            )
+            connection.execute(
+                text("CREATE TABLE managed_objects (id VARCHAR)")
+            )
+            connection.execute(
+                text(
+                    "CREATE TABLE workspace_deletion_confirmations "
+                    "(id VARCHAR)"
+                )
+            )
+            connection.execute(
+                text("CREATE TABLE workspace_deletion_jobs (id VARCHAR)")
+            )
+            connection.execute(
+                text("CREATE TABLE deletion_audits (id VARCHAR)")
+            )
     return engine
 
 
@@ -62,6 +80,11 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "export_jobs",
                     "restore_jobs",
                     "knowledge_index_rebuilds",
+                    "retention_policies",
+                    "managed_objects",
+                    "workspace_deletion_confirmations",
+                    "workspace_deletion_jobs",
+                    "deletion_audits",
                 },
             )
 
@@ -80,6 +103,11 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                 "extension_capture_tasks",
                 "export_jobs",
                 "restore_jobs",
-                "knowledge_index_rebuilds",
-            },
+                    "knowledge_index_rebuilds",
+                    "retention_policies",
+                    "managed_objects",
+                    "workspace_deletion_confirmations",
+                    "workspace_deletion_jobs",
+                    "deletion_audits",
+                },
         )

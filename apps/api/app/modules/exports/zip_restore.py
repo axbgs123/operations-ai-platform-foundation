@@ -24,6 +24,8 @@ from app.modules.exports.models import (
     FullRestoreStatus,
     KnowledgeIndexRebuild,
     KnowledgeIndexStatus,
+    ManagedObject,
+    ManagedObjectState,
     RestoreJob,
 )
 from app.modules.exports.restore_preview import (
@@ -343,6 +345,18 @@ def create_full_restore_preview(
         job.archive_object_key = archive_key
         job.staging_prefix = staging_prefix
         job.object_plan = plan
+        from app.modules.exports.deletion import RetentionService
+
+        retention = RetentionService(session, context)
+        purge_at = datetime.now(UTC) + timedelta(minutes=15)
+        for object_key in staged_keys:
+            retention.register_managed_object(
+                owner_type="restore_job",
+                owner_id=job.id,
+                object_key=object_key,
+                managed_prefix=f"{staging_prefix}/",
+                purge_at=purge_at,
+            )
         session.flush()
     except IntegrityError:
         for object_key in staged_keys:
@@ -523,6 +537,15 @@ def confirm_full_restore(
     for item in job.object_plan:
         _safe_delete(storage, str(item["staging_key"]))
     _safe_delete(storage, job.archive_object_key)
+    for managed_object in session.scalars(
+        select(ManagedObject).where(
+            ManagedObject.workspace_id == job.workspace_id,
+            ManagedObject.owner_type == "restore_job",
+            ManagedObject.owner_id == job.id,
+        )
+    ):
+        managed_object.state = ManagedObjectState.DELETED
+        managed_object.error_code = None
     if claim_token is not None:
         _renew_restore_claim(session, job.id, claim_token)
     job.phase = FullRestorePhase.REBUILDING_INDEX

@@ -184,6 +184,9 @@ class InviteAuthService:
         access_code = self._authentication.get_access_code(code_id)
         if access_code is None or access_code.revoked_at is not None:
             raise InvalidInviteCode
+        workspace = self._session.get(Workspace, access_code.workspace_id)
+        if workspace is None or workspace.status != "active":
+            raise InvalidInviteCode
         if access_code.expires_at is not None and access_code.expires_at <= self._now():
             raise InvalidInviteCode
         try:
@@ -223,6 +226,9 @@ class InviteAuthService:
             return None
         member = self._authentication.get_member(stored_session.member_id)
         if member is None or member.revoked_at is not None:
+            return None
+        workspace = self._session.get(Workspace, member.workspace_id)
+        if workspace is None or workspace.status != "active":
             return None
         return WorkspaceContext(
             workspace_id=member.workspace_id,

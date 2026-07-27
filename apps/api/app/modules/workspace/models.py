@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import JSON, Enum, ForeignKey, Index, String, Uuid
+from sqlalchemy import JSON, Enum, ForeignKey, Index, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import (
@@ -34,6 +34,8 @@ class Workspace(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "workspaces"
 
     name: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(40), default="active")
+    deletion_version: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class WorkspaceMember(UUIDPrimaryKeyMixin, TimestampMixin, Base):

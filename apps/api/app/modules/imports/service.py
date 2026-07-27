@@ -236,7 +236,12 @@ class ImportService:
             raise ValueError("screenshot must be JPEG, PNG, or WebP")
         if not image or len(image) > 10 * 1024 * 1024:
             raise ValueError("screenshot must be between 1 byte and 10 MiB")
-        if retention_policy not in {"delete_after_confirm", "retain_as_evidence"}:
+        if retention_policy not in {
+            "delete_after_confirm",
+            "retain_for_period",
+            "retain_as_evidence",
+            "workspace_policy",
+        }:
             raise ValueError("invalid screenshot retention policy")
         batch = ImportBatch(
             workspace_id=self._context.workspace_id,
@@ -487,10 +492,21 @@ class ImportService:
         batch.confirmed_at = datetime.now(UTC)
         batch.confirmed_by = self._context.member_id
         batch.confirmation_result = result
-        if (
-            batch.source_kind == ImportSourceKind.SCREENSHOT
-            and batch.screenshot_retention_policy == "delete_after_confirm"
-        ):
-            batch.screenshot_bytes = None
+        if batch.source_kind == ImportSourceKind.SCREENSHOT:
+            from app.modules.exports.deletion import RetentionService
+
+            RetentionService(
+                self._session,
+                self._context,
+            ).apply_screenshot_policy(
+                batch,
+                event="confirmed",
+                evidence_reason=(
+                    "confirmed import evidence"
+                    if batch.screenshot_retention_policy
+                    == "retain_as_evidence"
+                    else None
+                ),
+            )
         self._session.flush()
         return result

@@ -25,6 +25,11 @@ RUNTIME_REQUIRED_TABLES = {
     "export_jobs",
     "restore_jobs",
     "knowledge_index_rebuilds",
+    "retention_policies",
+    "managed_objects",
+    "workspace_deletion_confirmations",
+    "workspace_deletion_jobs",
+    "deletion_audits",
 }
 
 
