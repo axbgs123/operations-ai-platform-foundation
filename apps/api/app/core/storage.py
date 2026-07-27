@@ -138,6 +138,11 @@ class S3Storage:
                 raise
         self._bucket_ready = True
 
+    def check_ready(self) -> None:
+        url = self._presign("HEAD", None, endpoint=self._endpoint, expires=30)
+        with self._opener.open(Request(url, method="HEAD"), timeout=2):
+            pass
+
     def _encode_token(self, metadata: dict) -> str:
         payload = base64.urlsafe_b64encode(
             json.dumps(metadata, separators=(",", ":")).encode()

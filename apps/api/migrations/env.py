@@ -19,6 +19,7 @@ from app.modules.style_facts import fact_models  # noqa: F401
 from app.modules.generation import models as generation_models  # noqa: F401
 from app.modules.exports import models as export_models  # noqa: F401
 from app.modules.workspace import models  # noqa: F401
+from app.core import observability as observability_models  # noqa: F401
 
 
 config = context.config

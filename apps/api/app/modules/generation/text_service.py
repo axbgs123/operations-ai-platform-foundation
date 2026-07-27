@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
+from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -341,6 +342,14 @@ def process_text_generation(
     adapter: TextGenerationAdapter | None = None,
     model_available: bool = True,
 ) -> TextGenerationRun:
+    def flush_terminal_state() -> TextGenerationRun:
+        try:
+            session.flush()
+        except StaleDataError:
+            session.rollback()
+            return _run(session, run_id)
+        return run
+
     run = _run(session, run_id)
     if run.status in {
         TextGenerationRunStatus.SUCCEEDED,
@@ -353,11 +362,11 @@ def process_text_generation(
         run.error_code = "MODEL_ADAPTER_UNAVAILABLE"
         run.status_detail = "请配置可用的文本模型后重试。"
         run.completed_at = utc_now()
-        session.flush()
-        return run
+        return flush_terminal_state()
 
-    run.status = TextGenerationRunStatus.RUNNING
-    session.flush()
+    if run.status == TextGenerationRunStatus.QUEUED:
+        run.status = TextGenerationRunStatus.RUNNING
+        session.flush()
     context = GenerationContext.model_validate(run.context)
     try:
         result = asyncio.run(generate_text(context, adapter))
@@ -366,22 +375,19 @@ def process_text_generation(
         run.error_code = UnsafeGenerationOutput.code
         run.status_detail = "生成内容未通过事实复检，请检查事实后重试。"
         run.completed_at = utc_now()
-        session.flush()
-        return run
+        return flush_terminal_state()
     except (RuntimeError, ValueError):
         run.status = TextGenerationRunStatus.FAILED
         run.error_code = "MODEL_GENERATION_FAILED"
         run.status_detail = "文本模型暂时不可用，请稍后重试。"
         run.completed_at = utc_now()
-        session.flush()
-        return run
+        return flush_terminal_state()
     except Exception:
         run.status = TextGenerationRunStatus.FAILED
         run.error_code = "MODEL_GENERATION_FAILED"
         run.status_detail = "文本模型暂时不可用，请稍后重试。"
         run.completed_at = utc_now()
-        session.flush()
-        return run
+        return flush_terminal_state()
 
     run.original_result = result.model_dump(mode="json", by_alias=True)
     run.final_title = result.titles[0]
@@ -390,7 +396,9 @@ def process_text_generation(
     run.error_code = None
     run.status_detail = None
     run.completed_at = utc_now()
-    session.flush()
+    persisted = flush_terminal_state()
+    if persisted.status != TextGenerationRunStatus.SUCCEEDED:
+        return persisted
     if _analytics_account_exists(session, run):
         EventService(
             session,

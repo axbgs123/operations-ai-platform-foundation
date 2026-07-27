@@ -15,6 +15,10 @@ celery_app.conf.imports = (
     "app.modules.style_facts.fact_tasks",
     "app.modules.generation.tasks",
     "app.modules.exports.tasks",
+    "app.modules.exports.restore_tasks",
+    "app.modules.exports.retention_tasks",
+    "app.modules.risk_rag.tasks",
+    "app.modules.risk_rag.scan_tasks",
 )
 celery_app.conf.beat_schedule = {
     "recover-pending-analysis-runs": {

@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionFactory
+from app.core.logging import task_request_context
+from app.core.observability import record_task_correlation
 from app.core.security import WorkspaceContext, WorkspaceRole
 from app.modules.risk_rag.scanner import (
     RiskScanInput,
@@ -46,19 +48,28 @@ def risk_scan_task(
     workspace_id: str,
     member_id: str,
     payload: dict[str, object],
+    request_id: str | None = None,
 ) -> str:
     parsed_workspace_id = UUID(workspace_id)
     parsed_member_id = UUID(member_id)
     scan_input = RiskScanInput.model_validate(payload)
-    with SessionFactory() as session:
-        context = resolve_scan_task_context(
-            session,
-            parsed_workspace_id,
-            parsed_member_id,
-        )
-        scan = RiskScanService(session, context=context).execute(
-            scan_input,
-            pipeline=build_default_pipeline(session, scan_input),
-        )
-        session.commit()
-        return str(scan.id)
+    with task_request_context(request_id) as safe_request_id:
+        with SessionFactory() as session:
+            context = resolve_scan_task_context(
+                session,
+                parsed_workspace_id,
+                parsed_member_id,
+            )
+            scan = RiskScanService(session, context=context).execute(
+                scan_input,
+                pipeline=build_default_pipeline(session, scan_input),
+            )
+            record_task_correlation(
+                session,
+                workspace_id=scan.workspace_id,
+                task_id=scan.id,
+                task_type="risk_scan",
+                request_id=safe_request_id,
+            )
+            session.commit()
+            return str(scan.id)

@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import Enum, ForeignKey, Index, JSON, String, UniqueConstraint, Uuid
+from sqlalchemy import Enum, ForeignKey, Index, Integer, JSON, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, UTCDateTime, UUIDPrimaryKeyMixin
@@ -65,3 +65,9 @@ class CaptureTask(UUIDPrimaryKeyMixin, Base):
     confirmed_by: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("workspace_members.id", ondelete="SET NULL"), default=None
     )
+    operation_version: Mapped[int] = mapped_column(
+        Integer,
+        init=False,
+        default=1,
+    )
+    __mapper_args__ = {"version_id_col": operation_version}

@@ -252,6 +252,12 @@ class RestoreJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         UTCDateTime(), default=None
     )
+    operation_version: Mapped[int] = mapped_column(
+        Integer,
+        init=False,
+        default=1,
+    )
+    __mapper_args__ = {"version_id_col": operation_version}
 
 
 class KnowledgeIndexRebuild(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -458,6 +464,12 @@ class WorkspaceDeletionJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         UTCDateTime(), default=None
     )
+    operation_version: Mapped[int] = mapped_column(
+        Integer,
+        init=False,
+        default=1,
+    )
+    __mapper_args__ = {"version_id_col": operation_version}
 
 
 class DeletionAudit(UUIDPrimaryKeyMixin, Base):

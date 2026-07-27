@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.logging import RequestCorrelationMiddleware
+from app.core.operations_router import router as operations_router
+from app.core.rate_limit import RateLimitMiddleware
 from app.modules.analysis.viral_router import router as viral_router
 from app.modules.analysis.router import router as analysis_router
 from app.modules.analytics.analytics_router import router as analytics_router
@@ -33,6 +36,8 @@ from app.modules.generation.router import router as generation_router
 from app.modules.workspace.router import router as workspace_router
 
 app = FastAPI(title="Operations AI Platform API")
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RequestCorrelationMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[get_settings().web_origin],
@@ -44,7 +49,9 @@ app.add_middleware(
         "Idempotency-Key",
         "X-CSRF-Token",
         "X-Extension-Client",
+        "X-Request-ID",
     ],
+    expose_headers=["X-Request-ID", "Retry-After"],
 )
 app.include_router(workspace_router)
 app.include_router(demo_router)
@@ -71,6 +78,7 @@ app.include_router(risk_scans_router)
 app.include_router(feedback_scan_router)
 app.include_router(feedback_router)
 app.include_router(evaluation_router)
+app.include_router(operations_router)
 
 
 @app.get("/healthz")

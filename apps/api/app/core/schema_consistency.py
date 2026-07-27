@@ -31,6 +31,7 @@ RUNTIME_REQUIRED_TABLES = {
     "workspace_deletion_jobs",
     "deletion_audits",
     "product_event_outbox",
+    "task_operation_events",
 }
 
 

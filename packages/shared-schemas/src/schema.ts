@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Liveness */
+        get: operations["liveness_health_live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readiness */
+        get: operations["readiness_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -1361,6 +1395,108 @@ export interface paths {
         head?: never;
         /** Update Model Config Status */
         patch: operations["update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch"];
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/operations/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Operations Access */
+        get: operations["read_operations_access_v1_workspaces__workspace_id__operations_access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/operations/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Tasks */
+        get: operations["list_tasks_v1_workspaces__workspace_id__operations_tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/operations/tasks/{task_type}/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Task */
+        get: operations["read_task_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/operations/tasks/{task_type}/{task_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Task */
+        post: operations["cancel_task_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/operations/tasks/{task_type}/{task_id}/diagnostic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Task Diagnostic */
+        get: operations["read_task_diagnostic_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__diagnostic_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/operations/tasks/{task_type}/{task_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Task */
+        post: operations["retry_task_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/workspaces/{workspace_id}/restore-previews": {
@@ -2738,6 +2874,36 @@ export interface components {
             /** Trend Conclusion */
             trend_conclusion?: string | null;
         };
+        /** DeadLetterDiagnostic */
+        DeadLetterDiagnostic: {
+            /** Error Code */
+            error_code: string | null;
+            /** Failure Stage */
+            failure_stage: string | null;
+            /**
+             * Last Attempt At
+             * Format: date-time
+             */
+            last_attempt_at: string;
+            /** Next Action */
+            next_action: string;
+            /** Request Id */
+            request_id: string | null;
+            /** Retry Count */
+            retry_count: number;
+            /**
+             * Status
+             * @constant
+             */
+            status: "dead_letter";
+            /** Summary */
+            summary: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+        };
         /** DeletionConfirmRequest */
         DeletionConfirmRequest: {
             /** Confirmation Token */
@@ -2846,6 +3012,21 @@ export interface components {
             name: string;
             /** Synthetic */
             synthetic: boolean;
+        };
+        /** DependencyStatus */
+        DependencyStatus: {
+            /** Error Code */
+            error_code?: string | null;
+            /**
+             * Name
+             * @enum {string}
+             */
+            name: "postgresql" | "redis" | "s3";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "not_ready";
         };
         /** DrillDownFilter */
         DrillDownFilter: {
@@ -3830,6 +4011,74 @@ export interface components {
          * @enum {string}
          */
         OcrStatus: "succeeded" | "empty" | "failed" | "unavailable";
+        /** OperationalTask */
+        OperationalTask: {
+            /** Cancelable */
+            cancelable: boolean;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Fencing Token
+             * @default 0
+             */
+            fencing_token: number;
+            /** Max Retries */
+            max_retries: number;
+            /** Next Retry At */
+            next_retry_at: string | null;
+            /** Phase */
+            phase: string | null;
+            /** Progress */
+            progress?: number | null;
+            /** Request Id */
+            request_id: string | null;
+            /** Retry Count */
+            retry_count: number;
+            /** Retryable */
+            retryable: boolean;
+            /** Started At */
+            started_at: string | null;
+            /** Status */
+            status: string;
+            /** Status Detail */
+            status_detail?: string | null;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /** Task Type */
+            task_type: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** OperationsAccessResponse */
+        OperationsAccessResponse: {
+            /** Can Operate */
+            can_operate: boolean;
+            /** Can Read */
+            can_read: boolean;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "editor" | "viewer" | "demo";
+        };
         /**
          * Platform
          * @enum {string}
@@ -3882,6 +4131,18 @@ export interface components {
             layouts: string[];
             /** Visual Styles */
             visual_styles: string[];
+        };
+        /** ReadinessResponse */
+        ReadinessResponse: {
+            /** Components */
+            components: components["schemas"]["DependencyStatus"][];
+            /** Error Code */
+            error_code?: "DEPENDENCY_NOT_READY" | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "not_ready";
         };
         /** Recommendation */
         Recommendation: {
@@ -4719,6 +4980,15 @@ export interface components {
              */
             adoption_status: "adopted" | "rejected";
         };
+        /** TaskListResponse */
+        TaskListResponse: {
+            /** Items */
+            items: components["schemas"]["OperationalTask"][];
+            /** Next Offset */
+            next_offset: number | null;
+            /** Total */
+            total: number;
+        };
         /** TextGenerationEdit */
         TextGenerationEdit: {
             /**
@@ -5187,6 +5457,57 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    liveness_health_live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
+    readiness_health_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+        };
+    };
     healthcheck_healthz_get: {
         parameters: {
             query?: never;
@@ -8531,6 +8852,225 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_operations_access_v1_workspaces__workspace_id__operations_access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsAccessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tasks_v1_workspaces__workspace_id__operations_tasks_get: {
+        parameters: {
+            query?: {
+                task_type?: string | null;
+                status?: string | null;
+                created_after?: string | null;
+                created_before?: string | null;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_task_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                task_type: string;
+                task_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationalTask"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_task_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                task_type: string;
+                task_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationalTask"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_task_diagnostic_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__diagnostic_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                task_type: string;
+                task_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeadLetterDiagnostic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_task_v1_workspaces__workspace_id__operations_tasks__task_type___task_id__retry_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                task_type: string;
+                task_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationalTask"];
                 };
             };
             /** @description Validation Error */

@@ -20,6 +20,14 @@ class Settings(BaseSettings):
         "@localhost:55432/operations_ai"
     )
     web_origin: str = "http://localhost:3000"
+    redis_url: str = "redis://localhost:6379/0"
+    trusted_proxy_ips: str = ""
+    rate_limit_auth_per_minute: int = 10
+    rate_limit_ai_per_minute: int = 20
+    rate_limit_upload_per_minute: int = 30
+    rate_limit_export_per_five_minutes: int = 10
+    rate_limit_destructive_per_ten_minutes: int = 5
+    rate_limit_demo_factor: float = 0.25
     s3_endpoint: str = "http://localhost:9000"
     s3_public_endpoint: str = "http://localhost:9000"
     s3_bucket: str = "operations-ai"
@@ -30,6 +38,7 @@ class Settings(BaseSettings):
     analysis_adapter_token: str | None = None
     analysis_model_version: str = "configured-analysis-v1"
     analysis_request_timeout_seconds: float = 30.0
+    readiness_timeout_seconds: float = 2.0
     model_secret_encryption_key: SecretStr = SecretStr(
         DEFAULT_MODEL_SECRET_ENCRYPTION_KEY
     )

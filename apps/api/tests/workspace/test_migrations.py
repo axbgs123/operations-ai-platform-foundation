@@ -74,6 +74,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "workspace_deletion_confirmations",
                 "workspace_deletion_jobs",
                 "deletion_audits",
+                "task_operation_events",
             } <= tables
 
         access_code_columns = {
@@ -108,6 +109,16 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             column["name"]
             for column in inspect(migrated_engine).get_columns("import_batches")
         }
+        for fenced_table in (
+            "text_generation_runs",
+            "restore_jobs",
+            "workspace_deletion_jobs",
+            "extension_capture_tasks",
+        ):
+            assert "operation_version" in {
+                column["name"]
+                for column in inspect(migrated_engine).get_columns(fenced_table)
+            }
         assert {
             "recognition_status",
             "recognition_error",
@@ -284,7 +295,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260727_0026",
+                    expected_head="20260727_0027",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -302,8 +313,9 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "workspace_deletion_confirmations",
                     "workspace_deletion_jobs",
                     "deletion_audits",
-                    "product_event_outbox",
-                },
+                        "product_event_outbox",
+                        "task_operation_events",
+                    },
             )
             extensions = set(
                 connection.execute(

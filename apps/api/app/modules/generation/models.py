@@ -2,7 +2,18 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import JSON, Enum, Float, ForeignKey, Index, String, Text, Uuid, text
+from sqlalchemy import (
+    JSON,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    Uuid,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin
@@ -90,3 +101,9 @@ class TextGenerationRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UTCDateTime(),
         default=None,
     )
+    operation_version: Mapped[int] = mapped_column(
+        Integer,
+        init=False,
+        default=1,
+    )
+    __mapper_args__ = {"version_id_col": operation_version}

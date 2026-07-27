@@ -4,15 +4,19 @@ from celery import shared_task
 
 from app.core.config import get_settings
 from app.core.database import SessionFactory
+from app.core.logging import current_request_id, task_request_context
+from app.core.observability import record_task_correlation
 from app.core.storage import get_storage
+from app.modules.exports.models import RestoreJob
 from app.modules.exports.zip_restore import process_full_restore_task
 
 
 def enqueue_restore(task_id: UUID) -> None:
+    request_id = current_request_id()
     if get_settings().app_mock_mode:
-        restore_workspace_task(str(task_id))
+        restore_workspace_task(str(task_id), request_id)
     else:
-        restore_workspace_task.delay(str(task_id))
+        restore_workspace_task.delay(str(task_id), request_id)
 
 
 def get_restore_enqueuer():
@@ -20,10 +24,22 @@ def get_restore_enqueuer():
 
 
 @shared_task(name="exports.restore_workspace")
-def restore_workspace_task(task_id: str) -> None:
-    with SessionFactory() as session:
-        process_full_restore_task(
-            session,
-            UUID(task_id),
-            get_storage(),
-        )
+def restore_workspace_task(task_id: str, request_id: str | None = None) -> None:
+    with task_request_context(request_id) as safe_request_id:
+        with SessionFactory() as session:
+            parsed_id = UUID(task_id)
+            job = session.get(RestoreJob, parsed_id)
+            if job is not None:
+                record_task_correlation(
+                    session,
+                    workspace_id=job.workspace_id,
+                    task_id=job.id,
+                    task_type="restore",
+                    request_id=safe_request_id,
+                )
+                session.commit()
+            process_full_restore_task(
+                session,
+                parsed_id,
+                get_storage(),
+            )
