@@ -4,6 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type AnalysisRunData = components["schemas"]["AnalysisRunRead"];
 export type AnalysisSuggestionData = components["schemas"]["AnalysisSuggestionRead"];
+export type ProductEventAck = components["schemas"]["ProductEventAck"];
 
 async function analysisRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -29,17 +30,35 @@ export function readAnalysisRun(contentId: string, runId: string) {
   return analysisRequest<AnalysisRunData>(`/v1/contents/${contentId}/analysis-runs/${runId}`);
 }
 
+export function markAnalysisViewed(
+  contentId: string,
+  runId: string,
+  csrfToken: string,
+) {
+  return analysisRequest<ProductEventAck>(
+    `/v1/contents/${contentId}/analysis-runs/${runId}/view`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+    },
+  );
+}
+
 export function createAnalysisFeedback(
   contentId: string,
   runId: string,
   rating: "useful" | "not_useful",
   csrfToken: string,
+  idempotencyKey: string,
 ) {
-  return analysisRequest<{ id: string; event_name: string }>(
+  return analysisRequest<ProductEventAck>(
     `/v1/contents/${contentId}/analysis-runs/${runId}/feedback`,
     {
       method: "POST",
-      headers: { "X-CSRF-Token": csrfToken },
+      headers: {
+        "X-CSRF-Token": csrfToken,
+        "Idempotency-Key": idempotencyKey,
+      },
       body: JSON.stringify({ rating }),
     },
   );

@@ -999,6 +999,46 @@
         "title": "ClaimDraft",
         "type": "object"
       },
+      "CollectionDuration": {
+        "properties": {
+          "average_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Seconds"
+          },
+          "metric_version": {
+            "default": "collection-duration-v1",
+            "title": "Metric Version",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "source",
+          "sample_count",
+          "average_seconds"
+        ],
+        "title": "CollectionDuration",
+        "type": "object"
+      },
       "ColumnCampaignCreate": {
         "properties": {
           "benchmark_sample_size": {
@@ -1180,6 +1220,78 @@
           "restore_account_defaults"
         ],
         "title": "ColumnCampaignUpdate",
+        "type": "object"
+      },
+      "CompletenessItem": {
+        "properties": {
+          "applicable": {
+            "title": "Applicable",
+            "type": "boolean"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "weight": {
+            "title": "Weight",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "weight",
+          "applicable",
+          "complete"
+        ],
+        "title": "CompletenessItem",
+        "type": "object"
+      },
+      "CompletenessResult": {
+        "properties": {
+          "analytics_eligible": {
+            "title": "Analytics Eligible",
+            "type": "boolean"
+          },
+          "completeness_version": {
+            "default": "profile-completeness-v1",
+            "title": "Completeness Version",
+            "type": "string"
+          },
+          "denominator": {
+            "title": "Denominator",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CompletenessItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "missing_items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Items",
+            "type": "array"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "score",
+          "denominator",
+          "items",
+          "missing_items",
+          "analytics_eligible"
+        ],
+        "title": "CompletenessResult",
         "type": "object"
       },
       "ConfigurationInput": {
@@ -2236,6 +2348,88 @@
         "title": "DrillDownFilter",
         "type": "object"
       },
+      "DurationMetric": {
+        "properties": {
+          "metric_version": {
+            "default": "first-analysis-duration-v1",
+            "title": "Metric Version",
+            "type": "string"
+          },
+          "processing_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processing Seconds"
+          },
+          "queue_and_processing_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue And Processing Seconds"
+          },
+          "queue_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Seconds"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "INSUFFICIENT_SAMPLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Seconds"
+          },
+          "user_wait_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Wait Seconds"
+          }
+        },
+        "required": [
+          "status",
+          "total_seconds",
+          "queue_seconds",
+          "processing_seconds",
+          "queue_and_processing_seconds",
+          "user_wait_seconds"
+        ],
+        "title": "DurationMetric",
+        "type": "object"
+      },
       "EffectiveConfigurationRead": {
         "properties": {
           "benchmark_profile": {
@@ -2298,6 +2492,49 @@
           "style"
         ],
         "title": "EffectiveStyleRead",
+        "type": "object"
+      },
+      "EffectiveWeeklyLoop": {
+        "properties": {
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "evidence_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "object"
+          },
+          "iso_week": {
+            "title": "Iso Week",
+            "type": "string"
+          },
+          "metric_version": {
+            "default": "effective-weekly-loop-v1",
+            "title": "Metric Version",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "platform",
+          "iso_week",
+          "completed_at",
+          "evidence_ids"
+        ],
+        "title": "EffectiveWeeklyLoop",
         "type": "object"
       },
       "Envelope_ConfirmationRead_": {
@@ -4613,6 +4850,74 @@
         "title": "ProductEventAck",
         "type": "object"
       },
+      "ProductMetrics": {
+        "properties": {
+          "analysis_feedback_latest": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Analysis Feedback Latest",
+            "type": "object"
+          },
+          "collection_durations": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionDuration"
+            },
+            "title": "Collection Durations",
+            "type": "array"
+          },
+          "first_analysis": {
+            "$ref": "#/components/schemas/DurationMetric"
+          },
+          "generation_statuses": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Generation Statuses",
+            "type": "object"
+          },
+          "metric_version": {
+            "default": "workspace-product-metrics-v1",
+            "title": "Metric Version",
+            "type": "string"
+          },
+          "suggestion_adopted": {
+            "title": "Suggestion Adopted",
+            "type": "integer"
+          },
+          "suggestion_adoption_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion Adoption Rate"
+          },
+          "suggestion_save_denominator": {
+            "title": "Suggestion Save Denominator",
+            "type": "integer"
+          },
+          "suggestion_saved": {
+            "title": "Suggestion Saved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first_analysis",
+          "collection_durations",
+          "analysis_feedback_latest",
+          "suggestion_saved",
+          "suggestion_adopted",
+          "suggestion_save_denominator",
+          "suggestion_adoption_rate",
+          "generation_statuses"
+        ],
+        "title": "ProductMetrics",
+        "type": "object"
+      },
       "ProhibitedStyle": {
         "additionalProperties": false,
         "properties": {
@@ -6855,6 +7160,7 @@
             "enum": [
               "pending",
               "adopted",
+              "rejected",
               "discarded"
             ],
             "title": "Adoption Status",
@@ -6892,6 +7198,7 @@
             "enum": [
               "pending",
               "adopted",
+              "rejected",
               "discarded"
             ],
             "title": "Adoption Status",
@@ -6960,6 +7267,10 @@
             "title": "Model Config Id",
             "type": "string"
           },
+          "modification_algorithm_version": {
+            "title": "Modification Algorithm Version",
+            "type": "string"
+          },
           "modification_magnitude": {
             "title": "Modification Magnitude",
             "type": "number"
@@ -7026,6 +7337,7 @@
           "final_copy",
           "adoption_status",
           "modification_magnitude",
+          "modification_algorithm_version",
           "retry_of_run_id",
           "error_code",
           "status_detail",
@@ -7738,6 +8050,60 @@
           }
         },
         "title": "WebCaptureConfirmation",
+        "type": "object"
+      },
+      "WeeklyRetention": {
+        "properties": {
+          "baseline_week": {
+            "title": "Baseline Week",
+            "type": "string"
+          },
+          "denominator": {
+            "title": "Denominator",
+            "type": "integer"
+          },
+          "metric_version": {
+            "default": "weekly-loop-retention-v1",
+            "title": "Metric Version",
+            "type": "string"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          },
+          "return_week": {
+            "title": "Return Week",
+            "type": "string"
+          },
+          "returned_workspaces": {
+            "title": "Returned Workspaces",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "INSUFFICIENT_SAMPLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "baseline_week",
+          "return_week",
+          "denominator",
+          "returned_workspaces",
+          "rate"
+        ],
+        "title": "WeeklyRetention",
         "type": "object"
       },
       "WorkspaceCreate": {
@@ -8484,6 +8850,22 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
             "in": "cookie",
             "name": "session",
             "required": false,
@@ -8627,6 +9009,91 @@
           }
         },
         "summary": "Save Analysis Suggestion",
+        "tags": [
+          "analysis"
+        ]
+      }
+    },
+    "/v1/contents/{content_id}/analysis-runs/{run_id}/view": {
+      "post": {
+        "operationId": "mark_analysis_viewed_v1_contents__content_id__analysis_runs__run_id__view_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductEventAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark Analysis Viewed",
         "tags": [
           "analysis"
         ]
@@ -12628,6 +13095,293 @@
         "summary": "Configure Viral Thresholds",
         "tags": [
           "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/analytics/completeness": {
+      "get": {
+        "operationId": "read_completeness_v1_workspaces__workspace_id__analytics_completeness_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompletenessResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Completeness",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/analytics/effective-loops": {
+      "get": {
+        "operationId": "read_effective_loops_v1_workspaces__workspace_id__analytics_effective_loops_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EffectiveWeeklyLoop"
+                  },
+                  "title": "Response Read Effective Loops V1 Workspaces  Workspace Id  Analytics Effective Loops Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Effective Loops",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/analytics/product-metrics": {
+      "get": {
+        "operationId": "read_product_metrics_v1_workspaces__workspace_id__analytics_product_metrics_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductMetrics"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Product Metrics",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/analytics/weekly-retention": {
+      "get": {
+        "operationId": "read_weekly_retention_v1_workspaces__workspace_id__analytics_weekly_retention_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "baseline_week",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-W\\d{2}$",
+              "title": "Baseline Week",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "return_week",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-W\\d{2}$",
+              "title": "Return Week",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeeklyRetention"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Weekly Retention",
+        "tags": [
+          "analytics"
         ]
       }
     },

@@ -39,6 +39,7 @@ const run = {
   final_copy: "已确认售价 199 元",
   adoption_status: "pending" as const,
   modification_magnitude: 0,
+  modification_algorithm_version: "normalized-levenshtein-v1",
   retry_of_run_id: null,
   error_code: null,
   status_detail: null,

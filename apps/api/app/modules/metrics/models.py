@@ -157,6 +157,7 @@ class DataSnapshot(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     maturity_bucket: Mapped[str] = mapped_column(String(8))
     source: Mapped[SnapshotSource] = mapped_column(snapshot_source_enum)
     confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    analytics_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
     confirmed_by: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),

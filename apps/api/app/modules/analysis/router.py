@@ -79,6 +79,36 @@ def read_analysis(
         raise HTTPException(status_code=404, detail=str(error)) from error
 
 
+@router.post(
+    "/v1/contents/{content_id}/analysis-runs/{run_id}/view",
+    response_model=ProductEventAck,
+    status_code=201,
+)
+def mark_analysis_viewed(
+    content_id: UUID,
+    run_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+):
+    service = _service(session, session_token, csrf_token, mutation=True)
+    try:
+        event = service.mark_viewed(content_id, run_id)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    session.commit()
+    if event is None:
+        raise HTTPException(
+            status_code=503,
+            detail="product event queued for retry",
+        )
+    return event
+
+
 @router.get("/v1/workspaces/{workspace_id}/accounts/{account_id}/analysis-settings", response_model=AnalysisSettingRead)
 def read_analysis_setting(
     workspace_id: UUID,
@@ -128,10 +158,19 @@ def create_analysis_feedback(
     session: DatabaseSession,
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key"),
+    ] = None,
 ):
     service = _service(session, session_token, csrf_token, mutation=True)
     try:
-        event = service.feedback(content_id, run_id, data.rating)
+        event = service.feedback(
+            content_id,
+            run_id,
+            data.rating,
+            idempotency_key=idempotency_key,
+        )
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
@@ -139,6 +178,11 @@ def create_analysis_feedback(
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     session.commit()
+    if event is None:
+        raise HTTPException(
+            status_code=503,
+            detail="product event queued for retry",
+        )
     return event
 
 
@@ -191,5 +235,7 @@ def update_analysis_suggestion(
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     session.commit()
     return suggestion

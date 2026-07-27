@@ -67,6 +67,10 @@ class TextGenerationRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default="pending",
     )
     modification_magnitude: Mapped[float] = mapped_column(Float, default=0.0)
+    modification_algorithm_version: Mapped[str] = mapped_column(
+        String(80),
+        default="normalized-levenshtein-v1",
+    )
     retry_of_run_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("text_generation_runs.id", ondelete="SET NULL"),

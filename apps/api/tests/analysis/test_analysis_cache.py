@@ -439,9 +439,15 @@ def test_feedback_saved_suggestion_and_adoption_emit_product_events() -> None:
                 )
             )
         assert names == [
-            "analysis.feedback.useful",
-            "analysis.suggestion.saved",
-            "analysis.suggestion.adopted",
+            "content.published",
+            "collection.started",
+            "collection.confirmed",
+            "analysis.started",
+            "analysis.processing_started",
+            "analysis.completed",
+            "analysis.feedback",
+            "suggestion.saved",
+            "suggestion.adopted",
         ]
 
 

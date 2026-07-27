@@ -27,8 +27,8 @@ from app.modules.analysis.models import (
     AnalysisRun,
     AnalysisRunStatus,
     AnalysisSuggestion,
-    ProductEvent,
 )
+from app.modules.analytics.events import EventName, EventService, ProductEventInput
 from app.modules.analysis.schemas import (
     AnalysisAdapter,
     AnalysisReport,
@@ -146,6 +146,33 @@ def _complete_run(
 ) -> AnalysisRun:
     run.status = AnalysisRunStatus.RUNNING
     session.flush()
+    if (
+        session.scalar(
+            select(PlatformAccount.id).where(
+                PlatformAccount.id == run.account_id,
+                PlatformAccount.workspace_id == run.workspace_id,
+            )
+        )
+        is not None
+    ):
+        EventService(
+            session,
+            WorkspaceContext(
+                workspace_id=run.workspace_id,
+                member_id=run.requested_by,
+                role="editor",
+            ),
+        ).record(
+            ProductEventInput(
+                event_name=EventName.ANALYSIS_PROCESSING_STARTED,
+                idempotency_key=f"analysis-processing-started:{run.id}",
+                analysis_run_id=run.id,
+                provider_mode=(
+                    "mock" if run.model_version.startswith("mock") else "real"
+                ),
+            )
+        )
+        session.flush()
     try:
         report = adapter.analyze(bundle)
         report.validate_references(bundle)
@@ -161,6 +188,34 @@ def _complete_run(
     run.status = AnalysisRunStatus.SUCCEEDED
     run.report = report.model_dump(mode="json")
     run.completed_at = utc_now()
+    session.flush()
+    if (
+        session.scalar(
+            select(PlatformAccount.id).where(
+                PlatformAccount.id == run.account_id,
+                PlatformAccount.workspace_id == run.workspace_id,
+            )
+        )
+        is not None
+    ):
+        EventService(
+            session,
+            WorkspaceContext(
+                workspace_id=run.workspace_id,
+                member_id=run.requested_by,
+                role="editor",
+            ),
+        ).record(
+            ProductEventInput(
+                event_name=EventName.ANALYSIS_COMPLETED,
+                idempotency_key=f"analysis-completed:{run.id}",
+                analysis_run_id=run.id,
+                properties={"status": "succeeded"},
+                provider_mode=(
+                    "mock" if run.model_version.startswith("mock") else "real"
+                ),
+            )
+        )
     session.flush()
     return run
 
@@ -557,6 +612,17 @@ class AnalysisService:
                 self.session.delete(unused_benchmark)
                 self.session.flush()
             return existing, analysis_run_is_dispatchable(existing)
+        EventService(self.session, self.context).record(
+            ProductEventInput(
+                event_name=EventName.ANALYSIS_STARTED,
+                idempotency_key=f"analysis-started:{run.id}",
+                analysis_run_id=run.id,
+                properties={"trigger_kind": trigger_kind},
+                provider_mode=(
+                    "mock" if run.model_version.startswith("mock") else "real"
+                ),
+            )
+        )
         return run, True
 
     def read(self, content_id: UUID, run_id: UUID) -> AnalysisRun:
@@ -596,36 +662,50 @@ class AnalysisService:
         self.session.flush()
         return setting
 
-    def _event(
-        self,
-        event_name: str,
-        entity_type: str,
-        entity_id: UUID,
-        properties: dict[str, object] | None = None,
-    ) -> ProductEvent:
-        event = ProductEvent(
-            workspace_id=self.context.workspace_id,
-            actor_id=self.context.member_id,
-            event_name=event_name,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            properties=properties or {},
-            occurred_at=utc_now(),
+    def mark_viewed(self, content_id: UUID, run_id: UUID):
+        run = self.read(content_id, run_id)
+        if run.status != AnalysisRunStatus.SUCCEEDED:
+            raise ValueError("only successful analysis can be viewed")
+        return EventService(self.session, self.context).record(
+            ProductEventInput(
+                event_name=EventName.ANALYSIS_VIEWED,
+                idempotency_key=(
+                    f"analysis-viewed:{run.id}:{self.context.member_id}"
+                ),
+                analysis_run_id=run.id,
+                properties={"analysis_version": run.algorithm_version},
+                provider_mode=(
+                    "mock" if run.model_version.startswith("mock") else "real"
+                ),
+            )
         )
-        self.session.add(event)
-        self.session.flush()
-        return event
 
-    def feedback(self, content_id: UUID, run_id: UUID, rating: str) -> ProductEvent:
+    def feedback(
+        self,
+        content_id: UUID,
+        run_id: UUID,
+        rating: str,
+        *,
+        idempotency_key: str | None = None,
+    ):
         run = self.read(content_id, run_id)
         require_permission(self.context.role, Permission.WRITE_CONTENT)
         if run.status != AnalysisRunStatus.SUCCEEDED:
             raise ValueError("only successful analysis accepts feedback")
-        return self._event(
-            f"analysis.feedback.{rating}",
-            "analysis_run",
-            run.id,
-            {"content_id": str(content_id)},
+        return EventService(self.session, self.context).record(
+            ProductEventInput(
+                event_name=EventName.ANALYSIS_FEEDBACK,
+                idempotency_key=idempotency_key
+                or f"analysis-feedback:{run.id}:{self.context.member_id}:{rating}",
+                analysis_run_id=run.id,
+                properties={
+                    "rating": rating,
+                    "analysis_version": run.algorithm_version,
+                },
+                provider_mode=(
+                    "mock" if run.model_version.startswith("mock") else "real"
+                ),
+            )
         )
 
     def save_suggestion(
@@ -662,11 +742,16 @@ class AnalysisService:
         )
         self.session.add(suggestion)
         self.session.flush()
-        self._event(
-            "analysis.suggestion.saved",
-            "analysis_suggestion",
-            suggestion.id,
-            {"analysis_run_id": str(run.id)},
+        EventService(self.session, self.context).record(
+            ProductEventInput(
+                event_name=EventName.SUGGESTION_SAVED,
+                idempotency_key=f"suggestion-saved:{suggestion.id}",
+                suggestion_id=suggestion.id,
+                properties={"suggestion_version": run.algorithm_version},
+                provider_mode=(
+                    "mock" if run.model_version.startswith("mock") else "real"
+                ),
+            )
         )
         return suggestion
 
@@ -688,14 +773,31 @@ class AnalysisService:
         )
         if suggestion is None:
             raise LookupError("analysis suggestion not found")
-        if suggestion.adoption_status != adoption_status:
-            suggestion.adoption_status = adoption_status
-            self._event(
-                f"analysis.suggestion.{adoption_status}",
-                "analysis_suggestion",
-                suggestion.id,
+        if suggestion.adoption_status == adoption_status:
+            return suggestion
+        if suggestion.adoption_status != "saved":
+            raise ValueError("suggestion adoption status is terminal")
+        suggestion.adoption_status = adoption_status
+        run = self.session.get(AnalysisRun, suggestion.analysis_run_id)
+        assert run is not None
+        EventService(self.session, self.context).record(
+            ProductEventInput(
+                event_name=(
+                    EventName.SUGGESTION_ADOPTED
+                    if adoption_status == "adopted"
+                    else EventName.SUGGESTION_REJECTED
+                ),
+                idempotency_key=(
+                    f"suggestion-{adoption_status}:{suggestion.id}"
+                ),
+                suggestion_id=suggestion.id,
+                properties={"suggestion_version": run.algorithm_version},
+                provider_mode=(
+                    "mock" if run.model_version.startswith("mock") else "real"
+                ),
             )
-            self.session.flush()
+        )
+        self.session.flush()
         return suggestion
 
 

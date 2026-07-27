@@ -2,8 +2,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
-from difflib import SequenceMatcher
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,6 +11,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import utc_now
+from app.core.security import WorkspaceContext
+from app.modules.analytics.events import EventName, EventService, ProductEventInput
+from app.modules.analytics.north_star import calculate_normalized_edit_magnitude
+from app.modules.analysis.models import ProductEvent
+from app.modules.content.account_models import PlatformAccount
 from app.modules.generation.schemas import GenerationContext
 from app.modules.generation.models import (
     TextGenerationRun,
@@ -318,6 +322,18 @@ def _run(
     return run
 
 
+def _analytics_account_exists(session: Session, run: TextGenerationRun) -> bool:
+    return (
+        session.scalar(
+            select(PlatformAccount.id).where(
+                PlatformAccount.id == run.account_id,
+                PlatformAccount.workspace_id == run.workspace_id,
+            )
+        )
+        is not None
+    )
+
+
 def process_text_generation(
     session: Session,
     run_id: UUID,
@@ -375,6 +391,24 @@ def process_text_generation(
     run.status_detail = None
     run.completed_at = utc_now()
     session.flush()
+    if _analytics_account_exists(session, run):
+        EventService(
+            session,
+            WorkspaceContext(
+                workspace_id=run.workspace_id,
+                member_id=run.requested_by,
+                role="editor",
+            ),
+        ).record(
+            ProductEventInput(
+                event_name=EventName.GENERATION_COMPLETED,
+                idempotency_key=f"generation-completed:{run.id}",
+                generation_run_id=run.id,
+                properties={"generation_version": "text-generation-v1"},
+                provider_mode="mock" if adapter is None else "real",
+            )
+        )
+    session.flush()
     return run
 
 
@@ -426,7 +460,7 @@ def edit_text_generation(
 ) -> TextGenerationRun:
     from app.modules.workspace.models import AuditLog
 
-    if adoption_status not in {"pending", "adopted", "discarded"}:
+    if adoption_status not in {"pending", "adopted", "rejected", "discarded"}:
         raise ValueError("invalid adoption status")
     if not final_title.strip() or not final_copy.strip():
         raise ValueError("final title and copy are required")
@@ -436,6 +470,15 @@ def edit_text_generation(
         or run.original_result is None
     ):
         raise ValueError("generation result is not editable")
+    if run.adoption_status in {"rejected", "discarded"}:
+        if adoption_status != run.adoption_status:
+            raise ValueError("rejected generation adoption status is terminal")
+        return run
+    if run.adoption_status == "adopted" and adoption_status in {
+        "rejected",
+        "discarded",
+    }:
+        raise ValueError("adopted generation cannot be rejected")
     original_titles = run.original_result.get("titles", [])
     original_title = (
         str(original_titles[0])
@@ -443,11 +486,15 @@ def edit_text_generation(
         else ""
     )
     original_copy = str(run.original_result.get("copy", ""))
-    before = f"{original_title}\n{original_copy}"
     normalized_title = final_title.strip()
     normalized_copy = final_copy.strip()
-    after = f"{normalized_title}\n{normalized_copy}"
-    magnitude = round(1 - SequenceMatcher(None, before, after).ratio(), 6)
+    magnitude_result = calculate_normalized_edit_magnitude(
+        original_title=original_title,
+        original_body=original_copy,
+        final_title=normalized_title,
+        final_body=normalized_copy,
+    )
+    magnitude = magnitude_result.total
     status_detail = run.status_detail
     if adoption_status == "adopted":
         context = GenerationContext.model_validate(run.context)
@@ -489,6 +536,7 @@ def edit_text_generation(
     run.final_copy = normalized_copy
     run.adoption_status = adoption_status
     run.modification_magnitude = magnitude
+    run.modification_algorithm_version = magnitude_result.algorithm_version
     run.status_detail = status_detail
     session.add(
         AuditLog(
@@ -505,5 +553,61 @@ def edit_text_generation(
             },
         )
     )
+    session.flush()
+    event_context = WorkspaceContext(
+        workspace_id=run.workspace_id,
+        member_id=run.requested_by,
+        role="editor",
+    )
+    stored_provider_mode = session.scalar(
+        select(ProductEvent.provider_mode)
+        .where(
+            ProductEvent.generation_run_id == run.id,
+            ProductEvent.event_name == EventName.GENERATION_COMPLETED.value,
+        )
+        .order_by(ProductEvent.server_occurred_at.desc())
+    )
+    provider_mode: Literal["real", "mock"] = (
+        "real" if stored_provider_mode == "real" else "mock"
+    )
+    if _analytics_account_exists(session, run) and adoption_status == "adopted":
+        EventService(session, event_context).record(
+            ProductEventInput(
+                event_name=(
+                    EventName.GENERATION_ADOPTED
+                    if magnitude == 0
+                    else EventName.GENERATION_EDITED
+                ),
+                idempotency_key=f"generation-adoption:{run.id}:{magnitude}",
+                generation_run_id=run.id,
+                properties={
+                    "modification_magnitude": magnitude,
+                    "algorithm_version": magnitude_result.algorithm_version,
+                },
+                provider_mode=provider_mode,
+            )
+        )
+        EventService(session, event_context).record(
+            ProductEventInput(
+                event_name=EventName.DRAFT_CREATED,
+                idempotency_key=f"generation-draft-created:{run.id}",
+                generation_run_id=run.id,
+                properties={"generation_version": "text-generation-v1"},
+                provider_mode=provider_mode,
+            )
+        )
+    elif (
+        _analytics_account_exists(session, run)
+        and adoption_status in {"rejected", "discarded"}
+    ):
+        EventService(session, event_context).record(
+            ProductEventInput(
+                event_name=EventName.GENERATION_REJECTED,
+                idempotency_key=f"generation-rejected:{run.id}",
+                generation_run_id=run.id,
+                properties={"reason_code": "user_rejected"},
+                provider_mode=provider_mode,
+            )
+        )
     session.flush()
     return run

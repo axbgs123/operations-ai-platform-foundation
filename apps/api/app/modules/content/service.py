@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
+from app.modules.analytics.events import EventName, EventService, ProductEventInput
 from app.modules.content.account_models import ColumnCampaign, Platform, PlatformAccount
 from app.modules.content.account_service import AccountConfigurationService
 from app.modules.content.models import AssetCategory, Content, ContentAsset, ContentStatus
@@ -196,11 +197,22 @@ class ContentService:
                 setattr(content, field, changes[field])
         status = changes.get("status")
         if status == "published":
+            was_published = content.published_at is not None
             content.status = ContentStatus.PUBLISHED
             content.published_title = content.title
             content.published_body = content.body
             content.published_at = datetime.now(UTC)
             self._audit("content.published", content.id)
+            if not was_published:
+                EventService(self._session, self._context).record(
+                    ProductEventInput(
+                        event_name=EventName.CONTENT_PUBLISHED,
+                        idempotency_key=f"content-published:{content.id}",
+                        account_id=content.account_id,
+                        content_id=content.id,
+                        properties={"content_version": "content-v1"},
+                    )
+                )
         elif status == "archived":
             if content.status != ContentStatus.PUBLISHED:
                 raise ValueError("only published content can be archived")

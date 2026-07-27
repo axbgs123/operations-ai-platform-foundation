@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
+from app.modules.analytics.events import EventName, EventService, ProductEventInput
 from app.modules.content.models import AssetCategory, Content, ContentAsset
 from app.modules.metrics.definitions import validate_metric_values
 from app.modules.metrics.maturity import SnapshotCompleteness, bucket_for_age, calculate_completeness
@@ -71,6 +72,7 @@ class SnapshotService:
         source: SnapshotSource,
         metrics: list[SnapshotMetricInput],
         original_screenshot_asset_id: UUID | None,
+        analytics_eligible: bool = True,
     ) -> DataSnapshot:
         require_permission(self._context.role, Permission.WRITE_CONTENT)
         content = self._content(content_id)
@@ -110,6 +112,7 @@ class SnapshotService:
             age_seconds=int(age.total_seconds()),
             maturity_bucket=maturity_bucket.value,
             source=source,
+            analytics_eligible=analytics_eligible,
             original_screenshot_asset_id=original_screenshot_asset_id,
         )
         self._session.add(snapshot)
@@ -151,6 +154,23 @@ class SnapshotService:
                 )
             )
         self._session.flush()
+        EventService(self._session, self._context).record(
+            ProductEventInput(
+                event_name=EventName.COLLECTION_STARTED,
+                idempotency_key=f"collection-started:{snapshot.id}",
+                account_id=snapshot.account_id,
+                content_id=snapshot.content_id,
+                properties={
+                    "source": {
+                        SnapshotSource.MANUAL: "manual",
+                        SnapshotSource.TABULAR_IMPORT: "xlsx",
+                        SnapshotSource.SCREENSHOT: "screenshot",
+                        SnapshotSource.EXTENSION: "extension",
+                    }[snapshot.source]
+                },
+                provider_mode="real" if analytics_eligible else "mock",
+            )
+        )
         return snapshot
 
     def read(self, content_id: UUID, snapshot_id: UUID) -> DataSnapshot:
@@ -213,6 +233,25 @@ class SnapshotService:
                     "content_id": str(snapshot.content_id),
                     "account_id": str(snapshot.account_id),
                 },
+            )
+        )
+        EventService(self._session, self._context).record(
+            ProductEventInput(
+                event_name=EventName.COLLECTION_CONFIRMED,
+                idempotency_key=f"collection-confirmed:{snapshot.id}",
+                account_id=snapshot.account_id,
+                content_id=snapshot.content_id,
+                properties={
+                    "source": {
+                        SnapshotSource.MANUAL: "manual",
+                        SnapshotSource.TABULAR_IMPORT: "xlsx",
+                        SnapshotSource.SCREENSHOT: "screenshot",
+                        SnapshotSource.EXTENSION: "extension",
+                    }[snapshot.source]
+                },
+                provider_mode=(
+                    "real" if snapshot.analytics_eligible else "mock"
+                ),
             )
         )
         self._session.flush()

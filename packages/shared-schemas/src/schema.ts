@@ -126,6 +126,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/contents/{content_id}/analysis-runs/{run_id}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Analysis Viewed */
+        post: operations["mark_analysis_viewed_v1_contents__content_id__analysis_runs__run_id__view_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/contents/{content_id}/analysis-suggestions/{suggestion_id}": {
         parameters: {
             query?: never;
@@ -877,6 +894,74 @@ export interface paths {
         get: operations["read_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_get"];
         /** Configure Viral Thresholds */
         put: operations["configure_viral_thresholds_v1_workspaces__workspace_id__accounts__account_id__viral_thresholds_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/analytics/completeness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Completeness */
+        get: operations["read_completeness_v1_workspaces__workspace_id__analytics_completeness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/analytics/effective-loops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Effective Loops */
+        get: operations["read_effective_loops_v1_workspaces__workspace_id__analytics_effective_loops_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/analytics/product-metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Product Metrics */
+        get: operations["read_product_metrics_v1_workspaces__workspace_id__analytics_product_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/analytics/weekly-retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Weekly Retention */
+        get: operations["read_weekly_retention_v1_workspaces__workspace_id__analytics_weekly_retention_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2308,6 +2393,22 @@ export interface components {
             /** Value */
             value: string;
         };
+        /** CollectionDuration */
+        CollectionDuration: {
+            /** Average Seconds */
+            average_seconds: number | null;
+            /**
+             * Metric Version
+             * @default collection-duration-v1
+             */
+            metric_version: string;
+            /** Platform */
+            platform: string;
+            /** Sample Count */
+            sample_count: number;
+            /** Source */
+            source: string;
+        };
         /** ColumnCampaignCreate */
         ColumnCampaignCreate: {
             /** Benchmark Sample Size */
@@ -2360,6 +2461,35 @@ export interface components {
              * @constant
              */
             restore_account_defaults: true;
+        };
+        /** CompletenessItem */
+        CompletenessItem: {
+            /** Applicable */
+            applicable: boolean;
+            /** Complete */
+            complete: boolean;
+            /** Key */
+            key: string;
+            /** Weight */
+            weight: number;
+        };
+        /** CompletenessResult */
+        CompletenessResult: {
+            /** Analytics Eligible */
+            analytics_eligible: boolean;
+            /**
+             * Completeness Version
+             * @default profile-completeness-v1
+             */
+            completeness_version: string;
+            /** Denominator */
+            denominator: number;
+            /** Items */
+            items: components["schemas"]["CompletenessItem"][];
+            /** Missing Items */
+            missing_items: string[];
+            /** Score */
+            score: number;
         };
         /** ConfigurationInput */
         ConfigurationInput: {
@@ -2751,6 +2881,29 @@ export interface components {
              */
             workspace_id: string;
         };
+        /** DurationMetric */
+        DurationMetric: {
+            /**
+             * Metric Version
+             * @default first-analysis-duration-v1
+             */
+            metric_version: string;
+            /** Processing Seconds */
+            processing_seconds: number | null;
+            /** Queue And Processing Seconds */
+            queue_and_processing_seconds: number | null;
+            /** Queue Seconds */
+            queue_seconds: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
+            /** Total Seconds */
+            total_seconds: number | null;
+            /** User Wait Seconds */
+            user_wait_seconds: number | null;
+        };
         /** EffectiveConfigurationRead */
         EffectiveConfigurationRead: {
             benchmark_profile: components["schemas"]["BenchmarkProfileRead"];
@@ -2780,6 +2933,32 @@ export interface components {
             switches: components["schemas"]["StyleInheritanceSwitches"];
             /** Version */
             version: number;
+        };
+        /** EffectiveWeeklyLoop */
+        EffectiveWeeklyLoop: {
+            /**
+             * Completed At
+             * Format: date-time
+             */
+            completed_at: string;
+            /** Evidence Ids */
+            evidence_ids: {
+                [key: string]: string;
+            };
+            /** Iso Week */
+            iso_week: string;
+            /**
+             * Metric Version
+             * @default effective-weekly-loop-v1
+             */
+            metric_version: string;
+            /** Platform */
+            platform: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** Envelope[ConfirmationRead] */
         Envelope_ConfirmationRead_: {
@@ -3666,6 +3845,33 @@ export interface components {
              */
             id: string;
         };
+        /** ProductMetrics */
+        ProductMetrics: {
+            /** Analysis Feedback Latest */
+            analysis_feedback_latest: {
+                [key: string]: number;
+            };
+            /** Collection Durations */
+            collection_durations: components["schemas"]["CollectionDuration"][];
+            first_analysis: components["schemas"]["DurationMetric"];
+            /** Generation Statuses */
+            generation_statuses: {
+                [key: string]: number;
+            };
+            /**
+             * Metric Version
+             * @default workspace-product-metrics-v1
+             */
+            metric_version: string;
+            /** Suggestion Adopted */
+            suggestion_adopted: number;
+            /** Suggestion Adoption Rate */
+            suggestion_adoption_rate: number | null;
+            /** Suggestion Save Denominator */
+            suggestion_save_denominator: number;
+            /** Suggestion Saved */
+            suggestion_saved: number;
+        };
         /** ProhibitedStyle */
         ProhibitedStyle: {
             /** Colors */
@@ -4519,7 +4725,7 @@ export interface components {
              * Adoption Status
              * @enum {string}
              */
-            adoption_status: "pending" | "adopted" | "discarded";
+            adoption_status: "pending" | "adopted" | "rejected" | "discarded";
             /** Final Copy */
             final_copy: string;
             /** Final Title */
@@ -4536,7 +4742,7 @@ export interface components {
              * Adoption Status
              * @enum {string}
              */
-            adoption_status: "pending" | "adopted" | "discarded";
+            adoption_status: "pending" | "adopted" | "rejected" | "discarded";
             /** Completed At */
             completed_at: string | null;
             context: components["schemas"]["GenerationContext"];
@@ -4561,6 +4767,8 @@ export interface components {
              * Format: uuid
              */
             model_config_id: string;
+            /** Modification Algorithm Version */
+            modification_algorithm_version: string;
             /** Modification Magnitude */
             modification_magnitude: number;
             original_result: components["schemas"]["GeneratedTextResult"] | null;
@@ -4878,6 +5086,29 @@ export interface components {
             corrections?: {
                 [key: string]: string;
             };
+        };
+        /** WeeklyRetention */
+        WeeklyRetention: {
+            /** Baseline Week */
+            baseline_week: string;
+            /** Denominator */
+            denominator: number;
+            /**
+             * Metric Version
+             * @default weekly-loop-retention-v1
+             */
+            metric_version: string;
+            /** Rate */
+            rate: number | null;
+            /** Return Week */
+            return_week: string;
+            /** Returned Workspaces */
+            returned_workspaces: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
         };
         /** WorkspaceCreate */
         WorkspaceCreate: {
@@ -5228,6 +5459,7 @@ export interface operations {
             query?: never;
             header?: {
                 "X-CSRF-Token"?: string | null;
+                "Idempotency-Key"?: string | null;
             };
             path: {
                 content_id: string;
@@ -5287,6 +5519,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalysisSuggestionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_analysis_viewed_v1_contents__content_id__analysis_runs__run_id__view_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                content_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductEventAck"];
                 };
             };
             /** @description Validation Error */
@@ -7167,6 +7435,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViralThresholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_completeness_v1_workspaces__workspace_id__analytics_completeness_get: {
+        parameters: {
+            query: {
+                account_id: string;
+                content_id?: string | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompletenessResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_effective_loops_v1_workspaces__workspace_id__analytics_effective_loops_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EffectiveWeeklyLoop"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_product_metrics_v1_workspaces__workspace_id__analytics_product_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductMetrics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_weekly_retention_v1_workspaces__workspace_id__analytics_weekly_retention_get: {
+        parameters: {
+            query: {
+                baseline_week: string;
+                return_week: string;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeeklyRetention"];
                 };
             };
             /** @description Validation Error */

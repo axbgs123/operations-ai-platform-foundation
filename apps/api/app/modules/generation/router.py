@@ -44,8 +44,9 @@ class TextGenerationRunRead(BaseModel):
     original_result: GeneratedTextResult | None
     final_title: str | None
     final_copy: str | None
-    adoption_status: Literal["pending", "adopted", "discarded"]
+    adoption_status: Literal["pending", "adopted", "rejected", "discarded"]
     modification_magnitude: float
+    modification_algorithm_version: str
     retry_of_run_id: UUID | None
     error_code: str | None
     status_detail: str | None
@@ -58,7 +59,7 @@ class TextGenerationEdit(BaseModel):
 
     final_title: str = Field(min_length=1, max_length=2_000)
     final_copy: str = Field(min_length=1, max_length=100_000)
-    adoption_status: Literal["pending", "adopted", "discarded"]
+    adoption_status: Literal["pending", "adopted", "rejected", "discarded"]
 
 
 def _context(

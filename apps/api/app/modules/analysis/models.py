@@ -3,9 +3,10 @@ from enum import StrEnum
 from uuid import UUID
 
 from sqlalchemy import Boolean, Integer, JSON, Enum, ForeignKey, Index, String, Text, UniqueConstraint, Uuid, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, synonym
 
 from app.core.database import Base, TimestampMixin, UTCDateTime, UUIDPrimaryKeyMixin, utc_now
+from app.modules.content.account_models import Platform, platform_type
 
 
 class AnalysisRunStatus(StrEnum):
@@ -125,6 +126,19 @@ class ProductEvent(UUIDPrimaryKeyMixin, Base):
     __table_args__ = (
         Index("ix_product_events_workspace_id", "workspace_id"),
         Index("ix_product_events_entity", "entity_type", "entity_id"),
+        Index(
+            "ix_product_events_workspace_name_time",
+            "workspace_id",
+            "event_name",
+            "occurred_at",
+        ),
+        Index("ix_product_events_analysis_run_id", "analysis_run_id"),
+        Index("ix_product_events_generation_run_id", "generation_run_id"),
+        UniqueConstraint(
+            "workspace_id",
+            "idempotency_key",
+            name="uq_product_events_workspace_idempotency",
+        ),
     )
 
     workspace_id: Mapped[UUID] = mapped_column(
@@ -133,10 +147,86 @@ class ProductEvent(UUIDPrimaryKeyMixin, Base):
     event_name: Mapped[str] = mapped_column(String(120))
     entity_type: Mapped[str] = mapped_column(String(80))
     entity_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True))
-    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    server_occurred_at: Mapped[datetime] = mapped_column(
+        "occurred_at",
+        UTCDateTime(),
+    )
+    occurred_at = synonym("server_occurred_at")
+    event_version: Mapped[int] = mapped_column(Integer, default=1)
     actor_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("workspace_members.id", ondelete="SET NULL"),
         default=None,
     )
+    platform: Mapped[Platform | None] = mapped_column(
+        platform_type,
+        default=None,
+    )
+    account_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("platform_accounts.id", ondelete="CASCADE"),
+        default=None,
+    )
+    content_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("contents.id", ondelete="CASCADE"),
+        default=None,
+    )
+    analysis_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("analysis_runs.id", ondelete="CASCADE"),
+        default=None,
+    )
+    generation_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("text_generation_runs.id", ondelete="CASCADE"),
+        default=None,
+    )
+    suggestion_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("analysis_suggestions.id", ondelete="CASCADE"),
+        default=None,
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(200), default="")
+    payload_fingerprint: Mapped[str] = mapped_column(String(64), default="")
+    provider_mode: Mapped[str] = mapped_column(String(20), default="real")
+    analytics_eligible: Mapped[bool] = mapped_column(Boolean, default=True)
     properties: Mapped[dict[str, object]] = mapped_column(JSON, default_factory=dict)
+
+
+class ProductEventOutbox(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "product_event_outbox"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "idempotency_key",
+            name="uq_product_event_outbox_workspace_idempotency",
+        ),
+        Index(
+            "ix_product_event_outbox_pending",
+            "processed_at",
+            "created_at",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    payload_fingerprint: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict[str, object]] = mapped_column(JSON)
+    processed_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(),
+        default=None,
+    )
+    event_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("product_events.id", ondelete="SET NULL"),
+        default=None,
+    )
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    error_code: Mapped[str | None] = mapped_column(
+        String(80),
+        default=None,
+    )

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import {
   createAnalysisFeedback,
+  markAnalysisViewed,
   requestContentAnalysis,
   saveAnalysisSuggestion,
   updateAnalysisSuggestion,
@@ -57,6 +58,7 @@ const run = {
 
 vi.mock("@/lib/analysis-api", () => ({
   createAnalysisFeedback: vi.fn(),
+  markAnalysisViewed: vi.fn(),
   requestContentAnalysis: vi.fn(),
   saveAnalysisSuggestion: vi.fn(),
   updateAnalysisSuggestion: vi.fn(),
@@ -67,6 +69,7 @@ beforeEach(() => {
   sessionStorage.setItem("workspace_csrf", "csrf-token");
   vi.mocked(requestContentAnalysis).mockResolvedValue(run);
   vi.mocked(createAnalysisFeedback).mockResolvedValue({ id: "event-1", event_name: "analysis.feedback.useful" });
+  vi.mocked(markAnalysisViewed).mockResolvedValue({ id: "view-1", event_name: "analysis.viewed" });
   vi.mocked(saveAnalysisSuggestion).mockResolvedValue({
     id: "suggestion-1",
     analysis_run_id: run.id,
@@ -106,7 +109,18 @@ test("renders an evidence-grounded report and completes feedback adoption action
   fireEvent.click(screen.getByRole("button", { name: "标记为已采用" }));
 
   await waitFor(() => {
-    expect(createAnalysisFeedback).toHaveBeenCalledWith("content-1", "run-1", "useful", "csrf-token");
+    expect(createAnalysisFeedback).toHaveBeenCalledWith(
+      "content-1",
+      "run-1",
+      "useful",
+      "csrf-token",
+      expect.any(String),
+    );
+    expect(markAnalysisViewed).toHaveBeenCalledWith(
+      "content-1",
+      "run-1",
+      "csrf-token",
+    );
     expect(saveAnalysisSuggestion).toHaveBeenCalledWith("content-1", "run-1", "recommendation-1", "csrf-token");
     expect(updateAnalysisSuggestion).toHaveBeenCalledWith("content-1", "suggestion-1", "adopted", "csrf-token");
   });

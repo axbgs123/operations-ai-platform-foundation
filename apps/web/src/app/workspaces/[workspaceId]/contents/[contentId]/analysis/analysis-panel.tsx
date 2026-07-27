@@ -6,11 +6,16 @@ import {
   AnalysisRunData,
   AnalysisSuggestionData,
   createAnalysisFeedback,
+  markAnalysisViewed,
   readAnalysisRun,
   requestContentAnalysis,
   saveAnalysisSuggestion,
   updateAnalysisSuggestion,
 } from "@/lib/analysis-api";
+import {
+  AnalysisFeedback,
+  AnalysisRating,
+} from "@/components/feedback/analysis-feedback";
 
 
 const sectionLabels = {
@@ -44,6 +49,13 @@ export function AnalysisPanel({ contentId }: { workspaceId: string; contentId: s
       }
       if (current.status === "failed") setError("分析输出未通过证据校验，请重新触发。");
       if (["pending", "running"].includes(current.status)) setMessage("分析仍在后台运行，可稍后刷新查看。");
+      if (current.status === "succeeded") {
+        try {
+          await markAnalysisViewed(contentId, current.id, csrf());
+        } catch {
+          setError("分析已展示，但查看记录暂未同步，请稍后重试。");
+        }
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "分析启动失败");
     } finally {
@@ -51,17 +63,16 @@ export function AnalysisPanel({ contentId }: { workspaceId: string; contentId: s
     }
   }
 
-  async function feedback(rating: "useful" | "not_useful") {
+  async function feedback(rating: AnalysisRating) {
     if (!run) return;
-    setBusy(`feedback-${rating}`);
-    try {
-      await createAnalysisFeedback(contentId, run.id, rating, csrf());
-      setMessage(rating === "useful" ? "已记录：有用" : "已记录：无用");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "反馈提交失败");
-    } finally {
-      setBusy("");
-    }
+    const idempotencyKey = globalThis.crypto.randomUUID();
+    await createAnalysisFeedback(
+      contentId,
+      run.id,
+      rating,
+      csrf(),
+      idempotencyKey,
+    );
   }
 
   async function save(recommendationId: string) {
@@ -148,10 +159,7 @@ export function AnalysisPanel({ contentId }: { workspaceId: string; contentId: s
             </div>
             <ul className="mt-5 space-y-2 text-slate-300">{report.next_experiments.map((experiment) => <li key={experiment.summary}>{experiment.summary}：{experiment.change}（成功指标：{experiment.success_metric}）</li>)}</ul>
           </article>
-          <div className="flex gap-3">
-            <button className="rounded-lg border border-emerald-700 px-4 py-2 text-emerald-300" onClick={() => feedback("useful")} type="button">有用</button>
-            <button className="rounded-lg border border-slate-700 px-4 py-2 text-slate-300" onClick={() => feedback("not_useful")} type="button">无用</button>
-          </div>
+          <AnalysisFeedback onSubmit={feedback} />
         </div>
       ) : null}
     </section>

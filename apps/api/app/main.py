@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.modules.analysis.viral_router import router as viral_router
 from app.modules.analysis.router import router as analysis_router
+from app.modules.analytics.analytics_router import router as analytics_router
 from app.modules.content.account_router import router as account_router
 from app.modules.content.router import router as content_router
 from app.modules.demo.router import router as demo_router
@@ -63,6 +64,7 @@ app.include_router(fact_sources_router)
 app.include_router(dashboard_router)
 app.include_router(viral_router)
 app.include_router(analysis_router)
+app.include_router(analytics_router)
 app.include_router(generation_router)
 app.include_router(risk_documents_router)
 app.include_router(risk_scans_router)

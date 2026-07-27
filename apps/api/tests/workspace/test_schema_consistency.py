@@ -8,7 +8,7 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260727_0025"
+HEAD = "20260727_0026"
 
 
 def _database_with_version(*, include_required_tables: bool):
@@ -58,6 +58,9 @@ def _database_with_version(*, include_required_tables: bool):
             connection.execute(
                 text("CREATE TABLE deletion_audits (id VARCHAR)")
             )
+            connection.execute(
+                text("CREATE TABLE product_event_outbox (id VARCHAR)")
+            )
     return engine
 
 
@@ -85,6 +88,7 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "workspace_deletion_confirmations",
                     "workspace_deletion_jobs",
                     "deletion_audits",
+                    "product_event_outbox",
                 },
             )
 
@@ -109,5 +113,6 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                     "workspace_deletion_confirmations",
                     "workspace_deletion_jobs",
                     "deletion_audits",
+                    "product_event_outbox",
                 },
         )
