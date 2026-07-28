@@ -114,6 +114,19 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "provider_workspace_id",
             "encrypted_api_key",
         } <= model_config_columns
+        analysis_run_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "analysis_runs"
+            )
+        }
+        assert {
+            "model_config_id",
+            "model_provider",
+            "model_version",
+            "model_config_version",
+            "provider_contract_version",
+        } <= analysis_run_columns
         import_batch_columns = {
             column["name"]
             for column in inspect(migrated_engine).get_columns("import_batches")
@@ -304,7 +317,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260728_0028",
+                    expected_head="20260728_0029",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",

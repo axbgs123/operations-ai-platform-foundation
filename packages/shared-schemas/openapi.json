@@ -417,12 +417,36 @@
             "title": "Id",
             "type": "string"
           },
+          "model_config_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Config Id"
+          },
+          "model_config_version": {
+            "title": "Model Config Version",
+            "type": "string"
+          },
+          "model_provider": {
+            "title": "Model Provider",
+            "type": "string"
+          },
           "model_version": {
             "title": "Model Version",
             "type": "string"
           },
           "prompt_version": {
             "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider_contract_version": {
+            "title": "Provider Contract Version",
             "type": "string"
           },
           "report": {
@@ -470,7 +494,11 @@
           "trigger_kind",
           "report",
           "error_code",
+          "model_config_id",
+          "model_provider",
           "model_version",
+          "provider_contract_version",
+          "model_config_version",
           "prompt_version",
           "algorithm_version",
           "benchmark_algorithm_version",
@@ -4837,6 +4865,16 @@
           "config_id": {
             "format": "uuid",
             "title": "Config Id",
+            "type": "string"
+          },
+          "configuration_version": {
+            "default": "legacy",
+            "title": "Configuration Version",
+            "type": "string"
+          },
+          "contract_version": {
+            "default": "mock-structured-v1",
+            "title": "Contract Version",
             "type": "string"
           },
           "model_id": {

@@ -254,15 +254,20 @@ class ModelConfigService:
     def resolve(
         self,
         required_capabilities: Iterable[Capability],
+        *,
+        provider: str | None = None,
     ) -> ModelConfig:
         required = frozenset(required_capabilities)
         require_permission(self._context.role, Permission.READ_CONTENT)
-        rows = list(self._session.scalars(
-            select(ModelConfig).where(
+        filters = [
                 ModelConfig.workspace_id == self._context.workspace_id,
                 ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
-            )
-        ))
+        ]
+        if provider is not None:
+            filters.append(ModelConfig.provider == provider)
+        rows = list(
+            self._session.scalars(select(ModelConfig).where(*filters))
+        )
         descriptors = [
             ModelDescriptor(
                 provider=row.provider,

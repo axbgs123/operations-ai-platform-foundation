@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
 from app.core.database import utc_now
+from app.core.config import get_settings
 from app.modules.analysis.features import (
     AnalysisEvidenceBundle,
     BenchmarkEvidenceInput,
@@ -33,7 +34,14 @@ from app.modules.analysis.schemas import (
     AnalysisAdapter,
     AnalysisReport,
     InvalidAnalysisOutput,
-    configured_analysis_model_version,
+)
+from app.modules.models.adapter_factory import ModelBinding
+from app.modules.models.capabilities import Capability
+from app.modules.models.catalog import get_catalog_entry
+from app.modules.models.config_service import ModelConfigService, SecretCipher
+from app.modules.models.adapters.qianwen import (
+    ModelProviderError,
+    safe_model_error_message,
 )
 from app.modules.content.account_models import BenchmarkProfile, ObjectiveProfile, PlatformAccount
 from app.modules.content.models import AssetCategory, Content, ContentAsset
@@ -62,11 +70,48 @@ class AnalysisVersionContext(BaseModel):
     benchmark_run_id: UUID
     snapshot_ids: list[UUID]
     model_version: str
+    model_config_id: UUID | None = None
+    model_provider: str = "mock"
+    provider_contract_version: str = "mock-structured-v1"
+    model_config_version: str = "legacy"
     prompt_version: str
     algorithm_version: str
     benchmark_algorithm_version: str
     trigger_kind: Literal["manual", "auto"]
     requested_by: UUID | None = None
+
+
+def resolve_analysis_model_binding(
+    *,
+    session: Session,
+    context: WorkspaceContext,
+    cipher: SecretCipher,
+    mock_mode: bool,
+) -> tuple[UUID | None, ModelBinding]:
+    if mock_mode:
+        return None, ModelBinding(
+            provider="mock",
+            model_id="mock-analysis-v1",
+            contract_version="mock-structured-v1",
+            configuration_version="mock-static-v1",
+        )
+    config = ModelConfigService(
+        session,
+        context,
+        cipher=cipher,
+    ).resolve({Capability.TEXT}, provider="qianwen")
+    if config.provider != "qianwen":
+        raise ValueError("selected text model Provider is not supported")
+    try:
+        catalog = get_catalog_entry(config.provider, config.model_id)
+    except LookupError as error:
+        raise ValueError("selected text model is not in the Catalog") from error
+    return config.id, ModelBinding(
+        provider=config.provider,
+        model_id=config.model_id,
+        contract_version=catalog.contract_version,
+        configuration_version=config.updated_at.isoformat(),
+    )
 
 
 def analysis_cache_key(
@@ -81,7 +126,11 @@ def analysis_cache_key(
             item["source_id"] = None
     cache_input = {
         "bundle": semantic_bundle,
+        "model_config_id": str(context.model_config_id),
+        "model_provider": context.model_provider,
         "model_version": context.model_version,
+        "provider_contract_version": context.provider_contract_version,
+        "model_config_version": context.model_config_version,
         "prompt_version": context.prompt_version,
         "algorithm_version": context.algorithm_version,
         "benchmark_algorithm_version": context.benchmark_algorithm_version,
@@ -127,6 +176,10 @@ def execute_bundle_analysis(
         error_code=None,
         error_message=None,
         model_version=context.model_version,
+        model_config_id=context.model_config_id,
+        model_provider=context.model_provider,
+        provider_contract_version=context.provider_contract_version,
+        model_config_version=context.model_config_version,
         prompt_version=context.prompt_version,
         algorithm_version=context.algorithm_version,
         benchmark_algorithm_version=context.benchmark_algorithm_version,
@@ -146,6 +199,31 @@ def _complete_run(
 ) -> AnalysisRun:
     run.status = AnalysisRunStatus.RUNNING
     session.flush()
+    record_analysis_processing_started(session, run)
+    try:
+        report = adapter.analyze(bundle)
+        report.validate_references(bundle)
+    except ModelProviderError as error:
+        return persist_analysis_failure(
+            session,
+            run.id,
+            error_code=error.code.value,
+            error_message=safe_model_error_message(error.code),
+        )
+    except (InvalidAnalysisOutput, ValueError):
+        return persist_analysis_failure(
+            session,
+            run.id,
+            error_code="MODEL_INVALID_RESPONSE",
+            error_message="模型返回内容未通过结构或证据校验。",
+        )
+    return persist_analysis_success(session, run.id, report)
+
+
+def record_analysis_processing_started(
+    session: Session,
+    run: AnalysisRun,
+) -> None:
     if (
         session.scalar(
             select(PlatformAccount.id).where(
@@ -173,21 +251,62 @@ def _complete_run(
             )
         )
         session.flush()
-    try:
-        report = adapter.analyze(bundle)
-        report.validate_references(bundle)
-    except (InvalidAnalysisOutput, ValueError):
-        run.status = AnalysisRunStatus.FAILED
-        run.report = None
-        run.error_code = "invalid_model_output"
-        run.error_message = "analysis output failed evidence validation"
-        run.completed_at = utc_now()
-        session.flush()
-        return run
 
+
+def persist_analysis_failure(
+    session: Session,
+    run_id: UUID,
+    *,
+    error_code: str,
+    error_message: str,
+) -> AnalysisRun:
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.id == run_id).with_for_update()
+    )
+    if run is None:
+        raise LookupError("analysis run not found")
+    if run.status in {AnalysisRunStatus.SUCCEEDED, AnalysisRunStatus.FAILED}:
+        return run
+    run.status = AnalysisRunStatus.FAILED
+    run.report = None
+    run.error_code = error_code
+    run.error_message = error_message
+    run.completed_at = utc_now()
+    run.next_attempt_at = None
+    run.lease_expires_at = None
+    session.flush()
+    return run
+
+
+def persist_analysis_success(
+    session: Session,
+    run_id: UUID,
+    report: AnalysisReport,
+) -> AnalysisRun:
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.id == run_id).with_for_update()
+    )
+    if run is None:
+        raise LookupError("analysis run not found")
+    if run.status in {AnalysisRunStatus.SUCCEEDED, AnalysisRunStatus.FAILED}:
+        return run
+    bundle = AnalysisEvidenceBundle.model_validate(run.evidence_bundle)
+    try:
+        report.validate_references(bundle)
+    except ValueError:
+        return persist_analysis_failure(
+            session,
+            run.id,
+            error_code="MODEL_INVALID_RESPONSE",
+            error_message="模型返回内容未通过结构或证据校验。",
+        )
     run.status = AnalysisRunStatus.SUCCEEDED
     run.report = report.model_dump(mode="json")
+    run.error_code = None
+    run.error_message = None
     run.completed_at = utc_now()
+    run.next_attempt_at = None
+    run.lease_expires_at = None
     session.flush()
     if (
         session.scalar(
@@ -308,8 +427,8 @@ def record_analysis_provider_failure(session: Session, run_id: UUID) -> None:
         return
     if run.attempt_count >= 3:
         run.status = AnalysisRunStatus.FAILED
-        run.error_code = "analysis_provider_unavailable"
-        run.error_message = "analysis provider failed after retry limit"
+        run.error_code = "MODEL_PROVIDER_UNAVAILABLE"
+        run.error_message = "模型服务暂时不可用，请稍后重试。"
         run.completed_at = utc_now()
         run.next_attempt_at = None
         run.lease_expires_at = None
@@ -540,13 +659,28 @@ class AnalysisService:
     def request(self, content_id: UUID, *, trigger_kind: Literal["manual", "auto"] = "manual") -> tuple[AnalysisRun, bool]:
         content = self._content(content_id, mutation=True)
         bundle = self._bundle(content)
+        settings = get_settings()
+        model_config_id, binding = resolve_analysis_model_binding(
+            session=self.session,
+            context=self.context,
+            cipher=SecretCipher(
+                settings.model_secret_encryption_key.get_secret_value()
+            ),
+            mock_mode=settings.app_mock_mode,
+        )
         context = AnalysisVersionContext(
             workspace_id=content.workspace_id,
             account_id=content.account_id,
             content_id=content.id,
             benchmark_run_id=bundle.benchmark.id,
             snapshot_ids=[snapshot.id for snapshot in bundle.snapshots],
-            model_version=configured_analysis_model_version(),
+            model_config_id=model_config_id,
+            model_provider=binding.provider,
+            model_version=binding.model_id,
+            provider_contract_version=binding.contract_version,
+            model_config_version=(
+                binding.configuration_version or "legacy"
+            ),
             prompt_version=ANALYSIS_PROMPT_VERSION,
             algorithm_version=ANALYSIS_ALGORITHM_VERSION,
             benchmark_algorithm_version=BENCHMARK_ALGORITHM_VERSION,
@@ -584,6 +718,10 @@ class AnalysisService:
             cache_key=key,
             evidence_bundle=bundle.model_dump(mode="json"),
             model_version=context.model_version,
+            model_config_id=context.model_config_id,
+            model_provider=context.model_provider,
+            provider_contract_version=context.provider_contract_version,
+            model_config_version=context.model_config_version,
             prompt_version=context.prompt_version,
             algorithm_version=context.algorithm_version,
             benchmark_algorithm_version=context.benchmark_algorithm_version,

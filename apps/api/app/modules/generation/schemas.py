@@ -98,6 +98,8 @@ class ModelSnapshot(ImmutableSchema):
     model_id: str
     capabilities: tuple[str, ...]
     status: str
+    contract_version: str = "mock-structured-v1"
+    configuration_version: str = "legacy"
 
 
 class SourceAssetSnapshot(ImmutableSchema):

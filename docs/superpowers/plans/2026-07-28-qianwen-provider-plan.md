@@ -230,7 +230,7 @@
 - Modify: `apps/api/app/modules/risk_rag/ingestion.py`
 - Modify: `apps/api/app/modules/risk_rag/retrieval.py`
 - Modify: `apps/api/app/modules/exports/zip_restore.py`
-- Create: `apps/api/migrations/versions/20260728_0029_qianwen_embedding_rebuild.py` if persistent rebuild metadata is required
+- Create: `apps/api/migrations/versions/20260728_0030_qianwen_embedding_rebuild.py` if persistent rebuild metadata is required
 
 **Interfaces:**
 - Consumes: Task 1 provider configuration and safe telemetry.
@@ -259,7 +259,7 @@
 - Modify: `apps/api/app/modules/generation/cover_models.py`
 - Modify: `apps/api/app/modules/generation/tasks.py`
 - Modify: `apps/api/app/modules/generation/models.py`
-- Create: `apps/api/migrations/versions/20260728_0030_qianwen_cover_artifacts.py` if current artifact/version fields are insufficient
+- Create: `apps/api/migrations/versions/20260728_0031_qianwen_cover_artifacts.py` if current artifact/version fields are insufficient
 
 **Interfaces:**
 - Consumes: Task 1 config/error/telemetry and existing `ImageModelRequest`.

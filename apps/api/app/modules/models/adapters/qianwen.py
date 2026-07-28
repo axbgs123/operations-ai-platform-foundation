@@ -59,6 +59,27 @@ class ModelProviderError(RuntimeError):
         super().__init__(code.value)
 
 
+def safe_model_error_message(code: ModelErrorCode) -> str:
+    return {
+        ModelErrorCode.AUTHENTICATION_FAILED: (
+            "模型鉴权失败，请管理员检查模型配置。"
+        ),
+        ModelErrorCode.RATE_LIMITED: (
+            "模型请求受限，请稍后重新创建分析任务。"
+        ),
+        ModelErrorCode.TIMEOUT: "模型请求超时，请稍后重试。",
+        ModelErrorCode.INVALID_RESPONSE: (
+            "模型返回内容未通过结构或证据校验。"
+        ),
+        ModelErrorCode.PROVIDER_UNAVAILABLE: (
+            "模型服务暂时不可用，请稍后重试。"
+        ),
+        ModelErrorCode.CAPABILITY_UNAVAILABLE: (
+            "固定模型不支持本次所需能力。"
+        ),
+    }[code]
+
+
 Sleeper = Callable[[float], Awaitable[None]]
 
 

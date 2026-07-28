@@ -17,6 +17,7 @@ from app.modules.analysis.schemas import (
 )
 from app.modules.analysis.service import AnalysisService
 from app.modules.analysis.tasks import get_analysis_enqueuer
+from app.modules.models.config_service import ModelConfigurationRequired
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.permissions import PermissionDenied
 
@@ -53,6 +54,18 @@ def request_analysis(
         run, should_enqueue = service.request(content_id)
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
+    except ModelConfigurationRequired as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": error.code,
+                "message": str(error),
+                "action": error.action,
+                "required_capabilities": [
+                    item.value for item in error.required_capabilities
+                ],
+            },
+        ) from error
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:

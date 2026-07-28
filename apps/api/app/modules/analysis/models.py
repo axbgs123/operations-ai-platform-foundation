@@ -30,6 +30,7 @@ class AnalysisRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_analysis_runs_workspace_id", "workspace_id"),
         Index("ix_analysis_runs_content_id", "content_id"),
         Index("ix_analysis_runs_cache_key", "cache_key"),
+        Index("ix_analysis_runs_model_config_id", "model_config_id"),
         Index(
             "uq_analysis_runs_active_cache",
             "content_id",
@@ -63,6 +64,23 @@ class AnalysisRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     prompt_version: Mapped[str] = mapped_column(String(80))
     algorithm_version: Mapped[str] = mapped_column(String(80))
     benchmark_algorithm_version: Mapped[str] = mapped_column(String(80))
+    model_config_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("model_configs.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    model_provider: Mapped[str] = mapped_column(
+        String(80),
+        default="mock",
+    )
+    provider_contract_version: Mapped[str] = mapped_column(
+        String(80),
+        default="mock-structured-v1",
+    )
+    model_config_version: Mapped[str] = mapped_column(
+        String(80),
+        default="legacy",
+    )
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     next_attempt_at: Mapped[datetime | None] = mapped_column(
         UTCDateTime(), default_factory=utc_now

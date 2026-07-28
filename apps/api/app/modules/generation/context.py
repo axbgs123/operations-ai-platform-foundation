@@ -28,6 +28,7 @@ from app.modules.generation.schemas import (
     ViralReferenceSnapshot,
 )
 from app.modules.models.models import ModelConfig, ModelConfigStatus
+from app.modules.models.catalog import get_catalog_entry
 from app.modules.style_facts.fact_models import (
     FactConflictStatus,
     FactItem,
@@ -291,12 +292,29 @@ class GenerationContextBuilder:
         )
         if config is None or config.status is ModelConfigStatus.INCOMPATIBLE:
             raise ValueError("model config is not generation eligible")
+        contract_version = "mock-structured-v1"
+        if config.provider == "qianwen":
+            try:
+                catalog = get_catalog_entry(config.provider, config.model_id)
+            except LookupError as error:
+                raise ValueError(
+                    "model config is not generation eligible"
+                ) from error
+            if (
+                set(config.capabilities)
+                != {capability.value for capability in catalog.capabilities}
+                or config.status.value != catalog.adapter_status.value
+            ):
+                raise ValueError("model config is not generation eligible")
+            contract_version = catalog.contract_version
         return ModelSnapshot(
             config_id=config.id,
             provider=config.provider,
             model_id=config.model_id,
             capabilities=tuple(sorted(config.capabilities)),
             status=config.status.value,
+            contract_version=contract_version,
+            configuration_version=config.updated_at.isoformat(),
         )
 
     def create_run(self, inputs: GenerationInputs) -> GenerationRun:

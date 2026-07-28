@@ -2293,10 +2293,18 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Model Config Id */
+            model_config_id: string | null;
+            /** Model Config Version */
+            model_config_version: string;
+            /** Model Provider */
+            model_provider: string;
             /** Model Version */
             model_version: string;
             /** Prompt Version */
             prompt_version: string;
+            /** Provider Contract Version */
+            provider_contract_version: string;
             report: components["schemas"]["AnalysisReport"] | null;
             /** Snapshot Ids */
             snapshot_ids: string[];
@@ -3989,6 +3997,16 @@ export interface components {
              * Format: uuid
              */
             config_id: string;
+            /**
+             * Configuration Version
+             * @default legacy
+             */
+            configuration_version: string;
+            /**
+             * Contract Version
+             * @default mock-structured-v1
+             */
+            contract_version: string;
             /** Model Id */
             model_id: string;
             /** Provider */

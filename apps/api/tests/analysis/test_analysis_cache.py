@@ -193,7 +193,8 @@ def test_provider_failures_stop_after_three_attempts() -> None:
 
         assert run.status == AnalysisRunStatus.FAILED
         assert run.attempt_count == 3
-        assert run.error_code == "analysis_provider_unavailable"
+        assert run.error_code == "MODEL_PROVIDER_UNAVAILABLE"
+        assert run.error_message == "模型服务暂时不可用，请稍后重试。"
         assert begin_analysis_attempt(session, run.id) is False
 
 
@@ -229,7 +230,7 @@ def test_unknown_model_citation_marks_run_failed_without_report() -> None:
 
         assert run.status == AnalysisRunStatus.FAILED
         assert run.report is None
-        assert run.error_code == "invalid_model_output"
+        assert run.error_code == "MODEL_INVALID_RESPONSE"
         assert session.scalar(select(AnalysisRun).where(AnalysisRun.id == run.id))
 
 

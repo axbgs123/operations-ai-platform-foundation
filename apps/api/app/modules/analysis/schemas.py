@@ -289,7 +289,11 @@ class AnalysisRunRead(BaseModel):
     trigger_kind: Literal["manual", "auto"]
     report: AnalysisReport | None
     error_code: str | None
+    model_config_id: UUID | None
+    model_provider: str
     model_version: str
+    provider_contract_version: str
+    model_config_version: str
     prompt_version: str
     algorithm_version: str
     benchmark_algorithm_version: str

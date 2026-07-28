@@ -29,6 +29,10 @@ from app.modules.generation.publication_gate import (
     evaluate_publication_gate,
 )
 from app.modules.models.adapters.mock import MockProvider
+from app.modules.models.adapters.qianwen import (
+    ModelProviderError,
+    safe_model_error_message,
+)
 from app.modules.models.capabilities import Capability, ModelRequest
 from app.modules.style_facts.fact_verification import (
     GeneratedClaim,
@@ -335,6 +339,79 @@ def _analytics_account_exists(session: Session, run: TextGenerationRun) -> bool:
     )
 
 
+def persist_text_generation_failure(
+    session: Session,
+    run_id: UUID,
+    *,
+    error_code: str,
+    status_detail: str,
+) -> TextGenerationRun:
+    run = _run(session, run_id)
+    if run.status in {
+        TextGenerationRunStatus.SUCCEEDED,
+        TextGenerationRunStatus.FAILED,
+        TextGenerationRunStatus.CANCELLED,
+    }:
+        return run
+    run.status = TextGenerationRunStatus.FAILED
+    run.error_code = error_code
+    run.status_detail = status_detail
+    run.completed_at = utc_now()
+    try:
+        session.flush()
+    except StaleDataError:
+        session.rollback()
+        return _run(session, run_id)
+    return run
+
+
+def persist_text_generation_success(
+    session: Session,
+    run_id: UUID,
+    result: GeneratedTextResult,
+    *,
+    provider_mode: Literal["mock", "real"],
+) -> TextGenerationRun:
+    run = _run(session, run_id)
+    if run.status in {
+        TextGenerationRunStatus.SUCCEEDED,
+        TextGenerationRunStatus.FAILED,
+        TextGenerationRunStatus.CANCELLED,
+    }:
+        return run
+    run.original_result = result.model_dump(mode="json", by_alias=True)
+    run.final_title = result.titles[0]
+    run.final_copy = result.copy_text
+    run.status = TextGenerationRunStatus.SUCCEEDED
+    run.error_code = None
+    run.status_detail = None
+    run.completed_at = utc_now()
+    try:
+        session.flush()
+    except StaleDataError:
+        session.rollback()
+        return _run(session, run_id)
+    if _analytics_account_exists(session, run):
+        EventService(
+            session,
+            WorkspaceContext(
+                workspace_id=run.workspace_id,
+                member_id=run.requested_by,
+                role="editor",
+            ),
+        ).record(
+            ProductEventInput(
+                event_name=EventName.GENERATION_COMPLETED,
+                idempotency_key=f"generation-completed:{run.id}",
+                generation_run_id=run.id,
+                properties={"generation_version": "text-generation-v1"},
+                provider_mode=provider_mode,
+            )
+        )
+    session.flush()
+    return run
+
+
 def process_text_generation(
     session: Session,
     run_id: UUID,
@@ -376,6 +453,12 @@ def process_text_generation(
         run.status_detail = "生成内容未通过事实复检，请检查事实后重试。"
         run.completed_at = utc_now()
         return flush_terminal_state()
+    except ModelProviderError as error:
+        run.status = TextGenerationRunStatus.FAILED
+        run.error_code = error.code.value
+        run.status_detail = safe_model_error_message(error.code)
+        run.completed_at = utc_now()
+        return flush_terminal_state()
     except (RuntimeError, ValueError):
         run.status = TextGenerationRunStatus.FAILED
         run.error_code = "MODEL_GENERATION_FAILED"
@@ -389,35 +472,12 @@ def process_text_generation(
         run.completed_at = utc_now()
         return flush_terminal_state()
 
-    run.original_result = result.model_dump(mode="json", by_alias=True)
-    run.final_title = result.titles[0]
-    run.final_copy = result.copy_text
-    run.status = TextGenerationRunStatus.SUCCEEDED
-    run.error_code = None
-    run.status_detail = None
-    run.completed_at = utc_now()
-    persisted = flush_terminal_state()
-    if persisted.status != TextGenerationRunStatus.SUCCEEDED:
-        return persisted
-    if _analytics_account_exists(session, run):
-        EventService(
-            session,
-            WorkspaceContext(
-                workspace_id=run.workspace_id,
-                member_id=run.requested_by,
-                role="editor",
-            ),
-        ).record(
-            ProductEventInput(
-                event_name=EventName.GENERATION_COMPLETED,
-                idempotency_key=f"generation-completed:{run.id}",
-                generation_run_id=run.id,
-                properties={"generation_version": "text-generation-v1"},
-                provider_mode="mock" if adapter is None else "real",
-            )
-        )
-    session.flush()
-    return run
+    return persist_text_generation_success(
+        session,
+        run_id,
+        result,
+        provider_mode="mock" if adapter is None else "real",
+    )
 
 
 def cancel_text_generation(
