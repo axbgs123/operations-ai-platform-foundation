@@ -60,6 +60,25 @@ class CaptureTask(UUIDPrimaryKeyMixin, Base):
     status: Mapped[CaptureTaskStatus] = mapped_column(capture_task_status_enum)
     formal_snapshot_ids: Mapped[list[str]] = mapped_column(JSON)
     recognition_output: Mapped[dict[str, object] | None] = mapped_column(JSON, default=None)
+    model_config_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("model_configs.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    provider: Mapped[str] = mapped_column(String(80), default="mock")
+    model_id: Mapped[str] = mapped_column(
+        String(160), default="mock-vision-v1"
+    )
+    contract_version: Mapped[str] = mapped_column(
+        String(80), default="mock-vision-v1"
+    )
+    config_version: Mapped[str] = mapped_column(
+        String(80), default="mock-static-v1"
+    )
+    region: Mapped[str | None] = mapped_column(String(32), default=None)
+    metric_labels: Mapped[dict[str, str]] = mapped_column(
+        JSON, default_factory=dict
+    )
     error_code: Mapped[str | None] = mapped_column(String(120), default=None)
     confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
     confirmed_by: Mapped[UUID | None] = mapped_column(

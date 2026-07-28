@@ -79,6 +79,12 @@ def _payload(service: ImportService, batch: ImportBatch) -> dict[str, object]:
             batch.recognition_status.value if batch.recognition_status else None
         ),
         "recognition_error": batch.recognition_error,
+        "provider_mode": (
+            "mock"
+            if batch.recognition_provider == "mock"
+            else "qianwen"
+        ),
+        "region": batch.recognition_region,
         "file_name": batch.file_name,
         "header_mappings": batch.header_mappings,
         "rows": [

@@ -3127,6 +3127,21 @@
             "title": "Member Id",
             "type": "string"
           },
+          "provider_mode": {
+            "title": "Provider Mode",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
           "scopes": {
             "items": {
               "type": "string"
@@ -3152,7 +3167,9 @@
           "client_id",
           "scopes",
           "issued_at",
-          "expires_at"
+          "expires_at",
+          "provider_mode",
+          "region"
         ],
         "title": "ExtensionBindResponse",
         "type": "object"
@@ -3173,6 +3190,21 @@
             "title": "Member Id",
             "type": "string"
           },
+          "provider_mode": {
+            "title": "Provider Mode",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
           "scopes": {
             "items": {
               "type": "string"
@@ -3191,7 +3223,9 @@
           "member_id",
           "client_id",
           "scopes",
-          "expires_at"
+          "expires_at",
+          "provider_mode",
+          "region"
         ],
         "title": "ExtensionBindingRead",
         "type": "object"
@@ -3261,6 +3295,10 @@
             "title": "Formal Snapshot Ids",
             "type": "array"
           },
+          "provider_mode": {
+            "title": "Provider Mode",
+            "type": "string"
+          },
           "recognition": {
             "anyOf": [
               {
@@ -3272,6 +3310,17 @@
               }
             ],
             "title": "Recognition"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
           },
           "request_id": {
             "title": "Request Id",
@@ -3304,7 +3353,9 @@
           "expires_at",
           "recognition",
           "error",
-          "formal_snapshot_ids"
+          "formal_snapshot_ids",
+          "provider_mode",
+          "region"
         ],
         "title": "ExtensionCaptureTaskRead",
         "type": "object"
@@ -4310,6 +4361,10 @@
             "title": "Platform",
             "type": "string"
           },
+          "provider_mode": {
+            "title": "Provider Mode",
+            "type": "string"
+          },
           "recognition_error": {
             "anyOf": [
               {
@@ -4337,6 +4392,17 @@
               }
             ],
             "title": "Recognition Status"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
           },
           "rows": {
             "items": {
@@ -4382,6 +4448,8 @@
           "status",
           "recognition_status",
           "recognition_error",
+          "provider_mode",
+          "region",
           "file_name",
           "header_mappings",
           "rows",
@@ -5032,12 +5100,22 @@
       "OcrResult": {
         "additionalProperties": false,
         "properties": {
+          "confidence_source": {
+            "default": "mock",
+            "title": "Confidence Source",
+            "type": "string"
+          },
           "regions": {
             "items": {
               "$ref": "#/components/schemas/OcrRegion"
             },
             "title": "Regions",
             "type": "array"
+          },
+          "requires_human_review": {
+            "default": false,
+            "title": "Requires Human Review",
+            "type": "boolean"
           },
           "status": {
             "$ref": "#/components/schemas/OcrStatus"
@@ -6743,6 +6821,22 @@
           "node": {
             "$ref": "#/components/schemas/RiskScanNode"
           },
+          "ocr_config_version": {
+            "title": "Ocr Config Version",
+            "type": "string"
+          },
+          "ocr_contract_version": {
+            "title": "Ocr Contract Version",
+            "type": "string"
+          },
+          "ocr_model_id": {
+            "title": "Ocr Model Id",
+            "type": "string"
+          },
+          "ocr_provider": {
+            "title": "Ocr Provider",
+            "type": "string"
+          },
           "platform": {
             "$ref": "#/components/schemas/Platform"
           },
@@ -6811,6 +6905,10 @@
           "embedding_dimension",
           "rag_model_version",
           "scanner_version",
+          "ocr_provider",
+          "ocr_model_id",
+          "ocr_contract_version",
+          "ocr_config_version",
           "created_at"
         ],
         "title": "RiskScanRead",
@@ -6852,6 +6950,34 @@
             "maxLength": 160,
             "minLength": 1,
             "title": "Evidence Version",
+            "type": "string"
+          },
+          "ocr_config_version": {
+            "default": "mock-static-v1",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Ocr Config Version",
+            "type": "string"
+          },
+          "ocr_contract_version": {
+            "default": "mock-ocr-v1",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Ocr Contract Version",
+            "type": "string"
+          },
+          "ocr_model_id": {
+            "default": "mock-ocr-v1",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Ocr Model Id",
+            "type": "string"
+          },
+          "ocr_provider": {
+            "default": "mock",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Ocr Provider",
             "type": "string"
           },
           "rag_model_version": {

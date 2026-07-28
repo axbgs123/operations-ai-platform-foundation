@@ -228,6 +228,55 @@ def test_mock_adapter_and_async_task_are_available_without_model_credentials() -
     assert recognize_screenshot_task.name == "imports.recognize_screenshot"
 
 
+def test_non_mock_screenshot_freezes_workspace_vision_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.config import Settings
+    from app.modules.models.catalog import QIANWEN_OCR_MODEL_ID
+    import app.modules.imports.service as import_service
+
+    monkeypatch.setattr(
+        import_service,
+        "get_settings",
+        lambda: Settings(app_mock_mode=False),
+    )
+    with configured_client() as (client, engine):
+        workspace_id, csrf, account = create_workspace_account(client)
+        configured = client.post(
+            f"/v1/workspaces/{workspace_id}/model-configs",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "provider": "qianwen",
+                "model_id": QIANWEN_OCR_MODEL_ID,
+                "region": "ap-southeast-1",
+                "provider_workspace_id": "llm-abcd1234",
+                "capabilities": ["vision"],
+                "status": "experimental",
+                "api_key": "sk-synthetic-never-real",
+            },
+        )
+        assert configured.status_code == 201, configured.text
+
+        queued: list[UUID] = []
+        staged = stage_screenshot(
+            client,
+            workspace_id,
+            csrf,
+            account,
+            queued=queued,
+        )
+
+        with Session(engine) as session:
+            batch = session.get(ImportBatch, UUID(staged["id"]))
+            assert str(batch.recognition_model_config_id) == configured.json()["id"]
+            assert batch.recognition_provider == "qianwen"
+            assert batch.recognition_model_id == QIANWEN_OCR_MODEL_ID
+            assert batch.recognition_contract_version == "qwen-ocr-advanced-v1"
+            assert batch.recognition_region == "ap-southeast-1"
+            assert batch.recognition_metric_labels["播放量"] == "views"
+            assert "曝光量" not in batch.recognition_metric_labels
+
+
 def test_manual_correction_confirms_screenshot_snapshot_and_applies_retention() -> None:
     from app.modules.imports.screenshot import process_screenshot_recognition
 

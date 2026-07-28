@@ -37,6 +37,13 @@ async function render(): Promise<void> {
   const binding = await store.load();
   if (binding && Date.parse(binding.expiresAt) > Date.now()) {
     if (destination) destination.textContent = `截图将上传到：${binding.serverOrigin}`;
+    const processing = document.querySelector<HTMLElement>("#processing");
+    if (processing) {
+      processing.textContent =
+        binding.providerMode === "mock"
+          ? "处理方式：Mock（不会调用外部付费模型）"
+          : `处理方式：阿里云百炼 Qwen-OCR · 地域 ${binding.region ?? "未配置"} · 会产生模型调用费用`;
+    }
     if (status) {
       const minutes = Math.max(
         0,

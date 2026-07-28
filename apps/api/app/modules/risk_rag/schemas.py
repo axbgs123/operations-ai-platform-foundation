@@ -156,6 +156,10 @@ class RiskScanRead(BaseModel):
     embedding_dimension: int
     rag_model_version: str
     scanner_version: str
+    ocr_provider: str
+    ocr_model_id: str
+    ocr_contract_version: str
+    ocr_config_version: str
     created_at: datetime
 
 

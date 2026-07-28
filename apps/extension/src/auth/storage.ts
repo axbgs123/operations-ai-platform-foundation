@@ -2,6 +2,8 @@ export type ExtensionBinding = {
   serverOrigin: string;
   accessToken: string;
   expiresAt: string;
+  providerMode: string;
+  region: string | null;
 };
 
 export type BindingStore = {

@@ -3,13 +3,25 @@ from datetime import UTC, datetime
 from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Cookie,
+    Depends,
+    Header,
+    HTTPException,
+    Request,
+    status,
+)
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
+from app.core.config import get_settings
+from app.core.security import WorkspaceContext, WorkspaceRole
+from app.core.storage import Storage, get_storage
 from app.modules.content.account_models import Platform
 from app.modules.content.account_models import PlatformAccount
 from app.modules.imports.capture_models import CaptureTask
@@ -18,9 +30,13 @@ from app.modules.imports.capture_service import (
     IdempotencyConflict,
     clear_task_object,
     create_task,
+    get_capture_enqueuer,
     task_payload,
     transition_task,
 )
+from app.modules.imports.vision_binding import resolve_vision_binding
+from app.modules.models.config_service import SecretCipher
+from app.modules.models.models import ModelConfig, ModelConfigStatus
 from app.modules.imports.service import ImportService
 from app.modules.metrics.models import ContentType
 from app.modules.imports.extension_auth import (
@@ -30,11 +46,13 @@ from app.modules.imports.extension_auth import (
 from app.modules.imports.models import ExtensionToken, ExtensionTokenScope
 from app.modules.workspace.auth import InvalidInviteCode, InviteAuthService, InviteRateLimitExceeded
 from app.modules.workspace.permissions import Permission, PermissionDenied, require_permission
+from app.modules.workspace.models import WorkspaceMember
 
 
 router = APIRouter(prefix="/v1/extension", tags=["extension-auth"])
 review_router = APIRouter(tags=["extension-capture-review"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
+ObjectStorage = Annotated[Storage, Depends(get_storage)]
 binding_attempts: dict[str, deque[datetime]] = defaultdict(deque)
 
 
@@ -54,6 +72,8 @@ class ExtensionBindResponse(BaseModel):
     scopes: list[str]
     issued_at: datetime
     expires_at: datetime
+    provider_mode: str
+    region: str | None
 
 
 class ExtensionBindingRead(BaseModel):
@@ -62,6 +82,35 @@ class ExtensionBindingRead(BaseModel):
     client_id: str
     scopes: list[str]
     expires_at: datetime
+    provider_mode: str
+    region: str | None
+
+
+def _vision_disclosure(
+    session: Session, workspace_id: UUID
+) -> tuple[str, str | None]:
+    if get_settings().app_mock_mode:
+        return "mock", None
+    configs = session.scalars(
+        select(ModelConfig).where(
+            ModelConfig.workspace_id == workspace_id,
+            ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
+        )
+    )
+    config = next(
+        (
+            item
+            for item in configs
+            if item.provider == "qianwen"
+            and "vision" in item.capabilities
+        ),
+        None,
+    )
+    return (
+        ("qianwen", config.region)
+        if config is not None
+        else ("unavailable", None)
+    )
 
 
 def _bearer(
@@ -128,6 +177,7 @@ def bind_extension(
     except IntegrityError as error:
         session.rollback()
         raise HTTPException(status_code=409, detail="binding already exchanged") from error
+    provider_mode, region = _vision_disclosure(session, issued.workspace_id)
     return ExtensionBindResponse(
         access_token=issued.access_token,
         token_type="Bearer",
@@ -137,6 +187,8 @@ def bind_extension(
         scopes=list(issued.scopes),
         issued_at=issued.issued_at,
         expires_at=issued.expires_at,
+        provider_mode=provider_mode,
+        region=region,
     )
 
 
@@ -152,12 +204,17 @@ def read_extension_binding(
         authorization,
         required_scope=ExtensionTokenScope.CAPTURE_READ,
     )
+    provider_mode, region = _vision_disclosure(
+        session, authenticated.workspace_id
+    )
     return ExtensionBindingRead(
         workspace_id=authenticated.workspace_id,
         member_id=authenticated.member_id,
         client_id=authenticated.client_id,
         scopes=list(authenticated.scopes),
         expires_at=authenticated.expires_at,
+        provider_mode=provider_mode,
+        region=region,
     )
 
 
@@ -178,12 +235,17 @@ def read_scoped_extension_binding(
         required_scope=ExtensionTokenScope.CAPTURE_READ,
         workspace_id=workspace_id,
     )
+    provider_mode, region = _vision_disclosure(
+        session, authenticated.workspace_id
+    )
     return ExtensionBindingRead(
         workspace_id=authenticated.workspace_id,
         member_id=authenticated.member_id,
         client_id=authenticated.client_id,
         scopes=list(authenticated.scopes),
         expires_at=authenticated.expires_at,
+        provider_mode=provider_mode,
+        region=region,
     )
 
 
@@ -219,6 +281,8 @@ class ExtensionCaptureTaskRead(BaseModel):
     recognition: dict[str, object] | None
     error: str | None
     formal_snapshot_ids: list[str]
+    provider_mode: str
+    region: str | None
 
 
 @router.post(
@@ -230,7 +294,10 @@ def create_extension_capture_task(
     workspace_id: UUID,
     data: ExtensionCaptureRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     session: DatabaseSession,
+    storage: ObjectStorage,
+    enqueuer=Depends(get_capture_enqueuer),
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> dict[str, object]:
@@ -244,6 +311,39 @@ def create_extension_capture_task(
     )
     if ExtensionTokenScope.CAPTURE_UPLOAD.value not in authenticated.scopes:
         raise HTTPException(status_code=403, detail="extension scope denied")
+    member = session.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.id == authenticated.member_id,
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.revoked_at.is_(None),
+        )
+    )
+    if member is None:
+        raise HTTPException(status_code=404, detail="extension resource not found")
+    settings = get_settings()
+    try:
+        binding = resolve_vision_binding(
+            session,
+            WorkspaceContext(
+                workspace_id=workspace_id,
+                member_id=member.id,
+                role=cast(WorkspaceRole, member.role.value),
+            ),
+            platform=data.platform,
+            content_type=ContentType.VIDEO,
+            cipher=SecretCipher(
+                settings.model_secret_encryption_key.get_secret_value()
+            ),
+            mock_mode=settings.app_mock_mode,
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_CONFIGURATION_REQUIRED",
+                "message": "请联系管理员配置支持 vision 的模型",
+            },
+        ) from error
     try:
         task = create_task(
             session,
@@ -256,12 +356,16 @@ def create_extension_capture_task(
             collected_at=data.collected_at,
             idempotency_key=idempotency_key,
             screenshot_data_url=data.screenshot_data_url,
+            binding=binding,
+            storage=storage if binding.provider != "mock" else None,
         )
     except IdempotencyConflict as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     session.commit()
+    if binding.provider != "mock":
+        background_tasks.add_task(enqueuer, task.id)
     return task_payload(task, request_id=request.headers.get("X-Request-ID", str(task.id)))
 
 
@@ -332,6 +436,7 @@ def cancel_extension_capture_task(
     task_id: UUID,
     request: Request,
     session: DatabaseSession,
+    storage: ObjectStorage,
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> dict[str, object]:
     authenticated = _bearer(
@@ -352,7 +457,10 @@ def cancel_extension_capture_task(
         transition_task(task, CaptureTaskStatus.CANCELLED)
     except ValueError as error:
         raise HTTPException(status_code=409, detail="capture task cannot be cancelled") from error
-    clear_task_object(task)
+    clear_task_object(
+        task,
+        storage=storage if task.provider != "mock" else None,
+    )
     session.commit()
     return task_payload(task, request_id=request.headers.get("X-Request-ID", str(task.id)))
 
@@ -397,6 +505,7 @@ def confirm_capture_task_in_web(
     task_id: UUID,
     data: WebCaptureConfirmation,
     session: DatabaseSession,
+    storage: ObjectStorage,
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> dict[str, object]:
@@ -449,7 +558,7 @@ def confirm_capture_task_in_web(
                 "platform_content_id": task.page_identifier,
                 "metrics": metrics,
                 "metric_confidences": {
-                    str(item["key"]): item.get("confidence", 0)
+                    str(item["key"]): 1.0
                     for item in candidates
                     if isinstance(item, dict) and "key" in item
                 },
@@ -462,6 +571,9 @@ def confirm_capture_task_in_web(
         )
     task.confirmed_at = datetime.now(UTC)
     task.confirmed_by = context.member_id
-    clear_task_object(task)
+    clear_task_object(
+        task,
+        storage=storage if task.provider != "mock" else None,
+    )
     session.commit()
     return task_payload(task, request_id=str(task.id))

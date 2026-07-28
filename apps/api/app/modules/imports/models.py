@@ -127,6 +127,29 @@ class ImportBatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     recognition_output: Mapped[dict[str, object] | None] = mapped_column(
         JSON, default=None
     )
+    recognition_model_config_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("model_configs.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    recognition_provider: Mapped[str] = mapped_column(
+        String(80), default="mock"
+    )
+    recognition_model_id: Mapped[str] = mapped_column(
+        String(160), default="mock-vision-v1"
+    )
+    recognition_contract_version: Mapped[str] = mapped_column(
+        String(80), default="mock-vision-v1"
+    )
+    recognition_config_version: Mapped[str] = mapped_column(
+        String(80), default="mock-static-v1"
+    )
+    recognition_region: Mapped[str | None] = mapped_column(
+        String(32), default=None
+    )
+    recognition_metric_labels: Mapped[dict[str, str]] = mapped_column(
+        JSON, default_factory=dict
+    )
 
 
 class ImportRow(UUIDPrimaryKeyMixin, TimestampMixin, Base):

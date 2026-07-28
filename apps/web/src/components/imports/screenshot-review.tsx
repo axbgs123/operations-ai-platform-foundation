@@ -26,6 +26,13 @@ function candidates(batch: ImportBatchData | null): Candidate[] {
   );
 }
 
+function unmappedText(batch: ImportBatchData | null): string[] {
+  const value = batch?.rows[0]?.raw_data.unmapped_text;
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
 export function ScreenshotReview({
   workspaceId,
   accountId,
@@ -133,6 +140,9 @@ export function ScreenshotReview({
         <p className="mt-2 text-sm text-slate-400">
           低置信度字段不会自动采用，识别完成后仍需人工确认。
         </p>
+        <p className="mt-2 text-sm text-amber-200">
+          真实模式会将截图发送到阿里云百炼所选地域并产生模型调用费用；图片可能含敏感信息，请先确认遮挡或裁剪范围。Mock 模式不调用外部付费模型。
+        </p>
       </header>
 
       <form
@@ -187,7 +197,7 @@ export function ScreenshotReview({
       {message ? <p className="rounded-xl bg-emerald-950/60 p-4 text-emerald-300">{message}</p> : null}
       {batch?.recognition_status === "pending" || batch?.recognition_status === "processing" ? (
         <div className="flex items-center gap-4 rounded-2xl bg-slate-900 p-5">
-          <p>识别排队中</p>
+          <p><span>识别排队中</span> · {batch.provider_mode === "mock" ? "Mock（无外部调用）" : `阿里云百炼 ${batch.region ?? "未配置地域"}`}</p>
           <button className="rounded-xl border border-violet-400 px-4 py-2" onClick={refresh} type="button">刷新识别结果</button>
         </div>
       ) : null}
@@ -212,6 +222,12 @@ export function ScreenshotReview({
               </li>
             ))}
           </ul>
+          {unmappedText(batch).length ? (
+            <div className="rounded-xl bg-slate-950 p-4 text-sm text-slate-300">
+              <p>未映射 OCR 文字（仅供人工查看，不写入正式指标）：</p>
+              <ul>{unmappedText(batch).map((item) => <li key={item}>{item}</li>)}</ul>
+            </div>
+          ) : null}
           {recognized.filter((candidate) => candidate.confidence < 0.8).map((candidate) => (
             <label className="block" key={candidate.key}>
               补正 {candidate.key}

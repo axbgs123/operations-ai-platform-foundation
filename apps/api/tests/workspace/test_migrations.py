@@ -148,7 +148,29 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "screenshot_sha256",
             "screenshot_retention_policy",
             "recognition_output",
+            "recognition_model_config_id",
+            "recognition_provider",
+            "recognition_model_id",
+            "recognition_contract_version",
+            "recognition_config_version",
+            "recognition_region",
+            "recognition_metric_labels",
         } <= import_batch_columns
+        capture_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "extension_capture_tasks"
+            )
+        }
+        assert {
+            "model_config_id",
+            "provider",
+            "model_id",
+            "contract_version",
+            "config_version",
+            "region",
+            "metric_labels",
+        } <= capture_columns
         fact_item_columns = {
             column["name"]
             for column in inspect(migrated_engine).get_columns("fact_items")
@@ -238,6 +260,10 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "embedding_dimension",
             "rag_model_version",
             "scanner_version",
+            "ocr_provider",
+            "ocr_model_id",
+            "ocr_contract_version",
+            "ocr_config_version",
         } <= risk_scan_columns
         risk_feedback_columns = {
             column["name"]
@@ -317,7 +343,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260728_0029",
+                    expected_head="20260728_0030",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",

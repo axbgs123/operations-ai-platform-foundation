@@ -43,11 +43,15 @@ describe("extension binding security", () => {
       serverOrigin: "https://ops.example.com",
       accessToken: "opaque-short-lived-token",
       expiresAt: "2026-07-23T00:01:00Z",
+      providerMode: "mock",
+      region: null,
     });
     expect(await store.load()).toEqual({
       serverOrigin: "https://ops.example.com",
       accessToken: "opaque-short-lived-token",
       expiresAt: "2026-07-23T00:01:00Z",
+      providerMode: "mock",
+      region: null,
     });
     await clearBinding(store);
     expect(await store.load()).toBeNull();
@@ -67,6 +71,8 @@ describe("extension binding security", () => {
           scopes: ["capture:create", "capture:upload", "capture:read"],
           issued_at: "2026-07-23T00:00:00Z",
           expires_at: "2026-07-23T00:15:00Z",
+          provider_mode: "mock",
+          region: null,
         }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       );
@@ -121,6 +127,8 @@ describe("extension binding security", () => {
       serverOrigin: "https://ops.example.com",
       accessToken: "revocable-session-token",
       expiresAt: "2026-07-23T00:15:00Z",
+      providerMode: "mock",
+      region: null,
     });
     const requests: Array<{ url: string; authorization: string | null }> = [];
 

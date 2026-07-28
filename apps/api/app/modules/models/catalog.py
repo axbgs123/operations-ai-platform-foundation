@@ -10,6 +10,9 @@ from app.modules.models.capabilities import AdapterStatus, Capability
 QIANWEN_TEXT_MODEL_ID: Literal["qwen3.5-plus-2026-04-20"] = (
     "qwen3.5-plus-2026-04-20"
 )
+QIANWEN_OCR_MODEL_ID: Literal["qwen-vl-ocr-2025-11-20"] = (
+    "qwen-vl-ocr-2025-11-20"
+)
 _PROVIDER_WORKSPACE_ID = re.compile(r"^llm-[a-z0-9]{4,64}$")
 
 
@@ -20,20 +23,27 @@ class QianwenRegion(StrEnum):
 
 class ProviderProtocol(StrEnum):
     OPENAI_CHAT_COMPLETIONS = "openai_chat_completions"
+    DASHSCOPE_MULTIMODAL_GENERATION = "dashscope_multimodal_generation"
 
 
 class ProviderCatalogEntry(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     provider: Literal["qianwen"]
-    model_id: Literal["qwen3.5-plus-2026-04-20"]
+    model_id: str
     capabilities: frozenset[Capability]
-    protocol: Literal[ProviderProtocol.OPENAI_CHAT_COMPLETIONS]
+    protocol: ProviderProtocol
     available_regions: frozenset[QianwenRegion]
     adapter_status: Literal[AdapterStatus.EXPERIMENTAL]
-    structured_output_support: Literal[True]
-    thinking_mode: Literal["disabled_for_structured_output"]
-    contract_version: Literal["qianwen-chat-json-v1"]
+    structured_output_support: bool
+    thinking_mode: str
+    contract_version: str
+    min_pixels: int | None = None
+    max_pixels: int | None = None
+    max_image_bytes: int | None = None
+    supported_mime_types: frozenset[str] = frozenset()
+    confidence_available: bool | None = None
+    max_output_tokens: int | None = None
 
 
 _QIANWEN_TEXT = ProviderCatalogEntry(
@@ -47,8 +57,28 @@ _QIANWEN_TEXT = ProviderCatalogEntry(
     thinking_mode="disabled_for_structured_output",
     contract_version="qianwen-chat-json-v1",
 )
+_QIANWEN_OCR = ProviderCatalogEntry(
+    provider="qianwen",
+    model_id=QIANWEN_OCR_MODEL_ID,
+    capabilities=frozenset({Capability.VISION}),
+    protocol=ProviderProtocol.DASHSCOPE_MULTIMODAL_GENERATION,
+    available_regions=frozenset(QianwenRegion),
+    adapter_status=AdapterStatus.EXPERIMENTAL,
+    structured_output_support=False,
+    thinking_mode="not_applicable",
+    contract_version="qwen-ocr-advanced-v1",
+    min_pixels=3_072,
+    max_pixels=8_388_608,
+    max_image_bytes=7 * 1024 * 1024,
+    supported_mime_types=frozenset(
+        {"image/png", "image/jpeg", "image/webp"}
+    ),
+    confidence_available=False,
+    max_output_tokens=4_096,
+)
 _CATALOG: dict[tuple[str, str], ProviderCatalogEntry] = {
-    ("qianwen", QIANWEN_TEXT_MODEL_ID): _QIANWEN_TEXT
+    ("qianwen", QIANWEN_TEXT_MODEL_ID): _QIANWEN_TEXT,
+    ("qianwen", QIANWEN_OCR_MODEL_ID): _QIANWEN_OCR,
 }
 
 
@@ -80,4 +110,19 @@ def build_qianwen_endpoint(
     return (
         f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
         "compatible-mode/v1/chat/completions"
+    )
+
+
+def build_qianwen_ocr_endpoint(
+    region: QianwenRegion,
+    provider_workspace_id: str,
+) -> str:
+    try:
+        safe_region = QianwenRegion(region)
+    except ValueError as error:
+        raise ValueError("unsupported Qianwen region") from error
+    safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
+    return (
+        f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
+        "api/v1/services/aigc/multimodal-generation/generation"
     )

@@ -45,6 +45,9 @@ class ModelErrorCode(StrEnum):
     INVALID_RESPONSE = "MODEL_INVALID_RESPONSE"
     PROVIDER_UNAVAILABLE = "MODEL_PROVIDER_UNAVAILABLE"
     CAPABILITY_UNAVAILABLE = "MODEL_CAPABILITY_UNAVAILABLE"
+    IMAGE_INVALID = "MODEL_IMAGE_INVALID"
+    IMAGE_TOO_LARGE = "MODEL_IMAGE_TOO_LARGE"
+    OCR_INVALID_RESPONSE = "MODEL_OCR_INVALID_RESPONSE"
 
 
 class ModelProviderError(RuntimeError):
@@ -76,6 +79,11 @@ def safe_model_error_message(code: ModelErrorCode) -> str:
         ),
         ModelErrorCode.CAPABILITY_UNAVAILABLE: (
             "固定模型不支持本次所需能力。"
+        ),
+        ModelErrorCode.IMAGE_INVALID: "图片格式或内容无效。",
+        ModelErrorCode.IMAGE_TOO_LARGE: "图片大小或解码像素超过限制。",
+        ModelErrorCode.OCR_INVALID_RESPONSE: (
+            "OCR 返回内容未通过结构或坐标校验。"
         ),
     }[code]
 

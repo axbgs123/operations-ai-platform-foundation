@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
+from app.core.storage import StoredObject, get_storage
 from app.modules.imports.capture_models import CaptureTask, CaptureTaskStatus
 from app.modules.imports.capture_service import transition_task
 from tests.imports.helpers import configured_client
@@ -111,6 +112,101 @@ def test_capture_task_state_machine_rejects_illegal_transitions() -> None:
 
     with pytest.raises(ValueError, match="illegal capture task transition"):
         transition_task(task, CaptureTaskStatus.SUCCEEDED)
+
+
+def test_non_mock_capture_freezes_vision_binding_and_discloses_region(
+    monkeypatch,
+) -> None:
+    from app.core.config import Settings
+    from app.main import app
+    from app.modules.imports.capture_service import get_capture_enqueuer
+    from app.modules.models.catalog import QIANWEN_OCR_MODEL_ID
+    import app.modules.imports.extension_router as extension_router
+
+    monkeypatch.setattr(
+        extension_router,
+        "get_settings",
+        lambda: Settings(app_mock_mode=False),
+    )
+    queued: list[object] = []
+    stored: dict[str, tuple[bytes, str]] = {}
+
+    class CaptureStorage:
+        def put_object(
+            self,
+            object_key: str,
+            content: bytes,
+            *,
+            mime_type: str,
+        ) -> None:
+            stored[object_key] = (content, mime_type)
+
+        def inspect_object(self, object_key: str) -> StoredObject | None:
+            item = stored.get(object_key)
+            return (
+                StoredObject(size=len(item[0]), mime_type=item[1])
+                if item is not None
+                else None
+            )
+
+        def get_object(self, object_key: str) -> bytes:
+            return stored[object_key][0]
+
+        def delete_object(self, object_key: str) -> None:
+            stored.pop(object_key, None)
+
+    app.dependency_overrides[get_capture_enqueuer] = lambda: queued.append
+    app.dependency_overrides[get_storage] = CaptureStorage
+    with configured_client() as (client, engine):
+        workspace = client.post(
+            "/v1/workspaces", json={"name": "真实视觉绑定合成工作区"}
+        ).json()
+        login = client.post(
+            "/v1/sessions/invite",
+            json={
+                "code": workspace["admin_code"],
+                "display_name": "视觉绑定管理员",
+            },
+        ).json()
+        configured = client.post(
+            f"/v1/workspaces/{workspace['workspace_id']}/model-configs",
+            headers={"X-CSRF-Token": login["csrf_token"]},
+            json={
+                "provider": "qianwen",
+                "model_id": QIANWEN_OCR_MODEL_ID,
+                "region": "cn-beijing",
+                "provider_workspace_id": "llm-abcd1234",
+                "capabilities": ["vision"],
+                "status": "experimental",
+                "api_key": "sk-synthetic-never-real",
+            },
+        )
+        assert configured.status_code == 201, configured.text
+        token = _bind(client, workspace["admin_code"])
+        response = client.post(
+            f"/v1/extension/workspaces/{workspace['workspace_id']}/capture-tasks",
+            json={
+                "platform": "douyin",
+                "page_version": "douyin-creator-v1",
+                "page_identifier": "synthetic-real-binding",
+                "collected_at": datetime.now(UTC).isoformat(),
+                "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+            },
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Idempotency-Key": "real-binding-1",
+            },
+        )
+        assert response.status_code == 202, response.text
+        assert response.json()["provider_mode"] == "qianwen"
+        assert response.json()["region"] == "cn-beijing"
+        assert [str(item) for item in queued] == [response.json()["task_id"]]
+        with engine.connect() as connection:
+            row = connection.execute(CaptureTask.__table__.select()).mappings().one()
+            assert str(row["model_config_id"]) == configured.json()["id"]
+            assert row["model_id"] == QIANWEN_OCR_MODEL_ID
+            assert row["contract_version"] == "qwen-ocr-advanced-v1"
+            assert stored[row["object_key"]][0] == b"SYNTHETIC"
 
 
 def test_only_web_editor_or_admin_can_confirm_into_a_formal_snapshot() -> None:

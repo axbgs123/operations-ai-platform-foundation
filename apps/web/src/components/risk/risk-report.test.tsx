@@ -73,7 +73,11 @@ const scan = {
       embedding_version: "embed-v1",
       embedding_dimension: 3,
       rag_model_version: "mock-rag-v1",
-      scanner_version: "scanner-v1",
+    scanner_version: "scanner-v1",
+    ocr_provider: "mock",
+    ocr_model_id: "mock-ocr-v1",
+    ocr_contract_version: "mock-ocr-v1",
+    ocr_config_version: "mock-static-v1",
     },
     scanned_at: "2026-07-23T08:00:00Z",
     disclaimer: "辅助判断，不保证通过平台审核",
@@ -87,6 +91,10 @@ const scan = {
   embedding_dimension: 3,
   rag_model_version: "mock-rag-v1",
   scanner_version: "scanner-v1",
+  ocr_provider: "mock",
+  ocr_model_id: "mock-ocr-v1",
+  ocr_contract_version: "mock-ocr-v1",
+  ocr_config_version: "mock-static-v1",
   created_at: "2026-07-23T08:00:00Z",
 } satisfies RiskScanData;
 

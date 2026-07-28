@@ -33,6 +33,14 @@ class RecognizedMetricCandidate(BaseModel):
     region: RecognitionRegion
 
 
+class RecognizedTextRegion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(min_length=1, max_length=2_000)
+    region: RecognitionRegion
+    rotate_rect: tuple[float, float, float, float, float] | None = None
+
+
 class VisionRecognition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -40,6 +48,16 @@ class VisionRecognition(BaseModel):
     platform_confidence: float = Field(ge=0, le=1)
     content_identifier: RecognizedContentIdentifier | None = None
     metric_candidates: list[RecognizedMetricCandidate] = Field(max_length=100)
+    text_regions: tuple[RecognizedTextRegion, ...] = Field(
+        default=(), max_length=1_000
+    )
+    unmapped_text: tuple[str, ...] = Field(default=(), max_length=1_000)
+    confidence_source: Literal["mock", "unavailable"] = "mock"
+    requires_human_review: bool = False
+    model_id: str = "mock-v1"
+    contract_version: str = "mock-vision-v1"
+    provider_request_id: str | None = None
+    image_tokens: int | None = Field(default=None, ge=0)
 
 
 class VisionAdapter(Protocol):

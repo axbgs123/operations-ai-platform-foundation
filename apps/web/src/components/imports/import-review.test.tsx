@@ -21,6 +21,8 @@ const preview = {
   status: "preview" as const,
   recognition_status: null,
   recognition_error: null,
+  provider_mode: "mock",
+  region: null,
   file_name: "synthetic.csv",
   header_mappings: [
     {

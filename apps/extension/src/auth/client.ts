@@ -51,6 +51,8 @@ export async function bindExtension(
       serverOrigin,
       accessToken: payload.access_token,
       expiresAt: payload.expires_at,
+      providerMode: payload.provider_mode,
+      region: payload.region,
     });
     return payload;
   } catch {

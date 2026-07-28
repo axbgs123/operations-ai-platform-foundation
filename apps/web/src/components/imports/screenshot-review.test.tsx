@@ -21,6 +21,8 @@ const pending = {
   status: "preview" as const,
   recognition_status: "pending" as const,
   recognition_error: null,
+  provider_mode: "mock",
+  region: null,
   file_name: null,
   header_mappings: [],
   summary: { new: 0, update: 0, suspected_duplicate: 0, failed: 0 },

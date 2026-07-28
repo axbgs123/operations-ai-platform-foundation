@@ -101,6 +101,8 @@ class OcrRegion(ImmutableScanModel):
 class OcrResult(ImmutableScanModel):
     status: OcrStatus
     regions: tuple[OcrRegion, ...]
+    confidence_source: str = "mock"
+    requires_human_review: bool = False
 
     @model_validator(mode="after")
     def status_matches_regions(self):
@@ -119,6 +121,16 @@ class RiskScanVersions(ImmutableScanModel):
     embedding_dimension: int = Field(gt=0)
     rag_model_version: str = Field(min_length=1, max_length=160)
     scanner_version: str = Field(min_length=1, max_length=160)
+    ocr_provider: str = Field(default="mock", min_length=1, max_length=80)
+    ocr_model_id: str = Field(
+        default="mock-ocr-v1", min_length=1, max_length=160
+    )
+    ocr_contract_version: str = Field(
+        default="mock-ocr-v1", min_length=1, max_length=80
+    )
+    ocr_config_version: str = Field(
+        default="mock-static-v1", min_length=1, max_length=80
+    )
 
 
 class RiskScanInput(ImmutableScanModel):
@@ -692,6 +704,10 @@ class RiskScanService:
             embedding_dimension=versions.embedding_dimension,
             rag_model_version=versions.rag_model_version,
             scanner_version=versions.scanner_version,
+            ocr_provider=versions.ocr_provider,
+            ocr_model_id=versions.ocr_model_id,
+            ocr_contract_version=versions.ocr_contract_version,
+            ocr_config_version=versions.ocr_config_version,
         )
         self._session.add(scan)
         return scan

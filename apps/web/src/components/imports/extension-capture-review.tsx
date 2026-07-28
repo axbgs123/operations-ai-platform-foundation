@@ -23,6 +23,13 @@ function candidates(task: ExtensionCaptureTask | null): Candidate[] {
   );
 }
 
+function unmappedText(task: ExtensionCaptureTask | null): string[] {
+  const value = task?.recognition?.unmapped_text;
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
 export function ExtensionCaptureReview({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<ExtensionCaptureTask | null>(null);
   const [corrections, setCorrections] = useState<Record<string, string>>({});
@@ -56,6 +63,11 @@ export function ExtensionCaptureReview({ taskId }: { taskId: string }) {
       <p className="text-sm text-slate-400">
         扩展仅上传暂存截图；识别结果仍需在 Web 中确认后才写入正式快照。
       </p>
+      <p className="text-sm text-amber-200">
+        {task.provider_mode === "mock"
+          ? "Mock 模式：未调用外部付费模型。"
+          : `截图由阿里云百炼处理（地域 ${task.region ?? "未配置"}），可能包含敏感信息并产生模型调用费用。`}
+      </p>
       {candidates(task).map((candidate) => (
         <label className="block" key={candidate.key}>
           修正 {candidate.key}
@@ -75,6 +87,12 @@ export function ExtensionCaptureReview({ taskId }: { taskId: string }) {
           </span>
         </label>
       ))}
+      {unmappedText(task).length ? (
+        <div className="rounded-xl bg-slate-950 p-4 text-sm text-slate-300">
+          <p>未映射 OCR 文字（仅供人工查看，不写入正式指标）：</p>
+          <ul>{unmappedText(task).map((item) => <li key={item}>{item}</li>)}</ul>
+        </div>
+      ) : null}
       <button
         className="rounded-xl bg-violet-400 px-5 py-3 font-semibold text-slate-950"
         onClick={confirm}

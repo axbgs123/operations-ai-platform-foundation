@@ -21,6 +21,8 @@ describe("ExtensionCaptureReview", () => {
             },
             error: null,
             formal_snapshot_ids: [],
+            provider_mode: "mock",
+            region: null,
           }),
           { status: 200 },
         ),

@@ -4,15 +4,25 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+from celery import shared_task
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.storage import Storage, get_storage
 from app.modules.content.account_models import Platform
 from app.modules.imports.capture_models import CaptureTask, CaptureTaskStatus
+from app.modules.imports.vision_binding import (
+    VisionBinding,
+    create_bound_vision_adapter,
+)
 from app.modules.imports.ocr_adapters import MockVisionAdapter
+from app.core.config import get_settings
+from app.core.database import SessionFactory
+from app.modules.models.config_service import SecretCipher
 
 MAX_CAPTURE_BYTES = 10 * 1024 * 1024
 _OBJECTS: dict[str, bytes] = {}
+_OBJECT_MIME: dict[str, str] = {}
 
 
 class IdempotencyConflict(ValueError):
@@ -74,6 +84,8 @@ def create_task(
     collected_at: datetime,
     idempotency_key: str,
     screenshot_data_url: str,
+    binding: VisionBinding,
+    storage: Storage | None = None,
 ) -> CaptureTask:
     mime, image = _decode_image(screenshot_data_url)
     fingerprint = hashlib.sha256(
@@ -99,7 +111,11 @@ def create_task(
             raise IdempotencyConflict("idempotency key conflicts with another capture")
         return existing
     object_key = f"workspaces/{workspace_id}/capture/{secrets.token_urlsafe(16)}"
-    _OBJECTS[object_key] = image
+    if storage is None:
+        _OBJECTS[object_key] = image
+        _OBJECT_MIME[object_key] = mime
+    else:
+        storage.put_object(object_key, image, mime_type=mime)
     now = datetime.now(UTC)
     task = CaptureTask(
         workspace_id=workspace_id,
@@ -116,22 +132,111 @@ def create_task(
         review_url=f"/workspaces/{workspace_id}/imports?capture_task_id=",
         expires_at=now + timedelta(hours=1),
         formal_snapshot_ids=[],
+        model_config_id=binding.model_config_id,
+        provider=binding.provider,
+        model_id=binding.model_id,
+        contract_version=binding.contract_version,
+        config_version=binding.config_version,
+        region=binding.region,
+        metric_labels=binding.metric_labels,
     )
     session.add(task)
     session.flush()
     task.review_url += str(task.id)
-    transition_task(task, CaptureTaskStatus.RUNNING)
-    session.flush()
-    try:
+    if binding.provider == "mock":
+        transition_task(task, CaptureTaskStatus.RUNNING)
         output = MockVisionAdapter(platform).recognize(image, mime)
         task.recognition_output = output.model_dump(mode="json")
         transition_task(task, CaptureTaskStatus.SUCCEEDED)
-    except Exception:
-        if task.status == CaptureTaskStatus.RUNNING:
-            transition_task(task, CaptureTaskStatus.FAILED)
-        task.error_code = "recognition_failed"
     session.flush()
     return task
+
+
+def process_capture_task(
+    task_id: UUID | str,
+    *,
+    storage: Storage | None = None,
+) -> None:
+    parsed_id = UUID(str(task_id))
+    settings = get_settings()
+    with SessionFactory() as session:
+        task = session.get(CaptureTask, parsed_id)
+        if task is None:
+            raise LookupError("capture task not found")
+        if task.status in {
+            CaptureTaskStatus.SUCCEEDED,
+            CaptureTaskStatus.FAILED,
+            CaptureTaskStatus.CANCELLED,
+        }:
+            return
+        if task.status in {CaptureTaskStatus.QUEUED, CaptureTaskStatus.RETRYING}:
+            transition_task(task, CaptureTaskStatus.RUNNING)
+        binding = VisionBinding(
+            model_config_id=task.model_config_id,
+            provider=task.provider,
+            model_id=task.model_id,
+            contract_version=task.contract_version,
+            config_version=task.config_version,
+            region=task.region,
+            metric_labels=dict(task.metric_labels),
+        )
+        workspace_id = task.workspace_id
+        platform = task.platform
+        object_key = task.object_key
+        session.commit()
+    try:
+        if storage is None:
+            image = _OBJECTS.get(object_key)
+            mime_type = _OBJECT_MIME.get(object_key)
+        else:
+            stored = storage.inspect_object(object_key)
+            image = storage.get_object(object_key) if stored is not None else None
+            mime_type = stored.mime_type if stored is not None else None
+        if image is None or mime_type is None:
+            raise LookupError("capture image is unavailable")
+        with SessionFactory() as session:
+            adapter = create_bound_vision_adapter(
+                session,
+                workspace_id=workspace_id,
+                expected_platform=platform,
+                binding=binding,
+                cipher=SecretCipher(
+                    settings.model_secret_encryption_key.get_secret_value()
+                ),
+                mock_mode=settings.app_mock_mode,
+            )
+        output = adapter.recognize(image, mime_type)
+    except Exception:
+        with SessionFactory() as session:
+            task = session.get(CaptureTask, parsed_id)
+            if task is not None and task.status is CaptureTaskStatus.RUNNING:
+                transition_task(task, CaptureTaskStatus.FAILED)
+                task.error_code = "recognition_failed"
+                session.commit()
+        return
+    with SessionFactory() as session:
+        task = session.get(CaptureTask, parsed_id)
+        if task is None or task.status is not CaptureTaskStatus.RUNNING:
+            return
+        task.recognition_output = output.model_dump(mode="json")
+        transition_task(task, CaptureTaskStatus.SUCCEEDED)
+        session.commit()
+
+
+def enqueue_capture_task(task_id: UUID) -> None:
+    if get_settings().app_mock_mode:
+        process_capture_task(task_id)
+    else:
+        recognize_capture_task.delay(str(task_id))
+
+
+def get_capture_enqueuer():
+    return enqueue_capture_task
+
+
+@shared_task(name="imports.recognize_extension_capture")
+def recognize_capture_task(task_id: str) -> None:
+    process_capture_task(task_id, storage=get_storage())
 
 
 def task_payload(task: CaptureTask, request_id: str) -> dict[str, object]:
@@ -145,15 +250,21 @@ def task_payload(task: CaptureTask, request_id: str) -> dict[str, object]:
         "recognition": task.recognition_output,
         "error": task.error_code,
         "formal_snapshot_ids": task.formal_snapshot_ids,
+        "provider_mode": "mock" if task.provider == "mock" else "qianwen",
+        "region": task.region,
     }
 
 
-def clear_task_object(task: CaptureTask) -> None:
+def clear_task_object(task: CaptureTask, *, storage: Storage | None = None) -> None:
+    if storage is not None:
+        storage.delete_object(task.object_key)
     _OBJECTS.pop(task.object_key, None)
+    _OBJECT_MIME.pop(task.object_key, None)
 
 
 def reset_capture_objects() -> None:
     _OBJECTS.clear()
+    _OBJECT_MIME.clear()
 
 
 def object_digest(task: CaptureTask) -> str | None:

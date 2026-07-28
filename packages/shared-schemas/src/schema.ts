@@ -3329,6 +3329,10 @@ export interface components {
              * Format: uuid
              */
             member_id: string;
+            /** Provider Mode */
+            provider_mode: string;
+            /** Region */
+            region: string | null;
             /** Scopes */
             scopes: string[];
             /** Token Type */
@@ -3353,6 +3357,10 @@ export interface components {
              * Format: uuid
              */
             member_id: string;
+            /** Provider Mode */
+            provider_mode: string;
+            /** Region */
+            region: string | null;
             /** Scopes */
             scopes: string[];
             /**
@@ -3387,10 +3395,14 @@ export interface components {
             expires_at: string;
             /** Formal Snapshot Ids */
             formal_snapshot_ids: string[];
+            /** Provider Mode */
+            provider_mode: string;
             /** Recognition */
             recognition: {
                 [key: string]: unknown;
             } | null;
+            /** Region */
+            region: string | null;
             /** Request Id */
             request_id: string;
             /** Review Url */
@@ -3793,10 +3805,14 @@ export interface components {
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+            /** Provider Mode */
+            provider_mode: string;
             /** Recognition Error */
             recognition_error: string | null;
             /** Recognition Status */
             recognition_status: ("pending" | "processing" | "ready" | "failed") | null;
+            /** Region */
+            region: string | null;
             /** Rows */
             rows: components["schemas"]["ImportRowRead"][];
             /**
@@ -4062,8 +4078,18 @@ export interface components {
         };
         /** OcrResult */
         OcrResult: {
+            /**
+             * Confidence Source
+             * @default mock
+             */
+            confidence_source: string;
             /** Regions */
             regions: components["schemas"]["OcrRegion"][];
+            /**
+             * Requires Human Review
+             * @default false
+             */
+            requires_human_review: boolean;
             status: components["schemas"]["OcrStatus"];
         };
         /**
@@ -4705,6 +4731,14 @@ export interface components {
                 [key: string]: unknown;
             };
             node: components["schemas"]["RiskScanNode"];
+            /** Ocr Config Version */
+            ocr_config_version: string;
+            /** Ocr Contract Version */
+            ocr_contract_version: string;
+            /** Ocr Model Id */
+            ocr_model_id: string;
+            /** Ocr Provider */
+            ocr_provider: string;
             platform: components["schemas"]["Platform"];
             /** Previous Scan Id */
             previous_scan_id: string | null;
@@ -4737,6 +4771,26 @@ export interface components {
             embedding_version: string;
             /** Evidence Version */
             evidence_version: string;
+            /**
+             * Ocr Config Version
+             * @default mock-static-v1
+             */
+            ocr_config_version: string;
+            /**
+             * Ocr Contract Version
+             * @default mock-ocr-v1
+             */
+            ocr_contract_version: string;
+            /**
+             * Ocr Model Id
+             * @default mock-ocr-v1
+             */
+            ocr_model_id: string;
+            /**
+             * Ocr Provider
+             * @default mock
+             */
+            ocr_provider: string;
             /** Rag Model Version */
             rag_model_version: string;
             /** Rule Version */

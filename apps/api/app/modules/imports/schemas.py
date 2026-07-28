@@ -65,6 +65,8 @@ class ImportBatchRead(BaseModel):
     status: Literal["preview", "confirmed"]
     recognition_status: Literal["pending", "processing", "ready", "failed"] | None
     recognition_error: str | None
+    provider_mode: str
+    region: str | None
     file_name: str | None
     header_mappings: list[HeaderMappingRead]
     rows: list[ImportRowRead]

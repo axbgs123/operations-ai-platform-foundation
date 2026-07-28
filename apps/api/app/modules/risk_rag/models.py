@@ -364,6 +364,16 @@ class RiskScan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     embedding_dimension: Mapped[int] = mapped_column(Integer)
     rag_model_version: Mapped[str] = mapped_column(String(160))
     scanner_version: Mapped[str] = mapped_column(String(160))
+    ocr_provider: Mapped[str] = mapped_column(String(80), default="mock")
+    ocr_model_id: Mapped[str] = mapped_column(
+        String(160), default="mock-ocr-v1"
+    )
+    ocr_contract_version: Mapped[str] = mapped_column(
+        String(80), default="mock-ocr-v1"
+    )
+    ocr_config_version: Mapped[str] = mapped_column(
+        String(80), default="mock-static-v1"
+    )
     result: Mapped[dict[str, object] | None] = mapped_column(
         JSON,
         default=None,

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
+from app.core.config import get_settings
 from app.modules.content.account_models import Platform, PlatformAccount
 from app.modules.content.models import Content, ContentStatus
 from app.modules.content.service import ContentService
@@ -30,6 +31,8 @@ from app.modules.metrics.models import ContentType, SnapshotSource
 from app.modules.metrics.schemas import SnapshotMetricInput
 from app.modules.metrics.snapshot_service import SnapshotService
 from app.modules.workspace.permissions import Permission, require_permission
+from app.modules.imports.vision_binding import resolve_vision_binding
+from app.modules.models.config_service import SecretCipher
 
 
 class ImportService:
@@ -243,6 +246,17 @@ class ImportService:
             "workspace_policy",
         }:
             raise ValueError("invalid screenshot retention policy")
+        settings = get_settings()
+        binding = resolve_vision_binding(
+            self._session,
+            self._context,
+            platform=platform,
+            content_type=content_type,
+            cipher=SecretCipher(
+                settings.model_secret_encryption_key.get_secret_value()
+            ),
+            mock_mode=settings.app_mock_mode,
+        )
         batch = ImportBatch(
             workspace_id=self._context.workspace_id,
             account_id=account_id,
@@ -261,6 +275,13 @@ class ImportService:
                 "collected_at": collected_at.isoformat(),
             },
             screenshot_retention_policy=retention_policy,
+            recognition_model_config_id=binding.model_config_id,
+            recognition_provider=binding.provider,
+            recognition_model_id=binding.model_id,
+            recognition_contract_version=binding.contract_version,
+            recognition_config_version=binding.config_version,
+            recognition_region=binding.region,
+            recognition_metric_labels=binding.metric_labels,
         )
         self._session.add(batch)
         self._session.flush()

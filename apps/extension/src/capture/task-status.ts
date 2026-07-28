@@ -36,5 +36,7 @@ export async function pollCaptureTask(args: PollArgs): Promise<CaptureTaskRead> 
     recognition: null,
     formal_snapshot_ids: [],
     error: "识别超时，请在 Web 中重试",
+    provider_mode: "unavailable",
+    region: null,
   };
 }
