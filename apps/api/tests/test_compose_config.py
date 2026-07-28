@@ -36,10 +36,14 @@ def test_application_images_pin_base_digest_and_drop_root() -> None:
     api_dockerfile = (docker_dir / "api.Dockerfile").read_text()
     web_dockerfile = (docker_dir / "web.Dockerfile").read_text()
 
-    assert api_dockerfile.startswith("FROM python:3.12-slim@sha256:")
+    assert api_dockerfile.startswith("FROM python:3.12-alpine@sha256:")
     assert web_dockerfile.startswith("FROM node:22-alpine@sha256:")
     assert "USER appuser" in api_dockerfile
     assert "USER nextjs" in web_dockerfile
+    assert "rm -rf /usr/local/lib/python3.12/site-packages/pip" in api_dockerfile
+    assert "rm -rf /usr/local/lib/node_modules/npm" in web_dockerfile
+    assert "/usr/local/lib/node_modules/corepack" in web_dockerfile
+    assert "/opt/yarn-v1.22.22" in web_dockerfile
 
 
 def test_web_container_uses_only_root_workspace_and_direct_runtime() -> None:

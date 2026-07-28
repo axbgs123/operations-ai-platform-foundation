@@ -1,0 +1,3 @@
+# Each exception must name a concrete CVE, affected version, mitigation, owner, and review date.
+# An empty list means no exceptions are approved. CI rejects malformed or expired entries.
+exceptions: []

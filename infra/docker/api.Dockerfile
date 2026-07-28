@@ -1,4 +1,4 @@
-FROM python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de AS builder
+FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -9,7 +9,7 @@ WORKDIR /app
 COPY apps/api/pyproject.toml apps/api/uv.lock ./
 RUN uv sync --frozen --no-dev
 
-FROM python:3.12-slim@sha256:57cd7c3a7a273101a6485ba99423ee568157882804b1124b4dd04266317710de AS runtime
+FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df AS runtime
 
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.title="operations-ai-platform-api" \
@@ -19,11 +19,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     TMPDIR=/tmp
 
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/* \
-    && groupadd --gid 10001 appuser \
-    && useradd --uid 10001 --gid appuser --create-home appuser \
+RUN apk add --no-cache font-noto-cjk \
+    && rm -rf /usr/local/lib/python3.12/site-packages/pip \
+        /usr/local/lib/python3.12/site-packages/pip-*.dist-info \
+        /usr/local/bin/pip \
+        /usr/local/bin/pip3 \
+        /usr/local/bin/pip3.12 \
+    && addgroup -S -g 10001 appuser \
+    && adduser -S -D -H -u 10001 -G appuser appuser \
     && mkdir -p /tmp \
     && chown appuser:appuser /tmp
 

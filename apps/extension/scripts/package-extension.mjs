@@ -43,19 +43,74 @@ await cp(
 const packageJson = JSON.parse(
   await readFile(resolve(root, "package.json"), "utf8"),
 );
+const sharedSchemasPackageJson = JSON.parse(
+  await readFile(resolve(root, "../../packages/shared-schemas/package.json"), "utf8"),
+);
+const sbomPackage = (SPDXID, name, versionInfo) => ({
+  SPDXID,
+  name,
+  versionInfo,
+  downloadLocation: "NOASSERTION",
+  licenseConcluded: "NOASSERTION",
+  licenseDeclared: "NOASSERTION",
+  filesAnalyzed: false,
+});
+const extensionPackage = sbomPackage(
+  "SPDXRef-Package-extension",
+  packageJson.name,
+  packageJson.version,
+);
+const sharedSchemasPackage = sbomPackage(
+  "SPDXRef-Package-operations-ai-shared-schemas",
+  sharedSchemasPackageJson.name,
+  sharedSchemasPackageJson.version,
+);
+const sharedRuntimePackages = Object.entries(
+  sharedSchemasPackageJson.dependencies ?? {},
+).map(([name, version]) =>
+  sbomPackage(
+    `SPDXRef-Package-${name.replace(/[^A-Za-z0-9.-]+/g, "-")}-${version}`,
+    name,
+    version,
+  ),
+);
+const extensionSbomPackages = [
+  extensionPackage,
+  sharedSchemasPackage,
+  ...sharedRuntimePackages,
+];
 await writeFile(
   resolve(unpacked, "sbom.spdx.json"),
   JSON.stringify(
     {
       spdxVersion: "SPDX-2.3",
       dataLicense: "CC0-1.0",
+      SPDXID: "SPDXRef-DOCUMENT",
       name: packageJson.name,
-      version: packageJson.version,
-      generatedAt: new Date().toISOString(),
-      packages: [
-        ...Object.entries(packageJson.dependencies ?? {}),
-        ...Object.entries(packageJson.devDependencies ?? {}),
-      ].map(([name, version]) => ({ name, versionInfo: version })),
+      documentNamespace: `https://operations-ai.invalid/spdx/extension/${sha256(Buffer.from(JSON.stringify({ packageJson, sharedSchemasPackageJson })))}`,
+      creationInfo: {
+        creators: ["Tool: package-extension.mjs"],
+        created: "2026-07-28T00:00:00Z",
+      },
+      comment: "Scope: extension production runtime dependencies from locked workspace package metadata; development-only tooling is excluded.",
+      packages: extensionSbomPackages,
+      relationships: [
+        ...extensionSbomPackages.map(({ SPDXID }) => ({
+          spdxElementId: "SPDXRef-DOCUMENT",
+          relationshipType: "DESCRIBES",
+          relatedSpdxElement: SPDXID,
+        })),
+        {
+          spdxElementId: extensionPackage.SPDXID,
+          relationshipType: "DEPENDS_ON",
+          relatedSpdxElement: sharedSchemasPackage.SPDXID,
+        },
+        ...sharedRuntimePackages.map(({ SPDXID }) => ({
+          spdxElementId: sharedSchemasPackage.SPDXID,
+          relationshipType: "DEPENDS_ON",
+          relatedSpdxElement: SPDXID,
+        })),
+      ],
     },
     null,
     2,
@@ -97,6 +152,11 @@ for (const file of files) {
     bytes: buffer.byteLength,
   });
 }
+manifest.push({
+  path: "release-manifest.json",
+  sha256: null,
+  bytes: null,
+});
 await writeFile(
   resolve(unpacked, "release-manifest.json"),
   JSON.stringify(

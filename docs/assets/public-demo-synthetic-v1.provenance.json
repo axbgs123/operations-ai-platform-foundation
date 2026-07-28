@@ -1,0 +1,13 @@
+{
+  "schema": "operations-ai-demo-screenshot/v1",
+  "image": "public-demo-synthetic-v1.png",
+  "sha256": "c22d91e20717423dfbf46019066c4b776e7d48724ee1958533916de51473ce74",
+  "capture": {
+    "mode": "isolated-compose-mock",
+    "route": "/demo",
+    "synthetic": true,
+    "renderer": "Playwright Chromium",
+    "source_test": "tests/e2e/public-demo-screenshot.spec.ts",
+    "captured_at": "2026-07-28T00:00:00Z"
+  }
+}

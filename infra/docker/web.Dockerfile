@@ -23,7 +23,18 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0
-RUN addgroup -S -g 10001 nextjs && adduser -S -u 10001 -G nextjs nextjs
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    /usr/local/lib/node_modules/corepack \
+    /opt/yarn-v1.22.22 \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx \
+    /usr/local/bin/corepack \
+    /usr/local/bin/pnpm \
+    /usr/local/bin/pnpx \
+    /usr/local/bin/yarn \
+    /usr/local/bin/yarnpkg \
+    && addgroup -S -g 10001 nextjs \
+    && adduser -S -u 10001 -G nextjs nextjs
 WORKDIR /app
 COPY --from=builder --chown=nextjs:nextjs /app/apps/web/.next/standalone /app
 COPY --from=builder --chown=nextjs:nextjs /app/apps/web/.next/static /app/apps/web/.next/static

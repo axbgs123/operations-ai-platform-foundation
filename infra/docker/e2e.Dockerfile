@@ -1,5 +1,5 @@
-# Playwright's explicitly versioned upstream image supplies the matching browser runtime.
-FROM mcr.microsoft.com/playwright:v1.61.1-noble
+# v1.61.1-noble, manifest-list digest sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
+FROM mcr.microsoft.com/playwright@sha256:5b8f294aff9041b7191c34a4bab3ac270157a28774d4b0660e9743297b697e48
 
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true
 RUN corepack enable

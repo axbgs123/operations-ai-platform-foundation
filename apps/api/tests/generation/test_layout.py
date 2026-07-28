@@ -71,7 +71,7 @@ def test_safe_area_must_stay_within_the_canvas() -> None:
 def test_api_container_installs_a_cjk_font_for_production_rendering() -> None:
     dockerfile = (REPOSITORY_ROOT / "infra/docker/api.Dockerfile").read_text()
 
-    assert "fonts-noto-cjk" in dockerfile
+    assert "font-noto-cjk" in dockerfile
 
 
 def test_renderer_keeps_exact_text_metadata_and_png_dimensions() -> None:
