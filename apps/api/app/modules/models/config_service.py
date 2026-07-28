@@ -70,6 +70,20 @@ class SecretCipher:
             raise ValueError("model API key cannot be decrypted") from error
 
 
+def model_configuration_version(config: ModelConfig) -> str:
+    stamp = (
+        config.updated_at.isoformat()
+        if config.updated_at is not None
+        else "uncommitted"
+    )
+    return hashlib.sha256(
+        (
+            f"{config.id}:{config.provider}:{config.model_id}:"
+            f"{config.region}:{config.provider_workspace_id}:{stamp}"
+        ).encode()
+    ).hexdigest()
+
+
 class ModelConfigService:
     def __init__(
         self,

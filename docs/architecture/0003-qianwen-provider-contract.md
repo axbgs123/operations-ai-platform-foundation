@@ -2,7 +2,7 @@
 
 - 状态：Accepted for engineering implementation
 - 官方合同核对日期：2026-07-28（Asia/Shanghai）
-- 适用范围：千问 Provider 计划 Task 1—3
+- 适用范围：千问 Provider 计划 Task 1—4
 
 ## 决策
 
@@ -153,4 +153,46 @@ OCR 准确率均为 `not_run`，不得声称已生产验证。
 
 - [Qwen-OCR 使用说明](https://help.aliyun.com/zh/model-studio/qwen-vl-ocr)
 - [Qwen-OCR API 参考](https://help.aliyun.com/zh/model-studio/qwen-vl-ocr-api-reference)
+- [模型价格](https://help.aliyun.com/zh/model-studio/model-pricing)
+
+## Task 4：文本 Embedding 合同
+
+2026-07-28 核对百炼官方向量化文档后，RiskRAG 固定使用官方模型标识
+`text-embedding-v4`，内部合同固定为
+`qianwen-text-embedding-v4-d1024-v1`，维度固定为 1024。官方资料没有提供可确认的
+日期快照，因此这不是供应商快照级复现合同；Catalog 继续标记 `experimental`，
+不得使用 `latest`，也不得声称上游模型行为不可变。模型标识、内部合同或维度任一
+变化都必须重建索引。
+
+两地使用服务端构造的 OpenAI-compatible Embeddings 端点：
+
+```text
+https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/embeddings
+https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/embeddings
+```
+
+每批最多 10 条。北京 `text-embedding-v4` 单批总上限为 33,000 Token，新加坡为
+8,192 Token；可选维度包括 2048、1536、1024、768、512、256、128、64。本产品
+固定 1024。应用只以保守的字符数和 UTF-8 字节数做预检，并明确不把字符数当作
+Token 数；供应商仍负责执行地域 Token 上限。
+
+响应必须包含与输入数量完全一致的 `data` 数组。每个 `index` 必须存在、唯一且落在
+输入范围内；向量必须恰好 1024 维，所有元素必须是有限数字且不能为 bool，零向量、
+NaN、Infinity、缺失、重复和越界均失败。不补零、不截断、不强转、不猜测顺序。
+
+401、403 和普通 4xx 不重试；429、超时和 5xx 最多重试一次，一个业务批次最多两次
+HTTP 请求。每次尝试都可能计费。安全日志只记录 Provider、模型、内部合同、维度、
+输入条数、安全 request ID、供应商明确返回的 Token 用量、延迟、尝试次数和稳定
+错误码，不记录正文、向量、密钥或供应商错误正文。
+
+千问重建只处理当前工作区已授权、active、已生效且平台匹配的私有知识。不得使用
+某个私人工作区的密钥处理全局公共知识；公共知识继续使用独立受控的 Mock/预建索引，
+或返回 `MODEL_CONFIGURATION_REQUIRED`。本 Task 只使用 MockTransport 和人工合成
+资料，未调用真实 API、未产生费用。
+
+官方依据：
+
+- [向量化与 OpenAI 兼容 Embeddings](https://help.aliyun.com/zh/model-studio/embedding)
+- [模型限流](https://help.aliyun.com/zh/model-studio/rate-limit)
+- [错误码](https://help.aliyun.com/zh/model-studio/error-code/)
 - [模型价格](https://help.aliyun.com/zh/model-studio/model-pricing)

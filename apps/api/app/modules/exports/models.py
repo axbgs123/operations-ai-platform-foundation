@@ -268,6 +268,12 @@ class KnowledgeIndexRebuild(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "platform",
             name="uq_knowledge_index_rebuild_restore_platform",
         ),
+        UniqueConstraint(
+            "workspace_id",
+            "platform",
+            "idempotency_key",
+            name="uq_knowledge_index_rebuild_workspace_platform_idempotency",
+        ),
         Index(
             "ix_knowledge_index_rebuilds_workspace_id",
             "workspace_id",
@@ -278,10 +284,6 @@ class KnowledgeIndexRebuild(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
     )
 
-    restore_job_id: Mapped[UUID] = mapped_column(
-        Uuid(as_uuid=True),
-        ForeignKey("restore_jobs.id", ondelete="CASCADE"),
-    )
     workspace_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("workspaces.id", ondelete="CASCADE"),
@@ -290,12 +292,55 @@ class KnowledgeIndexRebuild(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[KnowledgeIndexStatus] = mapped_column(
         knowledge_index_status_enum
     )
+    index_generation: Mapped[str] = mapped_column(String(64))
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    restore_job_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("restore_jobs.id", ondelete="CASCADE"),
+        nullable=True,
+        default=None,
+    )
     model_id: Mapped[str | None] = mapped_column(String(160), default=None)
+    model_config_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("model_configs.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    provider: Mapped[str | None] = mapped_column(String(80), default=None)
+    region: Mapped[str | None] = mapped_column(String(32), default=None)
+    contract_version: Mapped[str | None] = mapped_column(
+        String(80), default=None
+    )
+    config_version: Mapped[str | None] = mapped_column(
+        String(100), default=None
+    )
     embedding_version: Mapped[str | None] = mapped_column(
         String(80), default=None
     )
     dimension: Mapped[int | None] = mapped_column(Integer, default=None)
+    total_chunks: Mapped[int] = mapped_column(Integer, default=0)
+    completed_chunks: Mapped[int] = mapped_column(Integer, default=0)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    claim_token: Mapped[str | None] = mapped_column(
+        String(64), default=None
+    )
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), default=None
+    )
+    chunk_manifest_digest: Mapped[str | None] = mapped_column(
+        String(64), default=None
+    )
+    is_active: Mapped[bool] = mapped_column(default=False)
+    activated_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), default=None
+    )
     error_code: Mapped[str | None] = mapped_column(String(80), default=None)
+    operation_version: Mapped[int] = mapped_column(
+        Integer,
+        init=False,
+        default=1,
+    )
+    __mapper_args__ = {"version_id_col": operation_version}
 
 
 class RetentionPolicy(UUIDPrimaryKeyMixin, TimestampMixin, Base):

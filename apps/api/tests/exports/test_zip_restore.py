@@ -4,8 +4,9 @@ from uuid import UUID
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy import update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.security import WorkspaceContext
 from app.core.storage import StoredObject, get_storage
 from app.main import app
 from app.modules.content.models import ContentAsset
@@ -27,6 +28,11 @@ from app.modules.exports.zip_restore import (
     process_full_restore_task,
 )
 from app.modules.models.models import ModelConfig, ModelConfigStatus
+from app.modules.models.catalog import (
+    QIANWEN_EMBEDDING_CONTRACT_VERSION,
+    QIANWEN_EMBEDDING_DIMENSION,
+    QIANWEN_EMBEDDING_MODEL_ID,
+)
 from app.modules.risk_rag.models import (
     RiskAuthorizationStatus,
     RiskChunkEmbedding,
@@ -34,6 +40,10 @@ from app.modules.risk_rag.models import (
     RiskDocumentScope,
     RiskDocumentStatus,
     RiskSourceLevel,
+)
+from app.modules.risk_rag.indexing import (
+    ConfiguredMockRiskEmbedder,
+    RiskIndexRebuildCoordinator,
 )
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.models import (
@@ -347,7 +357,7 @@ def test_successful_restore_is_idempotent_and_rebuilds_mock_embeddings() -> None
             assert completed.id == repeated.id
             assert completed.status is FullRestoreStatus.SUCCEEDED
             assert completed.phase is FullRestorePhase.COMPLETED
-            assert completed.knowledge_index_message is None
+            assert completed.knowledge_index_message == "知识索引重建中"
             rebuilds = list(
                 session.scalars(
                     select(KnowledgeIndexRebuild).where(
@@ -360,14 +370,44 @@ def test_successful_restore_is_idempotent_and_rebuilds_mock_embeddings() -> None
                 "xiaohongshu",
             }
             assert all(
-                item.status is KnowledgeIndexStatus.SUCCEEDED
+                item.status is KnowledgeIndexStatus.QUEUED
                 for item in rebuilds
             )
             assert {item.model_id for item in rebuilds} == {"mock-v1"}
             assert {item.embedding_version for item in rebuilds} == {
-                "restore-1.0.0"
+                "mock-risk-embedding-v1"
             }
             assert {item.dimension for item in rebuilds} == {4}
+            config_id = rebuilds[0].model_config_id
+            assert config_id is not None
+        factory = sessionmaker(engine, expire_on_commit=False)
+        coordinator = RiskIndexRebuildCoordinator(
+            factory,
+            context=WorkspaceContext(
+                workspace_id=UUID(target_id),
+                member_id=context.member_id,
+                role="admin",
+            ),
+        )
+        for rebuild in rebuilds:
+            coordinator.run(
+                rebuild.id,
+                embedder=ConfiguredMockRiskEmbedder(
+                    config_id, model_id="mock-v1"
+                ),
+            )
+        with Session(engine) as session:
+            refreshed = list(
+                session.scalars(
+                    select(KnowledgeIndexRebuild).where(
+                        KnowledgeIndexRebuild.restore_job_id == job_id
+                    )
+                )
+            )
+            assert all(
+                item.status is KnowledgeIndexStatus.SUCCEEDED
+                for item in refreshed
+            )
             assert (
                 session.scalar(
                     select(func.count())
@@ -427,6 +467,76 @@ def test_new_workspace_restore_does_not_inherit_credentials_and_degrades_index()
                     == 0
                 )
             assert session.get(Workspace, target_id) is not None
+
+
+def test_qianwen_restore_only_queues_rebuild_after_restore_commit() -> None:
+    storage = MemoryRestoreStorage()
+    with configured_client() as (source, engine):
+        _, _, payload = _source_archive(source, engine, storage)
+        target_id, _, _ = create_workspace_account(
+            source,
+            workspace_name="千问异步重建目标",
+        )
+        context = _context(source, engine, target_id)
+        with Session(engine) as session:
+            session.add(
+                ModelConfig(
+                    workspace_id=UUID(target_id),
+                    provider="qianwen",
+                    model_id=QIANWEN_EMBEDDING_MODEL_ID,
+                    capabilities=["embedding"],
+                    status=ModelConfigStatus.EXPERIMENTAL,
+                    encrypted_api_key="encrypted-synthetic-never-decrypted",
+                    region="cn-beijing",
+                    provider_workspace_id="llm-abcd1234",
+                    encryption_key_version="v1",
+                )
+            )
+            session.commit()
+        with Session(engine, expire_on_commit=False) as session:
+            job, _ = create_full_restore_preview(
+                session,
+                context,
+                payload,
+                storage,
+                mode=RestoreMode.MERGE,
+                idempotency_key="qianwen-preview",
+            )
+            session.commit()
+            completed = confirm_full_restore(
+                session,
+                context,
+                job.id,
+                preview_id=job.preview_id,
+                manifest_fingerprint=job.manifest_fingerprint,
+                idempotency_key="qianwen-confirm",
+                storage=storage,
+            )
+            rebuild = session.scalar(
+                select(KnowledgeIndexRebuild).where(
+                    KnowledgeIndexRebuild.restore_job_id == job.id
+                )
+            )
+            assert completed.status is FullRestoreStatus.SUCCEEDED
+            assert rebuild is not None
+            assert rebuild.status is KnowledgeIndexStatus.QUEUED
+            assert rebuild.provider == "qianwen"
+            assert rebuild.model_id == QIANWEN_EMBEDDING_MODEL_ID
+            assert (
+                rebuild.contract_version
+                == QIANWEN_EMBEDDING_CONTRACT_VERSION
+            )
+            assert rebuild.dimension == QIANWEN_EMBEDDING_DIMENSION
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(RiskChunkEmbedding)
+                    .where(
+                        RiskChunkEmbedding.workspace_id == UUID(target_id)
+                    )
+                )
+                == 0
+            )
 
 
 def test_restore_rejects_stale_preview_permission_change_and_cross_workspace() -> None:

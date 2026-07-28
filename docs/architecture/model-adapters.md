@@ -21,3 +21,21 @@ Completions，状态固定为 `experimental`。配置仅允许 `cn-beijing` 和
 产生模型费用。无模型配置时，内容、导入、数据计算与恢复仍可使用，AI 操作返回可
 理解的配置提示。真实效果、延迟、费用、限流与地域可用性均留待 Task 6 受控验收，
 在此之前不得声明千问 Adapter 已 `verified` 或生产可用。
+
+## 千问 Embedding 与索引代际
+
+RiskRAG 千问向量固定 `text-embedding-v4`、内部合同
+`qianwen-text-embedding-v4-d1024-v1` 和 1024 维，状态为 `experimental`。官方没有
+已确认的日期快照，上游行为可能变化；模型、合同或维度变化必须建立新 generation。
+
+重建采用蓝绿发布：短事务冻结工作区、平台、配置版本和 chunk 指纹，关闭 Session
+后按最多 10 条调用 Provider，再用新事务写入 inactive generation。完整性、维度、
+工作区、平台、配置和 claim/lease/fencing 全部复核后，才在一个事务内停用旧
+generation 并激活新 generation。构建失败、发布回滚或旧 Worker 失去 claim 时，
+旧 active generation 继续可检索；旧 generation 只由后续受控保留任务回收。
+
+检索由服务端解析工作区与平台的 active generation，并同时绑定 provider、
+model_config_id、config version、合同、维度和 generation。调用者不能选择旧模型
+或旧 generation。元数据过滤仍在向量排序前执行；没有匹配活动索引时返回
+`RISK_INDEX_REBUILDING`、`MODEL_CONFIGURATION_REQUIRED` 或
+`NO_ACTIVE_RISK_EVIDENCE`，不得混用旧向量或生成虚假引用。

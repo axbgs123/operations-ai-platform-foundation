@@ -237,13 +237,13 @@
 - Produces: exact embedding snapshot entry with fixed `dimension` and `embedding_version`.
 - Produces: `QianwenRiskEmbedder.embed_batch(texts: Sequence[str]) -> list[list[float]]`.
 
-- [ ] **Step 1: Recheck official embedding model, dimensions, batch limits, regions and pricing**; record an exact snapshot and no `latest`.
-- [ ] **Step 2: Write RED tests** for deterministic request batching, vector count/dimension/type, empty input, model/version/dimension mismatch, workspace/platform isolation and provider errors.
-- [ ] **Step 3: Run RED**, then implement strict vector parsing without padding/truncation/coercion.
-- [ ] **Step 4: Add versioned rebuild state** so changing model, snapshot or dimension invalidates old embeddings and retrieval never mixes versions.
-- [ ] **Step 5: Verify ZIP restore** queues rebuild using the target workspace’s current config and never restores vectors or source-workspace provider IDs.
-- [ ] **Step 6: Run RiskRAG/retrieval/restore/full regression**, migrations, OpenAPI/types, audit and SBOM.
-- [ ] **Step 7: Commit** with `feat: rebuild risk indexes with qianwen embeddings`, then stop before Task 5.
+- [x] **Step 1: Recheck official embedding model, dimensions, batch limits, regions and pricing**; record an exact snapshot and no `latest`.
+- [x] **Step 2: Write RED tests** for deterministic request batching, vector count/dimension/type, empty input, model/version/dimension mismatch, workspace/platform isolation and provider errors.
+- [x] **Step 3: Run RED**, then implement strict vector parsing without padding/truncation/coercion.
+- [x] **Step 4: Add versioned rebuild state** so changing model, snapshot or dimension invalidates old embeddings and retrieval never mixes versions.
+- [x] **Step 5: Verify ZIP restore** queues rebuild using the target workspace’s current config and never restores vectors or source-workspace provider IDs.
+- [x] **Step 6: Run RiskRAG/retrieval/restore/full regression**, migrations, OpenAPI/types, audit and SBOM.
+- [x] **Step 7: Commit** with `feat: rebuild risk indexes with qianwen embeddings`, then stop before Task 5.
 
 **Security/Cost:** Documents are untrusted data, never system messages. Batch size and total characters are capped before billed calls. Failed rebuild leaves the old complete index active until the new version commits atomically.
 

@@ -7,7 +7,14 @@ from app.core.database import SessionFactory
 from app.core.logging import current_request_id, task_request_context
 from app.core.observability import record_task_correlation
 from app.core.storage import get_storage
-from app.modules.exports.models import RestoreJob
+from sqlalchemy import select
+
+from app.modules.exports.models import (
+    KnowledgeIndexRebuild,
+    KnowledgeIndexStatus,
+    RestoreJob,
+)
+from app.modules.risk_rag.index_tasks import enqueue_risk_index_rebuild
 from app.modules.exports.zip_restore import process_full_restore_task
 
 
@@ -43,3 +50,14 @@ def restore_workspace_task(task_id: str, request_id: str | None = None) -> None:
                 parsed_id,
                 get_storage(),
             )
+            queued = list(
+                session.scalars(
+                    select(KnowledgeIndexRebuild.id).where(
+                        KnowledgeIndexRebuild.restore_job_id == parsed_id,
+                        KnowledgeIndexRebuild.status
+                        == KnowledgeIndexStatus.QUEUED,
+                    )
+                )
+            )
+        for rebuild_id in queued:
+            enqueue_risk_index_rebuild(rebuild_id)

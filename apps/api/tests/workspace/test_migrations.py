@@ -231,6 +231,12 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "model_id",
             "dimension",
             "embedding_version",
+            "provider",
+            "model_config_id",
+            "contract_version",
+            "config_version",
+            "index_generation",
+            "is_active",
             "vector",
         } <= risk_embedding_columns.keys()
         risk_scan_columns = {
@@ -343,7 +349,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260728_0030",
+                    expected_head="20260728_0031",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",

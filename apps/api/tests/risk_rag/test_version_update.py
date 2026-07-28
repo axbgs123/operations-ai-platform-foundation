@@ -330,10 +330,17 @@ def test_model_change_requires_complete_atomic_rebuild(
     session.commit()
 
     assert len(replaced) == 2
+    all_rows = list(session.scalars(select(RiskChunkEmbedding)))
     assert {
         (row.model_id, row.dimension, row.embedding_version)
-        for row in session.scalars(select(RiskChunkEmbedding))
+        for row in all_rows
+        if row.is_active
     } == {("mock-new", 3, "v2")}
+    assert {
+        (row.model_id, row.dimension, row.embedding_version)
+        for row in all_rows
+        if not row.is_active
+    } == {("mock-old", 2, "v1")}
 
 
 def test_embedding_dimension_mismatch_is_rejected_without_deleting_index(

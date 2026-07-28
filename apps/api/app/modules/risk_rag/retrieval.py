@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.modules.content.account_models import Platform
+from app.modules.exports.models import KnowledgeIndexRebuild, KnowledgeIndexStatus
+from app.modules.models.config_service import model_configuration_version
+from app.modules.models.models import ModelConfig, ModelConfigStatus
 from app.modules.risk_rag.models import (
     RiskAuthorizationStatus,
     RiskChunk,
@@ -32,6 +38,11 @@ class RetrievalFilter:
     embedding_model_id: str
     embedding_version: str
     embedding_dimension: int
+    provider: str | None = None
+    model_config_id: UUID | None = None
+    config_version: str | None = None
+    contract_version: str | None = None
+    index_generation: str | None = None
 
     def __post_init__(self) -> None:
         if self.as_of.tzinfo is None:
@@ -42,6 +53,136 @@ class RetrievalFilter:
             raise ValueError("embedding_version is required")
         if self.embedding_dimension <= 0:
             raise ValueError("embedding_dimension must be positive")
+        optional_values = (
+            self.provider,
+            self.model_config_id,
+            self.config_version,
+            self.contract_version,
+            self.index_generation,
+        )
+        if any(value is not None for value in optional_values) and any(
+            value is None for value in optional_values
+        ):
+            raise ValueError("active index identity must be complete")
+
+
+class ActiveRiskIndexUnavailable(LookupError):
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
+
+
+class ActiveQueryEmbedder(Protocol):
+    model_config_id: UUID
+    model_id: str
+    contract_version: str
+    dimension: int
+
+    def embed_batch(self, texts: Sequence[str]) -> list[list[float]]: ...
+
+
+def resolve_active_retrieval_filter(
+    session: Session,
+    *,
+    workspace_id: UUID,
+    platform: Platform,
+    as_of: datetime,
+) -> RetrievalFilter:
+    active = session.scalar(
+        select(KnowledgeIndexRebuild).where(
+            KnowledgeIndexRebuild.workspace_id == workspace_id,
+            KnowledgeIndexRebuild.platform == platform,
+            KnowledgeIndexRebuild.status == KnowledgeIndexStatus.SUCCEEDED,
+            KnowledgeIndexRebuild.is_active.is_(True),
+        )
+    )
+    if active is None:
+        pending = session.scalar(
+            select(KnowledgeIndexRebuild.status)
+            .where(
+                KnowledgeIndexRebuild.workspace_id == workspace_id,
+                KnowledgeIndexRebuild.platform == platform,
+            )
+            .order_by(KnowledgeIndexRebuild.created_at.desc())
+        )
+        if pending in {
+            KnowledgeIndexStatus.QUEUED,
+            KnowledgeIndexStatus.RUNNING,
+        }:
+            raise ActiveRiskIndexUnavailable("RISK_INDEX_REBUILDING")
+        if pending is KnowledgeIndexStatus.CONFIGURATION_REQUIRED:
+            raise ActiveRiskIndexUnavailable("MODEL_CONFIGURATION_REQUIRED")
+        raise ActiveRiskIndexUnavailable(NO_ACTIVE_RISK_EVIDENCE)
+    if (
+        active.provider is None
+        or active.model_config_id is None
+        or active.config_version is None
+        or active.contract_version is None
+        or active.model_id is None
+        or active.dimension is None
+    ):
+        raise ActiveRiskIndexUnavailable(NO_ACTIVE_RISK_EVIDENCE)
+    config = session.scalar(
+        select(ModelConfig).where(
+            ModelConfig.id == active.model_config_id,
+            ModelConfig.workspace_id == workspace_id,
+            ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
+        )
+    )
+    if (
+        config is None
+        or config.provider != active.provider
+        or config.model_id != active.model_id
+        or model_configuration_version(config) != active.config_version
+    ):
+        raise ActiveRiskIndexUnavailable("MODEL_CONFIGURATION_REQUIRED")
+    return RetrievalFilter(
+        workspace_id=workspace_id,
+        platform=platform,
+        as_of=as_of,
+        embedding_model_id=active.model_id,
+        embedding_version=active.contract_version,
+        embedding_dimension=active.dimension,
+        provider=active.provider,
+        model_config_id=active.model_config_id,
+        config_version=active.config_version,
+        contract_version=active.contract_version,
+        index_generation=active.index_generation,
+    )
+
+
+def retrieve_with_active_index(
+    session: Session,
+    *,
+    workspace_id: UUID,
+    platform: Platform,
+    as_of: datetime,
+    query_text: str,
+    embedder: ActiveQueryEmbedder,
+    top_k: int,
+) -> EvidenceBundle:
+    retrieval_filter = resolve_active_retrieval_filter(
+        session,
+        workspace_id=workspace_id,
+        platform=platform,
+        as_of=as_of,
+    )
+    if (
+        embedder.model_config_id != retrieval_filter.model_config_id
+        or embedder.model_id != retrieval_filter.embedding_model_id
+        or embedder.contract_version
+        != retrieval_filter.contract_version
+        or embedder.dimension != retrieval_filter.embedding_dimension
+    ):
+        raise ActiveRiskIndexUnavailable("MODEL_CONFIGURATION_REQUIRED")
+    vectors = embedder.embed_batch([query_text])
+    if len(vectors) != 1:
+        raise ValueError("query embedding response count is invalid")
+    return RiskEvidenceRetriever(session).retrieve(
+        retrieval_filter=retrieval_filter,
+        query_vector=tuple(vectors[0]),
+        top_k=top_k,
+    )
 
 
 @dataclass(frozen=True)
@@ -130,7 +271,7 @@ def _eligible_metadata_statement(
         RiskChunkEmbedding.scope == RiskDocumentScope.PRIVATE,
         RiskChunkEmbedding.workspace_id == retrieval_filter.workspace_id,
     )
-    return (
+    statement = (
         select(
             RiskChunk.id.label("chunk_id"),
             RiskDocument.id.label("document_id"),
@@ -167,8 +308,22 @@ def _eligible_metadata_statement(
             == retrieval_filter.embedding_version,
             RiskChunkEmbedding.dimension
             == retrieval_filter.embedding_dimension,
+            RiskChunkEmbedding.is_active.is_(True),
         )
     )
+    if retrieval_filter.index_generation is not None:
+        statement = statement.where(
+            RiskChunkEmbedding.provider == retrieval_filter.provider,
+            RiskChunkEmbedding.model_config_id
+            == retrieval_filter.model_config_id,
+            RiskChunkEmbedding.config_version
+            == retrieval_filter.config_version,
+            RiskChunkEmbedding.contract_version
+            == retrieval_filter.contract_version,
+            RiskChunkEmbedding.index_generation
+            == retrieval_filter.index_generation,
+        )
+    return statement
 
 
 def build_pgvector_retrieval_statement(

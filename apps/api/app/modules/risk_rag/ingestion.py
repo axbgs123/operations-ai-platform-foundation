@@ -6,9 +6,9 @@ from html.parser import HTMLParser
 from pathlib import PurePath
 import re
 from typing import Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -62,6 +62,7 @@ class _MockEmbedding(BaseModel):
 class MockRiskEmbedder:
     model_id = "mock-v1"
     dimension = 4
+    network_free = True
 
     def embed(self, text: str) -> list[float]:
         result = asyncio.run(
@@ -419,13 +420,7 @@ class RiskEmbeddingService:
         if any(len(vector) != spec.dimension for vector in vectors.values()):
             raise ValueError("embedding vector dimension does not match spec")
 
-        self._session.execute(
-            delete(RiskChunkEmbedding).where(
-                RiskChunkEmbedding.workspace_id
-                == self._context.workspace_id,
-                RiskChunkEmbedding.platform == platform,
-            )
-        )
+        generation = str(uuid4())
         rows = [
             RiskChunkEmbedding(
                 workspace_id=chunk.workspace_id,
@@ -436,11 +431,29 @@ class RiskEmbeddingService:
                 dimension=spec.dimension,
                 embedding_version=spec.version,
                 vector=vectors[chunk.id],
+                provider="mock",
+                contract_version=spec.version,
+                config_version="legacy-local",
+                index_generation=generation,
+                is_active=False,
             )
             for chunk in chunks
         ]
         self._session.add_all(rows)
         self._session.flush()
+        self._session.execute(
+            update(RiskChunkEmbedding)
+            .where(
+                RiskChunkEmbedding.workspace_id
+                == self._context.workspace_id,
+                RiskChunkEmbedding.platform == platform,
+                RiskChunkEmbedding.index_generation != generation,
+                RiskChunkEmbedding.is_active.is_(True),
+            )
+            .values(is_active=False)
+        )
+        for row in rows:
+            row.is_active = True
         return rows
 
     def rebuild_with(
@@ -450,6 +463,10 @@ class RiskEmbeddingService:
         embedder: RiskEmbedder,
         embedding_version: str,
     ) -> list[RiskChunkEmbedding]:
+        if not getattr(embedder, "network_free", False):
+            raise ValueError(
+                "network embedders require the detached index coordinator"
+            )
         chunks = list(
             self._session.scalars(
                 select(RiskChunk)

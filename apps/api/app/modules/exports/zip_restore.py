@@ -38,11 +38,9 @@ from app.modules.exports.restore_preview import (
     build_restore_preview,
 )
 from app.modules.models.models import ModelConfig, ModelConfigStatus
+from app.modules.models.config_service import model_configuration_version
+from app.modules.models.catalog import get_catalog_entry
 from app.modules.risk_rag.chunking import chunk_document
-from app.modules.risk_rag.ingestion import (
-    MockRiskEmbedder,
-    RiskEmbeddingService,
-)
 from app.modules.risk_rag.models import (
     RiskChunk,
     RiskDocument,
@@ -972,14 +970,9 @@ def _safe_delete(storage: Storage, object_key: str) -> bool:
     return True
 
 
-class _ConfiguredMockEmbedder(MockRiskEmbedder):
-    def __init__(self, model_id: str) -> None:
-        self.model_id = model_id
-
-
 def _rebuild_knowledge_indexes(
     session: Session,
-    source_context: WorkspaceContext,
+    _source_context: WorkspaceContext,
     archive: VerifiedBackupArchive,
     job: RestoreJob,
 ) -> None:
@@ -1000,97 +993,122 @@ def _rebuild_knowledge_indexes(
         job.knowledge_index_message = None
         session.commit()
         return
-    config = session.scalar(
-        select(ModelConfig)
-        .where(
-            ModelConfig.workspace_id == job.target_workspace_id,
-            ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
+    configs = list(
+        session.scalars(
+            select(ModelConfig)
+            .where(
+                ModelConfig.workspace_id == job.target_workspace_id,
+                ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
+            )
+            .order_by(ModelConfig.provider, ModelConfig.model_id)
         )
-        .order_by(ModelConfig.provider, ModelConfig.model_id)
+    )
+    config = next(
+        (item for item in configs if "embedding" in item.capabilities),
+        None,
     )
     if config is None or "embedding" not in config.capabilities:
         for platform in platforms:
             session.add(
                 KnowledgeIndexRebuild(
-                    restore_job_id=job.id,
                     workspace_id=job.target_workspace_id,
                     platform=platform,
                     status=KnowledgeIndexStatus.CONFIGURATION_REQUIRED,
+                    index_generation=secrets.token_hex(16),
+                    idempotency_key=f"restore:{job.id}:{platform.value}",
+                    restore_job_id=job.id,
                     error_code="MODEL_CONFIGURATION_REQUIRED",
                 )
             )
         job.knowledge_index_message = "知识索引重建中"
         session.commit()
         return
-    target_context = WorkspaceContext(
-        workspace_id=job.target_workspace_id,
-        member_id=source_context.member_id,
-        role="admin",
-    )
+    if config.provider == "mock":
+        model_id = config.model_id
+        contract_version = "mock-risk-embedding-v1"
+        dimension = 4
+        region = None
+    else:
+        try:
+            catalog = get_catalog_entry(config.provider, config.model_id)
+        except LookupError:
+            catalog = None
+        if (
+            catalog is None
+            or catalog.embedding_dimension is None
+            or "embedding" not in config.capabilities
+        ):
+            for platform in platforms:
+                session.add(
+                    KnowledgeIndexRebuild(
+                        workspace_id=job.target_workspace_id,
+                        platform=platform,
+                        status=KnowledgeIndexStatus.CONFIGURATION_REQUIRED,
+                        index_generation=secrets.token_hex(16),
+                        idempotency_key=f"restore:{job.id}:{platform.value}",
+                        restore_job_id=job.id,
+                        error_code="MODEL_CONFIGURATION_REQUIRED",
+                    )
+                )
+            job.knowledge_index_message = "知识索引重建中"
+            session.commit()
+            return
+        model_id = config.model_id
+        contract_version = catalog.contract_version
+        dimension = catalog.embedding_dimension
+        region = config.region
+    config_version = model_configuration_version(config)
     for platform in platforms:
         rebuild = KnowledgeIndexRebuild(
-            restore_job_id=job.id,
             workspace_id=job.target_workspace_id,
             platform=platform,
-            status=KnowledgeIndexStatus.RUNNING,
-            model_id=config.model_id,
-            embedding_version="restore-1.0.0",
-            dimension=4,
+            status=KnowledgeIndexStatus.QUEUED,
+            index_generation=secrets.token_hex(16),
+            idempotency_key=f"restore:{job.id}:{platform.value}",
+            restore_job_id=job.id,
+            model_id=model_id,
+            model_config_id=config.id,
+            provider=config.provider,
+            region=region,
+            contract_version=contract_version,
+            config_version=config_version,
+            embedding_version=contract_version,
+            dimension=dimension,
         )
         session.add(rebuild)
         session.flush()
-        try:
-            platform_documents = [
-                (document, content)
-                for document, content in documents
-                if document.platform is platform
-            ]
-            for document, content in platform_documents:
-                session.execute(
-                    delete(RiskChunk).where(
-                        RiskChunk.document_id == document.id
+        rebuild.index_generation = str(rebuild.id)
+        platform_documents = [
+            (document, content)
+            for document, content in documents
+            if document.platform is platform
+        ]
+        for document, content in platform_documents:
+            session.execute(
+                delete(RiskChunk).where(
+                    RiskChunk.document_id == document.id
+                )
+            )
+            try:
+                text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                rebuild.status = KnowledgeIndexStatus.FAILED
+                rebuild.error_code = "KNOWLEDGE_INDEX_SOURCE_INVALID"
+                continue
+            session.add_all(
+                [
+                    RiskChunk(
+                        workspace_id=job.target_workspace_id,
+                        document_id=document.id,
+                        platform=platform,
+                        scope=RiskDocumentScope.PRIVATE,
+                        chunk_index=draft.chunk_index,
+                        source_location=draft.source_location,
+                        text=draft.text,
+                        metadata_json={"untrusted_data": True},
                     )
-                )
-                try:
-                    text = content.decode("utf-8")
-                except UnicodeDecodeError as error:
-                    raise ValueError(
-                        "risk knowledge rebuild requires UTF-8 text"
-                    ) from error
-                session.add_all(
-                    [
-                        RiskChunk(
-                            workspace_id=job.target_workspace_id,
-                            document_id=document.id,
-                            platform=platform,
-                            scope=RiskDocumentScope.PRIVATE,
-                            chunk_index=draft.chunk_index,
-                            source_location=draft.source_location,
-                            text=draft.text,
-                            metadata_json={"untrusted_data": True},
-                        )
-                        for draft in chunk_document(text)
-                    ]
-                )
-            session.flush()
-            RiskEmbeddingService(session, target_context).rebuild_with(
-                platform=platform,
-                embedder=_ConfiguredMockEmbedder(config.model_id),
-                embedding_version="restore-1.0.0",
+                    for draft in chunk_document(text)
+                ]
             )
-            rebuild.status = KnowledgeIndexStatus.SUCCEEDED
-        except Exception:
-            session.rollback()
-            restored_rebuild = session.scalar(
-                select(KnowledgeIndexRebuild).where(
-                    KnowledgeIndexRebuild.restore_job_id == job.id,
-                    KnowledgeIndexRebuild.platform == platform,
-                )
-            )
-            if restored_rebuild is not None:
-                restored_rebuild.status = KnowledgeIndexStatus.FAILED
-                restored_rebuild.error_code = "KNOWLEDGE_INDEX_REBUILD_FAILED"
-            restored_job = session.get(RestoreJob, job.id)
-            if restored_job is not None:
-                restored_job.knowledge_index_message = "知识索引重建失败"
-        session.commit()
+    job.knowledge_index_message = "知识索引重建中"
+    session.commit()

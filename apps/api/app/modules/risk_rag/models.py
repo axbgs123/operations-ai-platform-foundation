@@ -283,7 +283,11 @@ class RiskChunkEmbedding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         UniqueConstraint(
             "chunk_id",
-            name="uq_risk_chunk_embeddings_chunk_id",
+            "model_id",
+            "contract_version",
+            "dimension",
+            "index_generation",
+            name="uq_risk_chunk_embeddings_generation",
         ),
         Index("ix_risk_chunk_embeddings_workspace_id", "workspace_id"),
         Index("ix_risk_chunk_embeddings_chunk_id", "chunk_id"),
@@ -313,6 +317,22 @@ class RiskChunkEmbedding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     dimension: Mapped[int] = mapped_column(Integer)
     embedding_version: Mapped[str] = mapped_column(String(80))
     vector: Mapped[list[float]] = mapped_column(Vector())
+    provider: Mapped[str] = mapped_column(String(80), default="mock")
+    model_config_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("model_configs.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    contract_version: Mapped[str] = mapped_column(
+        String(80), default="legacy"
+    )
+    config_version: Mapped[str] = mapped_column(
+        String(100), default="legacy"
+    )
+    index_generation: Mapped[str] = mapped_column(
+        String(64), default="legacy"
+    )
+    is_active: Mapped[bool] = mapped_column(default=True)
 
 
 class RiskScan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
