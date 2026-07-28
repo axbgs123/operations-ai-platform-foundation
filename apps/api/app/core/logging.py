@@ -39,6 +39,14 @@ LOG_FIELDS = (
     "task_status",
     "retry_count",
     "error_code",
+    "provider",
+    "model_id",
+    "provider_request_id",
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+    "latency_ms",
+    "attempt",
     "service_name",
     "environment",
     "application_version",
@@ -82,6 +90,11 @@ _SENSITIVE_PARTS = (
     "archive",
     "delete_confirmation",
 )
+_LOW_SENSITIVITY_TELEMETRY_KEYS = {
+    "prompt_tokens",
+    "completion_tokens",
+    "total_tokens",
+}
 _current_request_id: ContextVar[str | None] = ContextVar(
     "request_id",
     default=None,
@@ -116,6 +129,8 @@ def task_request_context(request_id: str | None):
 
 def _sensitive_key(key: object) -> bool:
     normalized = str(key).lower().replace("-", "_")
+    if normalized in _LOW_SENSITIVITY_TELEMETRY_KEYS:
+        return False
     return any(part in normalized for part in _SENSITIVE_PARTS)
 
 

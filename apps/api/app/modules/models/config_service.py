@@ -16,6 +16,11 @@ from app.modules.models.capabilities import (
     ModelDescriptor,
     select_compatible_model,
 )
+from app.modules.models.catalog import (
+    QianwenRegion,
+    get_catalog_entry,
+    validate_provider_workspace_id,
+)
 from app.modules.models.models import ModelConfig, ModelConfigStatus
 from app.modules.workspace.permissions import Permission, require_permission
 
@@ -27,6 +32,7 @@ class ModelConfigRead(BaseModel):
     workspace_id: UUID
     provider: str
     model_id: str
+    region: QianwenRegion | None
     capabilities: list[Capability]
     status: AdapterStatus
 
@@ -102,9 +108,34 @@ class ModelConfigService:
         capabilities: frozenset[Capability],
         status: AdapterStatus,
         api_key: str,
+        region: QianwenRegion | None = None,
+        provider_workspace_id: str | None = None,
     ) -> ModelConfig:
         require_permission(self._context.role, Permission.MANAGE_MODELS)
-        self._validate_status(provider, model_id, status)
+        if provider == "qianwen":
+            try:
+                catalog_entry = get_catalog_entry(provider, model_id)
+            except LookupError as error:
+                raise ValueError(
+                    "model is not present in the Provider Catalog"
+                ) from error
+            if capabilities != catalog_entry.capabilities:
+                raise ValueError("capabilities must match the Provider Catalog")
+            if status is not catalog_entry.adapter_status:
+                raise ValueError("status must match the Provider Catalog")
+            if region is None:
+                raise ValueError("Qianwen region is required")
+            if region not in catalog_entry.available_regions:
+                raise ValueError("unsupported Qianwen region")
+            if provider_workspace_id is None:
+                raise ValueError("Qianwen Provider Workspace ID is required")
+            validate_provider_workspace_id(provider_workspace_id)
+        else:
+            if region is not None or provider_workspace_id is not None:
+                raise ValueError(
+                    "region and Provider Workspace ID are Qianwen-only fields"
+                )
+            self._validate_status(provider, model_id, status)
         capability_values = sorted(
             capability.value for capability in capabilities
         )
@@ -121,6 +152,8 @@ class ModelConfigService:
                 workspace_id=self._context.workspace_id,
                 provider=provider,
                 model_id=model_id,
+                region=region.value if region is not None else None,
+                provider_workspace_id=provider_workspace_id,
                 capabilities=capability_values,
                 status=ModelConfigStatus(status.value),
                 encrypted_api_key=encrypted_api_key,
@@ -144,6 +177,8 @@ class ModelConfigService:
                 config = candidate
         config.capabilities = capability_values
         config.status = ModelConfigStatus(status.value)
+        config.region = region.value if region is not None else None
+        config.provider_workspace_id = provider_workspace_id
         config.encrypted_api_key = encrypted_api_key
         config.encryption_key_version = self._cipher.version
         self._session.flush()
@@ -155,6 +190,11 @@ class ModelConfigService:
             workspace_id=config.workspace_id,
             provider=config.provider,
             model_id=config.model_id,
+            region=(
+                QianwenRegion(config.region)
+                if config.region is not None
+                else None
+            ),
             capabilities=[Capability(value) for value in config.capabilities],
             status=AdapterStatus(config.status.value),
         )
@@ -196,7 +236,17 @@ class ModelConfigService:
         )
         if config is None:
             raise LookupError("model config not found")
-        self._validate_status(config.provider, config.model_id, status)
+        if config.provider == "qianwen":
+            catalog_entry = get_catalog_entry(config.provider, config.model_id)
+            if status not in {
+                catalog_entry.adapter_status,
+                AdapterStatus.INCOMPATIBLE,
+            }:
+                raise ValueError(
+                    "status must match the Provider Catalog or be incompatible"
+                )
+        else:
+            self._validate_status(config.provider, config.model_id, status)
         config.status = ModelConfigStatus(status.value)
         self._session.flush()
         return config

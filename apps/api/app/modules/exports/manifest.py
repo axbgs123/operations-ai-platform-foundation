@@ -380,6 +380,7 @@ _SENSITIVE_KEYS = {
     "object_key",
     "password",
     "password_hash",
+    "provider_workspace_id",
     "raw_content",
     "session_token",
     "source_text",

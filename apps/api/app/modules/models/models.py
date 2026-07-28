@@ -1,7 +1,17 @@
 from enum import StrEnum
 from uuid import UUID
 
-from sqlalchemy import JSON, Enum, ForeignKey, Index, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -31,6 +41,11 @@ class ModelConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "model_id",
             name="uq_model_config_workspace_provider_model",
         ),
+        CheckConstraint(
+            "provider <> 'qianwen' OR "
+            "(region IS NOT NULL AND provider_workspace_id IS NOT NULL)",
+            name="ck_model_configs_qianwen_endpoint_fields",
+        ),
         Index("ix_model_configs_workspace_id", "workspace_id"),
     )
 
@@ -43,4 +58,14 @@ class ModelConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     capabilities: Mapped[list[str]] = mapped_column(JSON)
     status: Mapped[ModelConfigStatus] = mapped_column(model_config_status_type)
     encrypted_api_key: Mapped[str] = mapped_column(Text)
+    region: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        default=None,
+    )
+    provider_workspace_id: Mapped[str | None] = mapped_column(
+        String(80),
+        nullable=True,
+        default=None,
+    )
     encryption_key_version: Mapped[str] = mapped_column(String(20), default="v1")

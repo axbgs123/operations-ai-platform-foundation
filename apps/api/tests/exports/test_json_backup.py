@@ -112,10 +112,14 @@ def _seed_portable_workspace(client, engine):
         session.add(
             ModelConfig(
                 workspace_id=UUID(workspace_id),
-                provider="mock",
-                model_id="mock-text-v1",
+                provider="qianwen",
+                model_id="qwen3.5-plus-2026-04-20",
+                region="cn-beijing",
+                provider_workspace_id=(
+                    "llm-private-provider-workspace-must-not-leak"
+                ),
                 capabilities=["text"],
-                status=ModelConfigStatus.VERIFIED,
+                status=ModelConfigStatus.EXPERIMENTAL,
                 encrypted_api_key="encrypted-model-secret-must-not-leak",
             )
         )
@@ -269,6 +273,8 @@ def test_manifest_is_versioned_deterministic_and_excludes_secrets_and_bodies() -
         for forbidden in (
             "encrypted_api_key",
             "encrypted-model-secret-must-not-leak",
+            "provider_workspace_id",
+            "llm-private-provider-workspace-must-not-leak",
             "code_hash",
             "token_hash",
             "csrf_hash",

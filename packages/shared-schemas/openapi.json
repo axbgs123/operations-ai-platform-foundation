@@ -4721,6 +4721,29 @@
             "title": "Provider",
             "type": "string"
           },
+          "provider_workspace_id": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Workspace Id"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QianwenRegion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/AdapterStatus"
           }
@@ -4757,6 +4780,16 @@
             "title": "Provider",
             "type": "string"
           },
+          "region": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QianwenRegion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/AdapterStatus"
           },
@@ -4771,6 +4804,7 @@
           "workspace_id",
           "provider",
           "model_id",
+          "region",
           "capabilities",
           "status"
         ],
@@ -5323,6 +5357,14 @@
         ],
         "title": "ProhibitedStyle",
         "type": "object"
+      },
+      "QianwenRegion": {
+        "enum": [
+          "cn-beijing",
+          "ap-southeast-1"
+        ],
+        "title": "QianwenRegion",
+        "type": "string"
       },
       "ReadinessResponse": {
         "additionalProperties": false,

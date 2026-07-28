@@ -208,7 +208,8 @@ def test_full_backup_never_serializes_credentials_vectors_or_object_keys() -> No
             serialized_metadata = json.dumps(manifest).lower()
         for forbidden in (
             "encrypted_api_key",
-                '"authorization":',
+            "provider_workspace_id",
+            '"authorization":',
             "cookie",
             "invite",
             "object_key",

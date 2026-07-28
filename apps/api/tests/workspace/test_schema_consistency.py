@@ -8,7 +8,7 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260727_0027"
+HEAD = "20260728_0028"
 
 
 def _database_with_version(*, include_required_tables: bool):

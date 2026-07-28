@@ -3950,6 +3950,9 @@ export interface components {
             model_id: string;
             /** Provider */
             provider: string;
+            /** Provider Workspace Id */
+            provider_workspace_id?: string | null;
+            region?: components["schemas"]["QianwenRegion"] | null;
             status: components["schemas"]["AdapterStatus"];
         };
         /** ModelConfigRead */
@@ -3965,6 +3968,7 @@ export interface components {
             model_id: string;
             /** Provider */
             provider: string;
+            region: components["schemas"]["QianwenRegion"] | null;
             status: components["schemas"]["AdapterStatus"];
             /**
              * Workspace Id
@@ -4170,6 +4174,11 @@ export interface components {
             /** Visual Styles */
             visual_styles: string[];
         };
+        /**
+         * QianwenRegion
+         * @enum {string}
+         */
+        QianwenRegion: "cn-beijing" | "ap-southeast-1";
         /** ReadinessResponse */
         ReadinessResponse: {
             /** Components */

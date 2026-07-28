@@ -105,6 +105,15 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         }
         assert "content_type" in content_columns
         assert "platform_content_id" in content_columns
+        model_config_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("model_configs")
+        }
+        assert {
+            "region",
+            "provider_workspace_id",
+            "encrypted_api_key",
+        } <= model_config_columns
         import_batch_columns = {
             column["name"]
             for column in inspect(migrated_engine).get_columns("import_batches")
@@ -295,7 +304,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260727_0027",
+                    expected_head="20260728_0028",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",

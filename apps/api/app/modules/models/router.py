@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.modules.models.capabilities import AdapterStatus, Capability
+from app.modules.models.catalog import QianwenRegion
 from app.modules.models.config_service import (
     ModelConfigRead,
     ModelConfigService,
@@ -30,6 +31,8 @@ class ModelConfigCreate(BaseModel):
 
     provider: str = Field(min_length=1, max_length=80)
     model_id: str = Field(min_length=1, max_length=160)
+    region: QianwenRegion | None = None
+    provider_workspace_id: str | None = Field(default=None, min_length=1, max_length=80)
     capabilities: frozenset[Capability] = Field(min_length=1)
     status: AdapterStatus
     api_key: SecretStr
@@ -87,6 +90,8 @@ def create_model_config(
             capabilities=data.capabilities,
             status=data.status,
             api_key=data.api_key.get_secret_value(),
+            region=data.region,
+            provider_workspace_id=data.provider_workspace_id,
         )
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
