@@ -138,7 +138,7 @@ Set the base variables exactly:
   --canvas: #f5f7fb;
   --surface: #ffffff;
   --text-primary: #1b2430;
-  --text-secondary: #6f7b89;
+  --text-secondary: #687482;
   --border: #e2e6ec;
   --brand: #6d55dc;
 }
