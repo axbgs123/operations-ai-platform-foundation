@@ -8,7 +8,7 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260728_0031"
+HEAD = "20260728_0032"
 
 
 def _database_with_version(*, include_required_tables: bool):
@@ -64,6 +64,12 @@ def _database_with_version(*, include_required_tables: bool):
             connection.execute(
                 text("CREATE TABLE task_operation_events (id VARCHAR)")
             )
+            connection.execute(
+                text("CREATE TABLE cover_generation_runs (id VARCHAR)")
+            )
+            connection.execute(
+                text("CREATE TABLE cover_artifact_attempts (id VARCHAR)")
+            )
     return engine
 
 
@@ -93,6 +99,8 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "deletion_audits",
                     "product_event_outbox",
                     "task_operation_events",
+                    "cover_generation_runs",
+                    "cover_artifact_attempts",
                 },
             )
 
@@ -119,5 +127,7 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                     "deletion_audits",
                     "product_event_outbox",
                     "task_operation_events",
+                    "cover_generation_runs",
+                    "cover_artifact_attempts",
                 },
         )

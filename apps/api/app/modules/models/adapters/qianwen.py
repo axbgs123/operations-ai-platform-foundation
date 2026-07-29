@@ -49,6 +49,10 @@ class ModelErrorCode(StrEnum):
     IMAGE_TOO_LARGE = "MODEL_IMAGE_TOO_LARGE"
     OCR_INVALID_RESPONSE = "MODEL_OCR_INVALID_RESPONSE"
     EMBEDDING_INVALID_RESPONSE = "MODEL_EMBEDDING_INVALID_RESPONSE"
+    IMAGE_INPUT_INVALID = "MODEL_IMAGE_INPUT_INVALID"
+    IMAGE_OUTPUT_INVALID = "MODEL_IMAGE_OUTPUT_INVALID"
+    IMAGE_RESULT_EXPIRED = "MODEL_IMAGE_RESULT_EXPIRED"
+    PROVIDER_OUTCOME_UNKNOWN = "MODEL_PROVIDER_OUTCOME_UNKNOWN"
 
 
 class ModelProviderError(RuntimeError):
@@ -88,6 +92,18 @@ def safe_model_error_message(code: ModelErrorCode) -> str:
         ),
         ModelErrorCode.EMBEDDING_INVALID_RESPONSE: (
             "Embedding 返回内容未通过数量、索引或维度校验。"
+        ),
+        ModelErrorCode.IMAGE_INPUT_INVALID: (
+            "参考图片或封面参数未通过安全校验。"
+        ),
+        ModelErrorCode.IMAGE_OUTPUT_INVALID: (
+            "图片模型结果未通过下载或图像安全校验。"
+        ),
+        ModelErrorCode.IMAGE_RESULT_EXPIRED: (
+            "图片模型临时结果已失效，请人工创建新的生成尝试。"
+        ),
+        ModelErrorCode.PROVIDER_OUTCOME_UNKNOWN: (
+            "图片请求结果不确定，请勿自动重试；如需继续，请人工创建新的尝试。"
         ),
     }[code]
 

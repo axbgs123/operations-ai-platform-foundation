@@ -124,6 +124,8 @@ PRIVATE_WORKSPACE_TABLES = (
     "fact_sources",
     "fact_items",
     "text_generation_runs",
+    "cover_artifact_attempts",
+    "cover_generation_runs",
     "risk_documents",
     "risk_chunks",
     "risk_chunk_embeddings",
@@ -185,6 +187,11 @@ class WorkspaceDeletionService:
         return workspace, member
 
     def impact(self) -> WorkspaceDeletionImpact:
+        from app.modules.generation.models import (
+            CoverArtifactAttempt,
+            CoverGenerationRun,
+        )
+
         self._require_admin()
         workspace_id = self._context.workspace_id
         structured = sum(
@@ -202,6 +209,8 @@ class WorkspaceDeletionService:
                 RestoreJob,
                 RiskDocument,
                 RiskChunkEmbedding,
+                CoverGenerationRun,
+                CoverArtifactAttempt,
             )
         )
         return WorkspaceDeletionImpact(

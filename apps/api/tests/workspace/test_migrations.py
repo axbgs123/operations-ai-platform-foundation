@@ -75,7 +75,47 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "workspace_deletion_jobs",
                 "deletion_audits",
                 "task_operation_events",
+                "cover_generation_runs",
+                "cover_artifact_attempts",
             } <= tables
+
+        cover_attempt_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "cover_artifact_attempts"
+            )
+        }
+        assert {
+            "workspace_id",
+            "run_id",
+            "attempt_number",
+            "previous_attempt_id",
+            "provider",
+            "model_id",
+            "region",
+            "model_config_id",
+            "configuration_version",
+            "contract_version",
+            "cover_mode",
+            "request_fingerprint",
+            "prompt_hash",
+            "seed",
+            "input_assets",
+            "provider_request_id",
+            "billed_attempt_status",
+            "output_object_key",
+            "output_sha256",
+            "layout_version",
+            "ocr_model_version",
+            "risk_scan_id",
+            "operation_version",
+        } <= cover_attempt_columns
+        assert {
+            "encrypted_api_key",
+            "provider_workspace_id",
+            "provider_output_url",
+            "image_base64",
+        }.isdisjoint(cover_attempt_columns)
 
         access_code_columns = {
             column["name"]
@@ -349,7 +389,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260728_0031",
+                    expected_head="20260728_0032",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -369,6 +409,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "deletion_audits",
                         "product_event_outbox",
                         "task_operation_events",
+                        "cover_generation_runs",
+                        "cover_artifact_attempts",
                     },
             )
             extensions = set(

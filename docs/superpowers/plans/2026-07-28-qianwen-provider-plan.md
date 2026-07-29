@@ -266,13 +266,13 @@
 - Produces: exact image/edit model Catalog entry and `QianwenCoverImageAdapter.generate_layer(request) -> Image.Image`.
 - Produces: persisted provider/model/request/version metadata plus object-storage artifact reference, never response Base64 in business columns.
 
-- [ ] **Step 1: Recheck official image/edit endpoint, exact model IDs, reference-image support, dimensions, moderation, retention and pricing** and update ADR.
-- [ ] **Step 2: Write RED tests** for four cover modes, reference purposes, signed input lifetime, size/MIME/pixel limits, output download validation, request expiry, no text rendering and provider failure cleanup.
-- [ ] **Step 3: Run RED**, then add only Catalog capabilities supported by the exact image snapshot.
-- [ ] **Step 4: Implement adapter and object lifecycle**; programmatic Chinese layout remains authoritative and provider output is background/subject only.
-- [ ] **Step 5: Persist immutable result provenance** and prove retry/idempotency cannot duplicate billed jobs or accessible objects.
-- [ ] **Step 6: Run generation/publication-gate/golden-image/full regression**, migrations, OpenAPI/types, audit and SBOM.
-- [ ] **Step 7: Commit** with `feat: generate governed cover layers with qianwen`, then stop before Task 6.
+- [x] **Step 1: Recheck official image/edit endpoint, exact model IDs, reference-image support, dimensions, moderation, retention and pricing** and update ADR.
+- [x] **Step 2: Write RED tests** for four cover modes, reference purposes, signed input lifetime, size/MIME/pixel limits, output download validation, request expiry, no text rendering and provider failure cleanup.
+- [x] **Step 3: Run RED**, then add only Catalog capabilities supported by the exact image snapshot.
+- [x] **Step 4: Implement adapter and object lifecycle**; programmatic Chinese layout remains authoritative and provider output is background/subject only.
+- [x] **Step 5: Persist immutable result provenance** and prove retry/idempotency cannot duplicate billed jobs or accessible objects.
+- [x] **Step 6: Run generation/publication-gate/golden-image/full regression**, migrations, OpenAPI/types, audit and SBOM.
+- [x] **Step 7: Commit** with `feat: generate governed cover layers with qianwen`, then stop before Task 6.
 
 **Security/Cost:** Reference images and prompts are disclosed before sending. No full provider output/logging. Failed or cancelled artifacts are inaccessible and cleaned by existing retention jobs.
 

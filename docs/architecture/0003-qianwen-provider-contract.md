@@ -1,8 +1,8 @@
 # ADR 0003: 千问 Provider 合同与安全边界
 
 - 状态：Accepted for engineering implementation
-- 官方合同核对日期：2026-07-28（Asia/Shanghai）
-- 适用范围：千问 Provider 计划 Task 1—4
+- 官方合同核对日期：2026-07-29（Asia/Shanghai）
+- 适用范围：千问 Provider 计划 Task 1—5
 
 ## 决策
 
@@ -153,6 +153,57 @@ OCR 准确率均为 `not_run`，不得声称已生产验证。
 
 - [Qwen-OCR 使用说明](https://help.aliyun.com/zh/model-studio/qwen-vl-ocr)
 - [Qwen-OCR API 参考](https://help.aliyun.com/zh/model-studio/qwen-vl-ocr-api-reference)
+- [模型价格](https://help.aliyun.com/zh/model-studio/model-pricing)
+
+## Task 5：封面视觉层合同
+
+2026-07-29 依据百炼官方资料，封面视觉层固定使用精确快照
+`qwen-image-2.0-pro-2026-06-22`，内部合同为
+`qianwen-image-2.0-pro-2026-06-22-cover-layer-v1`，Catalog 状态保持
+`experimental`。北京和新加坡均使用由服务端地域枚举与 Provider Workspace ID
+构造的同步 Multimodal Generation 端点；客户端不能提供模型名、端点或原生 payload。
+
+图片请求固定单轮 user message、`n=1`、`prompt_extend=false`、
+`watermark=false`。只允许服务端 allowlist 中的 `seed` 和 `negative_prompt`；
+零张参考图为文生图，一至三张为图片编辑。第四张 Provider 输入在计费前失败，不会
+静默截断。输入只接受实际内容与声明一致的 PNG、JPEG、WebP，每张不超过 10 MiB，
+边长不超过 3072，总像素不超过 3072×3072；动图、SVG、伪装或损坏内容拒绝。图片
+重新编码并移除 EXIF/GPS/ICC，Base64 只存在于 Adapter 调用内存。
+
+输出固定一张，产品允许的总像素为 512×512 至 2048×2048。官方临时结果 URL
+有效期为 24 小时，但只作为即时下载入口：每次 HTTPS 跳转都执行 DNS、实际连接
+地址、私网/元数据地址、响应大小、MIME、静态图片、像素和目标尺寸校验，随后重新
+编码为 PNG。临时 URL、完整响应和图片正文不进入日志、数据库、API 或备份。
+
+千问只生成背景和主体视觉。标题、副标题、品牌名、Logo、安全区和最终中文排版由
+`cover-layout-v1` 在本地完成；Logo 永不作为 Provider 参考图。最终 PNG 仍进入
+OCR/RiskRAG。当前没有可声明为可靠的真实封面 OCR 结果时，门禁持久化
+`unavailable` OCR 扫描并强制人工复核，绝不把缺少 OCR 伪装为安全。
+
+图片生成是可能计费的非幂等操作。单个 attempt 最多一次 Provider POST，Celery 和
+HTTP 均不自动重试；请求是否到达 Provider 无法判断时记录
+`MODEL_PROVIDER_OUTCOME_UNKNOWN`。admin/editor 只有显式创建新 attempt 才能重试，
+并保留 previous attempt 关系和可能重复计费提示。相同 API 幂等范围及相同请求指纹
+返回原任务，不同指纹冲突。
+
+Provider 层先写工作区隔离 staging；程序化合成和风控完成后才登记正式引用。对象
+存储与数据库发布失败时登记 `managed_objects` 并进入
+`compensation_required`；取消任务把未发布对象转为立即可清理的 scheduled 状态。
+成功来源只保存模型、地域、配置/合同版本、输入资产版本和哈希、安全 request ID、
+输出对象与哈希、布局/OCR/RiskRAG 版本，不保存密钥、Provider Workspace ID、
+Prompt 副本、签名 URL、临时 URL、Base64、二进制或供应商错误正文。
+
+2026-07-29 官方价格页显示，北京为 0.5 元/张，新加坡为 0.550443 元/张，公开
+限流为 2 RPM；价格与限流可能变化，Task 6 真实验收前必须重新核对并设置预算。
+本 Task 只使用 MockTransport、固定 Mock 和人工合成图片，真实鉴权、地域连通性、
+效果、延迟、审核行为、费用及保留行为均为 `not_run`。
+
+官方依据：
+
+- [Qwen-Image 2.0 Pro](https://help.aliyun.com/zh/model-studio/qwen-image-2-0-pro)
+- [Qwen-Image API](https://help.aliyun.com/zh/model-studio/qwen-image-api)
+- [图片编辑指南](https://help.aliyun.com/zh/model-studio/qwen-image-edit-guide)
+- [文生图说明](https://help.aliyun.com/zh/model-studio/text-to-image)
 - [模型价格](https://help.aliyun.com/zh/model-studio/model-pricing)
 
 ## Task 4：文本 Embedding 合同

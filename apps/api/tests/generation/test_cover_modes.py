@@ -208,7 +208,7 @@ def test_custom_mode_passes_versionable_image_parameters() -> None:
         update={
             "image_parameters": {
                 "seed": 20260723,
-                "guidance_scale": 6.5,
+                "negative_prompt": "文字，Logo，水印",
             }
         }
     )
@@ -218,8 +218,131 @@ def test_custom_mode_passes_versionable_image_parameters() -> None:
     assert plan.model_request is not None
     assert plan.model_request.parameters == {
         "seed": 20260723,
-        "guidance_scale": 6.5,
+        "negative_prompt": "文字，Logo，水印",
     }
+
+
+def test_local_layout_references_are_not_sent_to_provider() -> None:
+    local = CoverReference(
+        asset_id=uuid4(),
+        purpose=ReferencePurpose.COMPOSITION,
+        provider_input=False,
+    )
+    provider = CoverReference(
+        asset_id=uuid4(),
+        purpose=ReferencePurpose.STYLE,
+        provider_input=True,
+    )
+
+    plan = build_cover_plan(
+        _request(CoverMode.AI_VISUAL, references=(local, provider))
+    )
+
+    assert plan.references == (local, provider)
+    assert plan.model_request is not None
+    assert plan.model_request.references == (provider,)
+
+
+def test_provider_reference_limit_does_not_reduce_local_reference_limit() -> None:
+    local_references = tuple(
+        CoverReference(
+            asset_id=uuid4(),
+            purpose=ReferencePurpose.COMPOSITION,
+            provider_input=False,
+        )
+        for _ in range(9)
+    )
+    provider_references = tuple(
+        CoverReference(
+            asset_id=uuid4(),
+            purpose=ReferencePurpose.STYLE,
+            provider_input=True,
+        )
+        for _ in range(3)
+    )
+
+    request = _request(
+        CoverMode.CUSTOM,
+        references=local_references + provider_references,
+    )
+    plan = build_cover_plan(request)
+
+    assert len(request.references) == 12
+    assert plan.model_request is not None
+    assert plan.model_request.references == provider_references
+
+    with pytest.raises(ValidationError, match="at most three"):
+        _request(
+            CoverMode.CUSTOM,
+            references=provider_references
+            + (
+                CoverReference(
+                    asset_id=uuid4(),
+                    purpose=ReferencePurpose.PALETTE,
+                    provider_input=True,
+                ),
+            ),
+        )
+
+
+def test_provider_reference_order_is_frozen_and_never_silently_truncated() -> None:
+    references = (
+        CoverReference(
+            asset_id=uuid4(),
+            purpose=ReferencePurpose.PRODUCT,
+            provider_input=True,
+        ),
+        CoverReference(
+            asset_id=uuid4(),
+            purpose=ReferencePurpose.PERSON,
+            provider_input=True,
+        ),
+        CoverReference(
+            asset_id=uuid4(),
+            purpose=ReferencePurpose.STYLE,
+            provider_input=True,
+        ),
+    )
+
+    plan = build_cover_plan(
+        _request(CoverMode.CUSTOM, references=references)
+    )
+
+    assert plan.model_request is not None
+    assert tuple(
+        item.asset_id for item in plan.model_request.references
+    ) == tuple(item.asset_id for item in references)
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"model": "latest"},
+        {"base_url": "https://attacker.invalid"},
+        {"watermark": True},
+        {"prompt_extend": True},
+        {"n": 3},
+        {"guidance_scale": 6.5},
+    ],
+)
+def test_custom_mode_rejects_parameters_outside_server_allowlist(
+    parameters: dict[str, object],
+) -> None:
+    with pytest.raises(ValidationError, match="allowlist"):
+        _request(CoverMode.CUSTOM).model_copy(
+            update={"image_parameters": parameters}
+        ).model_validate(
+            _request(CoverMode.CUSTOM).model_dump()
+            | {"image_parameters": parameters}
+        )
+
+
+def test_non_custom_modes_reject_custom_provider_parameters() -> None:
+    with pytest.raises(ValidationError, match="custom mode"):
+        CoverRequest.model_validate(
+            _request(CoverMode.AI_VISUAL).model_dump()
+            | {"image_parameters": {"seed": 7}}
+        )
 
 
 def test_cover_generation_rejects_adapter_without_image_capability() -> None:

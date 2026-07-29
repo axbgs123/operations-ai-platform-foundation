@@ -104,6 +104,13 @@ _current_request_id: ContextVar[str | None] = ContextVar(
 )
 _logger = logging.getLogger("operations_ai")
 
+# httpx's INFO access log includes complete request URLs. Provider endpoints
+# contain a private workspace identifier and image-result URLs are temporary
+# signed capabilities, so only the structured, allowlisted adapter telemetry
+# may be emitted at INFO.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 
 def validate_request_id(value: str | None) -> bool:
     return value is not None and _REQUEST_ID.fullmatch(value) is not None

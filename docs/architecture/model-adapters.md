@@ -39,3 +39,21 @@ model_config_id、config version、合同、维度和 generation。调用者不�
 或旧 generation。元数据过滤仍在向量排序前执行；没有匹配活动索引时返回
 `RISK_INDEX_REBUILDING`、`MODEL_CONFIGURATION_REQUIRED` 或
 `NO_ACTIVE_RISK_EVIDENCE`，不得混用旧向量或生成虚假引用。
+
+## 千问封面视觉层
+
+封面图片 Adapter 固定为 `qwen-image-2.0-pro-2026-06-22` 和
+`qianwen-image-2.0-pro-2026-06-22-cover-layer-v1`。它只生成背景/主体视觉；
+中文标题、副标题、品牌名、Logo 与安全区始终由程序化布局绘制。template 不调用
+Provider；ai_visual、hybrid、custom 分别按零至三张已授权参考图选择文生图或图片
+编辑。Logo 只在本地合成。
+
+参考图在工作区、内容归属、对象状态、版本、大小、MIME 和像素复核后重编码，Provider
+输入 Base64 只存在于调用内存。Provider 临时输出 URL 经 SSRF、重定向、连接地址、
+大小、MIME、解码和尺寸校验后立即转为受控 PNG，不保存临时 URL。
+
+图片调用没有自动重试。超时或连接结果不确定时进入
+`provider_outcome_unknown`，人工重试创建新 attempt 并串联历史。Worker 网络调用
+期间不持有数据库事务；claim、lease 和 operation version 阻止取消后的旧 Worker
+发布。成功产物保留不可变来源，失败/取消对象复用 `managed_objects`、保留策略与
+工作区删除流程。当前仅完成工程合同与 Mock 验证，真实调用留待 Task 6。

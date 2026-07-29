@@ -32,6 +32,8 @@ RUNTIME_REQUIRED_TABLES = {
     "deletion_audits",
     "product_event_outbox",
     "task_operation_events",
+    "cover_generation_runs",
+    "cover_artifact_attempts",
 }
 
 

@@ -46,6 +46,7 @@ class CoverReference(BaseModel):
 
     asset_id: UUID
     purpose: ReferencePurpose
+    provider_input: bool = True
 
 
 class CoverRequest(BaseModel):
@@ -69,7 +70,18 @@ class CoverRequest(BaseModel):
     def validate_mode_requirements(self) -> "CoverRequest":
         if self.mode is not CoverMode.TEMPLATE and self.model_config_id is None:
             raise ValueError("image model config is required for this cover mode")
-        purposes = {reference.purpose for reference in self.references}
+        provider_references = tuple(
+            reference
+            for reference in self.references
+            if reference.provider_input
+        )
+        if len(provider_references) > 3:
+            raise ValueError(
+                "at most three references may be sent to the image provider"
+            )
+        purposes = {
+            reference.purpose for reference in provider_references
+        }
         if self.mode is CoverMode.HYBRID and (
             (self.preserve_person and ReferencePurpose.PERSON not in purposes)
             or (self.preserve_product and ReferencePurpose.PRODUCT not in purposes)
@@ -81,4 +93,12 @@ class CoverRequest(BaseModel):
             self.references
         ):
             raise ValueError("reference assets must be unique")
+        if self.mode is not CoverMode.CUSTOM and self.image_parameters:
+            raise ValueError(
+                "image parameters are only supported in custom mode"
+            )
+        if set(self.image_parameters) - {"seed", "negative_prompt"}:
+            raise ValueError(
+                "custom image parameters must use the server allowlist"
+            )
         return self

@@ -20,6 +20,12 @@ QIANWEN_EMBEDDING_CONTRACT_VERSION = (
     "qianwen-text-embedding-v4-d1024-v1"
 )
 QIANWEN_EMBEDDING_DIMENSION = 1024
+QIANWEN_IMAGE_MODEL_ID: Literal["qwen-image-2.0-pro-2026-06-22"] = (
+    "qwen-image-2.0-pro-2026-06-22"
+)
+QIANWEN_IMAGE_CONTRACT_VERSION = (
+    "qianwen-image-2.0-pro-2026-06-22-cover-layer-v1"
+)
 _PROVIDER_WORKSPACE_ID = re.compile(r"^llm-[a-z0-9]{4,64}$")
 
 
@@ -56,6 +62,8 @@ class ProviderCatalogEntry(BaseModel):
     max_batch_size: int | None = None
     max_batch_tokens_by_region: dict[QianwenRegion, int] = {}
     upstream_snapshot_immutable: bool | None = None
+    max_reference_images: int | None = None
+    max_output_images: int | None = None
 
 
 _QIANWEN_TEXT = ProviderCatalogEntry(
@@ -106,10 +114,31 @@ _QIANWEN_EMBEDDING = ProviderCatalogEntry(
     },
     upstream_snapshot_immutable=False,
 )
+_QIANWEN_IMAGE = ProviderCatalogEntry(
+    provider="qianwen",
+    model_id=QIANWEN_IMAGE_MODEL_ID,
+    capabilities=frozenset({Capability.IMAGE}),
+    protocol=ProviderProtocol.DASHSCOPE_MULTIMODAL_GENERATION,
+    available_regions=frozenset(QianwenRegion),
+    adapter_status=AdapterStatus.EXPERIMENTAL,
+    structured_output_support=False,
+    thinking_mode="not_applicable",
+    contract_version=QIANWEN_IMAGE_CONTRACT_VERSION,
+    min_pixels=512 * 512,
+    max_pixels=2048 * 2048,
+    max_image_bytes=10 * 1024 * 1024,
+    supported_mime_types=frozenset(
+        {"image/png", "image/jpeg", "image/webp"}
+    ),
+    upstream_snapshot_immutable=True,
+    max_reference_images=3,
+    max_output_images=1,
+)
 _CATALOG: dict[tuple[str, str], ProviderCatalogEntry] = {
     ("qianwen", QIANWEN_TEXT_MODEL_ID): _QIANWEN_TEXT,
     ("qianwen", QIANWEN_OCR_MODEL_ID): _QIANWEN_OCR,
     ("qianwen", QIANWEN_EMBEDDING_MODEL_ID): _QIANWEN_EMBEDDING,
+    ("qianwen", QIANWEN_IMAGE_MODEL_ID): _QIANWEN_IMAGE,
 }
 
 
@@ -171,4 +200,19 @@ def build_qianwen_embedding_endpoint(
     return (
         f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
         "compatible-mode/v1/embeddings"
+    )
+
+
+def build_qianwen_image_endpoint(
+    region: QianwenRegion,
+    provider_workspace_id: str,
+) -> str:
+    try:
+        safe_region = QianwenRegion(region)
+    except ValueError as error:
+        raise ValueError("unsupported Qianwen region") from error
+    safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
+    return (
+        f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
+        "api/v1/services/aigc/multimodal-generation/generation"
     )
