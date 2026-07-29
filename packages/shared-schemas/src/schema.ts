@@ -2218,6 +2218,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/workbench/analysis-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Analysis Queue */
+        get: operations["read_analysis_queue_v1_workspaces__workspace_id__workbench_analysis_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/workbench/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Workbench Context */
+        get: operations["read_workbench_context_v1_workspaces__workspace_id__workbench_context_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/workbench/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Workbench Overview */
+        get: operations["read_workbench_overview_v1_workspaces__workspace_id__workbench_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/workbench/preflight-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Preflight Queue */
+        get: operations["read_preflight_queue_v1_workspaces__workspace_id__workbench_preflight_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/zip-restores": {
         parameters: {
             query?: never;
@@ -2392,6 +2460,54 @@ export interface components {
              * @enum {string}
              */
             rating: "useful" | "not_useful";
+        };
+        /** AnalysisQueueItem */
+        AnalysisQueueItem: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Analysis Version */
+            analysis_version?: string | null;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Safe Summary */
+            safe_summary: string;
+            /** Snapshot Count */
+            snapshot_count: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_analyzed" | "queued" | "running" | "failed";
+        };
+        /** AnalysisQueueRead */
+        AnalysisQueueRead: {
+            /** Account Id */
+            account_id: string | null;
+            /** Items */
+            items: components["schemas"]["AnalysisQueueItem"][];
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Total */
+            total: number;
         };
         /** AnalysisReport */
         AnalysisReport: {
@@ -4808,6 +4924,56 @@ export interface components {
          * @enum {string}
          */
         Platform: "douyin" | "xiaohongshu";
+        /** PreflightQueueItem */
+        PreflightQueueItem: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            /** Finding Count */
+            finding_count: number;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Safe Summary */
+            safe_summary: string;
+            /** Scan Id */
+            scan_id: string | null;
+            /** Scan Version */
+            scan_version?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_scanned" | "scan_pending" | "high_risk" | "review_required" | "clear" | "scan_failed";
+        };
+        /** PreflightQueueRead */
+        PreflightQueueRead: {
+            /** Account Id */
+            account_id: string | null;
+            /** Items */
+            items: components["schemas"]["PreflightQueueItem"][];
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Total */
+            total: number;
+        };
         /** ProductEventAck */
         ProductEventAck: {
             /** Event Name */
@@ -6164,6 +6330,126 @@ export interface components {
              * @enum {string}
              */
             status: "AVAILABLE" | "INSUFFICIENT_SAMPLE";
+        };
+        /** WorkbenchAccountCard */
+        WorkbenchAccountCard: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            completeness: components["schemas"]["WorkbenchCompleteness"];
+            content_type_counts: components["schemas"]["WorkbenchContentTypeCounts"];
+            /** Has Current Week Closed Loop */
+            has_current_week_closed_loop: boolean;
+            /** Name */
+            name: string;
+            /** Open Risk Count */
+            open_risk_count: number;
+            /** Pending Analysis Count */
+            pending_analysis_count: number;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+        };
+        /** WorkbenchAccountOption */
+        WorkbenchAccountOption: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+        };
+        /** WorkbenchAttentionCounts */
+        WorkbenchAttentionCounts: {
+            /** Failed Task Count */
+            failed_task_count: number;
+            /** High Risk Count */
+            high_risk_count: number;
+            /** Low Confidence Ocr Count */
+            low_confidence_ocr_count: number;
+            /** Pending Analysis Count */
+            pending_analysis_count: number;
+        };
+        /** WorkbenchCompleteness */
+        WorkbenchCompleteness: {
+            /** Missing Items */
+            missing_items: string[];
+            /** Score */
+            score: number;
+            /** Version */
+            version: string;
+        };
+        /** WorkbenchContentTypeCounts */
+        WorkbenchContentTypeCounts: {
+            /** Image Text */
+            image_text: number;
+            /** Video */
+            video: number;
+        };
+        /** WorkbenchContextRead */
+        WorkbenchContextRead: {
+            /** Accounts */
+            accounts: components["schemas"]["WorkbenchAccountOption"][];
+            /** Failed Task Count */
+            failed_task_count: number;
+            /** Member Display Name */
+            member_display_name: string;
+            /**
+             * Member Id
+             * Format: uuid
+             */
+            member_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "editor" | "viewer";
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+            /** Workspace Name */
+            workspace_name: string;
+        };
+        /** WorkbenchDataStatus */
+        WorkbenchDataStatus: {
+            /** Account Count */
+            account_count: number;
+            /** Accounts Missing Recommended Snapshot */
+            accounts_missing_recommended_snapshot: number;
+            /** Imports Waiting Confirmation */
+            imports_waiting_confirmation: number;
+        };
+        /** WorkbenchNextAction */
+        WorkbenchNextAction: {
+            /** Href */
+            href: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "confirm_import" | "review_analysis" | "review_preflight";
+            /** Label */
+            label: string;
+        };
+        /** WorkbenchOverviewRead */
+        WorkbenchOverviewRead: {
+            /** Accounts */
+            accounts: components["schemas"]["WorkbenchAccountCard"][];
+            attention: components["schemas"]["WorkbenchAttentionCounts"];
+            data_status: components["schemas"]["WorkbenchDataStatus"];
+            next_action: components["schemas"]["WorkbenchNextAction"] | null;
         };
         /** WorkspaceCreate */
         WorkspaceCreate: {
@@ -11563,6 +11849,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViralLibraryItemRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_analysis_queue_v1_workspaces__workspace_id__workbench_analysis_queue_get: {
+        parameters: {
+            query: {
+                platform: "douyin" | "xiaohongshu";
+                account_id?: string | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisQueueRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_workbench_context_v1_workspaces__workspace_id__workbench_context_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkbenchContextRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_workbench_overview_v1_workspaces__workspace_id__workbench_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkbenchOverviewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_preflight_queue_v1_workspaces__workspace_id__workbench_preflight_queue_get: {
+        parameters: {
+            query: {
+                platform: "douyin" | "xiaohongshu";
+                account_id?: string | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreflightQueueRead"];
                 };
             };
             /** @description Validation Error */

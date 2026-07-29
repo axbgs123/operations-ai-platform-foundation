@@ -37,6 +37,7 @@ from app.modules.style_facts.style_router import router as style_profiles_router
 from app.modules.style_facts.fact_router import router as fact_sources_router
 from app.modules.generation.router import router as generation_router
 from app.modules.workspace.router import router as workspace_router
+from app.modules.workbench.router import router as workbench_router
 
 app = FastAPI(title="Operations AI Platform API")
 app.add_middleware(RateLimitMiddleware)
@@ -57,6 +58,7 @@ app.add_middleware(
     expose_headers=["X-Request-ID", "Retry-After"],
 )
 app.include_router(workspace_router)
+app.include_router(workbench_router)
 app.include_router(demo_router)
 app.include_router(exports_router)
 app.include_router(restore_router)

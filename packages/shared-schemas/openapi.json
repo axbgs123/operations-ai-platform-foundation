@@ -271,6 +271,127 @@
         "title": "AnalysisFeedbackInput",
         "type": "object"
       },
+      "AnalysisQueueItem": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "analysis_version": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analysis Version"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "safe_summary": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Safe Summary",
+            "type": "string"
+          },
+          "snapshot_count": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Snapshot Count",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "not_analyzed",
+              "queued",
+              "running",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_id",
+          "account_id",
+          "platform",
+          "content_type",
+          "status",
+          "snapshot_count",
+          "safe_summary"
+        ],
+        "title": "AnalysisQueueItem",
+        "type": "object"
+      },
+      "AnalysisQueueRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "platform",
+          "account_id",
+          "total",
+          "items"
+        ],
+        "title": "AnalysisQueueRead",
+        "type": "object"
+      },
       "AnalysisReport": {
         "additionalProperties": false,
         "properties": {
@@ -6599,6 +6720,142 @@
         "title": "Platform",
         "type": "string"
       },
+      "PreflightQueueItem": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "finding_count": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Finding Count",
+            "type": "integer"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "safe_summary": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Safe Summary",
+            "type": "string"
+          },
+          "scan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Id"
+          },
+          "scan_version": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Version"
+          },
+          "status": {
+            "enum": [
+              "not_scanned",
+              "scan_pending",
+              "high_risk",
+              "review_required",
+              "clear",
+              "scan_failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_id",
+          "account_id",
+          "platform",
+          "content_type",
+          "status",
+          "scan_id",
+          "finding_count",
+          "safe_summary"
+        ],
+        "title": "PreflightQueueItem",
+        "type": "object"
+      },
+      "PreflightQueueRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PreflightQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "platform",
+          "account_id",
+          "total",
+          "items"
+        ],
+        "title": "PreflightQueueRead",
+        "type": "object"
+      },
       "ProductEventAck": {
         "properties": {
           "event_name": {
@@ -10046,6 +10303,333 @@
           "rate"
         ],
         "title": "WeeklyRetention",
+        "type": "object"
+      },
+      "WorkbenchAccountCard": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "completeness": {
+            "$ref": "#/components/schemas/WorkbenchCompleteness"
+          },
+          "content_type_counts": {
+            "$ref": "#/components/schemas/WorkbenchContentTypeCounts"
+          },
+          "has_current_week_closed_loop": {
+            "title": "Has Current Week Closed Loop",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "open_risk_count": {
+            "minimum": 0.0,
+            "title": "Open Risk Count",
+            "type": "integer"
+          },
+          "pending_analysis_count": {
+            "minimum": 0.0,
+            "title": "Pending Analysis Count",
+            "type": "integer"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "platform",
+          "name",
+          "content_type_counts",
+          "completeness",
+          "pending_analysis_count",
+          "open_risk_count",
+          "has_current_week_closed_loop"
+        ],
+        "title": "WorkbenchAccountCard",
+        "type": "object"
+      },
+      "WorkbenchAccountOption": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id",
+          "platform",
+          "name"
+        ],
+        "title": "WorkbenchAccountOption",
+        "type": "object"
+      },
+      "WorkbenchAttentionCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "failed_task_count": {
+            "minimum": 0.0,
+            "title": "Failed Task Count",
+            "type": "integer"
+          },
+          "high_risk_count": {
+            "minimum": 0.0,
+            "title": "High Risk Count",
+            "type": "integer"
+          },
+          "low_confidence_ocr_count": {
+            "minimum": 0.0,
+            "title": "Low Confidence Ocr Count",
+            "type": "integer"
+          },
+          "pending_analysis_count": {
+            "minimum": 0.0,
+            "title": "Pending Analysis Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pending_analysis_count",
+          "high_risk_count",
+          "low_confidence_ocr_count",
+          "failed_task_count"
+        ],
+        "title": "WorkbenchAttentionCounts",
+        "type": "object"
+      },
+      "WorkbenchCompleteness": {
+        "additionalProperties": false,
+        "properties": {
+          "missing_items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Items",
+            "type": "array"
+          },
+          "score": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "version": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "score",
+          "missing_items",
+          "version"
+        ],
+        "title": "WorkbenchCompleteness",
+        "type": "object"
+      },
+      "WorkbenchContentTypeCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "image_text": {
+            "minimum": 0.0,
+            "title": "Image Text",
+            "type": "integer"
+          },
+          "video": {
+            "minimum": 0.0,
+            "title": "Video",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "video",
+          "image_text"
+        ],
+        "title": "WorkbenchContentTypeCounts",
+        "type": "object"
+      },
+      "WorkbenchContextRead": {
+        "additionalProperties": false,
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/WorkbenchAccountOption"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "failed_task_count": {
+            "minimum": 0.0,
+            "title": "Failed Task Count",
+            "type": "integer"
+          },
+          "member_display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Member Display Name",
+            "type": "string"
+          },
+          "member_id": {
+            "format": "uuid",
+            "title": "Member Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "admin",
+              "editor",
+              "viewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "workspace_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Workspace Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_id",
+          "workspace_name",
+          "member_id",
+          "member_display_name",
+          "role",
+          "accounts",
+          "failed_task_count"
+        ],
+        "title": "WorkbenchContextRead",
+        "type": "object"
+      },
+      "WorkbenchDataStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "account_count": {
+            "minimum": 0.0,
+            "title": "Account Count",
+            "type": "integer"
+          },
+          "accounts_missing_recommended_snapshot": {
+            "minimum": 0.0,
+            "title": "Accounts Missing Recommended Snapshot",
+            "type": "integer"
+          },
+          "imports_waiting_confirmation": {
+            "minimum": 0.0,
+            "title": "Imports Waiting Confirmation",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account_count",
+          "accounts_missing_recommended_snapshot",
+          "imports_waiting_confirmation"
+        ],
+        "title": "WorkbenchDataStatus",
+        "type": "object"
+      },
+      "WorkbenchNextAction": {
+        "additionalProperties": false,
+        "properties": {
+          "href": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Href",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "confirm_import",
+              "review_analysis",
+              "review_preflight"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "href"
+        ],
+        "title": "WorkbenchNextAction",
+        "type": "object"
+      },
+      "WorkbenchOverviewRead": {
+        "additionalProperties": false,
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/WorkbenchAccountCard"
+            },
+            "title": "Accounts",
+            "type": "array"
+          },
+          "attention": {
+            "$ref": "#/components/schemas/WorkbenchAttentionCounts"
+          },
+          "data_status": {
+            "$ref": "#/components/schemas/WorkbenchDataStatus"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkbenchNextAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "data_status",
+          "attention",
+          "next_action",
+          "accounts"
+        ],
+        "title": "WorkbenchOverviewRead",
         "type": "object"
       },
       "WorkspaceCreate": {
@@ -21735,6 +22319,302 @@
         "summary": "Revoke Viral Library Item",
         "tags": [
           "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/workbench/analysis-queue": {
+      "get": {
+        "operationId": "read_analysis_queue_v1_workspaces__workspace_id__workbench_analysis_queue_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "enum": [
+                "douyin",
+                "xiaohongshu"
+              ],
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisQueueRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Analysis Queue",
+        "tags": [
+          "workbench"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/workbench/context": {
+      "get": {
+        "operationId": "read_workbench_context_v1_workspaces__workspace_id__workbench_context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbenchContextRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Workbench Context",
+        "tags": [
+          "workbench"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/workbench/overview": {
+      "get": {
+        "operationId": "read_workbench_overview_v1_workspaces__workspace_id__workbench_overview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkbenchOverviewRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Workbench Overview",
+        "tags": [
+          "workbench"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/workbench/preflight-queue": {
+      "get": {
+        "operationId": "read_preflight_queue_v1_workspaces__workspace_id__workbench_preflight_queue_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "required": true,
+            "schema": {
+              "enum": [
+                "douyin",
+                "xiaohongshu"
+              ],
+              "title": "Platform",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreflightQueueRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Preflight Queue",
+        "tags": [
+          "workbench"
         ]
       }
     },
