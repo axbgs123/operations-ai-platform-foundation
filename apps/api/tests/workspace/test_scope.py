@@ -15,6 +15,9 @@ from app.modules.workspace.models import (
 from app.modules.workspace.repository import WorkspaceMemberRepository
 
 
+pytestmark = pytest.mark.isolation
+
+
 @pytest.fixture
 def session() -> Session:
     engine = create_engine("sqlite+pysqlite:///:memory:")

@@ -76,6 +76,7 @@ class RenderedCover:
 
 
 _CJK_FONT_CANDIDATES = (
+    "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     "/System/Library/Fonts/Hiragino Sans GB.ttc",

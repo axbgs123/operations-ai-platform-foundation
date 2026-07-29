@@ -22,6 +22,7 @@ from app.modules.exports.models import ExportKind, ExportStatus, ExportTask
 from app.modules.exports.models import (
     FullRestorePhase,
     FullRestoreStatus,
+    KnowledgeIndexRebuild,
     RestoreJob,
 )
 from app.modules.exports.manifest import (
@@ -88,6 +89,20 @@ class ExportTaskRead(BaseModel):
     error_code: str | None
 
 
+class KnowledgeIndexRebuildRead(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    platform: Literal["douyin", "xiaohongshu"]
+    status: Literal[
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "configuration_required",
+    ]
+    error_code: str | None
+
+
 class FullRestoreRead(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -119,6 +134,7 @@ class FullRestoreRead(BaseModel):
     preview: dict[str, object]
     error_code: str | None
     knowledge_index_message: str | None
+    knowledge_indexes: list[KnowledgeIndexRebuildRead]
 
 
 class FullRestoreConfirm(BaseModel):
@@ -178,7 +194,14 @@ def _payload(task: ExportTask, storage: Storage | None = None) -> ExportTaskRead
     )
 
 
-def _restore_payload(job: RestoreJob) -> FullRestoreRead:
+def _restore_payload(session: Session, job: RestoreJob) -> FullRestoreRead:
+    knowledge_indexes = list(
+        session.scalars(
+            select(KnowledgeIndexRebuild)
+            .where(KnowledgeIndexRebuild.restore_job_id == job.id)
+            .order_by(KnowledgeIndexRebuild.platform, KnowledgeIndexRebuild.id)
+        )
+    )
     return FullRestoreRead(
         id=job.id,
         workspace_id=job.workspace_id,
@@ -191,6 +214,14 @@ def _restore_payload(job: RestoreJob) -> FullRestoreRead:
         preview=job.preview_json,
         error_code=job.error_code,
         knowledge_index_message=job.knowledge_index_message,
+        knowledge_indexes=[
+            KnowledgeIndexRebuildRead(
+                platform=index.platform.value,
+                status=index.status.value,
+                error_code=index.error_code,
+            )
+            for index in knowledge_indexes
+        ],
     )
 
 
@@ -370,7 +401,7 @@ async def create_zip_restore(
             detail={"code": "BACKUP_REFERENCE_INVALID"},
         ) from error
     session.commit()
-    return _restore_payload(job)
+    return _restore_payload(session, job)
 
 
 @zip_restore_router.get(
@@ -398,7 +429,7 @@ def read_zip_restore(
     )
     if job is None:
         raise HTTPException(status_code=404, detail="restore not found")
-    return _restore_payload(job)
+    return _restore_payload(session, job)
 
 
 @zip_restore_router.post(
@@ -466,4 +497,4 @@ def confirm_zip_restore(
                 status_code=503,
                 detail="restore queue unavailable",
             ) from error
-    return _restore_payload(job)
+    return _restore_payload(session, job)

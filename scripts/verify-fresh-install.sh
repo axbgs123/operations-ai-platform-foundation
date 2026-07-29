@@ -117,6 +117,7 @@ printf '%s\n' \
   "WEB_PORT=$web_port" \
   "S3_PORT=$s3_port" \
   "S3_CONSOLE_PORT=$s3_console_port" \
+  'S3_PUBLIC_ENDPOINT=http://object-storage:9000' \
   "POSTGRES_PORT=$postgres_port" \
   'NEXT_PUBLIC_API_URL=http://api:8000' \
   'WEB_ORIGIN=http://web:3000' >>"$env_file"

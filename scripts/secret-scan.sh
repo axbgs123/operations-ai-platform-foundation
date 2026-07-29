@@ -15,7 +15,7 @@ done
 
 is_synthetic_fixture_match() {
   case "$1:$2" in
-    apps/api/app/core/rate_limit.py:327:6b4dec44c198ef00618fdbc70f28ab8c6ff0f83c49fe5c953660e7de304878e1|apps/api/app/modules/risk_rag/evaluation.py:30:0c231ea81472b877e89fb27bc53b9c74e3e62e389334559efa6eeb1bb2fec072|apps/api/tests/core/test_log_redaction.py:25:0a5ffaa8a0c5bb3d72a9fc4f5f7fc81fa55d6a7e5e491cf2712caf75f9d38b9d|apps/api/tests/workspace/test_workspace_api.py:72:20329df5496549a2208616a9c760d578328fdd6f886d942c27c1c7abf261926a)
+    apps/api/app/core/rate_limit.py:*:6b4dec44c198ef00618fdbc70f28ab8c6ff0f83c49fe5c953660e7de304878e1|apps/api/app/modules/risk_rag/evaluation.py:*:0c231ea81472b877e89fb27bc53b9c74e3e62e389334559efa6eeb1bb2fec072|apps/api/tests/core/test_log_redaction.py:*:0a5ffaa8a0c5bb3d72a9fc4f5f7fc81fa55d6a7e5e491cf2712caf75f9d38b9d|apps/api/tests/workspace/test_workspace_api.py:*:20329df5496549a2208616a9c760d578328fdd6f886d942c27c1c7abf261926a)
       return 0 ;;
     *)
       return 1 ;;

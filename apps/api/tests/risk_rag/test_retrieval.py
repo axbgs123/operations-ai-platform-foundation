@@ -27,6 +27,9 @@ from app.modules.risk_rag.retrieval import (
 from app.modules.workspace.models import Workspace
 
 
+pytestmark = pytest.mark.isolation
+
+
 NOW = datetime(2026, 7, 23, 8, tzinfo=UTC)
 
 

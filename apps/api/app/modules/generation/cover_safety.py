@@ -122,7 +122,15 @@ class PersistedCoverSafetyGate:
             ocr=ocr,
             idempotency_key=(
                 "cover:"
-                + hashlib.sha256(png_bytes).hexdigest()
+                + hashlib.sha256(
+                    (
+                        str(content_id)
+                        + ":"
+                        + requested_at.isoformat()
+                        + ":"
+                        + hashlib.sha256(png_bytes).hexdigest()
+                    ).encode()
+                ).hexdigest()
             ),
             versions=RiskScanVersions(
                 rule_version="cover-risk-rules-v1",

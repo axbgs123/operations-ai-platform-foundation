@@ -18,6 +18,9 @@ from app.core.rate_limit import (
 )
 
 
+pytestmark = pytest.mark.security
+
+
 def test_atomic_backend_never_overshoots_under_concurrency() -> None:
     limiter = RateLimiter(
         InMemoryAtomicBackend(),

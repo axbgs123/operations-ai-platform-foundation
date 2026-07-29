@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -8,6 +9,9 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base, get_session
 from app.demo_seed import seed_demo
 from app.main import app
+
+
+pytestmark = pytest.mark.isolation
 
 
 def test_public_demo_exposes_only_immutable_synthetic_seed_data() -> None:

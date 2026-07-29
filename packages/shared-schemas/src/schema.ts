@@ -1191,6 +1191,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/generation/cover-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Cover Generation */
+        post: operations["request_cover_generation_v1_workspaces__workspace_id__generation_cover_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/generation/cover-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Cover Generation */
+        get: operations["read_cover_generation_v1_workspaces__workspace_id__generation_cover_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/generation/text-runs": {
         parameters: {
             query?: never;
@@ -1837,6 +1871,23 @@ export interface paths {
         put?: never;
         /** Transition Risk Document */
         post: operations["transition_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__transitions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Risk Document */
+        post: operations["upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2598,6 +2649,13 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** Body_upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post */
+        Body_upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post: {
+            /** File */
+            file: string;
+            /** Redistribution Authorized */
+            redistribution_authorized: boolean;
+        };
         /**
          * Capability
          * @enum {string}
@@ -2935,6 +2993,159 @@ export interface components {
              * @enum {string}
              */
             region: "cn-beijing" | "ap-southeast-1";
+        };
+        /** CoverAttemptRead */
+        CoverAttemptRead: {
+            /** Attempt Number */
+            attempt_number: number;
+            /** Disclaimer */
+            disclaimer: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Layout Version */
+            layout_version: string | null;
+            /** Ocr Confidence */
+            ocr_confidence: number | null;
+            /** Ocr Model Version */
+            ocr_model_version: string | null;
+            /** Output Height */
+            output_height: number | null;
+            /** Output Mime Type */
+            output_mime_type: string | null;
+            /** Output Sha256 */
+            output_sha256: string | null;
+            /** Output Width */
+            output_width: number | null;
+            /** Publish Eligible */
+            publish_eligible: boolean;
+            /** Requires Human Review */
+            requires_human_review: boolean;
+            /** Risk Rule Version */
+            risk_rule_version: string | null;
+            /** Risk Scan Id */
+            risk_scan_id: string | null;
+            /** Status */
+            status: string;
+        };
+        /** CoverGenerationCreate */
+        CoverGenerationCreate: {
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            request: components["schemas"]["CoverRequest"];
+        };
+        /** CoverGenerationRunRead */
+        CoverGenerationRunRead: {
+            /** Attempt Count */
+            attempt_count: number;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Content Id
+             * Format: uuid
+             */
+            content_id: string;
+            /** Cover Mode */
+            cover_mode: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            latest_attempt: components["schemas"]["CoverAttemptRead"] | null;
+            /** Model Id */
+            model_id: string;
+            /** Platform */
+            platform: string;
+            /** Provider */
+            provider: string;
+            /** Status */
+            status: string;
+            /** Status Detail */
+            status_detail: string | null;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /**
+         * CoverMode
+         * @enum {string}
+         */
+        CoverMode: "template" | "ai_visual" | "hybrid" | "custom";
+        /** CoverReference */
+        CoverReference: {
+            /**
+             * Asset Id
+             * Format: uuid
+             */
+            asset_id: string;
+            /**
+             * Provider Input
+             * @default true
+             */
+            provider_input: boolean;
+            purpose: components["schemas"]["ReferencePurpose"];
+        };
+        /** CoverRequest */
+        CoverRequest: {
+            /**
+             * Brand Name
+             * @default 示例品牌
+             */
+            brand_name: string;
+            /** Headline */
+            headline: string;
+            /** Image Parameters */
+            image_parameters?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Logo Asset Id */
+            logo_asset_id?: string | null;
+            mode: components["schemas"]["CoverMode"];
+            /** Model Config Id */
+            model_config_id?: string | null;
+            /**
+             * Preserve Person
+             * @default false
+             */
+            preserve_person: boolean;
+            /**
+             * Preserve Product
+             * @default false
+             */
+            preserve_product: boolean;
+            /** Prompt */
+            prompt: string;
+            /**
+             * References
+             * @default []
+             */
+            references: components["schemas"]["CoverReference"][];
+            safe_area?: components["schemas"]["SafeAreaSpec"];
+            size: components["schemas"]["CoverSize"];
+            /**
+             * Subtitle
+             * @default
+             */
+            subtitle: string;
+        };
+        /** CoverSize */
+        CoverSize: {
+            /** Height */
+            height: number;
+            /** Width */
+            width: number;
         };
         /** DashboardAttentionItem */
         DashboardAttentionItem: {
@@ -3706,6 +3917,8 @@ export interface components {
             id: string;
             /** Knowledge Index Message */
             knowledge_index_message: string | null;
+            /** Knowledge Indexes */
+            knowledge_indexes: components["schemas"]["KnowledgeIndexRebuildRead"][];
             /** Manifest Fingerprint */
             manifest_fingerprint: string;
             /**
@@ -4047,6 +4260,22 @@ export interface components {
             code: string;
             /** Display Name */
             display_name: string;
+        };
+        JsonValue: unknown;
+        /** KnowledgeIndexRebuildRead */
+        KnowledgeIndexRebuildRead: {
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "configuration_required";
         };
         /** ManualPreviewRequest */
         ManualPreviewRequest: {
@@ -4665,6 +4894,11 @@ export interface components {
          * @enum {string}
          */
         RecordType: "platform_account" | "objective_profile" | "benchmark_profile" | "column_campaign" | "metric_definition" | "content" | "asset_reference" | "data_snapshot" | "snapshot_metric_value" | "style_profile" | "style_sample" | "fact_source_metadata" | "fact_item" | "risk_document_metadata";
+        /**
+         * ReferencePurpose
+         * @enum {string}
+         */
+        ReferencePurpose: "composition" | "style" | "person" | "product" | "palette";
         /** ResponseMeta */
         ResponseMeta: {
             /**
@@ -5212,6 +5446,29 @@ export interface components {
          * @enum {string}
          */
         RiskSourceLevel: "S1" | "S2" | "S3" | "S4" | "S5";
+        /** SafeAreaSpec */
+        SafeAreaSpec: {
+            /**
+             * Height
+             * @default 0.84
+             */
+            height: number;
+            /**
+             * Width
+             * @default 0.84
+             */
+            width: number;
+            /**
+             * X
+             * @default 0.08
+             */
+            x: number;
+            /**
+             * Y
+             * @default 0.08
+             */
+            y: number;
+        };
         /**
          * ScanSeverity
          * @enum {string}
@@ -8865,6 +9122,80 @@ export interface operations {
             };
         };
     };
+    request_cover_generation_v1_workspaces__workspace_id__generation_cover_runs_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoverGenerationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverGenerationRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_cover_generation_v1_workspaces__workspace_id__generation_cover_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoverGenerationRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     request_text_generation_v1_workspaces__workspace_id__generation_text_runs_post: {
         parameters: {
             query?: never;
@@ -10456,6 +10787,46 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RiskDocumentTransition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                document_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post"];
             };
         };
         responses: {

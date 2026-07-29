@@ -914,6 +914,25 @@
         "title": "Body_upload_fact_source_v1_workspaces__workspace_id__fact_sources_upload_post",
         "type": "object"
       },
+      "Body_upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "redistribution_authorized": {
+            "title": "Redistribution Authorized",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "file",
+          "redistribution_authorized"
+        ],
+        "title": "Body_upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post",
+        "type": "object"
+      },
       "Capability": {
         "enum": [
           "text",
@@ -1880,6 +1899,443 @@
           "confirm_real_call"
         ],
         "title": "ControlledValidationRequest",
+        "type": "object"
+      },
+      "CoverAttemptRead": {
+        "properties": {
+          "attempt_number": {
+            "title": "Attempt Number",
+            "type": "integer"
+          },
+          "disclaimer": {
+            "title": "Disclaimer",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "layout_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Layout Version"
+          },
+          "ocr_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Confidence"
+          },
+          "ocr_model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ocr Model Version"
+          },
+          "output_height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Height"
+          },
+          "output_mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Mime Type"
+          },
+          "output_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Sha256"
+          },
+          "output_width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Width"
+          },
+          "publish_eligible": {
+            "title": "Publish Eligible",
+            "type": "boolean"
+          },
+          "requires_human_review": {
+            "title": "Requires Human Review",
+            "type": "boolean"
+          },
+          "risk_rule_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Rule Version"
+          },
+          "risk_scan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Scan Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "attempt_number",
+          "status",
+          "output_sha256",
+          "output_mime_type",
+          "output_width",
+          "output_height",
+          "layout_version",
+          "ocr_model_version",
+          "ocr_confidence",
+          "risk_scan_id",
+          "risk_rule_version",
+          "requires_human_review",
+          "publish_eligible",
+          "disclaimer",
+          "error_code"
+        ],
+        "title": "CoverAttemptRead",
+        "type": "object"
+      },
+      "CoverGenerationCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "request": {
+            "$ref": "#/components/schemas/CoverRequest"
+          }
+        },
+        "required": [
+          "content_id",
+          "request"
+        ],
+        "title": "CoverGenerationCreate",
+        "type": "object"
+      },
+      "CoverGenerationRunRead": {
+        "properties": {
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "content_id": {
+            "format": "uuid",
+            "title": "Content Id",
+            "type": "string"
+          },
+          "cover_mode": {
+            "title": "Cover Mode",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "latest_attempt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoverAttemptRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Detail"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "content_id",
+          "platform",
+          "provider",
+          "model_id",
+          "cover_mode",
+          "status",
+          "attempt_count",
+          "error_code",
+          "status_detail",
+          "completed_at",
+          "latest_attempt"
+        ],
+        "title": "CoverGenerationRunRead",
+        "type": "object"
+      },
+      "CoverMode": {
+        "enum": [
+          "template",
+          "ai_visual",
+          "hybrid",
+          "custom"
+        ],
+        "title": "CoverMode",
+        "type": "string"
+      },
+      "CoverReference": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "provider_input": {
+            "default": true,
+            "title": "Provider Input",
+            "type": "boolean"
+          },
+          "purpose": {
+            "$ref": "#/components/schemas/ReferencePurpose"
+          }
+        },
+        "required": [
+          "asset_id",
+          "purpose"
+        ],
+        "title": "CoverReference",
+        "type": "object"
+      },
+      "CoverRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "brand_name": {
+            "default": "示例品牌",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Brand Name",
+            "type": "string"
+          },
+          "headline": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Headline",
+            "type": "string"
+          },
+          "image_parameters": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Image Parameters",
+            "type": "object"
+          },
+          "logo_asset_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Asset Id"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/CoverMode"
+          },
+          "model_config_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Config Id"
+          },
+          "preserve_person": {
+            "default": false,
+            "title": "Preserve Person",
+            "type": "boolean"
+          },
+          "preserve_product": {
+            "default": false,
+            "title": "Preserve Product",
+            "type": "boolean"
+          },
+          "prompt": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Prompt",
+            "type": "string"
+          },
+          "references": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CoverReference"
+            },
+            "maxItems": 12,
+            "title": "References",
+            "type": "array"
+          },
+          "safe_area": {
+            "$ref": "#/components/schemas/SafeAreaSpec"
+          },
+          "size": {
+            "$ref": "#/components/schemas/CoverSize"
+          },
+          "subtitle": {
+            "default": "",
+            "maxLength": 400,
+            "title": "Subtitle",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "size",
+          "prompt",
+          "headline"
+        ],
+        "title": "CoverRequest",
+        "type": "object"
+      },
+      "CoverSize": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "maximum": 4096.0,
+            "minimum": 256.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "width": {
+            "maximum": 4096.0,
+            "minimum": 256.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width",
+          "height"
+        ],
+        "title": "CoverSize",
         "type": "object"
       },
       "DashboardAttentionItem": {
@@ -3871,6 +4327,13 @@
             ],
             "title": "Knowledge Index Message"
           },
+          "knowledge_indexes": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeIndexRebuildRead"
+            },
+            "title": "Knowledge Indexes",
+            "type": "array"
+          },
           "manifest_fingerprint": {
             "title": "Manifest Fingerprint",
             "type": "string"
@@ -3941,7 +4404,8 @@
           "manifest_fingerprint",
           "preview",
           "error_code",
-          "knowledge_index_message"
+          "knowledge_index_message",
+          "knowledge_indexes"
         ],
         "title": "FullRestoreRead",
         "type": "object"
@@ -4766,6 +5230,49 @@
           "display_name"
         ],
         "title": "InviteLogin",
+        "type": "object"
+      },
+      "JsonValue": {},
+      "KnowledgeIndexRebuildRead": {
+        "additionalProperties": false,
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "configuration_required"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "platform",
+          "status",
+          "error_code"
+        ],
+        "title": "KnowledgeIndexRebuildRead",
         "type": "object"
       },
       "ManualPreviewRequest": {
@@ -6335,6 +6842,17 @@
         "title": "RecordType",
         "type": "string"
       },
+      "ReferencePurpose": {
+        "enum": [
+          "composition",
+          "style",
+          "person",
+          "product",
+          "palette"
+        ],
+        "title": "ReferencePurpose",
+        "type": "string"
+      },
       "ResponseMeta": {
         "properties": {
           "request_id": {
@@ -7767,6 +8285,41 @@
         ],
         "title": "RiskSourceLevel",
         "type": "string"
+      },
+      "SafeAreaSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "default": 0.84,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Height",
+            "type": "number"
+          },
+          "width": {
+            "default": 0.84,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Width",
+            "type": "number"
+          },
+          "x": {
+            "default": 0.08,
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "default": 0.08,
+            "exclusiveMaximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "title": "SafeAreaSpec",
+        "type": "object"
       },
       "ScanSeverity": {
         "enum": [
@@ -15734,6 +16287,169 @@
         ]
       }
     },
+    "/v1/workspaces/{workspace_id}/generation/cover-runs": {
+      "post": {
+        "operationId": "request_cover_generation_v1_workspaces__workspace_id__generation_cover_runs_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CoverGenerationCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverGenerationRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Cover Generation",
+        "tags": [
+          "generation"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/generation/cover-runs/{run_id}": {
+      "get": {
+        "operationId": "read_cover_generation_v1_workspaces__workspace_id__generation_cover_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CoverGenerationRunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Cover Generation",
+        "tags": [
+          "generation"
+        ]
+      }
+    },
     "/v1/workspaces/{workspace_id}/generation/text-runs": {
       "post": {
         "operationId": "request_text_generation_v1_workspaces__workspace_id__generation_text_runs_post",
@@ -19336,6 +20052,101 @@
           }
         },
         "summary": "Transition Risk Document",
+        "tags": [
+          "risk-knowledge"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/risk-documents/{document_id}/upload": {
+      "post": {
+        "operationId": "upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RiskDocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Risk Document",
         "tags": [
           "risk-knowledge"
         ]

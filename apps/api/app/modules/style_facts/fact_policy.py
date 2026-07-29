@@ -130,6 +130,18 @@ class CanonicalFactField:
 def canonicalize_fact_field(field_name: str) -> CanonicalFactField:
     if not field_name.strip():
         raise ValueError("fact field name is required")
+    if field_name.strip().casefold().startswith("custom:"):
+        custom_name = _normalized_field(
+            field_name.strip().split(":", maxsplit=1)[1]
+        )
+        return CanonicalFactField(
+            code=(
+                f"custom:{custom_name}"
+                if custom_name
+                else "custom:unclassified"
+            ),
+            visual_field=None,
+        )
     normalized = _normalized_field(field_name)
     if not normalized:
         return CanonicalFactField(

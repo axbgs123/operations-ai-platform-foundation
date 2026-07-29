@@ -75,6 +75,10 @@ def test_non_visual_or_higher_level_fact_can_be_confirmed() -> None:
     assert canonicalize_fact_field("-").code == "custom:unclassified"
     assert canonicalize_fact_field("Straße").code == "custom:straße"
     assert canonicalize_fact_field("ẞ").code == "custom:ß"
+    assert (
+        canonicalize_fact_field("custom:产品名称").code
+        == "custom:产品名称"
+    )
     with pytest.raises(ValueError, match="required"):
         canonicalize_fact_field("  ")
 

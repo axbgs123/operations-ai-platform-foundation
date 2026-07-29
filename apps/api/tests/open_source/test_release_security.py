@@ -5,9 +5,12 @@ from pathlib import Path
 import re
 import subprocess
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SECURITY_TOOL = REPO_ROOT / "scripts" / "release-security.py"
+pytestmark = pytest.mark.security
 
 
 def run_tool(*args: str, cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess[str]:

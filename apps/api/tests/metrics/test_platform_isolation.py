@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -22,6 +23,9 @@ from app.modules.metrics.benchmark import (
 from app.modules.metrics.benchmark_tasks import process_snapshot_confirmed_event
 from app.modules.metrics.models import BenchmarkRun, MetricOutboxEvent
 from app.modules.workspace.router import invite_attempts
+
+
+pytestmark = pytest.mark.isolation
 
 
 @contextmanager

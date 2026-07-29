@@ -2,6 +2,7 @@ import json
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 
 from app.core.logging import (
     REDACTED,
@@ -11,6 +12,9 @@ from app.core.logging import (
     task_request_context,
     validate_request_id,
 )
+
+
+pytestmark = pytest.mark.security
 
 
 def test_structured_log_uses_whitelist_and_recursively_redacts_secrets() -> None:

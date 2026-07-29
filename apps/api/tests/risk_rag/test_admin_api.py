@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.content.test_content_detail import (
@@ -10,6 +11,7 @@ from tests.content.test_content_detail import (
 )
 
 
+pytestmark = pytest.mark.isolation
 NOW = "2026-07-23T12:00:00Z"
 
 

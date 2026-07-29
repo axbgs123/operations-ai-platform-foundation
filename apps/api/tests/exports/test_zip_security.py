@@ -21,6 +21,9 @@ from app.modules.exports.zip_restore import (
 )
 
 
+pytestmark = pytest.mark.security
+
+
 def test_checksums_require_every_declared_file_and_reject_tampering() -> None:
     files = {
         "manifest.json": b'{"schema_version":"1.0.0"}',

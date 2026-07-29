@@ -6,13 +6,25 @@ from uuid import UUID
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.database import get_session
+from app.modules.generation.cover_models import CoverRequest
+from app.modules.generation.cover_service import (
+    CoverGenerationCoordinator,
+    CoverIdempotencyConflict,
+)
 from app.modules.generation.context import GenerationContextBuilder
-from app.modules.generation.models import TextGenerationRun
+from app.modules.generation.models import (
+    CoverArtifactAttempt,
+    CoverGenerationRun,
+    TextGenerationRun,
+)
 from app.modules.generation.schemas import GenerationContext, GenerationInputs
-from app.modules.generation.tasks import get_text_generation_enqueuer
+from app.modules.generation.tasks import (
+    get_cover_generation_enqueuer,
+    get_text_generation_enqueuer,
+)
 from app.modules.generation.text_service import (
     GeneratedTextResult,
     cancel_text_generation,
@@ -60,6 +72,52 @@ class TextGenerationEdit(BaseModel):
     final_title: str = Field(min_length=1, max_length=2_000)
     final_copy: str = Field(min_length=1, max_length=100_000)
     adoption_status: Literal["pending", "adopted", "rejected", "discarded"]
+
+
+class CoverGenerationCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    content_id: UUID
+    request: CoverRequest
+
+
+class CoverAttemptRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    attempt_number: int
+    status: str
+    output_sha256: str | None
+    output_mime_type: str | None
+    output_width: int | None
+    output_height: int | None
+    layout_version: str | None
+    ocr_model_version: str | None
+    ocr_confidence: float | None
+    risk_scan_id: UUID | None
+    risk_rule_version: str | None
+    requires_human_review: bool
+    publish_eligible: bool
+    disclaimer: str
+    error_code: str | None
+
+
+class CoverGenerationRunRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    content_id: UUID
+    platform: str
+    provider: str
+    model_id: str
+    cover_mode: str
+    status: str
+    attempt_count: int
+    error_code: str | None
+    status_detail: str | None
+    completed_at: datetime | None
+    latest_attempt: CoverAttemptRead | None
 
 
 def _context(
@@ -112,6 +170,132 @@ def _read_run(
             detail="text generation run not found",
         )
     return run
+
+
+def _read_cover_run(
+    session: Session,
+    workspace_id: UUID,
+    run_id: UUID,
+) -> CoverGenerationRun:
+    run = session.scalar(
+        select(CoverGenerationRun).where(
+            CoverGenerationRun.id == run_id,
+            CoverGenerationRun.workspace_id == workspace_id,
+        )
+    )
+    if run is None:
+        raise HTTPException(
+            status_code=404,
+            detail="cover generation run not found",
+        )
+    return run
+
+
+def _cover_payload(
+    session: Session,
+    run: CoverGenerationRun,
+) -> CoverGenerationRunRead:
+    attempt = session.scalar(
+        select(CoverArtifactAttempt)
+        .where(
+            CoverArtifactAttempt.run_id == run.id,
+            CoverArtifactAttempt.workspace_id == run.workspace_id,
+        )
+        .order_by(CoverArtifactAttempt.attempt_number.desc())
+    )
+    return CoverGenerationRunRead(
+        id=run.id,
+        workspace_id=run.workspace_id,
+        content_id=run.content_id,
+        platform=run.platform,
+        provider=run.provider,
+        model_id=run.model_id,
+        cover_mode=run.cover_mode,
+        status=run.status.value,
+        attempt_count=run.attempt_count,
+        error_code=run.error_code,
+        status_detail=run.status_detail,
+        completed_at=run.completed_at,
+        latest_attempt=(
+            CoverAttemptRead.model_validate(attempt)
+            if attempt is not None
+            else None
+        ),
+    )
+
+
+@router.post(
+    "/v1/workspaces/{workspace_id}/generation/cover-runs",
+    response_model=CoverGenerationRunRead,
+    status_code=202,
+)
+def request_cover_generation(
+    workspace_id: UUID,
+    data: CoverGenerationCreate,
+    background_tasks: BackgroundTasks,
+    session: DatabaseSession,
+    enqueuer: Annotated[
+        Callable[[UUID], None],
+        Depends(get_cover_generation_enqueuer),
+    ],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> CoverGenerationRunRead:
+    context = _context(
+        session,
+        session_token,
+        csrf_token,
+        workspace_id=workspace_id,
+        mutation=True,
+    )
+    factory = sessionmaker(
+        bind=session.get_bind(),
+        expire_on_commit=False,
+    )
+    try:
+        run_id = CoverGenerationCoordinator(
+            factory,
+            context=context,
+        ).request(
+            content_id=data.content_id,
+            request=data.request,
+            idempotency_key=idempotency_key,
+        )
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except CoverIdempotencyConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    run = _read_cover_run(session, workspace_id, run_id)
+    background_tasks.add_task(enqueuer, run.id)
+    return _cover_payload(session, run)
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/generation/cover-runs/{run_id}",
+    response_model=CoverGenerationRunRead,
+)
+def read_cover_generation(
+    workspace_id: UUID,
+    run_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> CoverGenerationRunRead:
+    _context(
+        session,
+        session_token,
+        None,
+        workspace_id=workspace_id,
+        mutation=False,
+    )
+    return _cover_payload(
+        session,
+        _read_cover_run(session, workspace_id, run_id),
+    )
 
 
 @router.post(

@@ -8,5 +8,6 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY tests/e2e/package.json tests/e2e/package.json
 RUN pnpm install --filter e2e... --frozen-lockfile
 COPY tests/e2e tests/e2e
+COPY apps/api/tests/fixtures/imports apps/api/tests/fixtures/imports
 WORKDIR /app/tests/e2e
 CMD ["pnpm", "exec", "playwright", "test", "-c", "fresh-install.playwright.config.ts"]

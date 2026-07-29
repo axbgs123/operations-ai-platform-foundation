@@ -35,6 +35,10 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+markers = [
+    "security: security, privacy, untrusted-input, and secret-boundary checks",
+    "isolation: workspace, platform, account, or resource isolation checks",
+]
 
 [[tool.mypy.overrides]]
 module = ["celery", "celery.*"]

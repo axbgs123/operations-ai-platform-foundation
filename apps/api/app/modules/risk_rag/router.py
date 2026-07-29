@@ -4,16 +4,32 @@ from typing import cast
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
 from app.core.security import WorkspaceContext
+from app.core.storage import Storage, get_storage
 from app.modules.content.account_models import Platform
 from app.modules.risk_rag.lifecycle import (
     InvalidLifecycleTransition,
     SourcePolicyViolation,
+)
+from app.modules.risk_rag.ingestion import (
+    DuplicateRiskDocument,
+    MAX_RISK_DOCUMENT_SIZE,
+    RiskIngestionService,
 )
 from app.modules.risk_rag.repository import RiskDocumentRepository
 from app.modules.risk_rag.schemas import (
@@ -62,6 +78,7 @@ scan_router = APIRouter(
     tags=["risk-scans"],
 )
 DatabaseSession = Annotated[Session, Depends(get_session)]
+ObjectStorage = Annotated[Storage, Depends(get_storage)]
 
 
 def _context(
@@ -283,6 +300,49 @@ def parse_risk_document(
         raise HTTPException(status_code=422, detail="invalid risk document") from error
     if document is None:
         raise HTTPException(status_code=404, detail="risk document not found")
+    session.commit()
+    return RiskDocumentRead.model_validate(document)
+
+
+@router.post("/{document_id}/upload", response_model=RiskDocumentRead)
+async def upload_risk_document(
+    workspace_id: UUID,
+    document_id: UUID,
+    file: Annotated[UploadFile, File()],
+    redistribution_authorized: Annotated[bool, Form()],
+    session: DatabaseSession,
+    storage: ObjectStorage,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> RiskDocumentRead:
+    context = _context(
+        session,
+        workspace_id,
+        session_token,
+        csrf_token,
+        mutation=True,
+    )
+    content = await file.read(MAX_RISK_DOCUMENT_SIZE + 1)
+    try:
+        document = RiskIngestionService(
+            session,
+            context=context,
+            storage=storage,
+        ).ingest_file(
+            document_id,
+            file_name=file.filename or "risk-document.txt",
+            mime_type=file.content_type or "application/octet-stream",
+            content=content,
+            redistribution_authorized=redistribution_authorized,
+        )
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except DuplicateRiskDocument as error:
+        raise HTTPException(status_code=409, detail="duplicate risk document") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     session.commit()
     return RiskDocumentRead.model_validate(document)
 

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import hashlib
 from io import BytesIO
 from uuid import UUID, uuid4
@@ -966,6 +966,44 @@ def test_default_cover_safety_gate_persists_fail_closed_risk_scan(
         assert scan is not None
         assert scan.workspace_id == values["workspace"].id
         assert scan.ocr_provider == "unavailable"
+
+
+def test_repeated_cover_bytes_create_distinct_immutable_scan_history(
+    environment,
+) -> None:
+    from app.modules.generation.cover_safety import PersistedCoverSafetyGate
+
+    factory, tracked, _, values, _ = environment
+    first = PersistedCoverSafetyGate(
+        tracked,
+        context=_context(values),
+        account_id=values["account"].id,
+        title="人工合成标题",
+        body="人工合成正文",
+        now=lambda: NOW,
+    ).scan(
+        png_bytes=_png(),
+        workspace_id=values["workspace"].id,
+        platform="xiaohongshu",
+        content_id=values["content"].id,
+    )
+    second = PersistedCoverSafetyGate(
+        tracked,
+        context=_context(values),
+        account_id=values["account"].id,
+        title="人工合成标题",
+        body="人工合成正文",
+        now=lambda: NOW + timedelta(seconds=1),
+    ).scan(
+        png_bytes=_png(),
+        workspace_id=values["workspace"].id,
+        platform="xiaohongshu",
+        content_id=values["content"].id,
+    )
+
+    assert second.risk_scan_id != first.risk_scan_id
+    with factory() as session:
+        assert session.query(RiskScan).count() == 2
 
 
 def test_cover_safety_gate_executes_bound_ocr_before_risk_scan(

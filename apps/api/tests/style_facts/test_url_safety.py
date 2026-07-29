@@ -5,6 +5,9 @@ import pytest
 from app.modules.style_facts.url_safety import UnsafeSourceUrl, validate_source_url
 
 
+pytestmark = pytest.mark.security
+
+
 def resolver_for(*addresses: str):
     def resolve(host: str, port: int, *, type: int):
         assert type == socket.SOCK_STREAM

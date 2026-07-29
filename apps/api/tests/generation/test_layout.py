@@ -9,6 +9,7 @@ from app.modules.generation.cover_models import CoverSize, SafeAreaSpec
 from app.modules.generation.layout import (
     compute_cover_layout,
     render_cover,
+    resolve_cjk_font_path,
 )
 
 
@@ -72,6 +73,21 @@ def test_api_container_installs_a_cjk_font_for_production_rendering() -> None:
     dockerfile = (REPOSITORY_ROOT / "infra/docker/api.Dockerfile").read_text()
 
     assert "font-noto-cjk" in dockerfile
+
+
+def test_alpine_noto_font_install_path_is_discoverable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    alpine_font = "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc"
+    monkeypatch.delenv("COVER_CJK_FONT_PATH", raising=False)
+    monkeypatch.setattr(
+        Path,
+        "is_file",
+        lambda path: str(path) == alpine_font,
+    )
+    monkeypatch.setattr(Path, "resolve", lambda path: path)
+
+    assert resolve_cjk_font_path() == alpine_font
 
 
 def test_renderer_keeps_exact_text_metadata_and_png_dimensions() -> None:
