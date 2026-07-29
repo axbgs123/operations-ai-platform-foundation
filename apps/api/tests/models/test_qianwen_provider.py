@@ -14,6 +14,11 @@ from app.modules.models.adapters.qianwen import (
     ModelProviderError,
     QianwenProvider,
 )
+from app.modules.models.usage import (
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
+)
 
 
 class StrictResult(BaseModel):
@@ -74,6 +79,7 @@ def _provider(
     handler: Callable[[httpx.Request], httpx.Response],
     *,
     sleep_calls: list[float] | None = None,
+    usage_governor=None,
 ) -> QianwenProvider:
     async def no_sleep(delay: float) -> None:
         if sleep_calls is not None:
@@ -86,7 +92,44 @@ def _provider(
         model_id=QIANWEN_TEXT_MODEL_ID,
         transport=httpx.MockTransport(handler),
         sleeper=no_sleep,
+        usage_governor=usage_governor,
     )
+
+
+class _UsageRecorder:
+    def __init__(self) -> None:
+        self.started: list[tuple[int, UsageEstimate]] = []
+        self.finished: list[
+            tuple[UsageAttemptOutcome, UsageEstimate | None, str | None]
+        ] = []
+
+    def begin_attempt(
+        self, number: int, estimate: UsageEstimate
+    ) -> UsageAttemptHandle:
+        self.started.append((number, estimate))
+        return UsageAttemptHandle(
+            analytics_eligible=False,
+            reservation_id=None,
+            attempt_id=__import__("uuid").uuid4(),
+            lease_key=None,
+            lease_token=None,
+            estimate=estimate,
+            estimated_cost_microunits=0,
+            provider_attempt_number=number,
+        )
+
+    def finish_attempt(
+        self,
+        handle: UsageAttemptHandle,
+        *,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        latency_ms: int,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        assert latency_ms >= 0
+        self.finished.append((outcome, actual, stable_error_code))
 
 
 def test_structured_request_uses_fixed_contract_and_untrusted_data_envelope() -> None:
@@ -281,6 +324,37 @@ def test_retry_can_succeed_without_mock_fallback() -> None:
 
     assert result.title == "safe"
     assert calls == 2
+
+
+def test_each_text_http_attempt_is_governed_and_recorded_separately() -> None:
+    calls = 0
+    usage = _UsageRecorder()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return _response(status_code=503) if calls == 1 else _response()
+
+    result = asyncio.run(
+        _provider(handler, usage_governor=usage).generate_structured(_request())
+    )
+
+    assert result.title == "safe"
+    assert [number for number, _ in usage.started] == [1, 2]
+    assert usage.started[0][1].input_tokens > 0
+    assert usage.started[0][1].output_tokens > 0
+    assert usage.finished == [
+        (
+            UsageAttemptOutcome.FAILED_POSSIBLY_BILLED,
+            None,
+            "MODEL_PROVIDER_UNAVAILABLE",
+        ),
+        (
+            UsageAttemptOutcome.SUCCEEDED,
+            UsageEstimate(input_tokens=11, output_tokens=7),
+            None,
+        ),
+    ]
 
 
 def test_logs_and_exceptions_only_contain_low_sensitivity_metadata(

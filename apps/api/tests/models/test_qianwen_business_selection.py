@@ -70,6 +70,7 @@ def test_factory_binds_exact_workspace_catalog_and_decrypts_once_at_call_boundar
         ModelBinding,
         create_workspace_model_adapter,
     )
+    from app.modules.models.config_service import model_configuration_version
 
     session, workspace, config, cipher = _session_and_config()
     calls = 0
@@ -100,7 +101,7 @@ def test_factory_binds_exact_workspace_catalog_and_decrypts_once_at_call_boundar
             provider="qianwen",
             model_id=QIANWEN_TEXT_MODEL_ID,
             contract_version="qianwen-chat-json-v1",
-            configuration_version=config.updated_at.isoformat(),
+            configuration_version=model_configuration_version(config),
         ),
         transport=httpx.MockTransport(handler),
     )
@@ -681,7 +682,7 @@ def test_analysis_model_binding_migration_is_current_head() -> None:
     config = Config(str(root / "apps" / "api" / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
 
-    assert scripts.get_current_head() == "20260728_0032"
+    assert scripts.get_current_head() == "20260729_0033"
 
 
 def test_non_mock_analysis_api_requires_workspace_text_configuration(

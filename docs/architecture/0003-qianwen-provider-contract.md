@@ -2,7 +2,7 @@
 
 - 状态：Accepted for engineering implementation
 - 官方合同核对日期：2026-07-29（Asia/Shanghai）
-- 适用范围：千问 Provider 计划 Task 1—5
+- 适用范围：千问 Provider 计划 Task 1—6
 
 ## 决策
 
@@ -154,6 +154,49 @@ OCR 准确率均为 `not_run`，不得声称已生产验证。
 - [Qwen-OCR 使用说明](https://help.aliyun.com/zh/model-studio/qwen-vl-ocr)
 - [Qwen-OCR API 参考](https://help.aliyun.com/zh/model-studio/qwen-vl-ocr-api-reference)
 - [模型价格](https://help.aliyun.com/zh/model-studio/model-pricing)
+
+## Task 6：工作区用量治理与受控验证
+
+所有真实千问 HTTP attempt 必须先经过工作区与 capability 维度的政策、UTC 每日
+预算、每分钟调用上限和并发租约。没有有效政策、数据库或 Redis 状态不可靠、预算
+不足时一律在 Provider 调用前 fail-closed；Mock 不消耗真实预算，并标记
+`analytics_eligible=false`。
+
+预算使用整数 CNY microunits，禁止 float。`pricing_version`
+固定为 `aliyun-public-2026-07-29-v1`，每个 reservation/attempt 保存模型、地域和
+价格版本，后续价格变化不得覆盖历史。当前冻结价格来自 2026-07-29 官方公开页面：
+
+| 模型 | 地域 | 计价 |
+|---|---|---|
+| qwen3.5-plus-2026-04-20 | 北京 | 输入 0.8、输出 4.8 元/百万 token |
+| qwen3.5-plus-2026-04-20 | 新加坡 | 输入 2.936、输出 17.614 元/百万 token |
+| qwen-vl-ocr-2025-11-20 | 北京 | 输入 0.3、输出 0.5 元/百万 token |
+| qwen-vl-ocr-2025-11-20 | 新加坡 | 输入 0.514、输出 1.174 元/百万 token |
+| text-embedding-v4 | 北京 | 0.5 元/百万 token |
+| text-embedding-v4 | 新加坡 | 0.734 元/百万 token |
+| qwen-image-2.0-pro-2026-06-22 | 北京 | 0.5 元/张 |
+| qwen-image-2.0-pro-2026-06-22 | 新加坡 | 0.550443 元/张 |
+
+价格可能变化，真实验收前必须重新核对。并发使用 Redis 原子 Lua、有 TTL 的 lease
+和随机 fencing token；续租与释放必须匹配 token，旧 Worker 不能释放新租约。
+Provider 网络调用期间不持有数据库事务；每次 HTTP 重试单独预留、单独记录和结算。
+明确未计费才释放，结果不确定保留预算并记录 `unknown`。
+
+配置与密钥轮换形成新的 `configuration_version`。禁用后新任务不可调用；已发出的
+请求仍按实际结果结算。失败不静默切换 Mock。验证记录绑定工作区、地域、能力、精确
+模型、合同、配置及 suite 版本，并且不可变；单次通过不会升级全局 Catalog。
+
+本 Task 未获真实调用和费用授权，所以受控验收固定记录为 `not_run`，原因
+`explicit_user_authorization_missing`。所有能力继续为 `experimental`。后续只有
+用户明确指定地域、能力和预算，并已通过 UI 安全保存密钥后，才能依照
+[受控验收模板](../acceptance/qianwen-controlled-test-template.md) 单独执行。
+
+Task 6 官方依据：
+
+- [Qwen3.5-Plus](https://help.aliyun.com/zh/model-studio/qwen3-5-plus)
+- [模型价格](https://help.aliyun.com/zh/model-studio/model-pricing)
+- [模型限流](https://help.aliyun.com/zh/model-studio/rate-limit)
+- [Embedding](https://help.aliyun.com/zh/model-studio/embedding)
 
 ## Task 5：封面视觉层合同
 

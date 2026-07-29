@@ -4,13 +4,16 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Protocol
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
+from pydantic import SecretStr
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
+from app.core.config import get_settings
+from app.core.database import SessionFactory
 from app.modules.content.account_models import Platform, PlatformAccount
 from app.modules.content.models import AssetCategory, Content, ContentAsset
 from app.modules.risk_rag.citations import (
@@ -32,10 +35,24 @@ from app.modules.risk_rag.models import (
     RiskSourceLevel,
 )
 from app.modules.risk_rag.retrieval import (
+    ActiveRiskIndexUnavailable,
     NO_ACTIVE_RISK_EVIDENCE,
     EvidenceBundle,
     RetrievalFilter,
     RiskEvidenceRetriever,
+    resolve_active_retrieval_filter,
+)
+from app.modules.models.adapters.qianwen_embedding import (
+    QianwenRiskEmbedder,
+    QianwenRiskQueryEmbedder,
+)
+from app.modules.models.capabilities import Capability
+from app.modules.models.catalog import QianwenRegion
+from app.modules.models.config_service import SecretCipher
+from app.modules.models.models import ModelConfig
+from app.modules.models.usage import (
+    ProviderOperation,
+    create_model_usage_governor,
 )
 from app.modules.risk_rag.rules import (
     RuleEngine,
@@ -741,16 +758,76 @@ class RiskScanService:
 def build_default_pipeline(
     session: Session,
     scan_input: RiskScanInput,
+    *,
+    context: WorkspaceContext | None = None,
 ) -> RiskScanPipeline:
     versions = scan_input.versions
+    query_embedder: QueryEmbedder = MockRiskQueryEmbedder(
+        model_id=versions.embedding_model_id,
+        version=versions.embedding_version,
+        dimension=versions.embedding_dimension,
+    )
+    settings = get_settings()
+    if not settings.app_mock_mode and context is not None:
+        try:
+            active = resolve_active_retrieval_filter(
+                session,
+                workspace_id=scan_input.workspace_id,
+                platform=scan_input.platform,
+                as_of=scan_input.requested_at,
+            )
+        except ActiveRiskIndexUnavailable:
+            active = None
+        if active is not None and active.model_config_id is not None:
+            config = session.get(ModelConfig, active.model_config_id)
+            if (
+                config is None
+                or config.workspace_id != scan_input.workspace_id
+                or config.region is None
+                or config.provider_workspace_id is None
+                or active.contract_version is None
+                or active.config_version is None
+            ):
+                raise LookupError("embedding model configuration unavailable")
+            cipher = SecretCipher(
+                settings.model_secret_encryption_key.get_secret_value()
+            )
+            delegate = QianwenRiskEmbedder(
+                workspace_id=scan_input.workspace_id,
+                model_config_id=config.id,
+                region=QianwenRegion(config.region),
+                provider_workspace_id=config.provider_workspace_id,
+                api_key=SecretStr(cipher.decrypt(config.encrypted_api_key)),
+                model_id=config.model_id,
+                contract_version=active.contract_version,
+                dimension=active.embedding_dimension,
+                usage_governor=create_model_usage_governor(
+                    session_factory=SessionFactory,
+                    redis_url=settings.redis_url,
+                    workspace_id=scan_input.workspace_id,
+                    model_config=config,
+                    actor_id=context.member_id,
+                    task_id=uuid5(
+                        NAMESPACE_URL,
+                        (
+                            f"risk-query:{scan_input.workspace_id}:"
+                            f"{scan_input.idempotency_key}"
+                        ),
+                    ),
+                    capability=Capability.EMBEDDING,
+                    operation=ProviderOperation.EMBEDDING_QUERY,
+                    contract_version=active.contract_version,
+                    configuration_version=active.config_version,
+                ),
+            )
+            query_embedder = QianwenRiskQueryEmbedder(
+                delegate,
+                version=active.contract_version,
+            )
     return RiskScanPipeline(
         rule_engine=EmptyRuleScanner(),
         retriever=RiskEvidenceRetriever(session),
-        query_embedder=MockRiskQueryEmbedder(
-            model_id=versions.embedding_model_id,
-            version=versions.embedding_version,
-            dimension=versions.embedding_dimension,
-        ),
+        query_embedder=query_embedder,
         rag_assessor=EmptyRagAssessor(),
     )
 

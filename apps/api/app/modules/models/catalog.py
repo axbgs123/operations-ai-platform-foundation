@@ -149,6 +149,21 @@ def get_catalog_entry(provider: str, model_id: str) -> ProviderCatalogEntry:
         raise LookupError("model is not present in the Provider Catalog") from error
 
 
+def list_catalog_entries(
+    provider: str = "qianwen",
+) -> tuple[ProviderCatalogEntry, ...]:
+    return tuple(
+        sorted(
+            (
+                entry
+                for (entry_provider, _), entry in _CATALOG.items()
+                if entry_provider == provider
+            ),
+            key=lambda entry: entry.model_id,
+        )
+    )
+
+
 def validate_provider_workspace_id(provider_workspace_id: str) -> str:
     if (
         _PROVIDER_WORKSPACE_ID.fullmatch(provider_workspace_id) is None

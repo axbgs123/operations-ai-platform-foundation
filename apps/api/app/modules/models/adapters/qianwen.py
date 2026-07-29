@@ -26,6 +26,14 @@ from app.modules.models.catalog import (
     build_qianwen_endpoint,
     get_catalog_entry,
 )
+from app.modules.models.usage import (
+    AttemptGovernor,
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
+    UsageGovernanceError,
+    usage_lease_heartbeat,
+)
 
 
 _logger = logging.getLogger("operations_ai.models.qianwen")
@@ -53,6 +61,12 @@ class ModelErrorCode(StrEnum):
     IMAGE_OUTPUT_INVALID = "MODEL_IMAGE_OUTPUT_INVALID"
     IMAGE_RESULT_EXPIRED = "MODEL_IMAGE_RESULT_EXPIRED"
     PROVIDER_OUTCOME_UNKNOWN = "MODEL_PROVIDER_OUTCOME_UNKNOWN"
+    USAGE_POLICY_REQUIRED = "MODEL_USAGE_POLICY_REQUIRED"
+    USAGE_BUDGET_EXCEEDED = "MODEL_USAGE_BUDGET_EXCEEDED"
+    USAGE_LIMIT_EXCEEDED = "MODEL_USAGE_LIMIT_EXCEEDED"
+    USAGE_LIMIT_BACKEND_UNAVAILABLE = (
+        "MODEL_USAGE_LIMIT_BACKEND_UNAVAILABLE"
+    )
 
 
 class ModelProviderError(RuntimeError):
@@ -105,6 +119,18 @@ def safe_model_error_message(code: ModelErrorCode) -> str:
         ModelErrorCode.PROVIDER_OUTCOME_UNKNOWN: (
             "图片请求结果不确定，请勿自动重试；如需继续，请人工创建新的尝试。"
         ),
+        ModelErrorCode.USAGE_POLICY_REQUIRED: (
+            "真实模型用量政策尚未配置，请联系管理员。"
+        ),
+        ModelErrorCode.USAGE_BUDGET_EXCEEDED: (
+            "工作区模型预算或每日用量已达到上限。"
+        ),
+        ModelErrorCode.USAGE_LIMIT_EXCEEDED: (
+            "工作区模型并发或速率已达到上限。"
+        ),
+        ModelErrorCode.USAGE_LIMIT_BACKEND_UNAVAILABLE: (
+            "模型用量保护暂时不可用，真实调用已安全停止。"
+        ),
     }[code]
 
 
@@ -125,6 +151,7 @@ class QianwenProvider:
         transport: httpx.AsyncBaseTransport | None = None,
         timeout_seconds: float = 30.0,
         sleeper: Sleeper = asyncio.sleep,
+        usage_governor: AttemptGovernor | None = None,
     ) -> None:
         catalog_entry = get_catalog_entry("qianwen", model_id)
         if region not in catalog_entry.available_regions:
@@ -138,6 +165,7 @@ class QianwenProvider:
         self._transport = transport
         self._timeout = httpx.Timeout(timeout_seconds)
         self._sleeper = sleeper
+        self._usage_governor = usage_governor
 
     async def generate_structured(
         self,
@@ -146,6 +174,23 @@ class QianwenProvider:
         if request.capability not in self.capabilities:
             raise ModelProviderError(ModelErrorCode.CAPABILITY_UNAVAILABLE)
         payload = self._request_payload(request)
+        estimated_usage = UsageEstimate(
+            input_tokens=max(
+                1,
+                (
+                    len(
+                        json.dumps(
+                            payload,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        ).encode("utf-8")
+                    )
+                    + 1
+                )
+                // 2,
+            ),
+            output_tokens=4_096,
+        )
         headers = {
             "Authorization": (
                 f"Bearer {self._api_key.get_secret_value()}"
@@ -160,13 +205,25 @@ class QianwenProvider:
         ) as client:
             for attempt in (1, 2):
                 started = time.monotonic()
+                usage_handle = self._begin_usage(attempt, estimated_usage)
                 try:
-                    response = await client.post(
-                        self._endpoint,
-                        headers=headers,
-                        json=payload,
-                    )
+                    with usage_lease_heartbeat(
+                        self._usage_governor,
+                        usage_handle,
+                    ):
+                        response = await client.post(
+                            self._endpoint,
+                            headers=headers,
+                            json=payload,
+                        )
                 except httpx.TimeoutException:
+                    self._finish_usage(
+                        usage_handle,
+                        outcome=UsageAttemptOutcome.FAILED_POSSIBLY_BILLED,
+                        actual=None,
+                        started=started,
+                        stable_error_code=ModelErrorCode.TIMEOUT.value,
+                    )
                     self._log_attempt(
                         attempt=attempt,
                         started=started,
@@ -177,6 +234,15 @@ class QianwenProvider:
                         continue
                     raise ModelProviderError(ModelErrorCode.TIMEOUT) from None
                 except httpx.RequestError:
+                    self._finish_usage(
+                        usage_handle,
+                        outcome=UsageAttemptOutcome.PROVIDER_OUTCOME_UNKNOWN,
+                        actual=None,
+                        started=started,
+                        stable_error_code=(
+                            ModelErrorCode.PROVIDER_UNAVAILABLE.value
+                        ),
+                    )
                     self._log_attempt(
                         attempt=attempt,
                         started=started,
@@ -189,6 +255,18 @@ class QianwenProvider:
                 provider_request_id = self._provider_request_id(response)
                 error_code = self._http_error_code(response.status_code)
                 if error_code is not None:
+                    self._finish_usage(
+                        usage_handle,
+                        outcome=(
+                            UsageAttemptOutcome.FAILED_POSSIBLY_BILLED
+                            if response.status_code >= 500
+                            else UsageAttemptOutcome.FAILED_UNBILLED
+                        ),
+                        actual=None,
+                        started=started,
+                        provider_request_id=provider_request_id,
+                        stable_error_code=error_code.value,
+                    )
                     self._log_attempt(
                         attempt=attempt,
                         started=started,
@@ -209,6 +287,17 @@ class QianwenProvider:
                 try:
                     result = self._parse_response(response, request)
                 except ModelProviderError as error:
+                    usage = self._usage(response)
+                    self._finish_usage(
+                        usage_handle,
+                        outcome=(
+                            UsageAttemptOutcome.FAILED_POSSIBLY_BILLED
+                        ),
+                        actual=self._actual_usage(usage),
+                        started=started,
+                        provider_request_id=provider_request_id,
+                        stable_error_code=error.code.value,
+                    )
                     self._log_attempt(
                         attempt=attempt,
                         started=started,
@@ -216,14 +305,71 @@ class QianwenProvider:
                         error_code=error.code,
                     )
                     raise
+                usage = self._usage(response)
+                self._finish_usage(
+                    usage_handle,
+                    outcome=UsageAttemptOutcome.SUCCEEDED,
+                    actual=self._actual_usage(usage),
+                    started=started,
+                    provider_request_id=provider_request_id,
+                )
                 self._log_attempt(
                     attempt=attempt,
                     started=started,
                     provider_request_id=provider_request_id,
-                    usage=self._usage(response),
+                    usage=usage,
                 )
                 return result
         raise AssertionError("Qianwen retry loop must return or raise")
+
+    def _begin_usage(
+        self,
+        attempt: int,
+        estimate: UsageEstimate,
+    ) -> UsageAttemptHandle | None:
+        if self._usage_governor is None:
+            return None
+        try:
+            return self._usage_governor.begin_attempt(attempt, estimate)
+        except UsageGovernanceError as error:
+            try:
+                code = ModelErrorCode(error.code)
+            except ValueError:
+                code = ModelErrorCode.USAGE_LIMIT_BACKEND_UNAVAILABLE
+            raise ModelProviderError(code) from None
+
+    def _finish_usage(
+        self,
+        handle: UsageAttemptHandle | None,
+        *,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        started: float,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        if self._usage_governor is None or handle is None:
+            return
+        self._usage_governor.finish_attempt(
+            handle,
+            outcome=outcome,
+            actual=actual,
+            latency_ms=max(
+                0,
+                round((time.monotonic() - started) * 1000),
+            ),
+            provider_request_id=provider_request_id,
+            stable_error_code=stable_error_code,
+        )
+
+    @staticmethod
+    def _actual_usage(usage: dict[str, int]) -> UsageEstimate | None:
+        if "prompt_tokens" not in usage and "completion_tokens" not in usage:
+            return None
+        return UsageEstimate(
+            input_tokens=usage.get("prompt_tokens", 0),
+            output_tokens=usage.get("completion_tokens", 0),
+        )
 
     def _request_payload(
         self,

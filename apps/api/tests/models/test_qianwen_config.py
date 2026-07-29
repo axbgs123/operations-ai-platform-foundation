@@ -13,7 +13,11 @@ from app.core.security import WorkspaceContext
 from app.main import app
 from app.modules.models.capabilities import AdapterStatus, Capability
 from app.modules.models.catalog import QIANWEN_TEXT_MODEL_ID, QianwenRegion
-from app.modules.models.config_service import ModelConfigService, SecretCipher
+from app.modules.models.config_service import (
+    ModelConfigService,
+    SecretCipher,
+    model_configuration_version,
+)
 from app.modules.models.models import ModelConfig
 from app.modules.workspace.models import Workspace
 from app.modules.workspace.permissions import PermissionDenied
@@ -314,3 +318,163 @@ def test_viewer_cannot_write_and_cross_workspace_config_is_not_found() -> None:
     with pytest.raises(LookupError, match="not found"):
         other_admin.set_status(config.id, AdapterStatus.INCOMPATIBLE)
     session.close()
+
+
+def test_public_config_exposes_safe_governance_metadata_only() -> None:
+    session, service, _ = _service()
+    config = service.save(
+        provider="qianwen",
+        model_id=QIANWEN_TEXT_MODEL_ID,
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.EXPERIMENTAL,
+        api_key="synthetic-key-never-real",
+        region=QianwenRegion.CN_BEIJING,
+        provider_workspace_id="llm-abcd1234",
+    )
+
+    public = service.public(config).model_dump(mode="json")
+
+    assert public == {
+        "id": str(config.id),
+        "provider": "qianwen",
+        "model_id": QIANWEN_TEXT_MODEL_ID,
+        "region": "cn-beijing",
+        "capability": "text",
+        "status": "experimental",
+        "experimental": True,
+        "credential_configured": True,
+        "credential_updated_at": config.credential_updated_at.isoformat().replace(
+            "+00:00", "Z"
+        ),
+        "configuration_version": model_configuration_version(config),
+        "contract_version": "qianwen-chat-json-v1",
+        "last_validation_status": "not_run",
+        "last_validated_at": None,
+        "safe_error_code": "explicit_user_authorization_missing",
+    }
+    serialized = service.public(config).model_dump_json()
+    assert "synthetic-key-never-real" not in serialized
+    assert "llm-abcd1234" not in serialized
+    assert "encrypted_api_key" not in serialized
+    session.close()
+
+
+def test_blank_key_retains_ciphertext_and_new_key_rotates_configuration() -> None:
+    session, service, _ = _service()
+    config = service.save(
+        provider="qianwen",
+        model_id=QIANWEN_TEXT_MODEL_ID,
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.EXPERIMENTAL,
+        api_key="synthetic-key-one",
+        region=QianwenRegion.CN_BEIJING,
+        provider_workspace_id="llm-abcd1234",
+    )
+    first_ciphertext = config.encrypted_api_key
+    first_credential_time = config.credential_updated_at
+    first_version = model_configuration_version(config)
+
+    retained = service.save(
+        provider="qianwen",
+        model_id=QIANWEN_TEXT_MODEL_ID,
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.EXPERIMENTAL,
+        api_key="   ",
+        region=QianwenRegion.CN_BEIJING,
+        provider_workspace_id=None,
+    )
+
+    assert retained.id == config.id
+    assert retained.encrypted_api_key == first_ciphertext
+    assert retained.credential_updated_at == first_credential_time
+    assert retained.provider_workspace_id == "llm-abcd1234"
+    assert model_configuration_version(retained) == first_version
+
+    rotated = service.save(
+        provider="qianwen",
+        model_id=QIANWEN_TEXT_MODEL_ID,
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.EXPERIMENTAL,
+        api_key="synthetic-key-two",
+        region=QianwenRegion.CN_BEIJING,
+        provider_workspace_id="llm-abcd1234",
+    )
+
+    assert rotated.encrypted_api_key != first_ciphertext
+    assert rotated.configuration_revision == 2
+    assert model_configuration_version(rotated) != first_version
+    assert (
+        service.decrypt_key(rotated.id).get_secret_value()
+        == "synthetic-key-two"
+    )
+    session.close()
+
+
+def test_blank_key_cannot_create_first_configuration() -> None:
+    session, service, _ = _service()
+
+    with pytest.raises(ValueError, match="API key is required"):
+        service.save(
+            provider="qianwen",
+            model_id=QIANWEN_TEXT_MODEL_ID,
+            capabilities=frozenset({Capability.TEXT}),
+            status=AdapterStatus.EXPERIMENTAL,
+            api_key=" ",
+            region=QianwenRegion.CN_BEIJING,
+            provider_workspace_id="llm-abcd1234",
+        )
+    session.close()
+
+
+def test_catalog_api_exposes_only_server_allowlisted_qianwen_choices() -> None:
+    with _client() as (client, _):
+        workspace_id, _ = _create_and_login_admin(
+            client,
+            "Catalog 安全选项工作区",
+        )
+
+        response = client.get(
+            f"/v1/workspaces/{workspace_id}/model-configs/catalog"
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "provider": "qianwen",
+            "regions": ["ap-southeast-1", "cn-beijing"],
+            "models": [
+                {
+                    "model_id": "qwen-image-2.0-pro-2026-06-22",
+                    "capability": "image",
+                    "contract_version": (
+                        "qianwen-image-2.0-pro-2026-06-22-cover-layer-v1"
+                    ),
+                    "experimental": True,
+                    "upstream_snapshot_immutable": True,
+                },
+                {
+                    "model_id": "qwen-vl-ocr-2025-11-20",
+                    "capability": "vision",
+                    "contract_version": "qwen-ocr-advanced-v1",
+                    "experimental": True,
+                    "upstream_snapshot_immutable": True,
+                },
+                {
+                    "model_id": "qwen3.5-plus-2026-04-20",
+                    "capability": "text",
+                    "contract_version": "qianwen-chat-json-v1",
+                    "experimental": True,
+                    "upstream_snapshot_immutable": True,
+                },
+                {
+                    "model_id": "text-embedding-v4",
+                    "capability": "embedding",
+                    "contract_version": (
+                        "qianwen-text-embedding-v4-d1024-v1"
+                    ),
+                    "experimental": True,
+                    "upstream_snapshot_immutable": False,
+                },
+            ],
+        }
+        assert "base_url" not in response.text
+        assert "provider_workspace_id" not in response.text

@@ -32,6 +32,13 @@ from app.modules.models.catalog import (
     build_qianwen_image_endpoint,
     get_catalog_entry,
 )
+from app.modules.models.usage import (
+    AttemptGovernor,
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
+    usage_lease_heartbeat,
+)
 
 
 QIANWEN_COVER_CONTRACT_VERSION = QIANWEN_IMAGE_CONTRACT_VERSION
@@ -266,6 +273,7 @@ class QianwenCoverImageAdapter:
         transport: httpx.AsyncBaseTransport | None = None,
         resolver: Resolver = _default_resolver,
         timeout_seconds: float = 120.0,
+        usage_governor: AttemptGovernor | None = None,
     ) -> None:
         catalog = get_catalog_entry("qianwen", model_id)
         if (
@@ -287,6 +295,7 @@ class QianwenCoverImageAdapter:
         self._transport = transport
         self._resolver = resolver
         self._timeout = httpx.Timeout(timeout_seconds)
+        self._usage_governor = usage_governor
         self.last_metadata: ImageGenerationMetadata | None = None
 
     def bind_prepared_images(
@@ -303,7 +312,13 @@ class QianwenCoverImageAdapter:
         parameters = self._parameters(request)
         self._validate_output_size(request)
         payload = self._payload(request, images, parameters)
+        estimated_usage = UsageEstimate(
+            input_images=len(images),
+            generated_images=1,
+            output_images=1,
+        )
         started = time.monotonic()
+        usage_handle = self._begin_usage(estimated_usage)
         error_code: ModelErrorCode | None = None
         provider_request_id: str | None = None
         async with httpx.AsyncClient(
@@ -313,18 +328,29 @@ class QianwenCoverImageAdapter:
             trust_env=False,
         ) as client:
             try:
-                response = await client.post(
-                    self._endpoint,
-                    headers={
-                        "Authorization": (
-                            f"Bearer {self._api_key.get_secret_value()}"
-                        ),
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                )
+                with usage_lease_heartbeat(
+                    self._usage_governor,
+                    usage_handle,
+                ):
+                    response = await client.post(
+                        self._endpoint,
+                        headers={
+                            "Authorization": (
+                                f"Bearer {self._api_key.get_secret_value()}"
+                            ),
+                            "Content-Type": "application/json",
+                        },
+                        json=payload,
+                    )
             except (httpx.TimeoutException, httpx.RequestError):
                 error_code = ModelErrorCode.PROVIDER_OUTCOME_UNKNOWN
+                self._finish_usage(
+                    usage_handle,
+                    UsageAttemptOutcome.PROVIDER_OUTCOME_UNKNOWN,
+                    None,
+                    started,
+                    stable_error_code=error_code.value,
+                )
                 self._log(
                     started,
                     error_code,
@@ -335,6 +361,18 @@ class QianwenCoverImageAdapter:
             provider_request_id = self._request_id(response)
             error_code = self._http_error(response.status_code)
             if error_code is not None:
+                self._finish_usage(
+                    usage_handle,
+                    (
+                        UsageAttemptOutcome.FAILED_POSSIBLY_BILLED
+                        if response.status_code >= 500
+                        else UsageAttemptOutcome.FAILED_UNBILLED
+                    ),
+                    None,
+                    started,
+                    provider_request_id=provider_request_id,
+                    stable_error_code=error_code.value,
+                )
                 self._log(
                     started,
                     error_code,
@@ -356,6 +394,18 @@ class QianwenCoverImageAdapter:
                     expected_size=(width, height),
                 )
             except ModelProviderError as error:
+                self._finish_usage(
+                    usage_handle,
+                    UsageAttemptOutcome.FAILED_POSSIBLY_BILLED,
+                    UsageEstimate(
+                        input_images=len(images),
+                        generated_images=1,
+                        output_images=1,
+                    ),
+                    started,
+                    provider_request_id=provider_request_id,
+                    stable_error_code=error.code.value,
+                )
                 self._log(
                     started,
                     error.code,
@@ -372,6 +422,17 @@ class QianwenCoverImageAdapter:
             height=image.height,
             input_image_count=len(images),
         )
+        self._finish_usage(
+            usage_handle,
+            UsageAttemptOutcome.SUCCEEDED,
+            UsageEstimate(
+                input_images=len(images),
+                generated_images=1,
+                output_images=1,
+            ),
+            started,
+            provider_request_id=provider_request_id,
+        )
         self._log(
             started,
             None,
@@ -381,6 +442,38 @@ class QianwenCoverImageAdapter:
             height=image.height,
         )
         return image
+
+    def _begin_usage(
+        self,
+        estimate: UsageEstimate,
+    ) -> UsageAttemptHandle | None:
+        if self._usage_governor is None:
+            return None
+        return self._usage_governor.begin_attempt(1, estimate)
+
+    def _finish_usage(
+        self,
+        handle: UsageAttemptHandle | None,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        started: float,
+        *,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        if self._usage_governor is None or handle is None:
+            return
+        self._usage_governor.finish_attempt(
+            handle,
+            outcome=outcome,
+            actual=actual,
+            latency_ms=max(
+                0,
+                round((time.monotonic() - started) * 1000),
+            ),
+            provider_request_id=provider_request_id,
+            stable_error_code=stable_error_code,
+        )
 
     def _resolve_images(
         self,

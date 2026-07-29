@@ -26,6 +26,11 @@ from app.modules.models.catalog import (
     get_catalog_entry,
 )
 from app.modules.models.config_service import ModelConfigService, SecretCipher
+from app.modules.models.usage import (
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
+)
 from app.modules.workspace.models import Workspace
 
 
@@ -87,6 +92,7 @@ def _adapter(
     handler,
     *,
     platform: Platform = Platform.DOUYIN,
+    usage_governor=None,
 ) -> QianwenVisionAdapter:
     return QianwenVisionAdapter(
         workspace_id=uuid4(),
@@ -104,7 +110,42 @@ def _adapter(
         ),
         transport=httpx.MockTransport(handler),
         sleeper=lambda _: None,
+        usage_governor=usage_governor,
     )
+
+
+class _UsageRecorder:
+    def __init__(self) -> None:
+        self.started: list[tuple[int, UsageEstimate]] = []
+        self.finished: list[tuple[UsageAttemptOutcome, UsageEstimate | None]] = []
+
+    def begin_attempt(
+        self, number: int, estimate: UsageEstimate
+    ) -> UsageAttemptHandle:
+        self.started.append((number, estimate))
+        return UsageAttemptHandle(
+            analytics_eligible=False,
+            reservation_id=None,
+            attempt_id=uuid4(),
+            lease_key=None,
+            lease_token=None,
+            estimate=estimate,
+            estimated_cost_microunits=0,
+            provider_attempt_number=number,
+        )
+
+    def finish_attempt(
+        self,
+        handle: UsageAttemptHandle,
+        *,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        latency_ms: int,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        assert latency_ms >= 0
+        self.finished.append((outcome, actual))
 
 
 def test_catalog_keeps_text_and_ocr_capabilities_separate() -> None:
@@ -198,6 +239,37 @@ def test_official_ocr_response_is_normalized_without_fake_confidence() -> None:
         assert sanitized.info.get("Comment") is None
 
 
+def test_ocr_http_attempt_is_governed_with_image_and_token_usage() -> None:
+    usage = _UsageRecorder()
+    adapter = _adapter(
+        lambda request: _response(
+            [
+                {
+                    "text": "播放量 12",
+                    "location": [0, 0, 100, 0, 100, 20, 0, 20],
+                    "rotate_rect": [50, 10, 100, 20, 0],
+                }
+            ]
+        ),
+        usage_governor=usage,
+    )
+
+    adapter.recognize(_image(), "image/png")
+
+    assert len(usage.started) == 1
+    assert usage.started[0][1].ocr_images == 1
+    assert usage.started[0][1].input_images == 1
+    assert usage.finished == [
+        (
+            UsageAttemptOutcome.SUCCEEDED,
+            UsageEstimate(
+                input_tokens=30,
+                output_tokens=10,
+                ocr_images=1,
+                input_images=1,
+            ),
+        )
+    ]
 @pytest.mark.parametrize(
     ("image", "mime_type", "code"),
     [

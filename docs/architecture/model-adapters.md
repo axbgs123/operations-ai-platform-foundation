@@ -22,6 +22,24 @@ Completions，状态固定为 `experimental`。配置仅允许 `cn-beijing` 和
 理解的配置提示。真实效果、延迟、费用、限流与地域可用性均留待 Task 6 受控验收，
 在此之前不得声明千问 Adapter 已 `verified` 或生产可用。
 
+## 千问配置与用量治理
+
+工作区设置页 `/workspaces/{workspaceId}/settings/models` 只从服务端 Catalog 展示
+固定 Provider、模型和地域；没有 `base_url` 或任意模型输入。admin 可保存/轮换加密
+密钥、设置 capability 预算并创建单能力受控验证；editor/viewer 只能读取不含密钥、
+密文和 Provider Workspace ID 的安全状态。空白密钥保留原值，新密钥或端点/状态
+变化创建新的配置版本。
+
+真实调用执行“短事务 reservation → Redis 原子 rate/lease → 无数据库事务的
+Provider HTTP → 新短事务追加 attempt 并结算”。预算按 UTC 00:00 划分，金额使用
+整数 CNY microunits。每次 Provider HTTP attempt 独立记录；估算、已结算和结果未知
+不能混为一类。没有政策、Redis 故障或预算不足时 fail-closed，admin 也不能绕过。
+Mock 不进入真实费用汇总。
+
+当前受控真实验收为 `not_run`，原因
+`explicit_user_authorization_missing`；这不阻断 Mock/Fake 工程回归，但 Catalog
+继续保持 `experimental`。
+
 ## 千问 Embedding 与索引代际
 
 RiskRAG 千问向量固定 `text-embedding-v4`、内部合同

@@ -46,6 +46,7 @@ from app.modules.models.adapters.qianwen_image import QianwenCoverImageAdapter
 from app.modules.models.adapter_factory import (
     ModelBinding,
     ModelSelectionError,
+    UsageGovernanceContext,
     create_workspace_model_adapter,
 )
 from app.modules.models.capabilities import Capability
@@ -57,6 +58,10 @@ from app.modules.models.config_service import SecretCipher
 from app.modules.models.catalog import QianwenRegion, get_catalog_entry
 from app.modules.models.config_service import model_configuration_version
 from app.modules.models.models import ModelConfig, ModelConfigStatus
+from app.modules.models.usage import (
+    ProviderOperation,
+    create_model_usage_governor,
+)
 from app.modules.workspace.models import WorkspaceMember
 
 
@@ -107,11 +112,36 @@ def build_cover_adapter_for_run(
             "固定图片模型能力当前不可用。",
         )
     try:
+        raw_references = run.request_json.get("references", [])
+        references = (
+            raw_references if isinstance(raw_references, list) else []
+        )
+        has_provider_reference = any(
+            isinstance(reference, dict)
+            and reference.get("provider_input") is True
+            for reference in references
+        )
         return QianwenCoverImageAdapter(
             api_key=SecretStr(cipher.decrypt(config.encrypted_api_key)),
             region=QianwenRegion(config.region),
             provider_workspace_id=config.provider_workspace_id,
             model_id=config.model_id,
+            usage_governor=create_model_usage_governor(
+                session_factory=SessionFactory,
+                redis_url=get_settings().redis_url,
+                workspace_id=run.workspace_id,
+                model_config=config,
+                actor_id=run.requested_by,
+                task_id=run.id,
+                capability=Capability.IMAGE,
+                operation=(
+                    ProviderOperation.COVER_IMAGE_EDIT
+                    if has_provider_reference
+                    else ProviderOperation.COVER_TEXT_TO_IMAGE
+                ),
+                contract_version=run.contract_version,
+                configuration_version=run.configuration_version,
+            ),
         )
     except ValueError as error:
         raise ModelSelectionError(
@@ -204,6 +234,14 @@ def generate_cover_task(
                     cipher=cipher,
                     mock_mode=settings.app_mock_mode,
                 )
+                vision_config = (
+                    session.get(
+                        ModelConfig,
+                        vision_binding.model_config_id,
+                    )
+                    if vision_binding.model_config_id is not None
+                    else None
+                )
                 vision_adapter = create_bound_vision_adapter(
                     session,
                     workspace_id=run.workspace_id,
@@ -211,6 +249,27 @@ def generate_cover_task(
                     binding=vision_binding,
                     cipher=cipher,
                     mock_mode=settings.app_mock_mode,
+                    usage_governor=(
+                        create_model_usage_governor(
+                            session_factory=SessionFactory,
+                            redis_url=settings.redis_url,
+                            workspace_id=run.workspace_id,
+                            model_config=vision_config,
+                            actor_id=run.requested_by,
+                            task_id=run.id,
+                            capability=Capability.VISION,
+                            operation=ProviderOperation.OCR,
+                            contract_version=(
+                                vision_binding.contract_version
+                            ),
+                            configuration_version=(
+                                vision_binding.config_version
+                            ),
+                        )
+                        if not settings.app_mock_mode
+                        and vision_config is not None
+                        else None
+                    ),
                 )
             except (LookupError, ValueError):
                 vision_adapter = None
@@ -252,6 +311,7 @@ def build_text_adapter_for_run(
     if mock_mode:
         return None
     context = GenerationContext.model_validate(run.context)
+    settings = get_settings()
     bound = create_workspace_model_adapter(
         session=session,
         workspace_id=run.workspace_id,
@@ -264,6 +324,13 @@ def build_text_adapter_for_run(
             model_id=context.model.model_id,
             contract_version=context.model.contract_version,
             configuration_version=context.model.configuration_version,
+        ),
+        usage_context=UsageGovernanceContext(
+            session_factory=SessionFactory,
+            redis_url=settings.redis_url,
+            actor_id=run.requested_by,
+            task_id=run.id,
+            operation=ProviderOperation.TEXT_GENERATION,
         ),
     )
     if bound.binding.provider != "qianwen":

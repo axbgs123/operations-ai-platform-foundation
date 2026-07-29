@@ -34,6 +34,11 @@ from app.modules.models.catalog import (
     build_qianwen_image_endpoint,
     get_catalog_entry,
 )
+from app.modules.models.usage import (
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
+)
 
 
 MODEL_ID = "qwen-image-2.0-pro-2026-06-22"
@@ -126,6 +131,7 @@ def _adapter(
     images: tuple[QianwenPreparedImage, ...] = (),
     region: QianwenRegion = QianwenRegion.CN_BEIJING,
     resolver=lambda _host: (PUBLIC_IP,),
+    usage_governor=None,
 ) -> QianwenCoverImageAdapter:
     return QianwenCoverImageAdapter(
         api_key=SecretStr(API_KEY),
@@ -134,7 +140,42 @@ def _adapter(
         prepared_images=images,
         transport=httpx.MockTransport(handler),
         resolver=resolver,
+        usage_governor=usage_governor,
     )
+
+
+class _UsageRecorder:
+    def __init__(self) -> None:
+        self.started: list[tuple[int, UsageEstimate]] = []
+        self.finished: list[tuple[UsageAttemptOutcome, UsageEstimate | None]] = []
+
+    def begin_attempt(
+        self, number: int, estimate: UsageEstimate
+    ) -> UsageAttemptHandle:
+        self.started.append((number, estimate))
+        return UsageAttemptHandle(
+            analytics_eligible=False,
+            reservation_id=None,
+            attempt_id=uuid4(),
+            lease_key=None,
+            lease_token=None,
+            estimate=estimate,
+            estimated_cost_microunits=0,
+            provider_attempt_number=number,
+        )
+
+    def finish_attempt(
+        self,
+        handle: UsageAttemptHandle,
+        *,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        latency_ms: int,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        assert latency_ms >= 0
+        self.finished.append((outcome, actual))
 
 
 def test_catalog_pins_exact_image_snapshot_and_contract() -> None:
@@ -229,6 +270,46 @@ def test_text_to_image_payload_is_single_turn_and_fixed_to_one_output() -> None:
         "size": "512*512",
         "watermark": False,
     }
+
+
+def test_image_provider_post_is_governed_once_but_download_is_not_rebilled() -> None:
+    usage = _UsageRecorder()
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "GET":
+            return httpx.Response(
+                200,
+                headers={"Content-Type": "image/png"},
+                content=_png(),
+            )
+        return httpx.Response(200, json=_success_envelope())
+
+    image = asyncio.run(
+        _adapter(handler, usage_governor=usage).generate_layer(_request())
+    )
+
+    assert image.size == (512, 512)
+    assert [request.method for request in requests] == ["POST", "GET"]
+    assert usage.started == [
+        (
+            1,
+            UsageEstimate(
+                generated_images=1,
+                output_images=1,
+            ),
+        )
+    ]
+    assert usage.finished == [
+        (
+            UsageAttemptOutcome.SUCCEEDED,
+            UsageEstimate(
+                generated_images=1,
+                output_images=1,
+            ),
+        )
+    ]
 
 
 def test_edit_payload_uses_one_to_three_clean_images_in_frozen_order() -> None:

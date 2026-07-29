@@ -14,6 +14,7 @@ from app.modules.models.adapters.qianwen import (
 from app.modules.models.adapters.qianwen_embedding import (
     MAX_EMBEDDING_BATCH_SIZE,
     MAX_EMBEDDING_TEXT_CHARS,
+    QianwenRiskQueryEmbedder,
     QianwenRiskEmbedder,
 )
 from app.modules.models.capabilities import AdapterStatus, Capability
@@ -24,6 +25,11 @@ from app.modules.models.catalog import (
     QianwenRegion,
     build_qianwen_embedding_endpoint,
     get_catalog_entry,
+)
+from app.modules.models.usage import (
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
 )
 
 
@@ -59,7 +65,12 @@ def _response(
     )
 
 
-def _adapter(handler, *, sleeper=lambda _: None) -> QianwenRiskEmbedder:
+def _adapter(
+    handler,
+    *,
+    sleeper=lambda _: None,
+    usage_governor=None,
+) -> QianwenRiskEmbedder:
     return QianwenRiskEmbedder(
         workspace_id=uuid4(),
         model_config_id=uuid4(),
@@ -68,7 +79,42 @@ def _adapter(handler, *, sleeper=lambda _: None) -> QianwenRiskEmbedder:
         api_key=SecretStr("sk-synthetic-never-real"),
         transport=httpx.MockTransport(handler),
         sleeper=sleeper,
+        usage_governor=usage_governor,
     )
+
+
+class _UsageRecorder:
+    def __init__(self) -> None:
+        self.started: list[tuple[int, UsageEstimate]] = []
+        self.finished: list[tuple[UsageAttemptOutcome, UsageEstimate | None]] = []
+
+    def begin_attempt(
+        self, number: int, estimate: UsageEstimate
+    ) -> UsageAttemptHandle:
+        self.started.append((number, estimate))
+        return UsageAttemptHandle(
+            analytics_eligible=False,
+            reservation_id=None,
+            attempt_id=uuid4(),
+            lease_key=None,
+            lease_token=None,
+            estimate=estimate,
+            estimated_cost_microunits=0,
+            provider_attempt_number=number,
+        )
+
+    def finish_attempt(
+        self,
+        handle: UsageAttemptHandle,
+        *,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        latency_ms: int,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        assert latency_ms >= 0
+        self.finished.append((outcome, actual))
 
 
 def test_catalog_pins_embedding_contract_and_dimension() -> None:
@@ -134,6 +180,53 @@ def test_batch_response_is_restored_to_input_order() -> None:
     }
     assert captured[0].url.path == "/compatible-mode/v1/embeddings"
     assert "base_url" not in payload
+
+
+def test_embedding_http_attempt_is_governed_separately() -> None:
+    usage = _UsageRecorder()
+    adapter = _adapter(
+        lambda request: _response(
+            [
+                {"object": "embedding", "index": 0, "embedding": _vector()},
+                {
+                    "object": "embedding",
+                    "index": 1,
+                    "embedding": _vector(2.0),
+                },
+            ]
+        ),
+        usage_governor=usage,
+    )
+
+    adapter.embed_batch(["synthetic first", "synthetic second"])
+
+    assert len(usage.started) == 1
+    assert usage.started[0][1].embedding_tokens > 0
+    assert usage.finished == [
+        (
+            UsageAttemptOutcome.SUCCEEDED,
+            UsageEstimate(embedding_tokens=12),
+        )
+    ]
+
+
+def test_query_embedder_uses_the_same_governed_provider_contract() -> None:
+    usage = _UsageRecorder()
+    adapter = _adapter(
+        lambda request: _response(
+            [{"object": "embedding", "index": 0, "embedding": _vector()}]
+        ),
+        usage_governor=usage,
+    )
+    query = QianwenRiskQueryEmbedder(
+        adapter,
+        version=QIANWEN_EMBEDDING_CONTRACT_VERSION,
+    )
+
+    assert query.embed("人工合成查询") == tuple(_vector())
+    assert query.model_id == QIANWEN_EMBEDDING_MODEL_ID
+    assert query.dimension == QIANWEN_EMBEDDING_DIMENSION
+    assert len(usage.started) == 1
 
 
 @pytest.mark.parametrize(

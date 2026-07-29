@@ -661,9 +661,17 @@ def create_risk_scan(
     )
     service = RiskScanService(session, context=context)
     try:
+        pipeline = build_default_pipeline(
+            session,
+            data,
+            context=context,
+        )
+        # Close the configuration read transaction before any Provider HTTP
+        # call. Retrieval starts a new short transaction after embedding.
+        session.commit()
         scan = service.execute(
             data,
-            pipeline=build_default_pipeline(session, data),
+            pipeline=pipeline,
         )
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error

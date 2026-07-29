@@ -25,6 +25,13 @@ from app.modules.models.catalog import (
     build_qianwen_embedding_endpoint,
     get_catalog_entry,
 )
+from app.modules.models.usage import (
+    AttemptGovernor,
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
+    usage_lease_heartbeat,
+)
 
 
 _logger = logging.getLogger("operations_ai.models.qianwen_embedding")
@@ -65,6 +72,7 @@ class QianwenRiskEmbedder:
         transport: httpx.BaseTransport | None = None,
         timeout_seconds: float = 30.0,
         sleeper: Sleeper = time.sleep,
+        usage_governor: AttemptGovernor | None = None,
     ) -> None:
         catalog = get_catalog_entry("qianwen", model_id)
         if catalog.capabilities != frozenset({Capability.EMBEDDING}):
@@ -88,6 +96,7 @@ class QianwenRiskEmbedder:
         self._transport = transport
         self._timeout = httpx.Timeout(timeout_seconds)
         self._sleeper = sleeper
+        self._usage_governor = usage_governor
 
     def embed_batch(self, texts: Sequence[str]) -> list[list[float]]:
         safe_texts = self._validate_input(texts)
@@ -101,6 +110,13 @@ class QianwenRiskEmbedder:
             "Authorization": f"Bearer {self._api_key.get_secret_value()}",
             "Content-Type": "application/json",
         }
+        estimated_usage = UsageEstimate(
+            embedding_tokens=max(
+                1,
+                (sum(len(text.encode("utf-8")) for text in safe_texts) + 1)
+                // 2,
+            )
+        )
         with httpx.Client(
             transport=self._transport,
             timeout=self._timeout,
@@ -109,17 +125,38 @@ class QianwenRiskEmbedder:
         ) as client:
             for attempt in (1, 2):
                 started = time.monotonic()
+                usage_handle = self._begin_usage(attempt, estimated_usage)
                 try:
-                    response = client.post(
-                        self._endpoint, headers=headers, json=payload
-                    )
+                    with usage_lease_heartbeat(
+                        self._usage_governor,
+                        usage_handle,
+                    ):
+                        response = client.post(
+                            self._endpoint, headers=headers, json=payload
+                        )
                 except httpx.TimeoutException:
+                    self._finish_usage(
+                        usage_handle,
+                        UsageAttemptOutcome.FAILED_POSSIBLY_BILLED,
+                        None,
+                        started,
+                        stable_error_code=ModelErrorCode.TIMEOUT.value,
+                    )
                     self._log(attempt, started, ModelErrorCode.TIMEOUT, len(safe_texts))
                     if attempt == 1:
                         self._sleeper(0.25)
                         continue
                     raise ModelProviderError(ModelErrorCode.TIMEOUT) from None
                 except httpx.RequestError:
+                    self._finish_usage(
+                        usage_handle,
+                        UsageAttemptOutcome.PROVIDER_OUTCOME_UNKNOWN,
+                        None,
+                        started,
+                        stable_error_code=(
+                            ModelErrorCode.PROVIDER_UNAVAILABLE.value
+                        ),
+                    )
                     self._log(
                         attempt,
                         started,
@@ -133,6 +170,18 @@ class QianwenRiskEmbedder:
                 error = self._http_error(response.status_code)
                 request_id = self._request_id(response)
                 if error is not None:
+                    self._finish_usage(
+                        usage_handle,
+                        (
+                            UsageAttemptOutcome.FAILED_POSSIBLY_BILLED
+                            if response.status_code >= 500
+                            else UsageAttemptOutcome.FAILED_UNBILLED
+                        ),
+                        None,
+                        started,
+                        provider_request_id=request_id,
+                        stable_error_code=error.value,
+                    )
                     self._log(
                         attempt,
                         started,
@@ -152,6 +201,16 @@ class QianwenRiskEmbedder:
                 try:
                     vectors = self._parse(response, len(safe_texts))
                 except (KeyError, TypeError, ValueError, IndexError):
+                    self._finish_usage(
+                        usage_handle,
+                        UsageAttemptOutcome.FAILED_POSSIBLY_BILLED,
+                        self._actual_usage(response),
+                        started,
+                        provider_request_id=request_id,
+                        stable_error_code=(
+                            ModelErrorCode.EMBEDDING_INVALID_RESPONSE.value
+                        ),
+                    )
                     self._log(
                         attempt,
                         started,
@@ -164,6 +223,13 @@ class QianwenRiskEmbedder:
                         provider_request_id=request_id,
                     ) from None
                 usage = self._usage(response)
+                self._finish_usage(
+                    usage_handle,
+                    UsageAttemptOutcome.SUCCEEDED,
+                    self._actual_usage(response),
+                    started,
+                    provider_request_id=request_id,
+                )
                 self._log(
                     attempt,
                     started,
@@ -175,6 +241,51 @@ class QianwenRiskEmbedder:
                 )
                 return vectors
         raise AssertionError("embedding retry loop must return or raise")
+
+    def _begin_usage(
+        self,
+        attempt: int,
+        estimate: UsageEstimate,
+    ) -> UsageAttemptHandle | None:
+        if self._usage_governor is None:
+            return None
+        return self._usage_governor.begin_attempt(attempt, estimate)
+
+    def _finish_usage(
+        self,
+        handle: UsageAttemptHandle | None,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        started: float,
+        *,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        if self._usage_governor is None or handle is None:
+            return
+        self._usage_governor.finish_attempt(
+            handle,
+            outcome=outcome,
+            actual=actual,
+            latency_ms=max(
+                0,
+                round((time.monotonic() - started) * 1000),
+            ),
+            provider_request_id=provider_request_id,
+            stable_error_code=stable_error_code,
+        )
+
+    @classmethod
+    def _actual_usage(cls, response: httpx.Response) -> UsageEstimate | None:
+        usage = cls._usage(response)
+        tokens = usage.get("prompt_tokens")
+        if tokens is None:
+            tokens = usage.get("total_tokens")
+        return (
+            UsageEstimate(embedding_tokens=tokens)
+            if tokens is not None
+            else None
+        )
 
     @staticmethod
     def _validate_input(texts: Sequence[str]) -> list[str]:
@@ -306,3 +417,21 @@ class QianwenRiskEmbedder:
             attempt=attempt,
             error_code=error.value if error is not None else None,
         )
+
+
+class QianwenRiskQueryEmbedder:
+    def __init__(
+        self,
+        delegate: QianwenRiskEmbedder,
+        *,
+        version: str,
+    ) -> None:
+        if version != delegate.contract_version:
+            raise ValueError("query embedding version does not match adapter")
+        self._delegate = delegate
+        self.model_id = delegate.model_id
+        self.version = version
+        self.dimension = delegate.dimension
+
+    def embed(self, text: str) -> tuple[float, ...]:
+        return tuple(self._delegate.embed_batch([text])[0])

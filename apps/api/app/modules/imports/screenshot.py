@@ -20,6 +20,12 @@ from app.modules.imports.vision_binding import (
     create_bound_vision_adapter,
 )
 from app.modules.models.config_service import SecretCipher
+from app.modules.models.models import ModelConfig
+from app.modules.models.capabilities import Capability
+from app.modules.models.usage import (
+    ProviderOperation,
+    create_model_usage_governor,
+)
 from app.modules.imports.parsers.tabular import normalize_manual_row
 
 
@@ -171,6 +177,11 @@ def recognize_screenshot_task(batch_id: str) -> None:
         if image is None or mime_type is None:
             raise ValueError("staged screenshot is unavailable")
         with SessionFactory() as session:
+            config = (
+                session.get(ModelConfig, binding.model_config_id)
+                if binding.model_config_id is not None
+                else None
+            )
             adapter = create_bound_vision_adapter(
                 session,
                 workspace_id=workspace_id,
@@ -180,6 +191,22 @@ def recognize_screenshot_task(batch_id: str) -> None:
                     settings.model_secret_encryption_key.get_secret_value()
                 ),
                 mock_mode=settings.app_mock_mode,
+                usage_governor=(
+                    create_model_usage_governor(
+                        session_factory=SessionFactory,
+                        redis_url=settings.redis_url,
+                        workspace_id=workspace_id,
+                        model_config=config,
+                        actor_id=batch.confirmed_by,
+                        task_id=parsed_id,
+                        capability=Capability.VISION,
+                        operation=ProviderOperation.OCR,
+                        contract_version=binding.contract_version,
+                        configuration_version=binding.config_version,
+                    )
+                    if config is not None and not settings.app_mock_mode
+                    else None
+                ),
             )
         output = adapter.recognize(image, mime_type)
 

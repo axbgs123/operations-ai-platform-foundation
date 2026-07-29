@@ -34,6 +34,10 @@ RUNTIME_REQUIRED_TABLES = {
     "task_operation_events",
     "cover_generation_runs",
     "cover_artifact_attempts",
+    "model_usage_policies",
+    "model_usage_reservations",
+    "model_usage_attempts",
+    "model_contract_validation_runs",
 }
 
 

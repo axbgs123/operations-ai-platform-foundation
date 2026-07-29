@@ -22,7 +22,10 @@ from app.modules.imports.extension_router import review_router as extension_revi
 from app.modules.imports.router import router as imports_router
 from app.modules.metrics.dashboard_router import router as dashboard_router
 from app.modules.metrics.router import router as metrics_router
-from app.modules.models.router import router as model_configs_router
+from app.modules.models.router import (
+    router as model_configs_router,
+    usage_router as model_usage_router,
+)
 from app.modules.risk_rag.router import (
     router as risk_documents_router,
     scan_router as risk_scans_router,
@@ -66,6 +69,7 @@ app.include_router(account_router)
 app.include_router(content_router)
 app.include_router(metrics_router)
 app.include_router(model_configs_router)
+app.include_router(model_usage_router)
 app.include_router(style_profiles_router)
 app.include_router(fact_sources_router)
 app.include_router(dashboard_router)

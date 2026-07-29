@@ -18,6 +18,11 @@ from app.modules.models.adapters.qianwen_embedding import QianwenRiskEmbedder
 from app.modules.models.catalog import QianwenRegion
 from app.modules.models.config_service import SecretCipher
 from app.modules.models.models import ModelConfig
+from app.modules.models.capabilities import Capability
+from app.modules.models.usage import (
+    ProviderOperation,
+    create_model_usage_governor,
+)
 from app.modules.risk_rag.indexing import (
     ConfiguredMockRiskEmbedder,
     RiskIndexRebuildCoordinator,
@@ -59,6 +64,18 @@ def _load_embedder(session: Session, job_id: UUID):
             model_id=config.model_id,
             contract_version=job.contract_version or "",
             dimension=job.dimension or 0,
+            usage_governor=create_model_usage_governor(
+                session_factory=SessionFactory,
+                redis_url=get_settings().redis_url,
+                workspace_id=job.workspace_id,
+                model_config=config,
+                actor_id=None,
+                task_id=job.id,
+                capability=Capability.EMBEDDING,
+                operation=ProviderOperation.EMBEDDING_REBUILD,
+                contract_version=job.contract_version or "",
+                configuration_version=job.config_version or "legacy",
+            ),
         ),
     )
 

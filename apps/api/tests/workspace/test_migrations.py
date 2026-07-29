@@ -77,6 +77,10 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "task_operation_events",
                 "cover_generation_runs",
                 "cover_artifact_attempts",
+                "model_usage_policies",
+                "model_usage_reservations",
+                "model_usage_attempts",
+                "model_contract_validation_runs",
             } <= tables
 
         cover_attempt_columns = {
@@ -389,7 +393,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260728_0032",
+                    expected_head="20260729_0033",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -411,6 +415,10 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                         "task_operation_events",
                         "cover_generation_runs",
                         "cover_artifact_attempts",
+                        "model_usage_policies",
+                        "model_usage_reservations",
+                        "model_usage_attempts",
+                        "model_contract_validation_runs",
                     },
             )
             extensions = set(

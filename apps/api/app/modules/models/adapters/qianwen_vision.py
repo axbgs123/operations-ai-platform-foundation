@@ -33,6 +33,13 @@ from app.modules.models.catalog import (
     build_qianwen_ocr_endpoint,
     get_catalog_entry,
 )
+from app.modules.models.usage import (
+    AttemptGovernor,
+    UsageAttemptHandle,
+    UsageAttemptOutcome,
+    UsageEstimate,
+    usage_lease_heartbeat,
+)
 
 
 _logger = logging.getLogger("operations_ai.models.qianwen_vision")
@@ -65,6 +72,7 @@ class QianwenVisionAdapter:
         transport: httpx.BaseTransport | None = None,
         timeout_seconds: float = 30.0,
         sleeper: Sleeper = time.sleep,
+        usage_governor: AttemptGovernor | None = None,
     ) -> None:
         catalog = get_catalog_entry("qianwen", model_id)
         if catalog.capabilities != frozenset({Capability.VISION}):
@@ -87,12 +95,19 @@ class QianwenVisionAdapter:
         self._transport = transport
         self._timeout = httpx.Timeout(timeout_seconds)
         self._sleeper = sleeper
+        self._usage_governor = usage_governor
 
     def recognize(self, image: bytes, mime_type: str) -> VisionRecognition:
         sanitized, safe_mime, width, height = self._sanitize_image(
             image, mime_type
         )
         payload = self._payload(sanitized, safe_mime)
+        estimated_usage = UsageEstimate(
+            input_tokens=(width * height + 1023) // 1024 + 2,
+            output_tokens=4_096,
+            ocr_images=1,
+            input_images=1,
+        )
         headers = {
             "Authorization": f"Bearer {self._api_key.get_secret_value()}",
             "Content-Type": "application/json",
@@ -105,17 +120,38 @@ class QianwenVisionAdapter:
         ) as client:
             for attempt in (1, 2):
                 started = time.monotonic()
+                usage_handle = self._begin_usage(attempt, estimated_usage)
                 try:
-                    response = client.post(
-                        self._endpoint, headers=headers, json=payload
-                    )
+                    with usage_lease_heartbeat(
+                        self._usage_governor,
+                        usage_handle,
+                    ):
+                        response = client.post(
+                            self._endpoint, headers=headers, json=payload
+                        )
                 except httpx.TimeoutException:
+                    self._finish_usage(
+                        usage_handle,
+                        UsageAttemptOutcome.FAILED_POSSIBLY_BILLED,
+                        None,
+                        started,
+                        stable_error_code=ModelErrorCode.TIMEOUT.value,
+                    )
                     self._log(attempt, started, ModelErrorCode.TIMEOUT)
                     if attempt == 1:
                         self._sleeper(0.25)
                         continue
                     raise ModelProviderError(ModelErrorCode.TIMEOUT) from None
                 except httpx.RequestError:
+                    self._finish_usage(
+                        usage_handle,
+                        UsageAttemptOutcome.PROVIDER_OUTCOME_UNKNOWN,
+                        None,
+                        started,
+                        stable_error_code=(
+                            ModelErrorCode.PROVIDER_UNAVAILABLE.value
+                        ),
+                    )
                     self._log(
                         attempt,
                         started,
@@ -126,6 +162,17 @@ class QianwenVisionAdapter:
                     ) from None
                 error = self._http_error(response.status_code)
                 if error is not None:
+                    self._finish_usage(
+                        usage_handle,
+                        (
+                            UsageAttemptOutcome.FAILED_POSSIBLY_BILLED
+                            if response.status_code >= 500
+                            else UsageAttemptOutcome.FAILED_UNBILLED
+                        ),
+                        None,
+                        started,
+                        stable_error_code=error.value,
+                    )
                     self._log(attempt, started, error)
                     if attempt == 1 and (
                         response.status_code == 429
@@ -134,7 +181,24 @@ class QianwenVisionAdapter:
                         self._sleeper(0.25)
                         continue
                     raise ModelProviderError(error)
-                result = self._parse(response, width=width, height=height)
+                try:
+                    result = self._parse(response, width=width, height=height)
+                except ModelProviderError as provider_error:
+                    self._finish_usage(
+                        usage_handle,
+                        UsageAttemptOutcome.FAILED_POSSIBLY_BILLED,
+                        self._actual_usage(response),
+                        started,
+                        stable_error_code=provider_error.code.value,
+                    )
+                    raise
+                self._finish_usage(
+                    usage_handle,
+                    UsageAttemptOutcome.SUCCEEDED,
+                    self._actual_usage(response),
+                    started,
+                    provider_request_id=result.provider_request_id,
+                )
                 self._log(
                     attempt,
                     started,
@@ -144,6 +208,66 @@ class QianwenVisionAdapter:
                 )
                 return result
         raise AssertionError("OCR retry loop must return or raise")
+
+    def _begin_usage(
+        self,
+        attempt: int,
+        estimate: UsageEstimate,
+    ) -> UsageAttemptHandle | None:
+        if self._usage_governor is None:
+            return None
+        return self._usage_governor.begin_attempt(attempt, estimate)
+
+    def _finish_usage(
+        self,
+        handle: UsageAttemptHandle | None,
+        outcome: UsageAttemptOutcome,
+        actual: UsageEstimate | None,
+        started: float,
+        *,
+        provider_request_id: str | None = None,
+        stable_error_code: str | None = None,
+    ) -> None:
+        if self._usage_governor is None or handle is None:
+            return
+        self._usage_governor.finish_attempt(
+            handle,
+            outcome=outcome,
+            actual=actual,
+            latency_ms=max(
+                0,
+                round((time.monotonic() - started) * 1000),
+            ),
+            provider_request_id=provider_request_id,
+            stable_error_code=stable_error_code,
+        )
+
+    @staticmethod
+    def _actual_usage(response: httpx.Response) -> UsageEstimate | None:
+        try:
+            envelope = response.json()
+            usage = envelope.get("usage", {})
+        except (ValueError, AttributeError):
+            return None
+        if not isinstance(usage, dict):
+            return None
+        input_tokens = usage.get("input_tokens")
+        output_tokens = usage.get("output_tokens")
+        if (
+            not isinstance(input_tokens, int)
+            or isinstance(input_tokens, bool)
+            or input_tokens < 0
+            or not isinstance(output_tokens, int)
+            or isinstance(output_tokens, bool)
+            or output_tokens < 0
+        ):
+            return None
+        return UsageEstimate(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            ocr_images=1,
+            input_images=1,
+        )
 
     def _sanitize_image(
         self, image: bytes, declared_mime: str

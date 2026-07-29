@@ -5,15 +5,24 @@ import httpx
 from pydantic import SecretStr
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import sessionmaker
 
 from app.modules.models.adapters.mock import MockProvider
 from app.modules.models.adapters.qianwen import QianwenProvider
+from app.modules.models.usage import (
+    AttemptGovernor,
+    ProviderOperation,
+    create_model_usage_governor,
+)
 from app.modules.models.capabilities import Capability
 from app.modules.models.catalog import (
     QianwenRegion,
     get_catalog_entry,
 )
-from app.modules.models.config_service import SecretCipher
+from app.modules.models.config_service import (
+    SecretCipher,
+    model_configuration_version,
+)
 from app.modules.models.models import ModelConfig, ModelConfigStatus
 
 
@@ -29,6 +38,15 @@ class ModelBinding:
 class BoundModelAdapter:
     adapter: MockProvider | QianwenProvider
     binding: ModelBinding
+
+
+@dataclass(frozen=True)
+class UsageGovernanceContext:
+    session_factory: sessionmaker[Session]
+    redis_url: str
+    actor_id: UUID | None
+    task_id: UUID
+    operation: ProviderOperation
 
 
 class ModelSelectionError(RuntimeError):
@@ -47,6 +65,8 @@ def create_workspace_model_adapter(
     mock_mode: bool,
     expected: ModelBinding,
     transport: httpx.AsyncBaseTransport | None = None,
+    usage_governor: AttemptGovernor | None = None,
+    usage_context: UsageGovernanceContext | None = None,
 ) -> BoundModelAdapter:
     if mock_mode:
         binding = ModelBinding(
@@ -98,7 +118,7 @@ def create_workspace_model_adapter(
         provider=config.provider,
         model_id=config.model_id,
         contract_version=catalog.contract_version,
-        configuration_version=config.updated_at.isoformat(),
+        configuration_version=model_configuration_version(config),
     )
     if binding != expected:
         raise ModelSelectionError(
@@ -125,6 +145,21 @@ def create_workspace_model_adapter(
             "模型密钥版本不可用，请重新配置。",
         )
     try:
+        if usage_governor is None and usage_context is not None:
+            usage_governor = create_model_usage_governor(
+                session_factory=usage_context.session_factory,
+                redis_url=usage_context.redis_url,
+                workspace_id=workspace_id,
+                model_config=config,
+                actor_id=usage_context.actor_id,
+                task_id=usage_context.task_id,
+                capability=required_capability,
+                operation=usage_context.operation,
+                contract_version=catalog.contract_version,
+                configuration_version=(
+                    binding.configuration_version or "legacy"
+                ),
+            )
         api_key = SecretStr(cipher.decrypt(config.encrypted_api_key))
         region = QianwenRegion(config.region)
         adapter = QianwenProvider(
@@ -133,6 +168,7 @@ def create_workspace_model_adapter(
             provider_workspace_id=config.provider_workspace_id,
             model_id=config.model_id,
             transport=transport,
+            usage_governor=usage_governor,
         )
     except ValueError as error:
         raise ModelSelectionError(

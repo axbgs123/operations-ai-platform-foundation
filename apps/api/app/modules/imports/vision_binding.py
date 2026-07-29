@@ -14,8 +14,13 @@ from app.modules.metrics.models import ContentType, MetricDefinition
 from app.modules.models.adapters.qianwen_vision import QianwenVisionAdapter
 from app.modules.models.capabilities import Capability
 from app.modules.models.catalog import QianwenRegion, get_catalog_entry
-from app.modules.models.config_service import ModelConfigService, SecretCipher
+from app.modules.models.config_service import (
+    ModelConfigService,
+    SecretCipher,
+    model_configuration_version,
+)
 from app.modules.models.models import ModelConfig, ModelConfigStatus
+from app.modules.models.usage import AttemptGovernor
 
 
 @dataclass(frozen=True)
@@ -86,7 +91,7 @@ def resolve_vision_binding(
         provider=config.provider,
         model_id=config.model_id,
         contract_version=catalog.contract_version,
-        config_version=config.updated_at.isoformat(),
+        config_version=model_configuration_version(config),
         region=config.region,
         metric_labels=labels,
     )
@@ -101,6 +106,7 @@ def create_bound_vision_adapter(
     cipher: SecretCipher,
     mock_mode: bool,
     transport: httpx.BaseTransport | None = None,
+    usage_governor: AttemptGovernor | None = None,
 ) -> VisionAdapter:
     if binding.provider == "mock":
         if not mock_mode or binding.model_id != "mock-vision-v1":
@@ -119,7 +125,7 @@ def create_bound_vision_adapter(
         or config.status is ModelConfigStatus.INCOMPATIBLE
         or config.provider != binding.provider
         or config.model_id != binding.model_id
-        or config.updated_at.isoformat() != binding.config_version
+        or model_configuration_version(config) != binding.config_version
         or config.region is None
         or config.provider_workspace_id is None
         or Capability.VISION.value not in config.capabilities
@@ -139,4 +145,5 @@ def create_bound_vision_adapter(
         contract_version=binding.contract_version,
         allowed_metric_labels=binding.metric_labels,
         transport=transport,
+        usage_governor=usage_governor,
     )

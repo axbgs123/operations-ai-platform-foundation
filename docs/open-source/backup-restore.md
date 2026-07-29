@@ -9,6 +9,9 @@ CSV 用于表格分析，Markdown 用于单条可读分析报告，JSON 用于�
 ## 恢复后的 RiskRAG 索引
 
 ZIP 不恢复历史向量、来源工作区的模型配置 ID、Provider Workspace ID、密钥或路由。
+备份也不包含模型配置密文、用量 reservation、验证输入输出或临时签名 URL；恢复后
+不会继承来源工作区的真实 Provider 权限或费用预算。管理员必须在目标工作区重新
+配置凭据和政策。
 对象与结构化记录合法提交后，系统才读取目标工作区当前有效的 Embedding 配置并创建
 幂等重建任务。缺少配置时状态为 `configuration_required`；Mock 配置使用确定性
 本地 Embedder，千问配置进入异步队列，Provider 请求不会发生在恢复数据库事务中。

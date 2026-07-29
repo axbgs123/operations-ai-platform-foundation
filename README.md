@@ -10,14 +10,14 @@
 
 - 管理内容、运营数据、动态基准、分析、建议、风格、事实资料、生成、风控、截图采集、导出与恢复。
 - 不自动发布平台内容；不保存或代填平台账号密码；不保存 Cookie；不绕过验证码或平台权限；不调用非官方隐藏接口批量抓取数据。
-- 默认使用 Mock LLM、Mock OCR/视觉、Mock 封面和固定 Mock Embedding。Mock 用于验证工程流程，不代表真实模型效果；当前未接入千问或其他真实计费模型。
+- 默认使用 Mock LLM、Mock OCR/视觉、Mock 封面和固定 Mock Embedding。可选千问适配器仍为 `experimental`，只完成 Mock/Fake 工程合同验证，尚未执行真实 API 验收；默认配置不会访问或计费。
 - 公开 Demo 是独立、只读的合成工作区；真实工作区需要受控成员访问，不能把 Demo 数据、指标或资产混入其中。
 
 ## 架构与文档
 
 Web（Next.js）只负责体验，FastAPI 集中承载工作区隔离和业务规则；Worker 处理异步任务；PostgreSQL/pgvector、Redis 和 S3 兼容对象存储分别保存数据、队列/缓存和对象。浏览器扩展只采集用户已登录并确认的受支持页面截图。
 
-- [系统架构](docs/architecture/system.md)、[数据模型](docs/architecture/data-model.md)、[模型适配](docs/architecture/model-adapters.md)
+- [系统架构](docs/architecture/system.md)、[数据模型](docs/architecture/data-model.md)、[模型适配](docs/architecture/model-adapters.md)、[千问配置与用量治理](docs/open-source/qianwen-model-configuration.md)
 - [部署](docs/open-source/deployment.md)、[JSON/ZIP 备份与恢复](docs/open-source/backup-restore.md)、[风控知识治理](docs/open-source/risk-knowledge.md)
 - [扩展安装](docs/open-source/extension-installation.md)、[扩展隐私](docs/open-source/extension-privacy.md)、[真实页面验证状态](docs/open-source/extension-validation-status.md)
 - [许可证决定](docs/open-source/license-decision.md)、[供应链安全](docs/open-source/supply-chain-security.md)、[发布清单](docs/open-source/release-checklist.md)、[第三方资产](docs/open-source/third-party-assets.md)

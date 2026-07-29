@@ -28,6 +28,7 @@ from app.modules.content.models import Content
 from app.modules.models.adapter_factory import (
     ModelBinding,
     ModelSelectionError,
+    UsageGovernanceContext,
     create_workspace_model_adapter,
 )
 from app.modules.models.adapters.qianwen_analysis import (
@@ -40,6 +41,7 @@ from app.modules.models.adapters.qianwen import (
 )
 from app.modules.models.capabilities import Capability
 from app.modules.models.config_service import SecretCipher
+from app.modules.models.usage import ProviderOperation
 
 
 def build_analysis_adapter_for_run(
@@ -63,6 +65,7 @@ def build_analysis_adapter_for_run(
         contract_version=run.provider_contract_version,
         configuration_version=run.model_config_version,
     )
+    settings = get_settings()
     bound = create_workspace_model_adapter(
         session=session,
         workspace_id=run.workspace_id,
@@ -71,6 +74,13 @@ def build_analysis_adapter_for_run(
         cipher=cipher,
         mock_mode=False,
         expected=expected,
+        usage_context=UsageGovernanceContext(
+            session_factory=SessionFactory,
+            redis_url=settings.redis_url,
+            actor_id=run.requested_by,
+            task_id=run.id,
+            operation=ProviderOperation.ANALYSIS,
+        ),
     )
     if bound.binding.provider != "qianwen":
         raise ModelSelectionError(

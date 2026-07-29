@@ -1363,6 +1363,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/model-configs/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Model Catalog */
+        get: operations["get_model_catalog_v1_workspaces__workspace_id__model_configs_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/model-configs/selection": {
         parameters: {
             query?: never;
@@ -1395,6 +1412,93 @@ export interface paths {
         head?: never;
         /** Update Model Config Status */
         patch: operations["update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch"];
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/model-usage/attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Model Usage Attempts */
+        get: operations["list_model_usage_attempts_v1_workspaces__workspace_id__model_usage_attempts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/model-usage/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Model Usage Policies */
+        get: operations["list_model_usage_policies_v1_workspaces__workspace_id__model_usage_policy_get"];
+        /** Save Model Usage Policy */
+        put: operations["save_model_usage_policy_v1_workspaces__workspace_id__model_usage_policy_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/model-usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Model Usage Summary */
+        get: operations["get_model_usage_summary_v1_workspaces__workspace_id__model_usage_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/model-validations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Model Validations */
+        get: operations["list_model_validations_v1_workspaces__workspace_id__model_validations_get"];
+        put?: never;
+        /** Create Model Validation */
+        post: operations["create_model_validation_v1_workspaces__workspace_id__model_validations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/model-validations/{validation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Model Validation */
+        get: operations["get_model_validation_v1_workspaces__workspace_id__model_validations__validation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/workspaces/{workspace_id}/operations/access": {
@@ -2804,6 +2908,34 @@ export interface components {
             /** Work Url */
             work_url?: string | null;
         };
+        /** ControlledValidationRequest */
+        ControlledValidationRequest: {
+            capability: components["schemas"]["Capability"];
+            /** Confirm Real Call */
+            confirm_real_call: boolean;
+            /** Max Calls */
+            max_calls: number;
+            /** Max Cost Microunits */
+            max_cost_microunits: number;
+            /** Max Images */
+            max_images: number;
+            /** Max Input Tokens */
+            max_input_tokens: number;
+            /** Max Output Tokens */
+            max_output_tokens: number;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Id */
+            model_id: string;
+            /**
+             * Region
+             * @enum {string}
+             */
+            region: "cn-beijing" | "ap-southeast-1";
+        };
         /** DashboardAttentionItem */
         DashboardAttentionItem: {
             /**
@@ -3961,6 +4093,27 @@ export interface components {
              */
             role: "admin" | "editor" | "viewer";
         };
+        /** ModelCatalogItem */
+        ModelCatalogItem: {
+            capability: components["schemas"]["Capability"];
+            /** Contract Version */
+            contract_version: string;
+            /** Experimental */
+            experimental: boolean;
+            /** Model Id */
+            model_id: string;
+            /** Upstream Snapshot Immutable */
+            upstream_snapshot_immutable: boolean;
+        };
+        /** ModelCatalogRead */
+        ModelCatalogRead: {
+            /** Models */
+            models: components["schemas"]["ModelCatalogItem"][];
+            /** Provider */
+            provider: string;
+            /** Regions */
+            regions: components["schemas"]["QianwenRegion"][];
+        };
         /** ModelConfigCreate */
         ModelConfigCreate: {
             /**
@@ -3981,24 +4134,37 @@ export interface components {
         };
         /** ModelConfigRead */
         ModelConfigRead: {
-            /** Capabilities */
-            capabilities: components["schemas"]["Capability"][];
+            capability: components["schemas"]["Capability"];
+            /** Configuration Version */
+            configuration_version: string;
+            /** Contract Version */
+            contract_version: string;
+            /** Credential Configured */
+            credential_configured: boolean;
+            /**
+             * Credential Updated At
+             * Format: date-time
+             */
+            credential_updated_at: string;
+            /** Experimental */
+            experimental: boolean;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Last Validated At */
+            last_validated_at: string | null;
+            /** Last Validation Status */
+            last_validation_status: string;
             /** Model Id */
             model_id: string;
             /** Provider */
             provider: string;
             region: components["schemas"]["QianwenRegion"] | null;
+            /** Safe Error Code */
+            safe_error_code: string | null;
             status: components["schemas"]["AdapterStatus"];
-            /**
-             * Workspace Id
-             * Format: uuid
-             */
-            workspace_id: string;
         };
         /** ModelConfigStatusUpdate */
         ModelConfigStatusUpdate: {
@@ -4029,6 +4195,249 @@ export interface components {
             provider: string;
             /** Status */
             status: string;
+        };
+        /** ModelUsageAttemptRead */
+        ModelUsageAttemptRead: {
+            /**
+             * Attempt Id
+             * Format: uuid
+             */
+            attempt_id: string;
+            /** Capability */
+            capability: string;
+            /** Configuration Version */
+            configuration_version: string;
+            /** Contract Version */
+            contract_version: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /** Embedding Inputs */
+            embedding_inputs: number;
+            /** Estimated Cost Microunits */
+            estimated_cost_microunits: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Image Inputs */
+            image_inputs: number;
+            /** Image Outputs */
+            image_outputs: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model Id */
+            model_id: string;
+            /** Operation */
+            operation: string;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Pricing Version */
+            pricing_version: string;
+            /** Provider */
+            provider: string;
+            /** Provider Attempt Number */
+            provider_attempt_number: number;
+            /** Provider Request Id */
+            provider_request_id: string | null;
+            /** Region */
+            region: string;
+            /** Settled Cost Microunits */
+            settled_cost_microunits: number | null;
+            /** Stable Error Code */
+            stable_error_code: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /** Total Tokens */
+            total_tokens: number;
+            /**
+             * Usage Basis
+             * @enum {string}
+             */
+            usage_basis: "estimated" | "settled" | "unknown";
+        };
+        /** ModelUsagePolicyInput */
+        ModelUsagePolicyInput: {
+            capability: components["schemas"]["Capability"];
+            /**
+             * Currency
+             * @constant
+             */
+            currency: "CNY";
+            /** Daily Cost Limit Microunits */
+            daily_cost_limit_microunits: number;
+            /** Daily Embedding Token Limit */
+            daily_embedding_token_limit: number;
+            /** Daily Generated Image Limit */
+            daily_generated_image_limit: number;
+            /** Daily Input Token Limit */
+            daily_input_token_limit: number;
+            /** Daily Ocr Image Limit */
+            daily_ocr_image_limit: number;
+            /** Daily Output Token Limit */
+            daily_output_token_limit: number;
+            /** Daily Request Limit */
+            daily_request_limit: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Max Calls Per Minute */
+            max_calls_per_minute: number;
+            /** Max Concurrent Calls */
+            max_concurrent_calls: number;
+        };
+        /** ModelUsagePolicyRead */
+        ModelUsagePolicyRead: {
+            capability: components["schemas"]["Capability"];
+            /**
+             * Currency
+             * @constant
+             */
+            currency: "CNY";
+            /** Daily Cost Limit Microunits */
+            daily_cost_limit_microunits: number;
+            /** Daily Embedding Token Limit */
+            daily_embedding_token_limit: number;
+            /** Daily Generated Image Limit */
+            daily_generated_image_limit: number;
+            /** Daily Input Token Limit */
+            daily_input_token_limit: number;
+            /** Daily Ocr Image Limit */
+            daily_ocr_image_limit: number;
+            /** Daily Output Token Limit */
+            daily_output_token_limit: number;
+            /** Daily Request Limit */
+            daily_request_limit: number;
+            /**
+             * Effective From
+             * Format: date-time
+             */
+            effective_from: string;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Calls Per Minute */
+            max_calls_per_minute: number;
+            /** Max Concurrent Calls */
+            max_concurrent_calls: number;
+            /**
+             * Utc Day Boundary
+             * @default 00:00:00Z
+             */
+            utc_day_boundary: string;
+            /** Version */
+            version: number;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** ModelUsageSummaryRead */
+        ModelUsageSummaryRead: {
+            /**
+             * Currency
+             * @default CNY
+             * @constant
+             */
+            currency: "CNY";
+            /** Estimated Cost Microunits */
+            estimated_cost_microunits: number;
+            /** Mock Attempts */
+            mock_attempts: number;
+            /** Real Attempts */
+            real_attempts: number;
+            /**
+             * Sample Status
+             * @enum {string}
+             */
+            sample_status: "insufficient_sample" | "available";
+            /** Settled Cost Microunits */
+            settled_cost_microunits: number;
+            /** Unknown Reserved Cost Microunits */
+            unknown_reserved_cost_microunits: number;
+            /** Utc Day */
+            utc_day: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** ModelValidationRead */
+        ModelValidationRead: {
+            /** Capability */
+            capability: string;
+            /** Completed At */
+            completed_at: string | null;
+            /** Configuration Version */
+            configuration_version: string;
+            /** Contract Version */
+            contract_version: string;
+            /** Evidence */
+            evidence: {
+                [key: string]: number | string | boolean | null;
+            };
+            /**
+             * Experimental
+             * @default true
+             */
+            experimental: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Max Calls */
+            max_calls: number;
+            /** Max Cost Microunits */
+            max_cost_microunits: number;
+            /** Max Images */
+            max_images: number;
+            /** Max Input Tokens */
+            max_input_tokens: number;
+            /** Max Output Tokens */
+            max_output_tokens: number;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Model Id */
+            model_id: string;
+            /** Region */
+            region: string;
+            /** Result */
+            result: string;
+            /** Safe Error Code */
+            safe_error_code: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Validation Suite Version */
+            validation_suite_version: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** NextExperiment */
         NextExperiment: {
@@ -8909,6 +9318,39 @@ export interface operations {
             };
         };
     };
+    get_model_catalog_v1_workspaces__workspace_id__model_configs_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelCatalogRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     select_model_config_v1_workspaces__workspace_id__model_configs_selection_get: {
         parameters: {
             query: {
@@ -8971,6 +9413,250 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_model_usage_attempts_v1_workspaces__workspace_id__model_usage_attempts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUsageAttemptRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_model_usage_policies_v1_workspaces__workspace_id__model_usage_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUsagePolicyRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_model_usage_policy_v1_workspaces__workspace_id__model_usage_policy_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelUsagePolicyInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUsagePolicyRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_model_usage_summary_v1_workspaces__workspace_id__model_usage_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelUsageSummaryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_model_validations_v1_workspaces__workspace_id__model_validations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelValidationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_model_validation_v1_workspaces__workspace_id__model_validations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlledValidationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelValidationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_model_validation_v1_workspaces__workspace_id__model_validations__validation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                validation_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelValidationRead"];
                 };
             };
             /** @description Validation Error */
