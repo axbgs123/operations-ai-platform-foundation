@@ -34,7 +34,6 @@ export function ModelConfigForm({
   const [region, setRegion] = useState<"cn-beijing" | "ap-southeast-1">(
     "cn-beijing",
   );
-  const [providerWorkspaceId, setProviderWorkspaceId] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
@@ -86,7 +85,7 @@ export function ModelConfigForm({
           provider: "qianwen",
           model_id: selected.model_id,
           region,
-          provider_workspace_id: providerWorkspaceId || null,
+          provider_workspace_id: null,
           capabilities: [selected.capability],
           status: "experimental",
           api_key: apiKey,
@@ -207,14 +206,14 @@ export function ModelConfigForm({
   }
 
   return (
-    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 sm:p-8">
+    <section className="rounded-xl border bg-white p-6 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">千问模型配置</h1>
         <span className="rounded-full bg-amber-950 px-3 py-1 text-xs text-amber-200">
           experimental
         </span>
       </div>
-      <p className="mt-3 text-sm text-slate-400">
+      <p className="mt-3 text-sm text-[var(--text-secondary)]">
         数据将发送到所选地域的阿里云百炼服务；调用可能产生费用。Embedding
         当前固定内部合同为 qianwen-text-embedding-v4-d1024-v1，
         上游尚无已确认日期快照。
@@ -280,17 +279,6 @@ export function ModelConfigForm({
                 </option>
               ))}
             </select>
-          </label>
-          <label className="text-sm">
-            Provider Workspace ID
-            <input
-              aria-label="Provider Workspace ID"
-              autoComplete="off"
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
-              onChange={(event) => setProviderWorkspaceId(event.target.value)}
-              placeholder="已配置时留空可保留"
-              value={providerWorkspaceId}
-            />
           </label>
           <label className="text-sm sm:col-span-2">
             API Key

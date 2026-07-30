@@ -10,10 +10,11 @@ from fastapi import (
     File,
     Header,
     HTTPException,
+    Query,
     UploadFile,
 )
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
@@ -87,6 +88,18 @@ class ExportTaskRead(BaseModel):
     download_url: str | None
     download_expires_at: datetime | None
     error_code: str | None
+    requested_by: UUID
+    created_at: datetime
+    completed_at: datetime | None
+
+
+class ExportTaskPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[ExportTaskRead]
+    page: int
+    page_size: int
+    total: int
 
 
 class KnowledgeIndexRebuildRead(BaseModel):
@@ -151,6 +164,7 @@ def _context(
     csrf_token: str | None,
     *,
     mutation: bool,
+    permission: Permission = Permission.WRITE_CONTENT,
 ):
     if session_token is None:
         raise HTTPException(status_code=401, detail="invalid session")
@@ -165,7 +179,7 @@ def _context(
     ):
         raise HTTPException(status_code=403, detail="CSRF validation failed")
     try:
-        require_permission(context.role, Permission.WRITE_CONTENT)
+        require_permission(context.role, permission)
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
     return context
@@ -191,6 +205,9 @@ def _payload(task: ExportTask, storage: Storage | None = None) -> ExportTaskRead
         download_url=download_url,
         download_expires_at=expires_at,
         error_code=task.error_code,
+        requested_by=task.requested_by,
+        created_at=task.created_at,
+        completed_at=task.completed_at,
     )
 
 
@@ -270,6 +287,44 @@ def create_export(
         task.enqueued_at = datetime.now(UTC)
         session.commit()
     return _payload(task)
+
+
+@router.get("", response_model=ExportTaskPage)
+def list_exports(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> ExportTaskPage:
+    _context(
+        session,
+        workspace_id,
+        session_token,
+        None,
+        mutation=False,
+        permission=Permission.READ_CONTENT,
+    )
+    total = session.scalar(
+        select(func.count()).select_from(ExportTask).where(
+            ExportTask.workspace_id == workspace_id
+        )
+    ) or 0
+    tasks = list(
+        session.scalars(
+            select(ExportTask)
+            .where(ExportTask.workspace_id == workspace_id)
+            .order_by(ExportTask.created_at.desc(), ExportTask.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    return ExportTaskPage(
+        items=[_payload(task) for task in tasks],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.get("/{task_id}", response_model=ExportTaskRead)

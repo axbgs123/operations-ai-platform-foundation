@@ -110,6 +110,7 @@ test("admin sees only catalog choices and clears the key after save", async () =
     "qwen3.5-plus-2026-04-20",
   );
   expect(screen.queryByLabelText(/base_url/i)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Provider Workspace ID")).not.toBeInTheDocument();
   expect(screen.getByText("experimental")).toBeInTheDocument();
   expect(screen.getByText(/数据将发送到所选地域/)).toBeInTheDocument();
   expect(screen.getByText(/调用可能产生费用/)).toBeInTheDocument();
@@ -117,9 +118,6 @@ test("admin sees only catalog choices and clears the key after save", async () =
 
   const key = screen.getByLabelText("API Key");
   expect(key).toHaveAttribute("autocomplete", "new-password");
-  fireEvent.change(screen.getByLabelText("Provider Workspace ID"), {
-    target: { value: "llm-abcd1234" },
-  });
   fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
   fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
 

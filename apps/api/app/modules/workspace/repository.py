@@ -43,6 +43,16 @@ class WorkspaceScopedRepository(Generic[ScopedModel]):
 class WorkspaceMemberRepository(WorkspaceScopedRepository[WorkspaceMember]):
     model = WorkspaceMember
 
+    def list_ordered(self) -> list[WorkspaceMember]:
+        statement = (
+            select(WorkspaceMember)
+            .where(
+                WorkspaceMember.workspace_id == self._context.workspace_id
+            )
+            .order_by(WorkspaceMember.created_at, WorkspaceMember.id)
+        )
+        return list(self._session.scalars(statement))
+
 
 class WorkspaceAccessCodeRepository(
     WorkspaceScopedRepository[WorkspaceAccessCode]
@@ -53,6 +63,18 @@ class WorkspaceAccessCodeRepository(
         statement = select(WorkspaceAccessCode).where(
             WorkspaceAccessCode.workspace_id == self._context.workspace_id,
             WorkspaceAccessCode.member_id == member_id,
+        )
+        return list(self._session.scalars(statement))
+
+    def list_for_members(
+        self,
+        member_ids: list[UUID],
+    ) -> list[WorkspaceAccessCode]:
+        if not member_ids:
+            return []
+        statement = select(WorkspaceAccessCode).where(
+            WorkspaceAccessCode.workspace_id == self._context.workspace_id,
+            WorkspaceAccessCode.member_id.in_(member_ids),
         )
         return list(self._session.scalars(statement))
 

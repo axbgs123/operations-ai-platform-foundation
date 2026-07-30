@@ -32,16 +32,28 @@ afterEach(cleanup);
 
 test("shows pending feedback governance and hides review controls from editor", async () => {
   const { rerender } = render(
-    <RiskFeedbackPanel workspaceId="workspace-1" role="admin" />,
+    <RiskFeedbackPanel
+      platform="xiaohongshu"
+      workspaceId="workspace-1"
+      role="admin"
+    />,
   );
 
   expect(await screen.findByText("待审核反馈候选")).toBeInTheDocument();
+  expect(listRiskFeedbackCandidates).toHaveBeenCalledWith(
+    "workspace-1",
+    "xiaohongshu",
+  );
   expect(screen.getByText("false_positive · synthetic-finding")).toBeInTheDocument();
   expect(screen.getByText("仅工作区私有候选")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "审核候选" })).toBeInTheDocument();
 
   rerender(
-    <RiskFeedbackPanel workspaceId="workspace-1" role="editor" />,
+    <RiskFeedbackPanel
+      platform="xiaohongshu"
+      workspaceId="workspace-1"
+      role="editor"
+    />,
   );
   expect(screen.queryByRole("button", { name: "审核候选" })).not.toBeInTheDocument();
   expect(screen.getByText("编辑者可提交反馈，不能审核或发布规则")).toBeInTheDocument();

@@ -41,9 +41,19 @@ beforeEach(() => {
     status: "not_ready",
     components: [
       {
+        name: "postgresql",
+        status: "ready",
+        error_code: null,
+      },
+      {
         name: "redis",
         status: "not_ready",
         error_code: "DEPENDENCY_UNAVAILABLE",
+      },
+      {
+        name: "s3",
+        status: "ready",
+        error_code: null,
       },
     ],
   } as never);
@@ -87,6 +97,9 @@ test("admin sees safe states and only valid task actions", async () => {
   render(<JobOperations workspaceId="workspace-1" role="admin" />);
 
   expect(await screen.findByText("依赖未全部就绪")).toBeInTheDocument();
+  expect(screen.getByText(/PostgreSQL：已就绪/)).toBeInTheDocument();
+  expect(screen.getByText(/Redis：未就绪/)).toBeInTheDocument();
+  expect(screen.getByText(/S3：已就绪/)).toBeInTheDocument();
   expect(screen.getByText(/需要人工补偿：普通取消不会覆盖/)).toBeInTheDocument();
   expect(screen.getByText(/死信任务：请检查安全错误码/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "取消任务" })).toBeInTheDocument();

@@ -1,4 +1,5 @@
 import { MemberSettings } from "@/components/workspace/member-settings";
+import { SettingsNav } from "@/components/workspace/settings-nav";
 
 
 export default async function MembersPage({
@@ -7,10 +8,9 @@ export default async function MembersPage({
   const { workspaceId } = await params;
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-12 text-slate-100">
-      <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl space-y-6">
+        <SettingsNav workspaceId={workspaceId} />
         <MemberSettings workspaceId={workspaceId} />
-      </div>
-    </main>
+    </div>
   );
 }

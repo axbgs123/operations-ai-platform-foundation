@@ -1112,7 +1112,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Exports */
+        get: operations["list_exports_v1_workspaces__workspace_id__exports_get"];
         put?: never;
         /** Create Export */
         post: operations["create_export_v1_workspaces__workspace_id__exports_post"];
@@ -1390,6 +1391,23 @@ export interface paths {
         put?: never;
         /** Preview Tabular Import */
         post: operations["preview_tabular_import_v1_workspaces__workspace_id__imports_tabular_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Members */
+        get: operations["list_members_v1_workspaces__workspace_id__members_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4060,10 +4078,28 @@ export interface components {
              */
             kind: "csv" | "markdown" | "json" | "zip";
         };
+        /** ExportTaskPage */
+        ExportTaskPage: {
+            /** Items */
+            items: components["schemas"]["ExportTaskRead"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** ExportTaskRead */
         ExportTaskRead: {
+            /** Completed At */
+            completed_at: string | null;
             /** Content Id */
             content_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /** Download Expires At */
             download_expires_at: string | null;
             /** Download Url */
@@ -4084,6 +4120,11 @@ export interface components {
             kind: "csv" | "markdown" | "json" | "zip";
             /** Mime Type */
             mime_type: string | null;
+            /**
+             * Requested By
+             * Format: uuid
+             */
+            requested_by: string;
             /**
              * Status
              * @enum {string}
@@ -6953,6 +6994,43 @@ export interface components {
              */
             workspace_id: string;
         };
+        /** WorkspaceMemberManagementRead */
+        WorkspaceMemberManagementRead: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Invite Status
+             * @enum {string}
+             */
+            invite_status: "redeemed" | "revoked";
+            /** Last Access At */
+            last_access_at: string | null;
+            /**
+             * Last Access Status
+             * @constant
+             */
+            last_access_status: "not_recorded";
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "editor" | "viewer" | "demo";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "revoked";
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
         /** WorkspaceMemberRead */
         WorkspaceMemberRead: {
             /** Display Name */
@@ -9664,6 +9742,42 @@ export interface operations {
             };
         };
     };
+    list_exports_v1_workspaces__workspace_id__exports_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportTaskPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_export_v1_workspaces__workspace_id__exports_post: {
         parameters: {
             query?: never;
@@ -10353,6 +10467,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_v1_workspaces__workspace_id__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceMemberManagementRead"][];
                 };
             };
             /** @description Validation Error */

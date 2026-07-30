@@ -15,7 +15,15 @@ from app.modules.workspace.auth import (
     InvalidInviteCode,
 )
 from app.modules.workspace.models import MemberRole
-from app.modules.workspace.permissions import PermissionDenied
+from app.modules.workspace.permissions import (
+    Permission,
+    PermissionDenied,
+    require_permission,
+)
+from app.modules.workspace.repository import (
+    WorkspaceAccessCodeRepository,
+    WorkspaceMemberRepository,
+)
 from app.modules.workspace.schemas import (
     InviteLogin,
     MemberCodeCreate,
@@ -24,6 +32,7 @@ from app.modules.workspace.schemas import (
     WorkspaceCreate,
     WorkspaceCreated,
     WorkspaceMemberRead,
+    WorkspaceMemberManagementRead,
     WorkspaceMemberUpdate,
 )
 
@@ -50,6 +59,26 @@ def _authorized_service(
     if not service.validate_csrf(session_token, csrf_token):
         raise HTTPException(status_code=403, detail="CSRF validation failed")
     return service, context
+
+
+def _member_management_context(
+    session: Session,
+    workspace_id: UUID,
+    session_token: str | None,
+) -> WorkspaceContext:
+    if session_token is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    service = InviteAuthService(session)
+    context = service.authenticate(session_token)
+    if context is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    if context.workspace_id != workspace_id:
+        raise HTTPException(status_code=404, detail="workspace not found")
+    try:
+        require_permission(context.role, Permission.MANAGE_MEMBERS)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    return context
 
 
 @router.post("/workspaces", response_model=WorkspaceCreated, status_code=201)
@@ -136,6 +165,53 @@ def create_member_code(
         raise HTTPException(status_code=403, detail="permission denied") from error
     session.commit()
     return MemberCodeCreated(code=code, role=data.role)
+
+
+@router.get(
+    "/workspaces/{workspace_id}/members",
+    response_model=list[WorkspaceMemberManagementRead],
+)
+def list_members(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> list[WorkspaceMemberManagementRead]:
+    context = _member_management_context(
+        session,
+        workspace_id,
+        session_token,
+    )
+    members = WorkspaceMemberRepository(
+        session,
+        context=context,
+    ).list_ordered()
+    access_codes = WorkspaceAccessCodeRepository(
+        session,
+        context=context,
+    ).list_for_members([member.id for member in members])
+    revoked_by_member = {
+        code.member_id: code.revoked_at is not None
+        for code in access_codes
+        if code.member_id is not None
+    }
+    return [
+        WorkspaceMemberManagementRead(
+            id=member.id,
+            workspace_id=member.workspace_id,
+            display_name=member.display_name,
+            role=member.role.value,
+            status="revoked" if member.revoked_at is not None else "active",
+            last_access_at=None,
+            last_access_status="not_recorded",
+            invite_status=(
+                "revoked"
+                if member.revoked_at is not None
+                or revoked_by_member.get(member.id, False)
+                else "redeemed"
+            ),
+        )
+        for member in members
+    ]
 
 
 @router.patch(

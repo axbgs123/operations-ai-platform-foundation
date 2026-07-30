@@ -171,6 +171,51 @@ def test_invite_rate_limit_is_shared_across_requests() -> None:
         assert limited.status_code == 429
 
 
+def test_member_management_list_is_admin_only_scoped_and_secret_free() -> None:
+    with configured_client() as admin_client:
+        workspace_id, admin_csrf = create_and_login_admin(admin_client)
+        code_response = admin_client.post(
+            f"/v1/workspaces/{workspace_id}/members/codes",
+            json={"role": "viewer"},
+            headers={"X-CSRF-Token": admin_csrf},
+        )
+        with TestClient(app) as viewer_client:
+            viewer_login = viewer_client.post(
+                "/v1/sessions/invite",
+                json={
+                    "code": code_response.json()["code"],
+                    "display_name": "只读成员",
+                },
+            )
+            assert viewer_login.status_code == 201
+            assert (
+                viewer_client.get(
+                    f"/v1/workspaces/{workspace_id}/members"
+                ).status_code
+                == 403
+            )
+
+        response = admin_client.get(
+            f"/v1/workspaces/{workspace_id}/members"
+        )
+        assert response.status_code == 200, response.text
+        assert [member["display_name"] for member in response.json()] == [
+            "管理员",
+            "只读成员",
+        ]
+        assert all(
+            member["last_access_at"] is None
+            and member["last_access_status"] == "not_recorded"
+            for member in response.json()
+        )
+        assert response.json()[1]["invite_status"] == "redeemed"
+        assert "hash" not in response.text.lower()
+        assert "token" not in response.text.lower()
+        assert admin_client.get(
+            f"/v1/workspaces/{uuid4()}/members"
+        ).status_code == 404
+
+
 def test_local_web_origin_can_use_cookie_authenticated_api() -> None:
     with configured_client() as client:
         response = client.options(

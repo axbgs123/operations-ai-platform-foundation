@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { RiskKnowledgeCenter } from "./risk-knowledge-center";
@@ -62,14 +62,44 @@ test("admin sees knowledge status, evaluation caveat, and lifecycle actions", as
   );
 
   expect(await screen.findByText("人工合成抖音知识")).toBeInTheDocument();
+  expect(
+    screen.getByText("草稿 → 已解析 → 待审核 → 生效 → 已替代/已失效"),
+  ).toBeVisible();
+  expect(screen.getByText("Chunks 与引用检查")).toBeVisible();
+  expect(
+    screen.getByText("S5 只能作为低置信度提示，不能独立支撑高风险结论"),
+  ).toBeVisible();
   expect(screen.getByText("抖音 · 私有 · S3")).toBeInTheDocument();
   expect(screen.getByText("active · v1")).toBeInTheDocument();
+  expect(screen.getByText("最近检查")).toBeInTheDocument();
+  expect(screen.getByText("尚未检查")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "提交审核" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "生效" })).toBeInTheDocument();
   expect(screen.getByText("工程回归门槛，不是生产准确率")).toBeInTheDocument();
   expect(
     screen.getByText("不能作为生产准确率或平台通过率宣传"),
   ).toBeInTheDocument();
+  expect(
+    screen.getByText("辅助判断，不保证通过平台审核"),
+  ).toBeVisible();
+
+  fireEvent.change(screen.getByRole("combobox", { name: "风控平台" }), {
+    target: { value: "xiaohongshu" },
+  });
+  await waitFor(() => {
+    expect(listRiskDocuments).toHaveBeenLastCalledWith(
+      "workspace-1",
+      "xiaohongshu",
+    );
+    expect(readRiskEvaluation).toHaveBeenLastCalledWith(
+      "workspace-1",
+      "xiaohongshu",
+    );
+    expect(listRiskFeedbackCandidates).toHaveBeenLastCalledWith(
+      "workspace-1",
+      "xiaohongshu",
+    );
+  });
 });
 
 test("editor and viewer do not receive governance or mutation controls", async () => {

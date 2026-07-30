@@ -190,7 +190,7 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
 
   await test.step("1-2 public Demo needs no invite and stays read-only", async () => {
     await page.goto("/demo");
-    await expect(page.getByText("公开体验区")).toBeVisible();
+    await expect(page.getByText("示例工作区 · 只读")).toBeVisible();
     await expect(page.getByText("示例数据").first()).toBeVisible();
     const demo = await json(await request.get(`${api}/v1/demo/workspace`));
     expect(demo.synthetic).toBeTruthy();

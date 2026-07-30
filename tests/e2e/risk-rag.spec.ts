@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-const api = "http://127.0.0.1:8100";
+const api =
+  process.env.FRESH_INSTALL_API_URL ?? "http://127.0.0.1:8100";
 
 test("管理后台隔离展示知识生命周期与评估门槛", async ({ page, request }) => {
   const workspaceResponse = await request.post(`${api}/v1/workspaces`, {

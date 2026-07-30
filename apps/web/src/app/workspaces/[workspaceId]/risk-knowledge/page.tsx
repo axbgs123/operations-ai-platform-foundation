@@ -6,5 +6,5 @@ export default async function RiskKnowledgePage({
   params: Promise<{ workspaceId: string }>;
 }) {
   const { workspaceId } = await params;
-  return <RiskKnowledgeCenter role="admin" workspaceId={workspaceId} />;
+  return <RiskKnowledgeCenter workspaceId={workspaceId} />;
 }

@@ -11,11 +11,13 @@ import {
 type RiskFeedbackPanelProps = {
   workspaceId: string;
   role: "admin" | "editor" | "viewer";
+  platform: "douyin" | "xiaohongshu";
 };
 
 export function RiskFeedbackPanel({
   workspaceId,
   role,
+  platform,
 }: RiskFeedbackPanelProps) {
   const [candidates, setCandidates] = useState<RiskRuleCandidateData[]>([]);
   const [error, setError] = useState("");
@@ -23,7 +25,7 @@ export function RiskFeedbackPanel({
 
   useEffect(() => {
     let active = true;
-    listRiskFeedbackCandidates(workspaceId, "douyin")
+    listRiskFeedbackCandidates(workspaceId, platform)
       .then((next) => {
         if (active) setCandidates(next);
       })
@@ -35,7 +37,7 @@ export function RiskFeedbackPanel({
     return () => {
       active = false;
     };
-  }, [workspaceId]);
+  }, [platform, workspaceId]);
 
   async function review(feedbackId: string, status: "approved" | "rejected") {
     try {
@@ -49,31 +51,31 @@ export function RiskFeedbackPanel({
   }
 
   return (
-    <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-5">
+    <section className="space-y-4 rounded-xl border border-[var(--border)] bg-white p-5">
       <div>
         <h2 className="text-xl font-semibold">待审核反馈候选</h2>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
           审核通过也只形成私有人工规则更新候选，不会自动修改公共规则。
         </p>
       </div>
-      {error ? <p className="text-rose-300">{error}</p> : null}
+      {error ? <p className="text-red-700" role="alert">{error}</p> : null}
       {role === "editor" ? (
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-[var(--text-secondary)]">
           编辑者可提交反馈，不能审核或发布规则
         </p>
       ) : null}
       {candidates.length === 0 ? (
-        <p className="text-slate-400">暂无待审核候选</p>
+        <p className="text-[var(--text-secondary)]">暂无待审核候选</p>
       ) : (
         candidates.map((candidate) => (
           <article
-            className="rounded-2xl bg-slate-950 p-4"
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface-subtle)] p-4"
             key={candidate.feedback_id}
           >
             <p className="font-medium">
               {candidate.feedback_type} · {candidate.finding_reference}
             </p>
-            <p className="mt-2 text-sm text-slate-400">
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
               {candidate.scope === "workspace_private"
                 ? "仅工作区私有候选"
                 : "公共候选（禁止自动发布）"}
@@ -88,7 +90,7 @@ export function RiskFeedbackPanel({
                   审核候选
                 </button>
                 <button
-                  className="rounded-lg border border-slate-700 px-3 py-2 text-sm"
+                  className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
                   onClick={() => void review(candidate.feedback_id, "rejected")}
                   type="button"
                 >

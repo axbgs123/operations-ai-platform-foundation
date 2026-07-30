@@ -119,8 +119,10 @@ printf '%s\n' \
   "S3_CONSOLE_PORT=$s3_console_port" \
   'S3_PUBLIC_ENDPOINT=http://object-storage:9000' \
   "POSTGRES_PORT=$postgres_port" \
-  'NEXT_PUBLIC_API_URL=http://api:8000' \
-  'WEB_ORIGIN=http://web:3000' >>"$env_file"
+  "NEXT_PUBLIC_API_URL=http://host.docker.internal:$api_port" \
+  "WEB_ORIGIN=http://host.docker.internal:$web_port" \
+  "FRESH_INSTALL_WEB_URL=http://host.docker.internal:$web_port" \
+  "FRESH_INSTALL_API_URL=http://host.docker.internal:$api_port" >>"$env_file"
 
 printf 'Building and starting isolated Compose project %s\n' "$project_name"
 compose --profile demo up --build -d

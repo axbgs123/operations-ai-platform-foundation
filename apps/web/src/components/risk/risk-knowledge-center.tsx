@@ -9,13 +9,16 @@ import {
   type RiskDocumentAdminData,
   type RiskEvaluationData,
 } from "@/lib/risk-admin-api";
+import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
+import { DesktopOnlyNotice, PageHeader, Panel, StatusBadge } from "@/components/workbench/ui";
 import { RiskFeedbackPanel } from "./risk-feedback-panel";
 
 type WorkspaceRole = "admin" | "editor" | "viewer";
+type RiskPlatform = "douyin" | "xiaohongshu";
 
 type RiskKnowledgeCenterProps = {
   workspaceId: string;
-  role: WorkspaceRole;
+  role?: WorkspaceRole;
 };
 
 const actionLabels = {
@@ -29,8 +32,11 @@ const actionLabels = {
 
 export function RiskKnowledgeCenter({
   workspaceId,
-  role,
+  role: suppliedRole,
 }: RiskKnowledgeCenterProps) {
+  const context = useWorkbenchShellContext();
+  const role = suppliedRole ?? context?.role ?? "viewer";
+  const [platform, setPlatform] = useState<RiskPlatform>("douyin");
   const [documents, setDocuments] = useState<RiskDocumentAdminData[]>([]);
   const [evaluation, setEvaluation] = useState<RiskEvaluationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,8 +48,8 @@ export function RiskKnowledgeCenter({
   useEffect(() => {
     let active = true;
     Promise.all([
-      listRiskDocuments(workspaceId),
-      readRiskEvaluation(workspaceId, "douyin"),
+      listRiskDocuments(workspaceId, platform),
+      readRiskEvaluation(workspaceId, platform),
     ])
       .then(([nextDocuments, nextEvaluation]) => {
         if (!active) return;
@@ -61,7 +67,7 @@ export function RiskKnowledgeCenter({
     return () => {
       active = false;
     };
-  }, [workspaceId]);
+  }, [platform, workspaceId]);
 
   async function act(
     documentId: string,
@@ -89,30 +95,50 @@ export function RiskKnowledgeCenter({
   }
 
   return (
-    <main className="space-y-8">
-      <header>
-        <p className="text-sm font-medium text-cyan-300">
-          RiskRAG · 平台隔离 · 审核优先
+    <div className="space-y-8">
+      <PageHeader
+        description="文档正文始终是不可信资料；当前扫描只使用已生效、已到生效日期的对应平台版本。"
+        title="风控知识治理"
+      />
+      <Panel title="文档生命周期">
+        <p className="text-sm font-semibold">
+          草稿 → 已解析 → 待审核 → 生效 → 已替代/已失效
         </p>
-        <h1 className="mt-2 text-3xl font-semibold">风控知识与评估</h1>
-        <p className="mt-3 text-slate-400">
-          文档正文始终是不可信资料；当前扫描只使用已生效、已到生效日期的对应平台版本。
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+          网页更新只产生待审核版本，旧版本保留历史追溯，不覆盖既有扫描。
         </p>
-        <p className="mt-2 text-xs text-amber-300">
-          辅助判断，不保证通过平台审核
-        </p>
-      </header>
+      </Panel>
 
       {error ? (
-        <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300">{error}</p>
+        <p className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800" role="alert">{error}</p>
       ) : null}
       {loading ? (
-        <p className="rounded-xl bg-slate-900 p-4 text-slate-400">正在加载风控知识…</p>
+        <p className="rounded-xl border bg-white p-4 text-[var(--text-secondary)]" role="status">正在加载风控知识…</p>
       ) : null}
 
       <section className="space-y-4" aria-label="风控知识文档列表">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold">知识文档</h2>
+          <div className="flex flex-wrap items-end gap-4">
+            <h2 className="text-xl font-semibold">知识文档</h2>
+            <label className="grid gap-1 text-sm font-medium">
+              风控平台
+              <select
+                aria-label="风控平台"
+                className="min-h-10 rounded-lg border border-[var(--border)] bg-white px-3"
+                onChange={(event) => {
+                  setLoading(true);
+                  setError("");
+                  setDocuments([]);
+                  setEvaluation(null);
+                  setPlatform(event.target.value as RiskPlatform);
+                }}
+                value={platform}
+              >
+                <option value="douyin">抖音</option>
+                <option value="xiaohongshu">小红书</option>
+              </select>
+            </label>
+          </div>
           {canGovern ? (
             <button className="rounded-xl bg-cyan-400 px-4 py-2 font-semibold text-slate-950">
               上传知识
@@ -120,45 +146,63 @@ export function RiskKnowledgeCenter({
           ) : null}
         </div>
         {!loading && documents.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-700 p-6 text-slate-400">
+          <p className="rounded-2xl border border-dashed p-6 text-[var(--text-secondary)]">
             当前工作区没有可见的风控知识文档
           </p>
         ) : null}
         {documents.map((document) => (
           <article
-            className="rounded-3xl border border-slate-800 bg-slate-900 p-5"
+            className="rounded-xl border border-[var(--border)] bg-white p-5"
             key={document.id}
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <h3 className="font-semibold">{document.title}</h3>
-                <p className="mt-2 text-sm text-cyan-300">
+                <p className="mt-2 text-sm text-blue-700">
                   {document.platform === "douyin" ? "抖音" : "小红书"} ·{" "}
                   {document.scope === "private" ? "私有" : "公共"} ·{" "}
                   {document.source_level}
                 </p>
               </div>
-              <span className="rounded-full bg-slate-950 px-3 py-1 text-sm text-slate-300">
+              <StatusBadge tone={document.status === "active" ? "success" : "neutral"}>
                 {document.status} · v{document.version}
-              </span>
+              </StatusBadge>
             </div>
-            <dl className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-3">
+            <dl className="mt-4 grid gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
+              <div>
+                <dt>来源</dt>
+                <dd className="text-[var(--text-primary)]">
+                  {document.source_url ?? document.private_document_id ?? "当前记录未提供"}
+                </dd>
+              </div>
+              <div>
+                <dt>发布日期</dt>
+                <dd className="text-[var(--text-primary)]">
+                  {document.published_at ?? "未设置"}
+                </dd>
+              </div>
               <div>
                 <dt>生效日期</dt>
-                <dd className="text-slate-200">
+                <dd className="text-[var(--text-primary)]">
                   {document.effective_at ?? "未设置"}
                 </dd>
               </div>
               <div>
                 <dt>授权状态</dt>
-                <dd className="text-slate-200">
+                <dd className="text-[var(--text-primary)]">
                   {document.authorization_status}
                 </dd>
               </div>
               <div>
                 <dt>版本链</dt>
-                <dd className="text-slate-200">
+                <dd className="text-[var(--text-primary)]">
                   {document.previous_version_id ? "有前序版本" : "根版本"}
+                </dd>
+              </div>
+              <div>
+                <dt>最近检查</dt>
+                <dd className="text-[var(--text-primary)]">
+                  {document.accessed_at ?? "尚未检查"}
                 </dd>
               </div>
             </dl>
@@ -175,7 +219,7 @@ export function RiskKnowledgeCenter({
                   ] as const
                 ).map((action) => (
                   <button
-                    className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 disabled:opacity-50"
+                    className="rounded-lg border px-3 py-2 text-sm font-medium disabled:opacity-50"
                     disabled={busy === `${document.id}:${action}`}
                     key={action}
                     onClick={() => void act(document.id, action)}
@@ -190,36 +234,58 @@ export function RiskKnowledgeCenter({
         ))}
       </section>
 
-      <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-5">
+      <Panel
+        description="只展示 Chunk 标识、位置和引用完整性；完整私有正文不进入列表 DOM。"
+        title="Chunks 与引用检查"
+      >
+        <p className="text-sm text-[var(--text-secondary)]">
+          Citation 必须引用本次 Evidence Bundle 中同平台、同工作区的有效 Chunk。
+        </p>
+        <p className="mt-2 text-sm font-semibold text-amber-800">
+          S5 只能作为低置信度提示，不能独立支撑高风险结论
+        </p>
+        <div className="mt-4 md:hidden">
+          <DesktopOnlyNotice action="复杂知识库审核" />
+        </div>
+      </Panel>
+
+      <section className="space-y-4 rounded-xl border border-[var(--border)] bg-white p-5">
         <h2 className="text-xl font-semibold">固定 Mock 评估门槛</h2>
         {evaluation ? (
           <>
-            <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+            <div className="grid gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
               <p>平台：{evaluation.platform === "douyin" ? "抖音" : "小红书"}</p>
               <p>Fixture：{evaluation.fixture_version}</p>
               <p>样本数：{evaluation.sample_count}</p>
             </div>
-            <p className="rounded-xl bg-amber-950/50 p-3 text-amber-200">
+            <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
               工程回归门槛，不是生产准确率
             </p>
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-[var(--text-secondary)]">
               不能作为生产准确率或平台通过率宣传
             </p>
             {evaluation.gate.code === "INSUFFICIENT_SAMPLE" ? (
-              <p className="text-amber-300">样本不足：INSUFFICIENT_SAMPLE</p>
+              <p className="text-amber-900">样本不足：INSUFFICIENT_SAMPLE</p>
             ) : null}
           </>
         ) : (
-          <p className="text-slate-400">暂无评估结果</p>
+          <p className="text-[var(--text-secondary)]">暂无评估结果</p>
         )}
       </section>
-      <RiskFeedbackPanel role={role} workspaceId={workspaceId} />
+      <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950">
+        辅助判断，不保证通过平台审核
+      </p>
+      <RiskFeedbackPanel
+        platform={platform}
+        role={role}
+        workspaceId={workspaceId}
+      />
       <a
-        className="block rounded-2xl border border-cyan-900 bg-cyan-950/40 p-4 text-cyan-200"
+        className="block rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-800"
         href={`/workspaces/${workspaceId}/contents`}
       >
         打开扫描报告入口（确定性命中、RAG 引用、OCR 降级和历史复检）
       </a>
-    </main>
+    </div>
   );
 }

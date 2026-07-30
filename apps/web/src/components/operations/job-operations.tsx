@@ -30,6 +30,14 @@ const statusLabels: Record<string, string> = {
   compensation_required: "需要人工补偿",
 };
 
+const dependencyLabels: Record<string, string> = {
+  postgresql: "PostgreSQL",
+  postgres: "PostgreSQL",
+  redis: "Redis",
+  s3: "S3",
+  storage: "S3",
+};
+
 export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
   const [tasks, setTasks] = useState<OperationalTask[]>([]);
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
@@ -161,30 +169,32 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
   return (
     <main className="space-y-6">
       <header>
-        <p className="text-sm font-medium text-cyan-300">
+        <p className="text-sm font-medium text-blue-700">
           Operations · 安全诊断 · 工作区隔离
         </p>
         <h1 className="mt-2 text-3xl font-semibold">后台任务运维</h1>
-        <p className="mt-2 text-slate-400">
+        <p className="mt-2 text-[var(--text-secondary)]">
           只展示状态、阶段和安全错误码，不展示任务正文、截图或模型响应。
         </p>
       </header>
 
       <section
         aria-label="依赖就绪状态"
-        className="rounded-2xl border border-slate-800 bg-slate-900 p-4"
+        className="rounded-xl border bg-white p-4"
       >
         <h2 className="font-semibold">Readiness</h2>
-        <p className="mt-2 text-sm text-slate-300">
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
           {readiness?.status === "ready" ? "依赖已就绪" : "依赖未全部就绪"}
         </p>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
           {readiness?.components.map((component) => (
             <span
-              className="rounded-full bg-slate-950 px-3 py-1"
+              className="rounded-full border bg-slate-50 px-3 py-1"
               key={component.name}
             >
-              {component.name}: {component.status}
+              {dependencyLabels[component.name.toLowerCase()] ?? component.name}
+              ：{component.status === "ready" ? "已就绪" : "未就绪"}
+              {component.error_code ? ` · ${component.error_code}` : ""}
             </span>
           ))}
         </div>
@@ -195,7 +205,7 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
           <span className="sr-only">任务类型</span>
           <select
             aria-label="任务类型"
-            className="rounded-lg bg-slate-900 px-3 py-2"
+            className="rounded-lg border bg-white px-3 py-2"
             onChange={(event) => {
               setTaskType(event.target.value);
               setOffset(0);
@@ -215,7 +225,7 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
           <span className="sr-only">任务状态</span>
           <select
             aria-label="任务状态"
-            className="rounded-lg bg-slate-900 px-3 py-2"
+            className="rounded-lg border bg-white px-3 py-2"
             onChange={(event) => {
               setStatus(event.target.value);
               setOffset(0);
@@ -232,7 +242,7 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
           <span className="sr-only">开始时间</span>
           <input
             aria-label="开始时间"
-            className="rounded-lg bg-slate-900 px-3 py-2"
+            className="rounded-lg border bg-white px-3 py-2"
             onChange={(event) => {
               setCreatedAfter(event.target.value);
               setOffset(0);
@@ -245,7 +255,7 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
           <span className="sr-only">结束时间</span>
           <input
             aria-label="结束时间"
-            className="rounded-lg bg-slate-900 px-3 py-2"
+            className="rounded-lg border bg-white px-3 py-2"
             onChange={(event) => {
               setCreatedBefore(event.target.value);
               setOffset(0);
@@ -277,7 +287,7 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
           const deadLetter = task.status === "dead_letter";
           return (
             <article
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-5"
+              className="rounded-xl border bg-white p-5"
               key={`${task.task_type}:${task.task_id}`}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">

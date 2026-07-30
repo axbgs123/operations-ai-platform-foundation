@@ -191,8 +191,8 @@ services:
     image: operations-ai-platform-e2e:${IMAGE_TAG:-local}
     profiles: ["e2e"]
     environment:
-      FRESH_INSTALL_WEB_URL: http://web:3000
-      FRESH_INSTALL_API_URL: http://api:8000
+      FRESH_INSTALL_WEB_URL: ${FRESH_INSTALL_WEB_URL:-http://web:3000}
+      FRESH_INSTALL_API_URL: ${FRESH_INSTALL_API_URL:-http://api:8000}
     depends_on:
       web:
         condition: service_healthy

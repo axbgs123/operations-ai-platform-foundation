@@ -6,6 +6,7 @@ export default defineConfig({
     "fresh-install.spec.ts",
     "full-loop.spec.ts",
     "backup-restore.spec.ts",
+    "demo.spec.ts",
   ],
   workers: 1,
   use: {

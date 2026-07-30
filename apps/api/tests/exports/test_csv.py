@@ -304,6 +304,12 @@ def test_viewer_cannot_create_or_download_exports_while_editor_can() -> None:
 
         assert editor_created.status_code == 202
         assert viewer_created.status_code == 403
+        viewer_list = viewer.get(
+            f"/v1/workspaces/{workspace_id}/exports"
+        )
+        assert viewer_list.status_code == 200
+        assert viewer_list.json()["items"][0]["id"] == editor_created.json()["id"]
+        assert viewer_list.json()["items"][0]["download_url"] is None
         assert (
             viewer.get(
                 f"/v1/workspaces/{workspace_id}/exports/"
@@ -583,3 +589,50 @@ def test_empty_published_body_never_falls_back_to_unpublished_draft() -> None:
         exported = next(row for row in rows if row["content_id"] == created["id"])
         assert exported["body"] == ""
         assert "未发布的后续草稿正文" not in str(rows)
+
+
+def test_export_task_list_is_workspace_scoped_stable_and_paginated() -> None:
+    queued: list[UUID] = []
+    with configured_client() as (client, _):
+        app.dependency_overrides[get_export_enqueuer] = lambda: queued.append
+        workspace_id, csrf, _ = create_workspace_account(client)
+        other_client = TestClient(app)
+        other_workspace_id, _, _ = create_workspace_account(
+            other_client,
+            workspace_name="其他导出工作区",
+        )
+        for index, kind in enumerate(("csv", "json", "zip")):
+            response = client.post(
+                f"/v1/workspaces/{workspace_id}/exports",
+                headers={
+                    "X-CSRF-Token": csrf,
+                    "Idempotency-Key": f"list-export-{index}",
+                },
+                json={"kind": kind},
+            )
+            assert response.status_code == 202, response.text
+
+        first = client.get(
+            f"/v1/workspaces/{workspace_id}/exports?page=1&page_size=2"
+        )
+        second = client.get(
+            f"/v1/workspaces/{workspace_id}/exports?page=2&page_size=2"
+        )
+        assert first.status_code == 200, first.text
+        assert first.json()["total"] == 3
+        assert first.json()["page"] == 1
+        assert len(first.json()["items"]) == 2
+        assert len(second.json()["items"]) == 1
+        assert first.json()["items"][0]["id"] != first.json()["items"][1]["id"]
+        assert all(item["download_url"] is None for item in first.json()["items"])
+        assert "object_key" not in first.text
+        assert client.get(
+            f"/v1/workspaces/{workspace_id}/exports?page_size=101"
+        ).status_code == 422
+        assert other_client.get(
+            f"/v1/workspaces/{workspace_id}/exports"
+        ).status_code == 404
+        assert client.get(
+            f"/v1/workspaces/{other_workspace_id}/exports"
+        ).status_code == 404
+        app.dependency_overrides.clear()

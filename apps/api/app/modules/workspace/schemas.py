@@ -26,6 +26,19 @@ class WorkspaceMemberRead(BaseModel):
     revoked_at: datetime | None
 
 
+class WorkspaceMemberManagementRead(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    workspace_id: UUID
+    display_name: str
+    role: Literal["admin", "editor", "viewer", "demo"]
+    status: Literal["active", "revoked"]
+    last_access_at: datetime | None
+    last_access_status: Literal["not_recorded"]
+    invite_status: Literal["redeemed", "revoked"]
+
+
 class WorkspaceCreated(BaseModel):
     workspace_id: UUID
     admin_code: str

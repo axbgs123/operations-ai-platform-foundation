@@ -5,8 +5,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 type SessionCreated = components["schemas"]["SessionCreated"];
 type MemberCodeCreated = components["schemas"]["MemberCodeCreated"];
 type MemberCodeCreate = components["schemas"]["MemberCodeCreate"];
+export type WorkspaceMemberManagement =
+  components["schemas"]["WorkspaceMemberManagementRead"];
+type WorkspaceMemberRead =
+  components["schemas"]["WorkspaceMemberRead"];
 
-async function request<T>(path: string, init: RequestInit): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     credentials: "include",
@@ -26,6 +30,43 @@ export function enterWorkspace(code: string, displayName: string) {
     method: "POST",
     body: JSON.stringify({ code, display_name: displayName }),
   });
+}
+
+export function listWorkspaceMembers(workspaceId: string) {
+  return request<WorkspaceMemberManagement[]>(
+    `/v1/workspaces/${workspaceId}/members`,
+  );
+}
+
+export function updateWorkspaceMemberRole(
+  workspaceId: string,
+  memberId: string,
+  role: MemberCodeCreate["role"],
+  csrfToken: string,
+) {
+  return request<WorkspaceMemberRead>(
+    `/v1/workspaces/${workspaceId}/members/${memberId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+      headers: { "X-CSRF-Token": csrfToken },
+    },
+  );
+}
+
+export function revokeWorkspaceMember(
+  workspaceId: string,
+  memberId: string,
+  csrfToken: string,
+) {
+  return request<WorkspaceMemberRead>(
+    `/v1/workspaces/${workspaceId}/members/${memberId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ revoked: true }),
+      headers: { "X-CSRF-Token": csrfToken },
+    },
+  );
 }
 
 export function createMemberCode(

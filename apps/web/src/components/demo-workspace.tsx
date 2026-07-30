@@ -1,9 +1,11 @@
 "use client";
 
 import type { components } from "@operations-ai/shared-schemas";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { DemoBanner } from "@/components/demo-banner";
+import { Panel, StatusBadge } from "@/components/workbench/ui";
 import { createDemoSession, generateDemoTitle, loadDemoWorkspace } from "@/lib/demo-api";
 
 export type DemoWorkspaceData = components["schemas"]["DemoWorkspaceRead"];
@@ -48,7 +50,7 @@ export function DemoWorkspace({
 
   if (!workspace) {
     return (
-      <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
+      <main className="min-h-screen bg-[var(--canvas)] px-6 py-16 text-[var(--text-primary)]">
         <p>{error || "正在加载示例数据…"}</p>
       </main>
     );
@@ -67,45 +69,52 @@ export function DemoWorkspace({
   ];
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+    <main className="min-h-screen bg-[var(--canvas)] px-4 py-8 text-[var(--text-primary)] sm:px-6">
       <div className="mx-auto max-w-6xl space-y-8">
         <DemoBanner />
-        <header>
-          <p className="text-sm font-medium text-cyan-400">{workspace.label}</p>
-          <h1 className="mt-2 text-4xl font-semibold">{workspace.name}</h1>
-          <p className="mt-3 max-w-2xl text-slate-400">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+          <p className="text-sm font-medium text-blue-700">{workspace.label}</p>
+          <h1 className="mt-2 text-3xl font-semibold">{workspace.name}</h1>
+          <p className="mt-3 max-w-2xl text-[var(--text-secondary)]">
             在不注册、不接入真实账号的情况下，先了解数据复盘和内容生成的工作方式。
           </p>
+          </div>
+          <Link
+            className="rounded-lg bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
+            href="/enter"
+          >
+            进入私有工作区
+          </Link>
         </header>
 
         <section className="grid gap-5 md:grid-cols-2">
           {workspace.accounts.map((account) => (
-            <article key={account.id} className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-              <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs text-cyan-300">
-                示例数据
-              </span>
+            <article key={account.id} className="rounded-xl border bg-white p-6">
+              <StatusBadge tone="info">示例数据</StatusBadge>
               <h2 className="mt-4 text-xl font-semibold">
                 {account.platform === "douyin" ? "抖音" : "小红书"} · {account.name}
               </h2>
-              <p className="mt-2 text-sm text-slate-400">{account.posts.length} 条合成作品记录</p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{account.posts.length} 条合成作品记录</p>
             </article>
           ))}
         </section>
 
         <section aria-label="示例运营闭环" className="grid gap-4 md:grid-cols-3">
           {closureCards.map(([title, detail]) => (
-            <article key={title} className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+            <article key={title} className="rounded-xl border bg-white p-5">
               <h2 className="font-semibold">{title}</h2>
-              <p className="mt-2 text-sm text-slate-400">{detail === undefined ? "示例数据加载中" : String(detail)}</p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{detail === undefined ? "示例数据加载中" : String(detail)}</p>
             </article>
           ))}
         </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-          <h2 className="text-xl font-semibold">试用标题生成</h2>
-          <p className="mt-2 text-sm text-slate-400">每个匿名会话 3 次、每个 IP 每日 5 次。</p>
+        <Panel
+          description="每个匿名会话 3 次、每个 IP 每日 5 次；仅调用本地受限 Mock，不产生费用。"
+          title="试用标题生成"
+        >
           <button
-            className="mt-5 rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50"
+            className="rounded-lg bg-[var(--brand)] px-5 py-3 font-semibold text-white disabled:opacity-50"
             disabled={pending}
             onClick={handleGenerate}
             type="button"
@@ -113,14 +122,14 @@ export function DemoWorkspace({
             {pending ? "正在生成…" : "生成 Mock 标题"}
           </button>
           {generation ? (
-            <div className="mt-5 rounded-2xl bg-slate-950 p-5">
-              <strong className="text-cyan-300">Mock 输出</strong>
+            <div className="mt-5 rounded-xl bg-slate-50 p-5">
+              <strong className="text-blue-800">Mock 输出</strong>
               <p className="mt-2">{generation.content}</p>
-              <p className="mt-2 text-sm text-slate-500">本会话剩余 {generation.remaining} 次</p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">本会话剩余 {generation.remaining} 次</p>
             </div>
           ) : null}
-          {error ? <p className="mt-4 text-sm text-rose-400">{error}</p> : null}
-        </section>
+          {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
+        </Panel>
       </div>
     </main>
   );

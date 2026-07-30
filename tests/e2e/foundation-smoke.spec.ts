@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 test("foundation demo covers public preview, dual-platform accounts, and content detail", async ({ page, request }) => {
   await page.goto("/demo");
-  await expect(page.getByText("公开体验区")).toBeVisible();
+  await expect(page.getByText("示例工作区 · 只读")).toBeVisible();
   await expect(page.getByText("抖音 · 合成 AI 科技抖音账号")).toBeVisible();
   await expect(page.getByText("小红书 · 合成 AI 科技小红书账号")).toBeVisible();
 

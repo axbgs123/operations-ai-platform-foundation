@@ -1,4 +1,5 @@
 import { ModelConfigForm } from "@/components/models/model-config-form";
+import { SettingsNav } from "@/components/workspace/settings-nav";
 
 
 export default async function ModelsPage({
@@ -7,10 +8,9 @@ export default async function ModelsPage({
   const { workspaceId } = await params;
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-6">
-      <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl space-y-6">
+        <SettingsNav workspaceId={workspaceId} />
         <ModelConfigForm workspaceId={workspaceId} />
-      </div>
-    </main>
+    </div>
   );
 }
