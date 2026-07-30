@@ -154,20 +154,20 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
   }
 
   if (role === null) {
-    return <main>正在加载运维权限…</main>;
+    return <div>正在加载运维权限…</div>;
   }
 
   if (!canRead) {
     return (
-      <main className="rounded-2xl border border-amber-800 bg-amber-950/30 p-6">
+      <div className="rounded-2xl border border-amber-800 bg-amber-950/30 p-6">
         <h1 className="text-2xl font-semibold">后台任务运维</h1>
         <p className="mt-3 text-amber-200">当前角色没有运维任务查看权限。</p>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="space-y-6">
+    <div className="space-y-6">
       <header>
         <p className="text-sm font-medium text-blue-700">
           Operations · 安全诊断 · 工作区隔离
@@ -372,6 +372,6 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
           下一页
         </button>
       </nav>
-    </main>
+    </div>
   );
 }

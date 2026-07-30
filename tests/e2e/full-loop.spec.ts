@@ -830,4 +830,84 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
     );
     expect(hidden.status()).toBe(404);
   });
+
+  await test.step("41 canonical workbench loop is reachable through visible navigation", async () => {
+    const editorCode = await json(
+      await request.post(
+        `${api}/v1/workspaces/${sourceWorkspace.workspace_id}/members/codes`,
+        {
+          headers: { "X-CSRF-Token": csrf },
+          data: { role: "editor" },
+        },
+      ),
+    );
+    await page.goto("/enter");
+    await page.getByLabel("邀请码").fill(editorCode.code);
+    await page.getByLabel("显示名称").fill("full-loop-editor");
+    await page.getByRole("button", { name: "进入工作区" }).click();
+    await page.waitForURL(
+      new RegExp(`/workspaces/${sourceWorkspace.workspace_id}/`),
+    );
+
+    const navigation = page.getByRole("navigation", { name: "主导航" });
+    const openModule = async (label: string, heading: string) => {
+      await navigation.getByRole("link", { name: label, exact: true }).click();
+      await expect(
+        page.getByRole("heading", { level: 1, name: heading }),
+      ).toBeVisible();
+      if (await page.getByLabel("平台范围").inputValue() !== "douyin") {
+        await page.getByLabel("平台范围").selectOption("douyin");
+      }
+      if (await page.getByLabel("账号范围").inputValue() !== douyin.id) {
+        await page.getByLabel("账号范围").selectOption(douyin.id);
+      }
+      await expect(page.getByLabel("平台范围")).toHaveValue("douyin");
+      await expect(page.getByLabel("账号范围")).toHaveValue(douyin.id);
+    };
+
+    await navigation
+      .getByRole("link", { name: "工作台总览", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "工作台总览" }),
+    ).toBeVisible();
+    await page.getByLabel("平台范围").selectOption("douyin");
+    await page.getByLabel("账号范围").selectOption(douyin.id);
+
+    await navigation
+      .getByRole("link", { name: "账号仪表盘", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "账号仪表盘" }),
+    ).toBeVisible();
+    await page
+      .getByRole("link", { name: `查看${douyin.name}` })
+      .click();
+    await expect(page).toHaveURL(
+      new RegExp(`/accounts/${douyin.id}(?:\\?.*)?$`),
+    );
+
+    await openModule("栏目与活动", "栏目与活动");
+    await openModule("数据导入", "数据导入");
+    await openModule("内容库", "内容库");
+    await openModule("分析中心", "分析中心");
+    await openModule("爆款素材库", "爆款素材库");
+    await openModule("事实资料", "事实资料中心");
+    await openModule("账号风格", "账号风格");
+    await openModule("生成中心", "生成中心");
+    for (const step of [
+      "范围与目标",
+      "事实资料",
+      "风格与参考",
+      "生成与编辑",
+      "复核与保存",
+    ]) {
+      await page.getByRole("button", { name: step, exact: true }).click();
+      await expect(
+        page.getByRole("button", { name: step, exact: true }),
+      ).toHaveAttribute("aria-current", "step");
+    }
+    await openModule("发布前检查", "发布前检查");
+    await openModule("导出与备份", "导出、备份与恢复");
+  });
 });

@@ -21,6 +21,16 @@ export type WorkspaceDeletionConfirmation =
 export type WorkspaceDeletionJob =
   components["schemas"]["DeletionJobRead"];
 
+export class ExportApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ExportApiError";
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
@@ -35,10 +45,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       | { detail?: string | { code?: string } }
       | null;
     const detail = payload?.detail;
-    throw new Error(
+    throw new ExportApiError(
       typeof detail === "string"
         ? detail
         : detail?.code ?? "数据管理请求失败",
+      response.status,
     );
   }
   return response.json() as Promise<T>;
@@ -197,11 +208,20 @@ export async function listTrash(workspaceId: string) {
   return response.data;
 }
 
-export async function readRetentionPolicy(workspaceId: string) {
-  const response = await request<{ data: RetentionPolicy }>(
-    `/v1/workspaces/${workspaceId}/retention-policy`,
-  );
-  return response.data;
+export async function readRetentionPolicy(
+  workspaceId: string,
+): Promise<RetentionPolicy | null> {
+  try {
+    const response = await request<{ data: RetentionPolicy }>(
+      `/v1/workspaces/${workspaceId}/retention-policy`,
+    );
+    return response.data;
+  } catch (error) {
+    if (error instanceof ExportApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export function restoreTrashContent(

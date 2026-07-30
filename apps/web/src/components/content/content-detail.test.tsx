@@ -39,7 +39,7 @@ test("shows content identity, lifecycle, completeness, and later module entrance
   expect(screen.getByText("数据完整度待计算")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "进入深度分析" })).toHaveAttribute(
     "href",
-    "/workspaces/workspace-1/contents/content-1/analysis",
+    "/workspaces/workspace-1/contents/content-1?tab=analysis",
   );
   expect(screen.getByText("内容生成（即将开放）")).toBeInTheDocument();
 });

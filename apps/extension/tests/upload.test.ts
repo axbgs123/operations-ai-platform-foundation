@@ -93,11 +93,34 @@ describe("extension capture upload", () => {
       serverOrigin: "https://synthetic.example",
       accessToken: "token",
       taskId: "task-1",
+      platform: "douyin",
+      pageVersion: "douyin-creator-v1",
       fetcher,
       maxAttempts: 3,
       sleep: vi.fn().mockResolvedValue(undefined),
     });
     expect(result.status).toBe("failed");
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the capture scope in the local timeout result", async () => {
+    const result = await pollCaptureTask({
+      serverOrigin: "https://synthetic.example",
+      accessToken: "token",
+      taskId: "task-timeout",
+      platform: "xiaohongshu",
+      pageVersion: "xiaohongshu-creator-v1",
+      fetcher: vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ status: "running" }), { status: 200 }),
+      ),
+      maxAttempts: 1,
+      sleep: vi.fn().mockResolvedValue(undefined),
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      platform: "xiaohongshu",
+      page_version: "xiaohongshu-creator-v1",
+    });
   });
 });

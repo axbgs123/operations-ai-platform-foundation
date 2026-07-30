@@ -7,6 +7,16 @@ test("synthetic public demo renders before screenshot capture", async ({ page },
   await expect(page.getByText("示例工作区 · 只读")).toBeVisible();
   await expect(page.getByText("抖音 · 合成 AI 科技抖音账号")).toBeVisible();
   await expect(page.getByText("小红书 · 合成 AI 科技小红书账号")).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "主导航" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /进入私有工作区/ })).toHaveAttribute(
+    "href",
+    "/enter",
+  );
+  await expect(
+    page.getByText(/API Key|邀请码|会话令牌|工作区删除/),
+  ).toHaveCount(0);
 
   await page.screenshot({
     path: process.env.DEMO_SCREENSHOT_OUTPUT ?? testInfo.outputPath("public-demo-rendered.png"),

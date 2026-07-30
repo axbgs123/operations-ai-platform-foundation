@@ -140,7 +140,6 @@ describe("canonical navigation and roles", () => {
     expect(visibleNavigationItems("viewer").map((item) => item.label)).toEqual([
       "工作台总览",
       "账号仪表盘",
-      "栏目与活动",
       "内容库",
       "分析中心",
       "爆款素材库",

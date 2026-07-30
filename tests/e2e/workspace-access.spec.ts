@@ -53,8 +53,26 @@ test("admin issues independent codes while editor and viewer are denied", async 
     await expect(memberPage).toHaveURL(
       `/workspaces/${workspace.workspace_id}/settings/members`,
     );
-    await memberPage.getByRole("button", { name: "生成独立邀请码" }).click();
-    await expect(memberPage.getByText("permission denied")).toBeVisible();
+    await expect(
+      memberPage.getByRole("button", { name: "生成独立邀请码" }),
+    ).toHaveCount(0);
+    const deniedStatus = await memberPage.evaluate(async (workspaceId) => {
+      const csrf = sessionStorage.getItem("workspace_csrf") ?? "";
+      const response = await fetch(
+        `http://127.0.0.1:8100/v1/workspaces/${workspaceId}/members/codes`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrf,
+          },
+          body: JSON.stringify({ role: "viewer" }),
+        },
+      );
+      return response.status;
+    }, workspace.workspace_id);
+    expect(deniedStatus).toBe(403);
     await context.close();
   }
 });

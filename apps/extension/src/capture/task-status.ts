@@ -7,6 +7,8 @@ type PollArgs = {
   serverOrigin: string;
   accessToken: string;
   taskId: string;
+  platform: "douyin" | "xiaohongshu";
+  pageVersion: string;
   fetcher?: typeof fetch;
   maxAttempts?: number;
   sleep?: (milliseconds: number) => Promise<void>;
@@ -29,6 +31,8 @@ export async function pollCaptureTask(args: PollArgs): Promise<CaptureTaskRead> 
   return {
     task_id: args.taskId,
     workspace_id: "",
+    platform: args.platform,
+    page_version: args.pageVersion,
     status: "failed",
     request_id: args.taskId,
     review_url: "",

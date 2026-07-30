@@ -58,6 +58,10 @@ test("foundation demo covers public preview, dual-platform accounts, and content
   expect(result.xiaohongshu.platform).toBe("xiaohongshu");
 
   await page.goto(`/workspaces/${workspace.workspace_id}/contents/${result.content.id}`);
-  await expect(page.getByRole("heading", { name: "基础验收作品" })).toBeVisible();
-  await expect(page.getByText("抖音 · 验收抖音号")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "基础验收作品", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.locator("header p").filter({ hasText: "抖音 · 验收抖音号" }),
+  ).toBeVisible();
 });
