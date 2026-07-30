@@ -42,6 +42,8 @@ def test_extension_capture_task_is_staged_idempotently_and_never_confirmed_by_to
         assert first.status_code == 202, first.text
         task = first.json()
         assert task["status"] in {"queued", "running", "succeeded"}
+        assert task["platform"] == "douyin"
+        assert task["page_version"] == "douyin-creator-v1"
         assert task["review_url"]
         assert "SYNTHETIC" not in first.text
 
@@ -229,6 +231,17 @@ def test_only_web_editor_or_admin_can_confirm_into_a_formal_snapshot() -> None:
                 "benchmark_sample_size": 30,
             },
         ).json()
+        other_account = client.post(
+            f"/v1/workspaces/{workspace_id}/accounts",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "platform": "xiaohongshu",
+                "name": "错误平台合成账号",
+                "objectives": ["reach"],
+                "metric_weights": {"views": 1},
+                "benchmark_sample_size": 30,
+            },
+        ).json()
         token = _bind(client, workspace["admin_code"])
 
         response = client.post(
@@ -243,9 +256,21 @@ def test_only_web_editor_or_admin_can_confirm_into_a_formal_snapshot() -> None:
             headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "review-1"},
         )
         task_id = response.json()["task_id"]
+        mismatch = client.post(
+            f"/v1/imports/capture-tasks/{task_id}/confirm",
+            json={
+                "account_id": other_account["id"],
+                "corrections": {"views": "1200"},
+            },
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert mismatch.status_code == 404
         confirmed = client.post(
             f"/v1/imports/capture-tasks/{task_id}/confirm",
-            json={"corrections": {"views": "1200"}},
+            json={
+                "account_id": account["id"],
+                "corrections": {"views": "1200"},
+            },
             headers={"X-CSRF-Token": csrf},
         )
         assert confirmed.status_code == 200, confirmed.text

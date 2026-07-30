@@ -1,46 +1,11 @@
-import { ImportReview } from "@/components/imports/import-review";
-import { ScreenshotReview } from "@/components/imports/screenshot-review";
-import { ExtensionCaptureReview } from "@/components/imports/extension-capture-review";
+import { ImportCenterPage } from "@/components/imports/import-center";
 
 
 export default async function ImportsPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ workspaceId: string }>;
-  searchParams: Promise<{ accountId?: string; platform?: string; capture_task_id?: string }>;
 }) {
   const { workspaceId } = await params;
-  const query = await searchParams;
-  if (query.capture_task_id) {
-    return (
-      <main className="min-h-screen bg-slate-950 px-5 py-10 text-slate-100 sm:px-8">
-        <div className="mx-auto max-w-3xl">
-          <ExtensionCaptureReview taskId={query.capture_task_id} />
-        </div>
-      </main>
-    );
-  }
-  if (
-    !query.accountId ||
-    !["douyin", "xiaohongshu"].includes(query.platform ?? "")
-  ) {
-    return <main className="p-10">缺少账号或平台参数</main>;
-  }
-  return (
-    <main className="min-h-screen bg-slate-950 px-5 py-10 text-slate-100 sm:px-8">
-      <div className="mx-auto max-w-6xl">
-        <ImportReview
-          accountId={query.accountId}
-          platform={query.platform as "douyin" | "xiaohongshu"}
-          workspaceId={workspaceId}
-        />
-        <ScreenshotReview
-          accountId={query.accountId}
-          platform={query.platform as "douyin" | "xiaohongshu"}
-          workspaceId={workspaceId}
-        />
-      </div>
-    </main>
-  );
+  return <ImportCenterPage workspaceId={workspaceId} />;
 }

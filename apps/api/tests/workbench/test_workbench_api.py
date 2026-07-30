@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.modules.analytics.north_star import AnalyticsService
+from app.modules.content.models import Content
 from app.modules.risk_rag.models import (
     RiskScan,
     RiskScanNode,
@@ -517,3 +518,111 @@ def test_cross_workspace_and_demo_cannot_read_private_workbench() -> None:
         )
         assert demo_private.status_code in {401, 403}
         assert "合成运营工作区" not in demo_private.text
+
+
+def test_analysis_queue_is_stably_paginated_and_status_scoped() -> None:
+    with _seeded_workbench() as (client, engine, seeded):
+        workspace_id = seeded["workspace"]["workspace_id"]
+        expected_ids = {seeded["douyin_content"]["id"]}
+        fixed_created_at = datetime(2026, 7, 29, 8, 0, tzinfo=UTC)
+        with Session(engine) as session:
+            source = session.get(Content, UUID(seeded["douyin_content"]["id"]))
+            assert source is not None
+            source.created_at = fixed_created_at
+            for index in range(3):
+                content = Content(
+                    workspace_id=source.workspace_id,
+                    account_id=source.account_id,
+                    platform=source.platform,
+                    title=f"分页合成内容 {index}",
+                    body="不得进入分析队列响应的完整文案",
+                    objective_profile_id=source.objective_profile_id,
+                    benchmark_profile_id=source.benchmark_profile_id,
+                    content_type=source.content_type,
+                )
+                content.created_at = fixed_created_at
+                session.add(content)
+                session.flush()
+                expected_ids.add(str(content.id))
+            session.commit()
+
+        first = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/analysis-queue",
+            params={
+                "platform": "douyin",
+                "status": "pending",
+                "sort": "newest",
+                "page": 1,
+                "page_size": 2,
+            },
+        )
+        assert first.status_code == 200, first.text
+        first_page = first.json()
+        assert set(first_page) == {
+            "platform",
+            "account_id",
+            "status",
+            "sort",
+            "page",
+            "page_size",
+            "total",
+            "pages",
+            "items",
+        }
+        assert first_page["platform"] == "douyin"
+        assert first_page["status"] == "pending"
+        assert first_page["page"] == 1
+        assert first_page["page_size"] == 2
+        assert first_page["total"] == 4
+        assert len(first_page["items"]) == 2
+        assert all(item["status"] == "pending" for item in first_page["items"])
+
+        second = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/analysis-queue",
+            params={
+                "platform": "douyin",
+                "status": "pending",
+                "sort": "newest",
+                "page": 2,
+                "page_size": 2,
+            },
+        )
+        assert second.status_code == 200, second.text
+        second_page = second.json()
+        returned_ids = [
+            item["content_id"]
+            for item in first_page["items"] + second_page["items"]
+        ]
+        assert set(returned_ids) == expected_ids
+        assert len(returned_ids) == len(set(returned_ids))
+        assert returned_ids == sorted(returned_ids, reverse=True)
+
+        for status in (
+            "pending",
+            "running",
+            "completed",
+            "insufficient_sample",
+            "failed",
+            "configuration_required",
+            "suggestion_pending",
+        ):
+            response = client.get(
+                f"/v1/workspaces/{workspace_id}/workbench/analysis-queue",
+                params={"platform": "douyin", "status": status},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["status"] == status
+
+        too_large = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/analysis-queue",
+            params={"platform": "douyin", "page_size": 101},
+        )
+        assert too_large.status_code == 422
+        invalid_status = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/analysis-queue",
+            params={"platform": "douyin", "status": "all"},
+        )
+        assert invalid_status.status_code == 422
+
+        assert FORBIDDEN_RESPONSE_KEYS.isdisjoint(_keys(first_page))
+        assert "不得进入分析队列响应的完整文案" not in first.text

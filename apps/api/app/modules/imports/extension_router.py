@@ -274,6 +274,8 @@ class ExtensionCaptureRequest(BaseModel):
 class ExtensionCaptureTaskRead(BaseModel):
     task_id: UUID
     workspace_id: UUID
+    platform: Platform
+    page_version: str
     status: CaptureTaskStatus
     request_id: str
     review_url: str
@@ -473,6 +475,7 @@ def extension_cannot_confirm_capture_task() -> None:
 class WebCaptureConfirmation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    account_id: UUID
     corrections: dict[str, str] = Field(default_factory=dict)
 
 
@@ -528,14 +531,17 @@ def confirm_capture_task_in_web(
         raise HTTPException(status_code=409, detail="capture task is not ready")
     if task.confirmed_at is not None:
         return task_payload(task, request_id=str(task.id))
-    # Reuse the existing import confirmation path when a matching account exists.
+    # Reuse the existing import confirmation path for the explicitly selected account.
     account = session.scalar(
         select(PlatformAccount).where(
+            PlatformAccount.id == data.account_id,
             PlatformAccount.workspace_id == task.workspace_id,
             PlatformAccount.platform == task.platform,
         )
     )
-    if account is not None and task.recognition_output:
+    if account is None:
+        raise HTTPException(status_code=404, detail="account not found")
+    if task.recognition_output:
         candidates = cast(
             list[dict[str, object]],
             task.recognition_output.get("metric_candidates", []),

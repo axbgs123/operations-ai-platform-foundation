@@ -3,14 +3,22 @@ from typing import Literal, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, case, exists, func, select
+from sqlalchemy.orm import Session, aliased
 
 from app.core.observability import SQLAlchemyOperationsStore
 from app.core.security import WorkspaceContext
-from app.modules.analysis.models import AnalysisRun, AnalysisRunStatus
+from app.modules.analysis.models import (
+    AnalysisRun,
+    AnalysisRunStatus,
+    AnalysisSuggestion,
+)
 from app.modules.analytics.north_star import AnalyticsService
-from app.modules.content.account_models import Platform, PlatformAccount
+from app.modules.content.account_models import (
+    ColumnCampaign,
+    Platform,
+    PlatformAccount,
+)
 from app.modules.content.models import Content
 from app.modules.imports.models import ImportBatch, ImportBatchStatus
 from app.modules.metrics.models import DataSnapshot
@@ -19,6 +27,8 @@ from app.modules.risk_rag.models import RiskScan, RiskScanStatus
 from app.modules.workbench.schemas import (
     AnalysisQueueItem,
     AnalysisQueueRead,
+    AnalysisQueueSort,
+    AnalysisQueueStatus,
     PreflightQueueItem,
     PreflightQueueRead,
     WorkbenchAccountCard,
@@ -198,59 +208,264 @@ class WorkbenchService:
         platform: Platform,
         *,
         account_id: UUID | None,
+        status: AnalysisQueueStatus | None,
+        page: int,
+        page_size: int,
+        sort: AnalysisQueueSort,
     ) -> AnalysisQueueRead:
         if account_id is not None:
             self._account(account_id, platform)
-        contents = self._contents(platform, account_id)
-        latest = self._latest_analysis_runs([content.id for content in contents])
-        items: list[AnalysisQueueItem] = []
-        for content in contents:
-            run = latest.get(content.id)
-            if run is not None and run.status == AnalysisRunStatus.SUCCEEDED:
-                continue
-            status: Literal[
-                "not_analyzed",
-                "queued",
+        latest_rank = (
+            select(
+                AnalysisRun.id.label("run_id"),
+                AnalysisRun.content_id.label("content_id"),
+                func.row_number().over(
+                    partition_by=AnalysisRun.content_id,
+                    order_by=(
+                        AnalysisRun.created_at.desc(),
+                        AnalysisRun.id.desc(),
+                    ),
+                ).label("row_number"),
+            )
+            .where(
+                AnalysisRun.workspace_id == self._context.workspace_id
+            )
+            .subquery()
+        )
+        latest_run = aliased(AnalysisRun)
+        pending_suggestion = exists(
+            select(AnalysisSuggestion.id).where(
+                AnalysisSuggestion.workspace_id
+                == self._context.workspace_id,
+                AnalysisSuggestion.analysis_run_id == latest_run.id,
+                AnalysisSuggestion.adoption_status == "saved",
+            )
+        )
+        sample_count = func.coalesce(
+            latest_run.evidence_bundle["benchmark"][
+                "sample_count"
+            ].as_integer(),
+            0,
+        )
+        queue_status = case(
+            (latest_run.id.is_(None), "pending"),
+            (
+                latest_run.status.in_(
+                    [AnalysisRunStatus.PENDING, AnalysisRunStatus.RUNNING]
+                ),
                 "running",
-                "failed",
-            ]
-            if run is None:
-                status = "not_analyzed"
-            elif run.status == AnalysisRunStatus.PENDING:
-                status = "queued"
-            elif run.status == AnalysisRunStatus.RUNNING:
-                status = "running"
-            elif run.status == AnalysisRunStatus.FAILED:
-                status = "failed"
-            else:
-                status = "not_analyzed"
+            ),
+            (
+                latest_run.status == AnalysisRunStatus.FAILED,
+                case(
+                    (
+                        latest_run.error_code
+                        == "MODEL_CONFIGURATION_REQUIRED",
+                        "configuration_required",
+                    ),
+                    else_="failed",
+                ),
+            ),
+            (
+                (latest_run.status == AnalysisRunStatus.SUCCEEDED)
+                & pending_suggestion,
+                "suggestion_pending",
+            ),
+            (
+                (latest_run.status == AnalysisRunStatus.SUCCEEDED)
+                & (sample_count < 5),
+                "insufficient_sample",
+            ),
+            else_="completed",
+        )
+        latest_maturity = (
+            select(DataSnapshot.maturity_bucket)
+            .where(
+                DataSnapshot.workspace_id == self._context.workspace_id,
+                DataSnapshot.content_id == Content.id,
+                DataSnapshot.confirmed.is_(True),
+            )
+            .order_by(
+                DataSnapshot.collected_at.desc(),
+                DataSnapshot.id.desc(),
+            )
+            .limit(1)
+            .scalar_subquery()
+        )
+        statement = (
+            select(
+                Content,
+                PlatformAccount.name.label("account_name"),
+                ColumnCampaign.name.label("column_name"),
+                latest_run,
+                latest_maturity.label("latest_maturity"),
+                queue_status.label("queue_status"),
+            )
+            .join(
+                PlatformAccount,
+                PlatformAccount.id == Content.account_id,
+            )
+            .outerjoin(
+                ColumnCampaign,
+                and_(
+                    ColumnCampaign.id == Content.column_campaign_id,
+                    ColumnCampaign.workspace_id
+                    == self._context.workspace_id,
+                ),
+            )
+            .outerjoin(
+                latest_rank,
+                (latest_rank.c.content_id == Content.id)
+                & (latest_rank.c.row_number == 1),
+            )
+            .outerjoin(latest_run, latest_run.id == latest_rank.c.run_id)
+            .where(
+                Content.workspace_id == self._context.workspace_id,
+                Content.deleted_at.is_(None),
+                Content.platform == platform,
+                PlatformAccount.workspace_id == self._context.workspace_id,
+            )
+        )
+        if account_id is not None:
+            statement = statement.where(Content.account_id == account_id)
+        if status is not None:
+            statement = statement.where(queue_status == status)
+        total_statement = statement.with_only_columns(
+            Content.id,
+            maintain_column_froms=True,
+        ).order_by(None)
+        total = int(
+            self._session.scalar(
+                select(func.count()).select_from(total_statement.subquery())
+            )
+            or 0
+        )
+        order = (
+            (Content.created_at.asc(), Content.id.asc())
+            if sort == "oldest"
+            else (Content.created_at.desc(), Content.id.desc())
+        )
+        rows = self._session.execute(
+            statement.order_by(*order)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        run_ids = {
+            run.id for *_, run, _maturity, _status in rows if run is not None
+        }
+        suggestion_statuses = {
+            suggestion.analysis_run_id: suggestion.adoption_status
+            for suggestion in self._session.scalars(
+                select(AnalysisSuggestion)
+                .where(
+                    AnalysisSuggestion.workspace_id
+                    == self._context.workspace_id,
+                    AnalysisSuggestion.analysis_run_id.in_(run_ids),
+                )
+                .order_by(
+                    AnalysisSuggestion.created_at.desc(),
+                    AnalysisSuggestion.id.desc(),
+                )
+            )
+        } if run_ids else {}
+
+        items: list[AnalysisQueueItem] = []
+        for (
+            content,
+            account_name,
+            column_name,
+            run,
+            maturity,
+            item_status,
+        ) in rows:
+            report = run.report if run is not None and isinstance(run.report, dict) else {}
+            bundle = (
+                run.evidence_bundle
+                if run is not None and isinstance(run.evidence_bundle, dict)
+                else {}
+            )
+            benchmark = bundle.get("benchmark")
+            actual_sample_count = (
+                int(benchmark.get("sample_count", 0))
+                if isinstance(benchmark, dict)
+                else 0
+            )
+            confidence_value = report.get("confidence")
+            confidence = (
+                confidence_value
+                if confidence_value in {"low", "medium", "high"}
+                else "unknown"
+            )
+            typed_confidence = cast(
+                Literal["low", "medium", "high", "unknown"],
+                confidence,
+            )
             summary = {
-                "not_analyzed": "尚未开始分析",
-                "queued": "分析任务正在排队",
-                "running": "分析任务正在运行",
-                "failed": "分析任务失败，可检查配置后重试",
-            }[status]
+                "pending": "尚未开始分析",
+                "running": "分析任务正在处理",
+                "failed": "分析任务失败，可按安全错误码重试",
+                "configuration_required": "分析所需模型尚未配置",
+                "insufficient_sample": "可比较样本不足，结论已降级",
+                "suggestion_pending": "分析完成，有建议等待采用或拒绝",
+                "completed": "分析已完成",
+            }[item_status]
+            data_performance = report.get("data_performance")
+            if isinstance(data_performance, dict):
+                candidate_summary = data_performance.get("summary")
+                if isinstance(candidate_summary, str) and candidate_summary.strip():
+                    summary = candidate_summary.strip()[:200]
+            evidence = report.get("evidence")
+            if item_status == "insufficient_sample":
+                evidence_status = "insufficient_sample"
+            elif isinstance(evidence, list) and evidence:
+                evidence_status = "available"
+            else:
+                evidence_status = "missing"
+            suggestion_status = (
+                suggestion_statuses.get(run.id, "none")
+                if run is not None
+                else "none"
+            )
             items.append(
                 AnalysisQueueItem(
                     content_id=content.id,
                     account_id=content.account_id,
+                    account_name=account_name,
+                    column_campaign_id=content.column_campaign_id,
+                    column_campaign_name=column_name,
                     platform=content.platform.value,
                     content_type=content.content_type.value,
-                    status=status,
-                    snapshot_count=min(
-                        len(run.snapshot_ids) if run is not None else 0,
-                        10_000,
-                    ),
+                    status=item_status,
+                    maturity=maturity,
+                    sample_count=min(actual_sample_count, 10_000),
                     analysis_version=(
                         run.algorithm_version if run is not None else None
                     ),
                     safe_summary=summary,
+                    confidence=typed_confidence,
+                    evidence_status=cast(
+                        Literal[
+                            "available",
+                            "missing",
+                            "insufficient_sample",
+                        ],
+                        evidence_status,
+                    ),
+                    suggestion_status=cast(
+                        Literal["none", "saved", "adopted", "rejected"],
+                        suggestion_status,
+                    ),
                 )
             )
         return AnalysisQueueRead(
             platform=platform.value,
             account_id=account_id,
-            total=len(items),
+            status=status,
+            sort=sort,
+            page=page,
+            page_size=page_size,
+            total=total,
+            pages=(total + page_size - 1) // page_size,
             items=items,
         )
 

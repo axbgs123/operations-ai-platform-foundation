@@ -1328,6 +1328,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/imports/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Import History */
+        get: operations["read_import_history_v1_workspaces__workspace_id__imports_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/imports/manual/preview": {
         parameters: {
             query?: never;
@@ -2510,8 +2527,19 @@ export interface components {
              * Format: uuid
              */
             account_id: string;
+            /** Account Name */
+            account_name: string;
             /** Analysis Version */
             analysis_version?: string | null;
+            /** Column Campaign Id */
+            column_campaign_id: string | null;
+            /** Column Campaign Name */
+            column_campaign_name?: string | null;
+            /**
+             * Confidence
+             * @enum {string}
+             */
+            confidence: "low" | "medium" | "high" | "unknown";
             /**
              * Content Id
              * Format: uuid
@@ -2523,19 +2551,31 @@ export interface components {
              */
             content_type: "video" | "image_text";
             /**
+             * Evidence Status
+             * @enum {string}
+             */
+            evidence_status: "available" | "missing" | "insufficient_sample";
+            /** Maturity */
+            maturity: ("1h" | "24h" | "72h" | "7d") | null;
+            /**
              * Platform
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
             /** Safe Summary */
             safe_summary: string;
-            /** Snapshot Count */
-            snapshot_count: number;
+            /** Sample Count */
+            sample_count: number;
             /**
              * Status
              * @enum {string}
              */
-            status: "not_analyzed" | "queued" | "running" | "failed";
+            status: "pending" | "running" | "completed" | "insufficient_sample" | "failed" | "configuration_required" | "suggestion_pending";
+            /**
+             * Suggestion Status
+             * @enum {string}
+             */
+            suggestion_status: "none" | "saved" | "adopted" | "rejected";
         };
         /** AnalysisQueueRead */
         AnalysisQueueRead: {
@@ -2543,11 +2583,24 @@ export interface components {
             account_id: string | null;
             /** Items */
             items: components["schemas"]["AnalysisQueueItem"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Pages */
+            pages: number;
             /**
              * Platform
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+            /**
+             * Sort
+             * @enum {string}
+             */
+            sort: "newest" | "oldest";
+            /** Status */
+            status: ("pending" | "running" | "completed" | "insufficient_sample" | "failed" | "configuration_required" | "suggestion_pending") | null;
             /** Total */
             total: number;
         };
@@ -4136,6 +4189,9 @@ export interface components {
             expires_at: string;
             /** Formal Snapshot Ids */
             formal_snapshot_ids: string[];
+            /** Page Version */
+            page_version: string;
+            platform: components["schemas"]["Platform"];
             /** Provider Mode */
             provider_mode: string;
             /** Recognition */
@@ -4600,6 +4656,78 @@ export interface components {
             field: string;
             /** Message */
             message: string;
+        };
+        /** ImportHistoryCountsRead */
+        ImportHistoryCountsRead: {
+            /** Failed */
+            failed: number;
+            /** New */
+            new: number;
+            /** Suspected Duplicate */
+            suspected_duplicate: number;
+            /** Update */
+            update: number;
+        };
+        /** ImportHistoryItemRead */
+        ImportHistoryItemRead: {
+            /** Account Id */
+            account_id: string | null;
+            /** Account Name */
+            account_name?: string | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            counts: components["schemas"]["ImportHistoryCountsRead"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "manual" | "tabular" | "screenshot" | "extension";
+            /**
+             * Next Action
+             * @enum {string}
+             */
+            next_action: "review" | "wait" | "open_result" | "retry" | "none";
+            /** Operator Name */
+            operator_name?: string | null;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Safe Error Code */
+            safe_error_code?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "waiting_confirmation" | "processing" | "confirmed" | "failed" | "cancelled";
+        };
+        /** ImportHistoryPageRead */
+        ImportHistoryPageRead: {
+            /** Account Id */
+            account_id: string | null;
+            /** Items */
+            items: components["schemas"]["ImportHistoryItemRead"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Pages */
+            pages: number;
+            /** Platform */
+            platform: ("douyin" | "xiaohongshu") | null;
+            /** Total */
+            total: number;
         };
         /** ImportRowRead */
         ImportRowRead: {
@@ -6585,6 +6713,11 @@ export interface components {
         };
         /** WebCaptureConfirmation */
         WebCaptureConfirmation: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
             /** Corrections */
             corrections?: {
                 [key: string]: string;
@@ -10034,6 +10167,44 @@ export interface operations {
             };
         };
     };
+    read_import_history_v1_workspaces__workspace_id__imports_history_get: {
+        parameters: {
+            query?: {
+                platform?: components["schemas"]["Platform"] | null;
+                account_id?: string | null;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportHistoryPageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     preview_manual_import_v1_workspaces__workspace_id__imports_manual_preview_post: {
         parameters: {
             query?: never;
@@ -12234,6 +12405,10 @@ export interface operations {
             query: {
                 platform: "douyin" | "xiaohongshu";
                 account_id?: string | null;
+                status?: ("pending" | "running" | "completed" | "insufficient_sample" | "failed" | "configuration_required" | "suggestion_pending") | null;
+                page?: number;
+                page_size?: number;
+                sort?: "newest" | "oldest";
             };
             header?: never;
             path: {

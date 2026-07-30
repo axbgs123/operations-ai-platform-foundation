@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ManualPreviewRequest(BaseModel):
@@ -78,3 +79,45 @@ class ImportConfirmationRead(BaseModel):
     content_ids: list[UUID]
     snapshot_ids: list[UUID]
     skipped_row_ids: list[UUID]
+
+
+class StrictImportRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ImportHistoryCountsRead(StrictImportRead):
+    new: int = Field(ge=0)
+    update: int = Field(ge=0)
+    suspected_duplicate: int = Field(ge=0)
+    failed: int = Field(ge=0)
+
+
+class ImportHistoryItemRead(StrictImportRead):
+    id: UUID
+    method: Literal["manual", "tabular", "screenshot", "extension"]
+    platform: Literal["douyin", "xiaohongshu"]
+    account_id: UUID | None
+    account_name: str | None = Field(default=None, max_length=120)
+    status: Literal[
+        "waiting_confirmation",
+        "processing",
+        "confirmed",
+        "failed",
+        "cancelled",
+    ]
+    counts: ImportHistoryCountsRead
+    created_at: datetime
+    confirmed_at: datetime | None
+    operator_name: str | None = Field(default=None, max_length=80)
+    safe_error_code: str | None = Field(default=None, max_length=80)
+    next_action: Literal["review", "wait", "open_result", "retry", "none"]
+
+
+class ImportHistoryPageRead(StrictImportRead):
+    items: list[ImportHistoryItemRead]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
+    total: int = Field(ge=0)
+    pages: int = Field(ge=0)
+    platform: Literal["douyin", "xiaohongshu"] | None
+    account_id: UUID | None

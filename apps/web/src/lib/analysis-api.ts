@@ -1,10 +1,21 @@
-import type { components } from "@operations-ai/shared-schemas";
+import {
+  createApiClient,
+  type components,
+  type operations,
+} from "@operations-ai/shared-schemas";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type AnalysisRunData = components["schemas"]["AnalysisRunRead"];
 export type AnalysisSuggestionData = components["schemas"]["AnalysisSuggestionRead"];
 export type ProductEventAck = components["schemas"]["ProductEventAck"];
+export type AnalysisQueuePageData =
+  components["schemas"]["AnalysisQueueRead"];
+type AnalysisQueueOperation =
+  operations["read_analysis_queue_v1_workspaces__workspace_id__workbench_analysis_queue_get"];
+export type AnalysisQueueApiQuery = NonNullable<
+  AnalysisQueueOperation["parameters"]["query"]
+>;
 
 async function analysisRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -90,4 +101,30 @@ export function updateAnalysisSuggestion(
       body: JSON.stringify({ adoption_status: adoptionStatus }),
     },
   );
+}
+
+export async function loadAnalysisQueue(
+  workspaceId: string,
+  query: AnalysisQueueApiQuery,
+  signal?: AbortSignal,
+): Promise<AnalysisQueuePageData> {
+  const client = createApiClient(API_URL);
+  const { data, response } = await client.GET(
+    "/v1/workspaces/{workspace_id}/workbench/analysis-queue",
+    {
+      params: {
+        path: { workspace_id: workspaceId },
+        query,
+      },
+      signal,
+    },
+  );
+  if (!response.ok || !data) {
+    throw new Error(
+      response.status === 404
+        ? "账号不属于当前工作区或平台"
+        : "分析队列加载失败",
+    );
+  }
+  return data;
 }

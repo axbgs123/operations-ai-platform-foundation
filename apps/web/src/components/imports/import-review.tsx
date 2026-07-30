@@ -1,12 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
+import {
+  loadColumnCampaigns,
+  type ColumnCampaign,
+} from "@/lib/account-api";
 import {
   confirmImport,
   ImportBatchData,
   previewManualImport,
   previewTabularImport,
+  readImportBatch,
   updateImportMapping,
   updateImportRow,
 } from "@/lib/import-api";
@@ -29,10 +34,14 @@ export function ImportReview({
   workspaceId,
   accountId,
   platform,
+  mode,
+  initialBatchId,
 }: {
   workspaceId: string;
   accountId: string;
   platform: "douyin" | "xiaohongshu";
+  mode?: "manual" | "tabular";
+  initialBatchId?: string;
 }) {
   const [contentType, setContentType] = useState<"video" | "image_text">("video");
   const [file, setFile] = useState<File | null>(null);
@@ -42,16 +51,54 @@ export function ImportReview({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [columns, setColumns] = useState<ColumnCampaign[]>([]);
 
   const csrf = () => sessionStorage.getItem("workspace_csrf") ?? "";
-
-  function acceptPreview(next: ImportBatchData) {
+  const acceptPreview = useCallback((next: ImportBatchData) => {
     setPreview(next);
     setTitleDrafts(
       Object.fromEntries(next.rows.map((row) => [row.id, normalizedTitle(row)])),
     );
     setSelected(new Set());
-  }
+  }, []);
+
+  useEffect(() => {
+    if (mode === "tabular") return;
+    let active = true;
+    void loadColumnCampaigns(workspaceId, accountId)
+      .then((items) => {
+        if (active) setColumns(items);
+      })
+      .catch(() => {
+        if (active) setError("栏目加载失败，请确认账号范围后重试");
+      });
+    return () => {
+      active = false;
+    };
+  }, [accountId, mode, workspaceId]);
+
+  useEffect(() => {
+    if (!initialBatchId) return;
+    let active = true;
+    void readImportBatch(initialBatchId)
+      .then((batch) => {
+        if (!active) return;
+        if (
+          batch.account_id !== accountId
+          || batch.platform !== platform
+        ) {
+          setError("暂存预览与当前平台或账号不匹配");
+          return;
+        }
+        acceptPreview(batch);
+      })
+      .catch(() => {
+        if (active) setError("无法恢复该暂存预览");
+      });
+    return () => {
+      active = false;
+    };
+  }, [acceptPreview, accountId, initialBatchId, platform]);
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -95,6 +142,8 @@ export function ImportReview({
               {
                 title: String(form.get("title") ?? ""),
                 body: String(form.get("body") ?? ""),
+                column_campaign_id:
+                  String(form.get("columnCampaignId") ?? "") || null,
                 work_url: String(form.get("workUrl") ?? "") || null,
                 published_at: new Date(
                   String(form.get("publishedAt") ?? ""),
@@ -178,8 +227,9 @@ export function ImportReview({
         <p className="mt-3 text-slate-400">预览不会写入正式内容或指标快照</p>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <form className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-6" onSubmit={upload}>
+      <div className={`grid gap-6 ${mode ? "" : "lg:grid-cols-2"}`}>
+        {mode !== "manual" ? (
+        <form className="space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 text-[var(--text-primary)]" onSubmit={upload}>
           <h2 className="text-xl font-semibold">CSV / Excel 批量导入</h2>
           <label className="block">
             内容类型
@@ -194,9 +244,25 @@ export function ImportReview({
           </label>
           <button className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50" disabled={!file || busy} type="submit">生成暂存预览</button>
         </form>
+        ) : null}
 
-        <form className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-6" onSubmit={manual}>
+        {mode !== "tabular" ? (
+        <form className="space-y-4 rounded-xl border border-[var(--border)] bg-white p-6 text-[var(--text-primary)]" onSubmit={manual}>
           <h2 className="text-xl font-semibold">手动录入一行</h2>
+          <label className="block">
+            栏目/活动
+            <select
+              className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3"
+              name="columnCampaignId"
+            >
+              <option value="">使用账号默认</option>
+              {columns.map((column) => (
+                <option key={column.id} value={column.id}>
+                  {column.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="block">标题<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="title" required /></label>
           <label className="block">正文<textarea className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="body" /></label>
           <label className="block">作品链接<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="workUrl" type="url" /></label>
@@ -207,10 +273,23 @@ export function ImportReview({
           <label className="block">播放/阅读量<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" min="0" name="views" required type="number" /></label>
           <button className="rounded-xl border border-cyan-400 px-5 py-3 font-semibold text-cyan-300" disabled={busy} type="submit">生成手动暂存预览</button>
         </form>
+        ) : null}
       </div>
 
-      {error ? <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300">{error}</p> : null}
-      {message ? <p className="rounded-xl bg-emerald-950/60 p-4 text-emerald-300">{message}</p> : null}
+      {error ? (
+        <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p
+          aria-live="polite"
+          className="rounded-xl bg-emerald-950/60 p-4 text-emerald-300"
+          role="status"
+        >
+          {message}
+        </p>
+      ) : null}
 
       {preview ? (
         <div className="space-y-5">

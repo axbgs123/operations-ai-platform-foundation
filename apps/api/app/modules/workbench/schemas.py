@@ -5,6 +5,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 PlatformName = Literal["douyin", "xiaohongshu"]
+AnalysisQueueStatus = Literal[
+    "pending",
+    "running",
+    "completed",
+    "insufficient_sample",
+    "failed",
+    "configuration_required",
+    "suggestion_pending",
+]
+AnalysisQueueSort = Literal["newest", "oldest"]
 
 
 class StrictReadModel(BaseModel):
@@ -84,18 +94,30 @@ class WorkbenchOverviewRead(StrictReadModel):
 class AnalysisQueueItem(StrictReadModel):
     content_id: UUID
     account_id: UUID
+    account_name: str = Field(min_length=1, max_length=120)
+    column_campaign_id: UUID | None
+    column_campaign_name: str | None = Field(default=None, max_length=120)
     platform: PlatformName
     content_type: Literal["video", "image_text"]
-    status: Literal["not_analyzed", "queued", "running", "failed"]
-    snapshot_count: int = Field(ge=0, le=10_000)
+    status: AnalysisQueueStatus
+    maturity: Literal["1h", "24h", "72h", "7d"] | None
+    sample_count: int = Field(ge=0, le=10_000)
     analysis_version: str | None = Field(default=None, max_length=160)
     safe_summary: str = Field(min_length=1, max_length=200)
+    confidence: Literal["low", "medium", "high", "unknown"]
+    evidence_status: Literal["available", "missing", "insufficient_sample"]
+    suggestion_status: Literal["none", "saved", "adopted", "rejected"]
 
 
 class AnalysisQueueRead(StrictReadModel):
     platform: PlatformName
     account_id: UUID | None
+    status: AnalysisQueueStatus | None
+    sort: AnalysisQueueSort
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
     total: int = Field(ge=0)
+    pages: int = Field(ge=0)
     items: list[AnalysisQueueItem]
 
 

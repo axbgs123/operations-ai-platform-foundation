@@ -4,6 +4,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type ImportBatchData = components["schemas"]["ImportBatchRead"];
 export type ImportConfirmationData = components["schemas"]["ImportConfirmationRead"];
+export type ImportHistoryData = components["schemas"]["ImportHistoryPageRead"];
 type ManualPreviewRequest = components["schemas"]["ManualPreviewRequest"];
 
 async function readResponse<T>(response: Response): Promise<T> {
@@ -148,4 +149,26 @@ export function confirmImport(
     headers: { "X-CSRF-Token": csrfToken },
     body: JSON.stringify({ selected_row_ids: selectedRowIds }),
   });
+}
+
+export function loadImportHistory(
+  workspaceId: string,
+  filters: {
+    platform?: "douyin" | "xiaohongshu";
+    accountId?: string;
+    page: number;
+    pageSize?: number;
+  },
+  signal?: AbortSignal,
+) {
+  const query = new URLSearchParams({
+    page: String(filters.page),
+    page_size: String(filters.pageSize ?? 20),
+  });
+  if (filters.platform) query.set("platform", filters.platform);
+  if (filters.accountId) query.set("account_id", filters.accountId);
+  return importRequest<ImportHistoryData>(
+    `/v1/workspaces/${workspaceId}/imports/history?${query}`,
+    { method: "GET", signal },
+  );
 }

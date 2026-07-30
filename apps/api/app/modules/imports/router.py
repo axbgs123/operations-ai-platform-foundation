@@ -12,6 +12,7 @@ from fastapi import (
     Form,
     Header,
     HTTPException,
+    Query,
     UploadFile,
 )
 from sqlalchemy.orm import Session
@@ -24,6 +25,7 @@ from app.modules.imports.schemas import (
     ImportBatchRead,
     ImportConfirmRequest,
     ImportConfirmationRead,
+    ImportHistoryPageRead,
     ImportRowUpdate,
     ManualPreviewRequest,
 )
@@ -123,6 +125,48 @@ def read_import_batch(
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@router.get(
+    "/v1/workspaces/{workspace_id}/imports/history",
+    response_model=ImportHistoryPageRead,
+)
+def read_import_history(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    platform: Platform | None = None,
+    account_id: UUID | None = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> dict[str, object]:
+    service = _service(
+        session,
+        session_token,
+        None,
+        workspace_id=workspace_id,
+        require_csrf=False,
+    )
+    try:
+        items, total = service.history(
+            platform=platform,
+            account_id=account_id,
+            page=page,
+            page_size=page_size,
+        )
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return {
+        "items": items,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "pages": (total + page_size - 1) // page_size,
+        "platform": platform.value if platform else None,
+        "account_id": account_id,
+    }
 
 
 @router.post(

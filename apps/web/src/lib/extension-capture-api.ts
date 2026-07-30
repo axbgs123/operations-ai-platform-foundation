@@ -21,6 +21,7 @@ export function readExtensionCaptureTask(taskId: string) {
 
 export function confirmExtensionCaptureTask(
   taskId: string,
+  accountId: string,
   corrections: Record<string, string>,
   csrfToken: string,
 ) {
@@ -31,6 +32,6 @@ export function confirmExtensionCaptureTask(
       "Content-Type": "application/json",
       "X-CSRF-Token": csrfToken,
     },
-    body: JSON.stringify({ corrections }),
+    body: JSON.stringify({ account_id: accountId, corrections }),
   }).then(read<ExtensionCaptureTask>);
 }

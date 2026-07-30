@@ -307,6 +307,12 @@
             "title": "Account Id",
             "type": "string"
           },
+          "account_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Account Name",
+            "type": "string"
+          },
           "analysis_version": {
             "anyOf": [
               {
@@ -318,6 +324,40 @@
               }
             ],
             "title": "Analysis Version"
+          },
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "column_campaign_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Name"
+          },
+          "confidence": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "unknown"
+            ],
+            "title": "Confidence",
+            "type": "string"
           },
           "content_id": {
             "format": "uuid",
@@ -331,6 +371,32 @@
             ],
             "title": "Content Type",
             "type": "string"
+          },
+          "evidence_status": {
+            "enum": [
+              "available",
+              "missing",
+              "insufficient_sample"
+            ],
+            "title": "Evidence Status",
+            "type": "string"
+          },
+          "maturity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1h",
+                  "24h",
+                  "72h",
+                  "7d"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maturity"
           },
           "platform": {
             "enum": [
@@ -346,31 +412,50 @@
             "title": "Safe Summary",
             "type": "string"
           },
-          "snapshot_count": {
+          "sample_count": {
             "maximum": 10000.0,
             "minimum": 0.0,
-            "title": "Snapshot Count",
+            "title": "Sample Count",
             "type": "integer"
           },
           "status": {
             "enum": [
-              "not_analyzed",
-              "queued",
+              "pending",
               "running",
-              "failed"
+              "completed",
+              "insufficient_sample",
+              "failed",
+              "configuration_required",
+              "suggestion_pending"
             ],
             "title": "Status",
+            "type": "string"
+          },
+          "suggestion_status": {
+            "enum": [
+              "none",
+              "saved",
+              "adopted",
+              "rejected"
+            ],
+            "title": "Suggestion Status",
             "type": "string"
           }
         },
         "required": [
           "content_id",
           "account_id",
+          "account_name",
+          "column_campaign_id",
           "platform",
           "content_type",
           "status",
-          "snapshot_count",
-          "safe_summary"
+          "maturity",
+          "sample_count",
+          "safe_summary",
+          "confidence",
+          "evidence_status",
+          "suggestion_status"
         ],
         "title": "AnalysisQueueItem",
         "type": "object"
@@ -397,6 +482,22 @@
             "title": "Items",
             "type": "array"
           },
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "minimum": 0.0,
+            "title": "Pages",
+            "type": "integer"
+          },
           "platform": {
             "enum": [
               "douyin",
@@ -404,6 +505,34 @@
             ],
             "title": "Platform",
             "type": "string"
+          },
+          "sort": {
+            "enum": [
+              "newest",
+              "oldest"
+            ],
+            "title": "Sort",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pending",
+                  "running",
+                  "completed",
+                  "insufficient_sample",
+                  "failed",
+                  "configuration_required",
+                  "suggestion_pending"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
           },
           "total": {
             "minimum": 0.0,
@@ -414,7 +543,12 @@
         "required": [
           "platform",
           "account_id",
+          "status",
+          "sort",
+          "page",
+          "page_size",
           "total",
+          "pages",
           "items"
         ],
         "title": "AnalysisQueueRead",
@@ -4696,6 +4830,13 @@
             "title": "Formal Snapshot Ids",
             "type": "array"
           },
+          "page_version": {
+            "title": "Page Version",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
           "provider_mode": {
             "title": "Provider Mode",
             "type": "string"
@@ -4748,6 +4889,8 @@
         "required": [
           "task_id",
           "workspace_id",
+          "platform",
+          "page_version",
           "status",
           "request_id",
           "review_url",
@@ -5943,6 +6086,241 @@
           "message"
         ],
         "title": "ImportErrorRead",
+        "type": "object"
+      },
+      "ImportHistoryCountsRead": {
+        "additionalProperties": false,
+        "properties": {
+          "failed": {
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "new": {
+            "minimum": 0.0,
+            "title": "New",
+            "type": "integer"
+          },
+          "suspected_duplicate": {
+            "minimum": 0.0,
+            "title": "Suspected Duplicate",
+            "type": "integer"
+          },
+          "update": {
+            "minimum": 0.0,
+            "title": "Update",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "new",
+          "update",
+          "suspected_duplicate",
+          "failed"
+        ],
+        "title": "ImportHistoryCountsRead",
+        "type": "object"
+      },
+      "ImportHistoryItemRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "account_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/ImportHistoryCountsRead"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "manual",
+              "tabular",
+              "screenshot",
+              "extension"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "next_action": {
+            "enum": [
+              "review",
+              "wait",
+              "open_result",
+              "retry",
+              "none"
+            ],
+            "title": "Next Action",
+            "type": "string"
+          },
+          "operator_name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operator Name"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "safe_error_code": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safe Error Code"
+          },
+          "status": {
+            "enum": [
+              "waiting_confirmation",
+              "processing",
+              "confirmed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "platform",
+          "account_id",
+          "status",
+          "counts",
+          "created_at",
+          "confirmed_at",
+          "next_action"
+        ],
+        "title": "ImportHistoryItemRead",
+        "type": "object"
+      },
+      "ImportHistoryPageRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ImportHistoryItemRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "minimum": 0.0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "platform": {
+            "anyOf": [
+              {
+                "enum": [
+                  "douyin",
+                  "xiaohongshu"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Platform"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total",
+          "pages",
+          "platform",
+          "account_id"
+        ],
+        "title": "ImportHistoryPageRead",
         "type": "object"
       },
       "ImportRowRead": {
@@ -10989,6 +11367,11 @@
       "WebCaptureConfirmation": {
         "additionalProperties": false,
         "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
           "corrections": {
             "additionalProperties": {
               "type": "string"
@@ -10997,6 +11380,9 @@
             "type": "object"
           }
         },
+        "required": [
+          "account_id"
+        ],
         "title": "WebCaptureConfirmation",
         "type": "object"
       },
@@ -18559,6 +18945,121 @@
         ]
       }
     },
+    "/v1/workspaces/{workspace_id}/imports/history": {
+      "get": {
+        "operationId": "read_import_history_v1_workspaces__workspace_id__imports_history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Platform"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Platform"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportHistoryPageRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Import History",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
     "/v1/workspaces/{workspace_id}/imports/manual/preview": {
       "post": {
         "operationId": "preview_manual_import_v1_workspaces__workspace_id__imports_manual_preview_post",
@@ -23472,6 +23973,68 @@
                 }
               ],
               "title": "Account Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending",
+                    "running",
+                    "completed",
+                    "insufficient_sample",
+                    "failed",
+                    "configuration_required",
+                    "suggestion_pending"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "enum": [
+                "newest",
+                "oldest"
+              ],
+              "title": "Sort",
+              "type": "string"
             }
           },
           {

@@ -209,7 +209,13 @@ def normalize_manual_row(
 ) -> tuple[dict[str, object], list[dict[str, str]]]:
     row_errors = list(errors or [])
     normalized: dict[str, object] = {}
-    for field in ("platform_content_id", "work_url", "title", "body"):
+    for field in (
+        "platform_content_id",
+        "work_url",
+        "title",
+        "body",
+        "column_campaign_id",
+    ):
         value = raw_data.get(field)
         normalized[field] = str(value).strip() if value not in (None, "") else None
     if not normalized["title"]:

@@ -42,6 +42,7 @@ test("脱敏支持页完成暂存、Mock识别、轮询与Web人工确认", asyn
     },
   );
   expect(accountResponse.status()).toBe(201);
+  const account = await accountResponse.json();
   const extensionCodeResponse = await request.post(
     `${api}/v1/workspaces/${workspace.workspace_id}/members/codes`,
     {
@@ -92,7 +93,9 @@ test("脱敏支持页完成暂存、Mock识别、轮询与Web人工确认", asyn
 
   const storage = await request.storageState();
   await page.context().addCookies(storage.cookies);
-  await page.goto(`/workspaces/${workspace.workspace_id}/imports?capture_task_id=${capture.task_id}`);
+  await page.goto(
+    `/workspaces/${workspace.workspace_id}/imports?platform=douyin&account=${account.id}&capture_task_id=${capture.task_id}`,
+  );
   await page.evaluate((csrf) => sessionStorage.setItem("workspace_csrf", csrf), login.csrf_token);
   await page.reload();
   await expect(page.getByText("扩展识别结果待确认")).toBeVisible();

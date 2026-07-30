@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import {
   confirmImport,
@@ -37,10 +37,12 @@ export function ScreenshotReview({
   workspaceId,
   accountId,
   platform,
+  initialBatchId,
 }: {
   workspaceId: string;
   accountId: string;
   platform: "douyin" | "xiaohongshu";
+  initialBatchId?: string;
 }) {
   const [batch, setBatch] = useState<ImportBatchData | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -51,6 +53,30 @@ export function ScreenshotReview({
   const [message, setMessage] = useState("");
 
   const csrf = () => sessionStorage.getItem("workspace_csrf") ?? "";
+
+  useEffect(() => {
+    if (!initialBatchId) return;
+    let active = true;
+    void readImportBatch(initialBatchId)
+      .then((next) => {
+        if (!active) return;
+        if (
+          next.account_id !== accountId
+          || next.platform !== platform
+          || next.source_kind !== "screenshot"
+        ) {
+          setError("截图任务与当前平台或账号不匹配");
+          return;
+        }
+        setBatch(next);
+      })
+      .catch(() => {
+        if (active) setError("无法恢复该截图识别任务");
+      });
+    return () => {
+      active = false;
+    };
+  }, [accountId, initialBatchId, platform]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -193,10 +219,26 @@ export function ScreenshotReview({
         </button>
       </form>
 
-      {error ? <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300">{error}</p> : null}
-      {message ? <p className="rounded-xl bg-emerald-950/60 p-4 text-emerald-300">{message}</p> : null}
+      {error ? (
+        <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p
+          aria-live="polite"
+          className="rounded-xl bg-emerald-950/60 p-4 text-emerald-300"
+          role="status"
+        >
+          {message}
+        </p>
+      ) : null}
       {batch?.recognition_status === "pending" || batch?.recognition_status === "processing" ? (
-        <div className="flex items-center gap-4 rounded-2xl bg-slate-900 p-5">
+        <div
+          aria-live="polite"
+          className="flex items-center gap-4 rounded-2xl bg-slate-900 p-5"
+          role="status"
+        >
           <p><span>识别排队中</span> · {batch.provider_mode === "mock" ? "Mock（无外部调用）" : `阿里云百炼 ${batch.region ?? "未配置地域"}`}</p>
           <button className="rounded-xl border border-violet-400 px-4 py-2" onClick={refresh} type="button">刷新识别结果</button>
         </div>

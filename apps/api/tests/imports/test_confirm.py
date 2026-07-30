@@ -76,6 +76,73 @@ def test_confirm_writes_only_selected_valid_rows_and_is_idempotent() -> None:
             assert session.scalar(select(func.count()).select_from(DataSnapshot)) == 1
 
 
+def test_manual_import_rejects_foreign_account_column_and_preserves_valid_column() -> None:
+    with configured_client() as (client, engine):
+        workspace_id, csrf, account = create_workspace_account(client)
+        other_account = client.post(
+            f"/v1/workspaces/{workspace_id}/accounts",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "platform": "douyin",
+                "name": "另一个合成账号",
+                "objectives": ["reach"],
+                "metric_weights": {"views": 1},
+                "benchmark_sample_size": 30,
+            },
+        ).json()
+        column = client.post(
+            (
+                f"/v1/workspaces/{workspace_id}/accounts/"
+                f"{other_account['id']}/columns-campaigns"
+            ),
+            headers={"X-CSRF-Token": csrf},
+            json={"name": "其他账号栏目", "kind": "column"},
+        ).json()
+
+        rejected = client.post(
+            f"/v1/workspaces/{workspace_id}/imports/manual/preview",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "account_id": account["id"],
+                "platform": "douyin",
+                "content_type": "video",
+                "rows": [
+                    valid_row(30, column_campaign_id=column["id"]),
+                ],
+            },
+        )
+        assert rejected.status_code == 404
+
+        own_column = client.post(
+            (
+                f"/v1/workspaces/{workspace_id}/accounts/"
+                f"{account['id']}/columns-campaigns"
+            ),
+            headers={"X-CSRF-Token": csrf},
+            json={"name": "当前账号栏目", "kind": "column"},
+        ).json()
+        preview = preview_manual(
+            client,
+            workspace_id=workspace_id,
+            csrf=csrf,
+            account_id=account["id"],
+            rows=[valid_row(31, column_campaign_id=own_column["id"])],
+        )
+        confirmed = client.post(
+            f"/v1/imports/{preview['id']}/confirm",
+            headers={"X-CSRF-Token": csrf},
+            json={"selected_row_ids": [preview["rows"][0]["id"]]},
+        )
+        assert confirmed.status_code == 200, confirmed.text
+        with Session(engine) as session:
+            content = session.get(
+                Content,
+                UUID(confirmed.json()["content_ids"][0]),
+            )
+            assert content is not None
+            assert str(content.column_campaign_id) == own_column["id"]
+
+
 def test_exact_duplicate_appends_snapshot_without_replacing_content() -> None:
     with configured_client() as (client, engine):
         workspace_id, csrf, account = create_workspace_account(client)

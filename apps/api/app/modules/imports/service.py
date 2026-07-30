@@ -4,12 +4,16 @@ from decimal import Decimal
 from typing import cast
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import false, func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
 from app.core.config import get_settings
-from app.modules.content.account_models import Platform, PlatformAccount
+from app.modules.content.account_models import (
+    ColumnCampaign,
+    Platform,
+    PlatformAccount,
+)
 from app.modules.content.models import Content, ContentStatus
 from app.modules.content.service import ContentService
 from app.modules.imports.dedupe import classify_duplicate
@@ -21,6 +25,7 @@ from app.modules.imports.models import (
     ImportSourceKind,
     ScreenshotRecognitionStatus,
 )
+from app.modules.imports.capture_models import CaptureTask, CaptureTaskStatus
 from app.modules.imports.parsers.tabular import (
     normalize_manual_row,
     normalize_tabular_row,
@@ -33,6 +38,7 @@ from app.modules.metrics.snapshot_service import SnapshotService
 from app.modules.workspace.permissions import Permission, require_permission
 from app.modules.imports.vision_binding import resolve_vision_binding
 from app.modules.models.config_service import SecretCipher
+from app.modules.workspace.models import WorkspaceMember
 
 
 class ImportService:
@@ -51,6 +57,29 @@ class ImportService:
         if account is None:
             raise LookupError("account not found")
         return account
+
+    def _column(self, column_id: UUID, account_id: UUID) -> ColumnCampaign:
+        column = self._session.scalar(
+            select(ColumnCampaign).where(
+                ColumnCampaign.id == column_id,
+                ColumnCampaign.workspace_id == self._context.workspace_id,
+                ColumnCampaign.account_id == account_id,
+            )
+        )
+        if column is None:
+            raise LookupError("column campaign not found")
+        return column
+
+    def _column_from_value(
+        self,
+        value: object,
+        account_id: UUID,
+    ) -> ColumnCampaign:
+        try:
+            column_id = UUID(str(value))
+        except (TypeError, ValueError) as error:
+            raise LookupError("column campaign not found") from error
+        return self._column(column_id, account_id)
 
     def _batch(self, batch_id: UUID, *, for_update: bool = False) -> ImportBatch:
         statement = select(ImportBatch).where(
@@ -79,6 +108,246 @@ class ImportService:
     def read_batch(self, batch_id: UUID) -> ImportBatch:
         require_permission(self._context.role, Permission.READ_CONTENT)
         return self._batch(batch_id)
+
+    def history(
+        self,
+        *,
+        platform: Platform | None,
+        account_id: UUID | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[dict[str, object]], int]:
+        require_permission(self._context.role, Permission.READ_CONTENT)
+        if account_id is not None:
+            if platform is None:
+                account = self._session.scalar(
+                    select(PlatformAccount).where(
+                        PlatformAccount.id == account_id,
+                        PlatformAccount.workspace_id
+                        == self._context.workspace_id,
+                    )
+                )
+                if account is None:
+                    raise LookupError("account not found")
+                platform = account.platform
+            else:
+                self._account(account_id, platform)
+
+        batch_query = select(
+            ImportBatch.id.label("item_id"),
+            literal("batch").label("item_kind"),
+            ImportBatch.created_at.label("sort_time"),
+        ).where(
+            ImportBatch.workspace_id == self._context.workspace_id
+        )
+        capture_query = select(
+            CaptureTask.id.label("item_id"),
+            literal("capture").label("item_kind"),
+            CaptureTask.collected_at.label("sort_time"),
+        ).where(
+            CaptureTask.workspace_id == self._context.workspace_id
+        )
+        if platform is not None:
+            batch_query = batch_query.where(ImportBatch.platform == platform)
+            capture_query = capture_query.where(CaptureTask.platform == platform)
+        if account_id is not None:
+            batch_query = batch_query.where(
+                ImportBatch.account_id == account_id
+            )
+            # Capture tasks do not carry an account until Web confirmation.
+            capture_query = capture_query.where(false())
+
+        history_union = union_all(batch_query, capture_query).subquery()
+        total = int(
+            self._session.scalar(
+                select(func.count()).select_from(history_union)
+            )
+            or 0
+        )
+        ordered = self._session.execute(
+            select(
+                history_union.c.item_id,
+                history_union.c.item_kind,
+                history_union.c.sort_time,
+            )
+            .order_by(
+                history_union.c.sort_time.desc(),
+                history_union.c.item_id.desc(),
+            )
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        batch_ids = [
+            row.item_id for row in ordered if row.item_kind == "batch"
+        ]
+        capture_ids = [
+            row.item_id for row in ordered if row.item_kind == "capture"
+        ]
+        batches = {
+            batch.id: batch
+            for batch in self._session.scalars(
+                select(ImportBatch).where(
+                    ImportBatch.id.in_(batch_ids),
+                    ImportBatch.workspace_id == self._context.workspace_id,
+                )
+            )
+        } if batch_ids else {}
+        captures = {
+            task.id: task
+            for task in self._session.scalars(
+                select(CaptureTask).where(
+                    CaptureTask.id.in_(capture_ids),
+                    CaptureTask.workspace_id == self._context.workspace_id,
+                )
+            )
+        } if capture_ids else {}
+        counts: dict[UUID, dict[str, int]] = {
+            batch_id: {status.value: 0 for status in ImportRowStatus}
+            for batch_id in batch_ids
+        }
+        if batch_ids:
+            for batch_id, row_status, count in self._session.execute(
+                select(
+                    ImportRow.batch_id,
+                    ImportRow.status,
+                    func.count(),
+                )
+                .where(
+                    ImportRow.workspace_id == self._context.workspace_id,
+                    ImportRow.batch_id.in_(batch_ids),
+                )
+                .group_by(ImportRow.batch_id, ImportRow.status)
+            ):
+                counts[batch_id][row_status.value] = int(count)
+
+        account_ids = {batch.account_id for batch in batches.values()}
+        account_names = {
+            account.id: account.name
+            for account in self._session.scalars(
+                select(PlatformAccount).where(
+                    PlatformAccount.workspace_id
+                    == self._context.workspace_id,
+                    PlatformAccount.id.in_(account_ids),
+                )
+            )
+        } if account_ids else {}
+        operator_ids = {
+            actor_id
+            for actor_id in [
+                *(batch.confirmed_by for batch in batches.values()),
+                *(task.member_id for task in captures.values()),
+            ]
+            if actor_id is not None
+        }
+        operator_names = {
+            member.id: member.display_name
+            for member in self._session.scalars(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id
+                    == self._context.workspace_id,
+                    WorkspaceMember.id.in_(operator_ids),
+                )
+            )
+        } if operator_ids else {}
+
+        items: list[dict[str, object]] = []
+        empty_counts = {status.value: 0 for status in ImportRowStatus}
+        for row in ordered:
+            if row.item_kind == "capture":
+                task = captures[row.item_id]
+                if task.confirmed_at is not None:
+                    status = "confirmed"
+                    next_action = "open_result"
+                elif task.status in {
+                    CaptureTaskStatus.QUEUED,
+                    CaptureTaskStatus.RUNNING,
+                    CaptureTaskStatus.RETRYING,
+                }:
+                    status = "processing"
+                    next_action = "wait"
+                elif task.status == CaptureTaskStatus.FAILED:
+                    status = "failed"
+                    next_action = "retry"
+                elif task.status == CaptureTaskStatus.CANCELLED:
+                    status = "cancelled"
+                    next_action = "none"
+                else:
+                    status = "waiting_confirmation"
+                    next_action = "review"
+                items.append(
+                    {
+                        "id": task.id,
+                        "method": "extension",
+                        "platform": task.platform.value,
+                        "account_id": None,
+                        "account_name": None,
+                        "status": status,
+                        "counts": empty_counts,
+                        "created_at": task.collected_at,
+                        "confirmed_at": task.confirmed_at,
+                        "operator_name": operator_names.get(task.member_id),
+                        "safe_error_code": (
+                            "CAPTURE_TASK_FAILED"
+                            if task.error_code
+                            else None
+                        ),
+                        "next_action": next_action,
+                    }
+                )
+                continue
+
+            batch = batches[row.item_id]
+            row_counts = counts[batch.id]
+            if batch.status == ImportBatchStatus.CONFIRMED:
+                status = "confirmed"
+                next_action = "open_result"
+            elif batch.recognition_status in {
+                ScreenshotRecognitionStatus.PENDING,
+                ScreenshotRecognitionStatus.PROCESSING,
+            }:
+                status = "processing"
+                next_action = "wait"
+            elif batch.recognition_status == ScreenshotRecognitionStatus.FAILED:
+                status = "failed"
+                next_action = "retry"
+            else:
+                status = "waiting_confirmation"
+                next_action = "review"
+            items.append(
+                {
+                    "id": batch.id,
+                    "method": (
+                        "tabular"
+                        if batch.source_kind
+                        in {ImportSourceKind.CSV, ImportSourceKind.XLSX}
+                        else batch.source_kind.value
+                    ),
+                    "platform": batch.platform.value,
+                    "account_id": batch.account_id,
+                    "account_name": account_names.get(batch.account_id),
+                    "status": status,
+                    "counts": row_counts,
+                    "created_at": batch.created_at,
+                    "confirmed_at": batch.confirmed_at,
+                    "operator_name": (
+                        operator_names.get(batch.confirmed_by)
+                        if batch.confirmed_by is not None
+                        else None
+                    ),
+                    "safe_error_code": (
+                        "RECOGNITION_FAILED"
+                        if batch.recognition_status
+                        == ScreenshotRecognitionStatus.FAILED
+                        else (
+                            "ROW_VALIDATION_FAILED"
+                            if row_counts["failed"] > 0
+                            else None
+                        )
+                    ),
+                    "next_action": next_action,
+                }
+            )
+        return items, total
 
     def _classify(
         self,
@@ -206,6 +475,10 @@ class ImportService:
     ) -> ImportBatch:
         require_permission(self._context.role, Permission.WRITE_CONTENT)
         self._account(account_id, platform)
+        for row in rows:
+            raw_column_id = row.get("column_campaign_id")
+            if raw_column_id not in (None, ""):
+                self._column_from_value(raw_column_id, account_id)
         batch = ImportBatch(
             workspace_id=self._context.workspace_id,
             account_id=account_id,
@@ -400,13 +673,21 @@ class ImportService:
     def _new_content(
         self, batch: ImportBatch, normalized: dict[str, object]
     ) -> Content:
+        column_campaign_id = (
+            self._column_from_value(
+                normalized["column_campaign_id"],
+                batch.account_id,
+            ).id
+            if normalized.get("column_campaign_id")
+            else None
+        )
         content = ContentService(self._session, self._context).create(
             account_id=batch.account_id,
             platform=batch.platform,
             content_type=batch.content_type,
             title=str(normalized["title"]),
             body=str(normalized["body"]),
-            column_campaign_id=None,
+            column_campaign_id=column_campaign_id,
             work_url=(str(normalized["work_url"]) if normalized.get("work_url") else None),
         )
         content.platform_content_id = (

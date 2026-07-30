@@ -270,6 +270,8 @@ def task_payload(task: CaptureTask, request_id: str) -> dict[str, object]:
     return {
         "task_id": str(task.id),
         "workspace_id": str(task.workspace_id),
+        "platform": task.platform.value,
+        "page_version": task.page_version,
         "status": task.status.value,
         "request_id": request_id,
         "review_url": task.review_url,

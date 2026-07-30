@@ -12,6 +12,8 @@ describe("ExtensionCaptureReview", () => {
           JSON.stringify({
             task_id: "task-1",
             workspace_id: "workspace-1",
+            platform: "douyin",
+            page_version: "douyin-creator-v1",
             status: "succeeded",
             request_id: "request-1",
             review_url: "/review/task-1",
@@ -32,7 +34,13 @@ describe("ExtensionCaptureReview", () => {
   });
 
   it("requires Web correction and confirmation before creating a formal snapshot", async () => {
-    render(<ExtensionCaptureReview taskId="task-1" />);
+    render(
+      <ExtensionCaptureReview
+        accountId="account-1"
+        expectedPlatform="douyin"
+        taskId="task-1"
+      />,
+    );
     expect(await screen.findByText("扩展识别结果待确认")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("修正 views"), { target: { value: "1200" } });
     fireEvent.click(screen.getByRole("button", { name: "人工确认并写入快照" }));
@@ -40,5 +48,9 @@ describe("ExtensionCaptureReview", () => {
     const second = vi.mocked(fetch).mock.calls[1];
     expect(second[0]).toContain("/v1/imports/capture-tasks/task-1/confirm");
     expect(second[1]?.headers).toMatchObject({ "X-CSRF-Token": "csrf-token" });
+    expect(JSON.parse(String(second[1]?.body))).toMatchObject({
+      account_id: "account-1",
+      corrections: { views: "1200" },
+    });
   });
 });

@@ -30,7 +30,15 @@ function unmappedText(task: ExtensionCaptureTask | null): string[] {
     : [];
 }
 
-export function ExtensionCaptureReview({ taskId }: { taskId: string }) {
+export function ExtensionCaptureReview({
+  accountId,
+  expectedPlatform,
+  taskId,
+}: {
+  accountId: string;
+  expectedPlatform: "douyin" | "xiaohongshu";
+  taskId: string;
+}) {
   const [task, setTask] = useState<ExtensionCaptureTask | null>(null);
   const [corrections, setCorrections] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
@@ -46,6 +54,7 @@ export function ExtensionCaptureReview({ taskId }: { taskId: string }) {
       setTask(
         await confirmExtensionCaptureTask(
           taskId,
+          accountId,
           corrections,
           sessionStorage.getItem("workspace_csrf") ?? "",
         ),
@@ -57,17 +66,37 @@ export function ExtensionCaptureReview({ taskId }: { taskId: string }) {
 
   if (error) return <p role="alert">{error}</p>;
   if (!task) return <p>加载识别结果…</p>;
+  const scopeMismatch = task.platform !== expectedPlatform;
   return (
     <section className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-6">
       <h2 className="text-2xl font-semibold">扩展识别结果待确认</h2>
       <p className="text-sm text-slate-400">
         扩展仅上传暂存截图；识别结果仍需在 Web 中确认后才写入正式快照。
       </p>
+      <dl className="grid gap-2 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="text-slate-400">平台</dt>
+          <dd>{task.platform === "douyin" ? "抖音" : "小红书"}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-400">页面版本</dt>
+          <dd>{task.page_version}</dd>
+        </div>
+        <div>
+          <dt className="text-slate-400">任务状态</dt>
+          <dd>{task.status}</dd>
+        </div>
+      </dl>
       <p className="text-sm text-amber-200">
         {task.provider_mode === "mock"
           ? "Mock 模式：未调用外部付费模型。"
           : `截图由阿里云百炼处理（地域 ${task.region ?? "未配置"}），可能包含敏感信息并产生模型调用费用。`}
       </p>
+      {scopeMismatch ? (
+        <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300" role="alert">
+          任务平台与当前筛选不匹配，已停止确认。请返回正确平台后重试。
+        </p>
+      ) : null}
       {candidates(task).map((candidate) => (
         <label className="block" key={candidate.key}>
           修正 {candidate.key}
@@ -95,6 +124,7 @@ export function ExtensionCaptureReview({ taskId }: { taskId: string }) {
       ) : null}
       <button
         className="rounded-xl bg-violet-400 px-5 py-3 font-semibold text-slate-950"
+        disabled={scopeMismatch}
         onClick={confirm}
         type="button"
       >

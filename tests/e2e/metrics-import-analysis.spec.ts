@@ -52,7 +52,7 @@ test("CSV upload stays staged until a valid row is selected and confirmed", asyn
   }, workspace.workspace_id)) as { id: string };
 
   await page.goto(
-    `/workspaces/${workspace.workspace_id}/imports?accountId=${account.id}&platform=douyin`,
+    `/workspaces/${workspace.workspace_id}/imports?platform=douyin&account=${account.id}&method=tabular`,
   );
   await page.getByLabel("CSV 或 Excel 文件").setInputFiles(fixture);
   await page.getByRole("button", { name: "生成暂存预览" }).click();
