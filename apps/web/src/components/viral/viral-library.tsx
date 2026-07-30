@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
@@ -13,6 +15,8 @@ import {
   ViralCandidateData,
   ViralLibraryItemData,
 } from "@/lib/viral-api";
+import { EmptyState, PageHeader, StatusBadge } from "@/components/workbench/ui";
+import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 
 
 const CATEGORY_LABELS = {
@@ -23,6 +27,11 @@ const CATEGORY_LABELS = {
 } as const;
 
 type ViralCategory = keyof typeof CATEGORY_LABELS;
+type AccountOption = {
+  account_id: string;
+  platform: "douyin" | "xiaohongshu";
+  name: string;
+};
 type RuleDraft = {
   id: string;
   category: ViralCategory;
@@ -52,12 +61,32 @@ function labels(value: string) {
     .filter(Boolean);
 }
 
+export function resolveViralAccount(
+  accounts: readonly AccountOption[],
+  rawPlatform: string | null,
+  rawAccount: string | null,
+): AccountOption | undefined {
+  if (
+    rawPlatform !== null
+    && rawPlatform !== "douyin"
+    && rawPlatform !== "xiaohongshu"
+  ) {
+    return undefined;
+  }
+  return accounts.find((account) =>
+    account.account_id === rawAccount
+    && (rawPlatform === null || account.platform === rawPlatform)
+  );
+}
+
 export function ViralLibrary({
   workspaceId,
   accountId,
+  role,
 }: {
   workspaceId: string;
   accountId: string;
+  role?: "admin" | "editor" | "viewer";
 }) {
   const [candidates, setCandidates] = useState<ViralCandidateData[]>([]);
   const [items, setItems] = useState<ViralLibraryItemData[]>([]);
@@ -65,6 +94,7 @@ export function ViralLibrary({
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const shellContext = useWorkbenchShellContext();
 
   const reload = useCallback(async () => {
     try {
@@ -198,33 +228,40 @@ export function ViralLibrary({
   }
 
   const recommended = candidates.filter((item) => item.status === "recommended");
+  const canWrite = (role ?? shellContext?.role ?? "admin") !== "viewer";
 
   return (
     <section className="space-y-8">
-      <header>
-        <p className="text-sm font-medium text-fuchsia-300">账号级可复用策略资产</p>
-        <h1 className="mt-2 text-3xl font-semibold">爆款候选与素材库</h1>
-        <p className="mt-3 max-w-3xl text-slate-400">
-          系统只推荐样本量不少于 10、进入账号历史前 10% 且达到绝对门槛的内容；
-          只有人工确认的素材才会开放给生成模块。
+      <PageHeader
+        description="抖音与小红书按单账号分别计算和展示。候选只表示账号历史范围内的相对表现，人工确认后才成为可复用资产。"
+        title="爆款候选与素材库"
+      />
+      <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="note">
+        <p className="font-semibold">账号范围：{accountId}</p>
+        <p className="mt-1">历史高分位只表示相关性，不代表确定因果</p>
+        <p className="mt-1">爆款结构与账号风格分开维护，不会自动成为风格样本。</p>
+      </aside>
+      {!canWrite ? (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          查看者可查看资产，不能确认、撤销或重新评估
         </p>
-      </header>
+      ) : null}
 
-      {error ? <p className="rounded-xl bg-rose-950/60 p-4 text-rose-300">{error}</p> : null}
-      {message ? <p className="rounded-xl bg-emerald-950/60 p-4 text-emerald-300">{message}</p> : null}
+      {error ? <p className="rounded-xl border border-red-300 bg-red-50 p-4 text-red-950" role="alert">{error}</p> : null}
+      {message ? <p className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-emerald-950" role="status">{message}</p> : null}
 
-      <form
-        className="grid gap-4 rounded-3xl border border-slate-800 bg-slate-900 p-6 sm:grid-cols-2 lg:grid-cols-6"
+      {canWrite ? <form
+        className="grid gap-4 rounded-xl border bg-white p-5 sm:grid-cols-2 lg:grid-cols-6"
         onSubmit={configureAndEvaluate}
       >
         <fieldset className="space-y-3 sm:col-span-2 lg:col-span-6">
           <legend className="font-semibold">完整门槛规则集（保存时整体替换）</legend>
           {rules.map((rule, index) => (
-            <div className="grid gap-3 rounded-xl bg-slate-950 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]" key={rule.id}>
+            <div className="grid gap-3 rounded-xl border bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]" key={rule.id}>
               <label>
                 第 {index + 1} 条候选类别
                 <select
-                  className="mt-1 w-full rounded-lg bg-slate-900 px-3 py-2"
+                  className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
                   onChange={(event) => setRules((current) => current.map(
                     (item, itemIndex) => itemIndex === index
                       ? { ...item, category: event.target.value as ViralCategory }
@@ -240,7 +277,7 @@ export function ViralLibrary({
               <label>
                 第 {index + 1} 条指标键
                 <input
-                  className="mt-1 w-full rounded-lg bg-slate-900 px-3 py-2"
+                  className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
                   onChange={(event) => setRules((current) => current.map(
                     (item, itemIndex) => itemIndex === index
                       ? { ...item, metricKey: event.target.value }
@@ -253,7 +290,7 @@ export function ViralLibrary({
               <label>
                 第 {index + 1} 条绝对最低门槛
                 <input
-                  className="mt-1 w-full rounded-lg bg-slate-900 px-3 py-2"
+                  className="mt-1 w-full rounded-lg border bg-white px-3 py-2"
                   min="0"
                   onChange={(event) => setRules((current) => current.map(
                     (item, itemIndex) => itemIndex === index
@@ -277,7 +314,7 @@ export function ViralLibrary({
             </div>
           ))}
           <button
-            className="rounded-lg border border-cyan-700 px-4 py-2 text-cyan-300"
+            className="rounded-lg border border-[var(--brand)] px-4 py-2 text-[var(--brand)]"
             onClick={() => setRules((current) => [
               ...current,
               {
@@ -294,54 +331,70 @@ export function ViralLibrary({
         </fieldset>
         <label>
           内容类型
-          <select className="mt-2 w-full rounded-xl bg-slate-950 px-3 py-3" defaultValue="video" name="contentType">
+          <select className="mt-2 w-full rounded-lg border bg-white px-3 py-3" defaultValue="video" name="contentType">
             <option value="video">视频</option>
             <option value="image_text">图文</option>
           </select>
         </label>
         <label>
           数据成熟度
-          <select className="mt-2 w-full rounded-xl bg-slate-950 px-3 py-3" defaultValue="24h" name="maturityBucket">
+          <select className="mt-2 w-full rounded-lg border bg-white px-3 py-3" defaultValue="24h" name="maturityBucket">
             <option value="1h">1 小时</option>
             <option value="24h">24 小时</option>
             <option value="72h">72 小时</option>
             <option value="7d">7 天</option>
           </select>
         </label>
-        <button className="self-end rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 disabled:opacity-50" disabled={busyId === "evaluation"} type="submit">
+        <button className="self-end rounded-lg bg-[var(--brand)] px-4 py-3 font-semibold text-white disabled:opacity-50" disabled={busyId === "evaluation"} type="submit">
           保存门槛并生成候选
         </button>
-      </form>
+      </form> : null}
 
-      <div className="space-y-4">
+      <section aria-label="爆款候选" className="space-y-4" data-mobile-layout="cards">
         <div>
           <p className="text-sm text-slate-400">待人工判断</p>
           <h2 className="text-2xl font-semibold">爆款候选</h2>
         </div>
         {recommended.length === 0 ? (
-          <p className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-slate-400">
+          <p className="rounded-xl border bg-white p-5 text-[var(--text-secondary)]">
             暂无待确认候选。
           </p>
         ) : recommended.map((candidate) => (
           <article
-            className="grid gap-6 rounded-3xl border border-slate-800 bg-slate-900 p-6 lg:grid-cols-[1fr_1.1fr]"
+            className="grid gap-6 rounded-xl border border-dashed border-amber-400 bg-amber-50/40 p-5 lg:grid-cols-[1fr_1.1fr]"
             key={candidate.id}
           >
             <div className="space-y-3">
-              <p className="text-sm font-medium text-fuchsia-300">
-                {CATEGORY_LABELS[candidate.category]}
-              </p>
+              <StatusBadge tone="warning">候选，尚未进入素材库</StatusBadge>
+              <p className="text-sm font-medium text-amber-900">{CATEGORY_LABELS[candidate.category]}</p>
               <h3 className="text-xl font-semibold">{candidate.title}</h3>
-              <p className="text-sm text-slate-300">{candidate.reason}</p>
-              <p className="text-xs text-slate-500">
+              <Link
+                className="text-sm font-semibold text-[var(--brand)]"
+                href={`/workspaces/${workspaceId}/contents/${candidate.content_id}?${new URLSearchParams({
+                  tab: "overview",
+                  platform: candidate.platform,
+                  account: candidate.account_id,
+                  returnTo: `/workspaces/${workspaceId}/viral-library?${new URLSearchParams({
+                    platform: candidate.platform,
+                    account: candidate.account_id,
+                  })}`,
+                })}`}
+              >
+                查看候选内容
+              </Link>
+              <p className="text-sm text-[var(--text-secondary)]">{candidate.reason}</p>
+              <p className="text-xs text-[var(--text-secondary)]">
                 {candidate.platform} / {candidate.content_type} / {candidate.maturity_bucket} · 比较范围 {new Date(candidate.comparison_started_at).toLocaleString("zh-CN")} — {new Date(candidate.comparison_ended_at).toLocaleString("zh-CN")}
               </p>
+              <p className="text-sm">数据成熟度：{candidate.maturity_bucket}</p>
+              <p className="text-sm">候选产生时间：当前记录未提供</p>
+              <p className="text-sm font-medium text-amber-900">候选不能被生成中心引用</p>
               <dl className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-xl bg-slate-950 p-3">
+                <div className="rounded-xl border bg-white p-3">
                   <dt className="text-slate-500">命中指标</dt>
                   <dd className="mt-1 font-medium">{candidate.metric_key}: {candidate.actual_value}</dd>
                 </div>
-                <div className="rounded-xl bg-slate-950 p-3">
+                <div className="rounded-xl border bg-white p-3">
                   <dt className="text-slate-500">冻结证据</dt>
                   <dd className="mt-1 font-medium">
                     样本 {candidate.sample_count} · 历史分位 {(candidate.percentile * 100).toFixed(1)}% · 门槛版本 v{candidate.threshold_profile_version}
@@ -349,41 +402,45 @@ export function ViralLibrary({
                 </div>
               </dl>
             </div>
-            <form className="space-y-4" onSubmit={(event) => confirm(event, candidate.id)}>
+            {canWrite ? <form className="space-y-4" onSubmit={(event) => confirm(event, candidate.id)}>
               <label className="block">
                 策略标签
-                <input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="strategyTags" placeholder="强钩子, 结果前置" required />
+                <input className="mt-2 w-full rounded-lg border bg-white px-4 py-3" name="strategyTags" placeholder="强钩子, 结果前置" required />
               </label>
               <label className="block">
                 适用场景
-                <input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="scenarios" placeholder="新品讲解, 教程" required />
+                <input className="mt-2 w-full rounded-lg border bg-white px-4 py-3" name="scenarios" placeholder="新品讲解, 教程" required />
               </label>
               <label className="block">
                 结构总结
-                <textarea className="mt-2 min-h-24 w-full rounded-xl bg-slate-950 px-4 py-3" name="summary" required />
+                <textarea className="mt-2 min-h-24 w-full rounded-lg border bg-white px-4 py-3" name="summary" required />
               </label>
-              <button className="rounded-xl bg-fuchsia-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50" disabled={busyId === candidate.id} type="submit">
+              <button className="rounded-lg bg-[var(--brand)] px-5 py-3 font-semibold text-white disabled:opacity-50" disabled={busyId === candidate.id} type="submit">
                 确认进入素材库
               </button>
-            </form>
+            </form> : (
+              <p className="self-start rounded-lg border bg-white p-4 text-sm">
+                人工确认操作对查看者不可用。
+              </p>
+            )}
           </article>
         ))}
-      </div>
+      </section>
 
-      <div className="space-y-4">
+      <section aria-label="已确认素材" className="space-y-4" data-mobile-layout="cards" role="region">
         <div>
           <p className="text-sm text-slate-400">包含已撤销的完整历史</p>
           <h2 className="text-2xl font-semibold">已确认素材</h2>
         </div>
         {items.length === 0 ? (
-          <p className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-slate-400">
+          <p className="rounded-xl border bg-white p-5 text-[var(--text-secondary)]">
             尚无人工确认素材。
           </p>
         ) : items.map((item) => (
-          <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6" key={item.id}>
+          <article className="rounded-xl border border-emerald-200 bg-white p-5" key={item.id}>
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-2">
-                <p className={item.generation_eligible ? "text-emerald-300" : "text-slate-500"}>
+                <p className={item.generation_eligible ? "font-semibold text-emerald-800" : "text-[var(--text-secondary)]"}>
                   {item.generation_eligible
                     ? "可供生成使用"
                     : item.active
@@ -391,21 +448,40 @@ export function ViralLibrary({
                       : "已撤销，仅保留历史"}
                 </p>
                 <h3 className="text-xl font-semibold">{item.title}</h3>
+                <Link
+                  className="text-sm font-semibold text-[var(--brand)]"
+                  href={`/workspaces/${workspaceId}/contents/${item.content_id}?${new URLSearchParams({
+                    tab: "overview",
+                    account: item.account_id,
+                    returnTo: `/workspaces/${workspaceId}/viral-library?account=${item.account_id}`,
+                  })}`}
+                >
+                  查看已确认内容
+                </Link>
                 <p className="text-slate-300">{item.structure_summary}</p>
                 <p className="text-sm text-slate-400">
                   策略：{item.strategy_tags.join(" · ")}　场景：{item.applicable_scenarios.join(" · ")}
                 </p>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  适用账号：{item.account_id} · 适用栏目/场景：{item.applicable_scenarios.join(" · ")}
+                </p>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  确认人：{item.confirmed_by ?? "当前记录未提供"} · 确认时间：{new Date(item.confirmed_at).toLocaleString("zh-CN")}
+                </p>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  生成引用次数：当前记录未提供
+                </p>
                 {!item.active && item.revocation_reason ? (
-                  <p className="text-sm text-amber-300">撤销原因：{item.revocation_reason}</p>
+                  <p className="text-sm text-amber-900">撤销原因：{item.revocation_reason}</p>
                 ) : null}
               </div>
-              {item.active ? (
+              {item.active && canWrite ? (
                 <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => revoke(event, item.id)}>
                   <label>
                     撤销原因
-                    <input className="mt-2 block rounded-xl bg-slate-950 px-4 py-3" name="reason" required />
+                    <input className="mt-2 block rounded-lg border bg-white px-4 py-3" name="reason" required />
                   </label>
-                  <button className="rounded-xl border border-amber-400 px-4 py-3 font-semibold text-amber-300 disabled:opacity-50" disabled={busyId === item.id} type="submit">
+                  <button className="rounded-lg border border-amber-600 px-4 py-3 font-semibold text-amber-900 disabled:opacity-50" disabled={busyId === item.id} type="submit">
                     撤销素材
                   </button>
                 </form>
@@ -413,7 +489,85 @@ export function ViralLibrary({
             </div>
           </article>
         ))}
-      </div>
+      </section>
     </section>
+  );
+}
+
+export function ViralLibraryPage({
+  workspaceId,
+}: {
+  workspaceId: string;
+}) {
+  const context = useWorkbenchShellContext();
+  const searchParams = useSearchParams();
+  if (!context) {
+    return (
+      <EmptyState
+        description="工作区范围尚未加载，请稍后重试。"
+        title="无法读取账号范围"
+      />
+    );
+  }
+  const rawPlatform = searchParams.get("platform");
+  const platform = rawPlatform === "douyin" || rawPlatform === "xiaohongshu"
+    ? rawPlatform
+    : undefined;
+  const rawAccount = searchParams.get("account") ?? searchParams.get("account_id");
+  const account = resolveViralAccount(
+    context.accounts,
+    platform ?? (rawPlatform === null ? null : rawPlatform),
+    rawAccount,
+  );
+  if (!account) {
+    const visibleAccounts = platform
+      ? context.accounts.filter((item) => item.platform === platform)
+      : context.accounts;
+    return (
+      <div className="mx-auto max-w-6xl space-y-6">
+        <PageHeader
+          description="请选择一个平台账号。不同平台与账号的候选、门槛和分位不会混排或合并。"
+          title="爆款素材库"
+        />
+        {visibleAccounts.length ? (
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {visibleAccounts.map((item) => {
+              const query = new URLSearchParams({
+                platform: item.platform,
+                account: item.account_id,
+              });
+              return (
+                <li className="rounded-xl border bg-white p-5" key={item.account_id}>
+                  <StatusBadge tone={item.platform === "douyin" ? "info" : "warning"}>
+                    {item.platform === "douyin" ? "抖音" : "小红书"}
+                  </StatusBadge>
+                  <h2 className="mt-3 font-semibold">{item.name}</h2>
+                  <Link
+                    className="mt-4 inline-flex rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
+                    href={`/workspaces/${workspaceId}/viral-library?${query}`}
+                  >
+                    查看账号素材
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <EmptyState
+            description="当前平台还没有可用账号。下一步：在工作区设置中创建账号。"
+            title="没有可选账号"
+          />
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="mx-auto max-w-7xl">
+      <ViralLibrary
+        accountId={account.account_id}
+        role={context.role}
+        workspaceId={workspaceId}
+      />
+    </div>
   );
 }

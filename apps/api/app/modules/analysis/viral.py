@@ -543,15 +543,21 @@ class ViralService:
         )
         if candidate is None:
             raise LookupError("viral candidate not found")
-        if candidate.status != ViralCandidateStatus.RECOMMENDED:
-            raise ValueError("viral candidate is no longer confirmable")
         existing = self._session.scalar(
             select(ViralLibraryItem).where(
                 ViralLibraryItem.candidate_id == candidate.id
             )
         )
         if existing is not None:
-            raise ValueError("viral candidate already has a library item")
+            if (
+                existing.strategy_tags == data.strategy_tags
+                and existing.applicable_scenarios == data.applicable_scenarios
+                and existing.structure_summary == data.structure_summary
+            ):
+                return existing
+            raise ValueError("viral candidate confirmation conflicts with existing item")
+        if candidate.status != ViralCandidateStatus.RECOMMENDED:
+            raise ValueError("viral candidate is no longer confirmable")
         item = ViralLibraryItem(
             workspace_id=self._context.workspace_id,
             account_id=candidate.account_id,

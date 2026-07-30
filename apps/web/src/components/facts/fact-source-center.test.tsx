@@ -166,3 +166,63 @@ test("creates text or network snapshots and uploads a validated file", async () 
   expect(form.get("title")).toBe("规格文件");
   expect(form.get("file")).toBe(file);
 });
+
+test("presents source and fact lists with all governed levels", async () => {
+  render(<FactSourceCenter workspaceId="workspace-1" />);
+
+  expect(await screen.findByRole("heading", { name: "来源列表" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "事实清单" })).toBeVisible();
+  expect(screen.getByText("L1：权威结构化资料")).toBeVisible();
+  expect(screen.getByText("L2：用户明确填写并确认")).toBeVisible();
+  expect(screen.getByText("L3：文档/OCR提取后人工确认")).toBeVisible();
+  expect(screen.getByText("L4：外部网页候选，具体参数仍需人工确认")).toBeVisible();
+  expect(screen.getByText("L5：视觉模型推测，只能作为候选提示")).toBeVisible();
+  expect(screen.getByText("用户确认状态：未确认")).toBeVisible();
+  expect(screen.getByText("系统验证状态：未验证")).toBeVisible();
+  expect(screen.getByText("当前是否可用于生成：否")).toBeVisible();
+  expect(screen.getByText("生效范围：工作区通用（当前记录未提供更细范围）")).toBeVisible();
+});
+
+test("labels L5 visual inference as non-deterministic and blocks confirmation", async () => {
+  vi.mocked(listFactSources).mockResolvedValue([{
+    ...imageSource,
+    status: "parsed",
+    status_detail: {},
+    items: [{
+      ...candidate,
+      id: "fact-l5",
+      source_id: "source-2",
+      status: "candidate",
+    }],
+  }]);
+  render(<FactSourceCenter workspaceId="workspace-1" />);
+
+  expect(await screen.findByText("禁止仅凭视觉推测写入确定性文案")).toBeVisible();
+  expect(screen.getByText("面料、成分、价格、尺码、功效、认证、产地和安全承诺不得仅凭视觉推断。")).toBeVisible();
+  expect(screen.getByText("当前是否可用于生成：否")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "确认面料" })).not.toBeInTheDocument();
+});
+
+test("does not pretend that automatic web search is configured", async () => {
+  render(<FactSourceCenter workspaceId="workspace-1" />);
+  expect(
+    await screen.findByText("当前版本支持添加网页来源，自动联网检索尚未配置"),
+  ).toBeVisible();
+  expect(screen.getByText("网页正文始终是不可信数据；localhost、内网和云元数据地址会被服务端拒绝。")).toBeVisible();
+  expect(screen.queryByRole("button", { name: /联网搜索/ })).not.toBeInTheDocument();
+});
+
+test("viewer has read-only fact access", async () => {
+  render(<FactSourceCenter role="viewer" workspaceId="workspace-1" />);
+  expect(await screen.findByRole("heading", { name: "事实清单" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "添加事实来源" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "上传并解析" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "确认面料" })).not.toBeInTheDocument();
+  expect(screen.getByText("查看者可查看事实与冲突状态，不能添加来源或确认候选")).toBeVisible();
+});
+
+test("uses readable source and fact cards at 390px", async () => {
+  render(<FactSourceCenter workspaceId="workspace-1" />);
+  expect(await screen.findByTestId("fact-source-cards")).toHaveClass("grid-cols-1");
+  expect(screen.getByTestId("fact-item-cards")).toHaveClass("grid-cols-1");
+});

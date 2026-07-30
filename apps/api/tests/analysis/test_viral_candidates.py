@@ -492,6 +492,29 @@ def test_library_requires_manual_metadata_and_revoke_preserves_audit() -> None:
         assert item["applicable_scenarios"] == ["新品讲解", "教程"]
         assert item["confirmed_by"]
 
+        repeated = client.post(
+            f"/v1/workspaces/{workspace_id}/viral-candidates/{candidate['id']}/confirm",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "strategy_tags": ["强钩子", "结果前置"],
+                "applicable_scenarios": ["新品讲解", "教程"],
+                "structure_summary": "痛点开场—方法拆解—结果证明—行动引导",
+            },
+        )
+        assert repeated.status_code == 201, repeated.text
+        assert repeated.json()["id"] == item["id"]
+
+        conflicting_repeat = client.post(
+            f"/v1/workspaces/{workspace_id}/viral-candidates/{candidate['id']}/confirm",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "strategy_tags": ["不同策略"],
+                "applicable_scenarios": ["不同场景"],
+                "structure_summary": "不同结构",
+            },
+        )
+        assert conflicting_repeat.status_code == 409
+
         generation_sources = client.get(
             generation_path, params={"account_id": account["id"]}
         )

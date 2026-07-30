@@ -270,3 +270,60 @@ test("extracts a column-specific profile when opened for a column", async () => 
     );
   });
 });
+
+test("separates title copy and cover style with traceable account scope", async () => {
+  render(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
+
+  expect(await screen.findByRole("heading", { name: "标题风格" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "文案风格" })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "封面风格" })).toBeVisible();
+  expect(screen.getByText("长度：8—18")).toBeVisible();
+  expect(screen.getByText("句式：statement")).toBeVisible();
+  expect(screen.getByText("开头：先说结论")).toBeVisible();
+  expect(screen.getByText("构图：subject-right")).toBeVisible();
+  expect(screen.getByText("当前账号范围：account-1")).toBeVisible();
+  expect(screen.getByText("账号风格用于稳定表达；爆款结构只是人工确认的策略参考，二者不会自动合并。")).toBeVisible();
+  expect(screen.getByText("生成预设合同：当前记录未提供")).toBeVisible();
+  expect(screen.getByText("历史版本")).toBeVisible();
+});
+
+test("explains temporary column override and restoration", async () => {
+  vi.mocked(listStyleProfiles).mockResolvedValue([{
+    ...pendingProfile,
+    scope_key: "column:column-1",
+    column_campaign_id: "column-1",
+  }]);
+  render(
+    <StyleProfileCenter
+      accountId="account-1"
+      columnCampaignId="column-1"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  expect(await screen.findByText("当前为栏目/活动临时覆盖")).toBeVisible();
+  expect(screen.getByText("覆盖生效：2026-08-01T00:00:00Z")).toBeVisible();
+  expect(screen.getByText("覆盖结束：2026-08-31T23:59:59Z")).toBeVisible();
+  expect(screen.getByText("覆盖结束后恢复账号默认风格")).toBeVisible();
+});
+
+test("viewer sees historical styles without write controls", async () => {
+  render(
+    <StyleProfileCenter
+      accountId="account-1"
+      role="viewer"
+      workspaceId="workspace-1"
+    />,
+  );
+  expect(await screen.findByRole("heading", { name: "标题风格" })).toBeVisible();
+  expect(screen.queryByRole("button", { name: "重新提取风格档案" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "选择为风格样本" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "确认并启用 v2" })).not.toBeInTheDocument();
+  expect(screen.getByText("查看者可查看历史风格，不能选择样本、提取或确认版本")).toBeVisible();
+});
+
+test("stacks the three style sections before the desktop breakpoint", async () => {
+  render(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
+  expect(await screen.findByTestId("style-sections")).toHaveClass("grid-cols-1");
+  expect(screen.getByTestId("style-sections")).toHaveClass("lg:grid-cols-3");
+});

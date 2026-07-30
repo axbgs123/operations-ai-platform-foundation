@@ -11,7 +11,7 @@ import {
   revokeViralLibraryItem,
 } from "@/lib/viral-api";
 
-import { ViralLibrary } from "./viral-library";
+import { resolveViralAccount, ViralLibrary } from "./viral-library";
 
 
 const candidate = {
@@ -189,4 +189,74 @@ test("lists confirmed material and revokes it without removing history", async (
       "csrf-token",
     );
   });
+});
+
+test("keeps candidates visibly separate from confirmed reusable material", async () => {
+  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+
+  expect(await screen.findByText("候选，尚未进入素材库")).toBeVisible();
+  expect(screen.getByText("候选不能被生成中心引用")).toBeVisible();
+  expect(screen.getByText("历史高分位只表示相关性，不代表确定因果")).toBeVisible();
+  expect(screen.getByText("数据成熟度：24h")).toBeVisible();
+  expect(screen.getByText("候选产生时间：当前记录未提供")).toBeVisible();
+
+  const confirmedSection = screen.getByRole("region", { name: "已确认素材" });
+  expect(confirmedSection).toHaveTextContent("确认人：member-1");
+  expect(confirmedSection).toHaveTextContent("确认时间：");
+  expect(confirmedSection).toHaveTextContent("生成引用次数：当前记录未提供");
+});
+
+test("viewer can read evidence but never sees confirmation or revoke actions", async () => {
+  render(
+    <ViralLibrary
+      accountId="account-1"
+      role="viewer"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  expect(await screen.findByText("候选，尚未进入素材库")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "确认进入素材库" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "撤销素材" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "保存门槛并生成候选" })).not.toBeInTheDocument();
+  expect(screen.getByText("查看者可查看资产，不能确认、撤销或重新评估")).toBeVisible();
+});
+
+test("rejects invalid platform and mismatched account scope", () => {
+  const accounts = [
+    { account_id: "dy-1", platform: "douyin" as const, name: "抖音账号" },
+    {
+      account_id: "xhs-1",
+      platform: "xiaohongshu" as const,
+      name: "小红书账号",
+    },
+  ];
+  expect(resolveViralAccount(accounts, "douyin", "dy-1")?.account_id).toBe("dy-1");
+  expect(resolveViralAccount(accounts, "xiaohongshu", "dy-1")).toBeUndefined();
+  expect(resolveViralAccount(accounts, "invalid", "dy-1")).toBeUndefined();
+  expect(resolveViralAccount(accounts, "douyin", "other-workspace")).toBeUndefined();
+});
+
+test("uses a workspace-local return context for content drill-down", async () => {
+  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  const candidateLink = await screen.findByRole("link", { name: "查看候选内容" });
+  const href = candidateLink.getAttribute("href") ?? "";
+  expect(href).toContain("/workspaces/workspace-1/contents/content-1?");
+  expect(decodeURIComponent(href)).toContain(
+    "returnTo=/workspaces/workspace-1/viral-library?platform=douyin&account=account-1",
+  );
+  expect(href).not.toContain("http://");
+  expect(href).not.toContain("https://");
+});
+
+test("uses card sections that stay readable at 390px", async () => {
+  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  expect(await screen.findByRole("region", { name: "已确认素材" })).toHaveAttribute(
+    "data-mobile-layout",
+    "cards",
+  );
+  expect(screen.getByRole("region", { name: "爆款候选" })).toHaveAttribute(
+    "data-mobile-layout",
+    "cards",
+  );
 });

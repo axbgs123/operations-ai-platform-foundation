@@ -11,7 +11,6 @@ export default async function AccountStylePage({
   const { workspaceId, accountId } = await params;
   const { columnCampaignId } = await searchParams;
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
       <div className="mx-auto max-w-6xl">
         <StyleProfileCenter
           accountId={accountId}
@@ -19,6 +18,5 @@ export default async function AccountStylePage({
           workspaceId={workspaceId}
         />
       </div>
-    </main>
   );
 }
