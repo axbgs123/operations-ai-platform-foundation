@@ -112,7 +112,7 @@ def add_dashboard_sample(
     assert confirmed.status_code == 200, confirmed.text
 
 
-def test_small_sample_returns_goal_cards_and_explanation_without_charts() -> None:
+def test_small_sample_returns_raw_cards_and_two_snapshot_trend() -> None:
     with configured_client() as (client, _):
         workspace_id, csrf, account = create_dashboard_account(client)
         for index in range(4):
@@ -133,9 +133,23 @@ def test_small_sample_returns_goal_cards_and_explanation_without_charts() -> Non
         dashboard = response.json()
         assert 4 <= len(dashboard["goal_cards"]) <= 6
         assert dashboard["sample_count"] == 4
+        assert dashboard["data_completeness"] == 1.0
         assert dashboard["confidence"] == "raw_only"
         assert "实际样本 4 条" in dashboard["explanation"]
-        assert dashboard["charts"] == []
+        assert {chart["kind"] for chart in dashboard["charts"]} == {"line"}
+        assert dashboard["benchmark_sample_size"] == 30
+        assert dashboard["benchmark_bands"] == []
+        gates = {gate["kind"]: gate for gate in dashboard["chart_gates"]}
+        assert gates["line"] == {
+            "kind": "line",
+            "eligible": True,
+            "reason": "同口径有效快照满足趋势展示条件。",
+            "actual_sample_count": 4,
+            "required_sample_count": 2,
+            "missing_metric_keys": [],
+        }
+        assert gates["funnel"]["eligible"] is False
+        assert gates["heatmap"]["eligible"] is False
         assert dashboard["next_actions"]
         assert all(
             card["drill_down_filter"]["account_id"] == account["id"]
@@ -163,10 +177,13 @@ def test_sufficient_data_returns_only_conditionally_valid_single_unit_charts() -
         assert response.status_code == 200, response.text
         dashboard = response.json()
         assert dashboard["sample_count"] == 10
+        assert dashboard["data_completeness"] == 1.0
         assert dashboard["confidence"] == "normal"
         by_kind = {chart["kind"]: chart for chart in dashboard["charts"]}
         assert set(by_kind) == {"line", "funnel", "heatmap"}
         assert len(by_kind["line"]["points"]) == 10
+        assert by_kind["line"]["title"] == "账号曝光量表现趋势"
+        assert "每条内容最新一条同口径快照" in by_kind["line"]["explanation"]
         assert [point["x"] for point in by_kind["funnel"]["points"]] == [
             "曝光量",
             "阅读/播放量",
@@ -184,6 +201,25 @@ def test_sufficient_data_returns_only_conditionally_valid_single_unit_charts() -
         assert all(
             item["drill_down_filter"]["attention"] == item["kind"]
             for item in dashboard["attention_items"]
+        )
+        assert dashboard["benchmark_sample_size"] == 30
+        impressions_band = next(
+            band
+            for band in dashboard["benchmark_bands"]
+            if band["metric_key"] == "impressions"
+        )
+        assert impressions_band == {
+            "metric_key": "impressions",
+            "label": "曝光量",
+            "unit": "count",
+            "sample_count": 10,
+            "median": 2450.0,
+            "top_25": 2675.0,
+            "top_10": 2810.0,
+        }
+        assert all(
+            gate["eligible"]
+            for gate in dashboard["chart_gates"]
         )
 
 
@@ -208,10 +244,17 @@ def test_funnel_is_omitted_when_platform_has_no_exposure_metric() -> None:
         )
 
         assert response.status_code == 200, response.text
-        assert {chart["kind"] for chart in response.json()["charts"]} == {
+        payload = response.json()
+        assert {chart["kind"] for chart in payload["charts"]} == {
             "line",
             "heatmap",
         }
+        funnel_gate = next(
+            gate for gate in payload["chart_gates"] if gate["kind"] == "funnel"
+        )
+        assert funnel_gate["eligible"] is False
+        assert funnel_gate["missing_metric_keys"] == ["impressions"]
+        assert "当前平台或内容类型不提供" in funnel_gate["reason"]
 
 
 def test_chart_eligibility_uses_actual_usable_metric_samples() -> None:
@@ -241,7 +284,13 @@ def test_chart_eligibility_uses_actual_usable_metric_samples() -> None:
         assert impressions["sample_count"] == 2
         assert "有效样本 2 条" in impressions["explanation"]
         assert impressions["historical_percentile"] is None
-        assert dashboard["charts"] == []
+        assert {chart["kind"] for chart in dashboard["charts"]} == {"line"}
+        line_gate = next(
+            gate for gate in dashboard["chart_gates"] if gate["kind"] == "line"
+        )
+        assert line_gate["actual_sample_count"] == 2
+        assert line_gate["eligible"] is True
+        assert line_gate["required_sample_count"] == 2
 
 
 def test_dashboard_drill_down_applies_metric_maturity_and_attention() -> None:

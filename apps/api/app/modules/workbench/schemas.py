@@ -70,6 +70,8 @@ class WorkbenchAccountCard(StrictReadModel):
     pending_analysis_count: int = Field(ge=0)
     open_risk_count: int = Field(ge=0)
     has_current_week_closed_loop: bool
+    confirmed_snapshot_count: int = Field(ge=0)
+    latest_maturity_bucket: Literal["1h", "24h", "72h", "7d"] | None
 
 
 class WorkbenchOverviewRead(StrictReadModel):

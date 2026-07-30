@@ -2370,6 +2370,12 @@ export interface components {
             account_name: string;
             /** Attention Items */
             attention_items: components["schemas"]["DashboardAttentionItem"][];
+            /** Benchmark Bands */
+            benchmark_bands: components["schemas"]["DashboardBenchmarkBand"][];
+            /** Benchmark Sample Size */
+            benchmark_sample_size: number;
+            /** Chart Gates */
+            chart_gates: components["schemas"]["DashboardChartGate"][];
             /** Charts */
             charts: components["schemas"]["DashboardChart"][];
             /**
@@ -2382,6 +2388,8 @@ export interface components {
              * @enum {string}
              */
             content_type: "video" | "image_text";
+            /** Data Completeness */
+            data_completeness: number;
             /** Explanation */
             explanation: string;
             /** Goal Cards */
@@ -3281,6 +3289,26 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** DashboardBenchmarkBand */
+        DashboardBenchmarkBand: {
+            /** Label */
+            label: string;
+            /** Median */
+            median: number;
+            /** Metric Key */
+            metric_key: string;
+            /** Sample Count */
+            sample_count: number;
+            /** Top 10 */
+            top_10: number;
+            /** Top 25 */
+            top_25: number;
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "count" | "ratio" | "seconds" | "number";
+        };
         /** DashboardChart */
         DashboardChart: {
             drill_down_filter: components["schemas"]["DrillDownFilter"];
@@ -3306,6 +3334,24 @@ export interface components {
              * @enum {string}
              */
             unit: "count" | "ratio" | "seconds" | "number";
+        };
+        /** DashboardChartGate */
+        DashboardChartGate: {
+            /** Actual Sample Count */
+            actual_sample_count: number;
+            /** Eligible */
+            eligible: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "line" | "funnel" | "heatmap";
+            /** Missing Metric Keys */
+            missing_metric_keys?: string[];
+            /** Reason */
+            reason: string;
+            /** Required Sample Count */
+            required_sample_count: number;
         };
         /** DashboardChartPoint */
         DashboardChartPoint: {
@@ -6339,9 +6385,13 @@ export interface components {
              */
             account_id: string;
             completeness: components["schemas"]["WorkbenchCompleteness"];
+            /** Confirmed Snapshot Count */
+            confirmed_snapshot_count: number;
             content_type_counts: components["schemas"]["WorkbenchContentTypeCounts"];
             /** Has Current Week Closed Loop */
             has_current_week_closed_loop: boolean;
+            /** Latest Maturity Bucket */
+            latest_maturity_bucket: ("1h" | "24h" | "72h" | "7d") | null;
             /** Name */
             name: string;
             /** Open Risk Count */
@@ -11933,7 +11983,10 @@ export interface operations {
     };
     read_workbench_overview_v1_workspaces__workspace_id__workbench_overview_get: {
         parameters: {
-            query?: never;
+            query?: {
+                platform?: ("douyin" | "xiaohongshu") | null;
+                account_id?: string | null;
+            };
             header?: never;
             path: {
                 workspace_id: string;

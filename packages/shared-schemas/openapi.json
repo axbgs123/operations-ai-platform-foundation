@@ -70,6 +70,24 @@
             "title": "Attention Items",
             "type": "array"
           },
+          "benchmark_bands": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardBenchmarkBand"
+            },
+            "title": "Benchmark Bands",
+            "type": "array"
+          },
+          "benchmark_sample_size": {
+            "title": "Benchmark Sample Size",
+            "type": "integer"
+          },
+          "chart_gates": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardChartGate"
+            },
+            "title": "Chart Gates",
+            "type": "array"
+          },
           "charts": {
             "items": {
               "$ref": "#/components/schemas/DashboardChart"
@@ -93,6 +111,12 @@
             ],
             "title": "Content Type",
             "type": "string"
+          },
+          "data_completeness": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Data Completeness",
+            "type": "number"
           },
           "explanation": {
             "title": "Explanation",
@@ -142,10 +166,14 @@
           "content_type",
           "maturity_bucket",
           "sample_count",
+          "data_completeness",
+          "benchmark_sample_size",
           "confidence",
           "explanation",
           "goal_cards",
+          "benchmark_bands",
           "charts",
+          "chart_gates",
           "attention_items",
           "next_actions"
         ],
@@ -2496,6 +2524,55 @@
         "title": "DashboardAttentionItem",
         "type": "object"
       },
+      "DashboardBenchmarkBand": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "median": {
+            "title": "Median",
+            "type": "number"
+          },
+          "metric_key": {
+            "title": "Metric Key",
+            "type": "string"
+          },
+          "sample_count": {
+            "title": "Sample Count",
+            "type": "integer"
+          },
+          "top_10": {
+            "title": "Top 10",
+            "type": "number"
+          },
+          "top_25": {
+            "title": "Top 25",
+            "type": "number"
+          },
+          "unit": {
+            "enum": [
+              "count",
+              "ratio",
+              "seconds",
+              "number"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric_key",
+          "label",
+          "unit",
+          "sample_count",
+          "median",
+          "top_25",
+          "top_10"
+        ],
+        "title": "DashboardBenchmarkBand",
+        "type": "object"
+      },
       "DashboardChart": {
         "properties": {
           "drill_down_filter": {
@@ -2567,6 +2644,51 @@
           "drill_down_filter"
         ],
         "title": "DashboardChart",
+        "type": "object"
+      },
+      "DashboardChartGate": {
+        "properties": {
+          "actual_sample_count": {
+            "title": "Actual Sample Count",
+            "type": "integer"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "line",
+              "funnel",
+              "heatmap"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "missing_metric_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Metric Keys",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "required_sample_count": {
+            "title": "Required Sample Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "eligible",
+          "reason",
+          "actual_sample_count",
+          "required_sample_count"
+        ],
+        "title": "DashboardChartGate",
         "type": "object"
       },
       "DashboardChartPoint": {
@@ -10316,12 +10438,34 @@
           "completeness": {
             "$ref": "#/components/schemas/WorkbenchCompleteness"
           },
+          "confirmed_snapshot_count": {
+            "minimum": 0.0,
+            "title": "Confirmed Snapshot Count",
+            "type": "integer"
+          },
           "content_type_counts": {
             "$ref": "#/components/schemas/WorkbenchContentTypeCounts"
           },
           "has_current_week_closed_loop": {
             "title": "Has Current Week Closed Loop",
             "type": "boolean"
+          },
+          "latest_maturity_bucket": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1h",
+                  "24h",
+                  "72h",
+                  "7d"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Maturity Bucket"
           },
           "name": {
             "maxLength": 120,
@@ -10356,7 +10500,9 @@
           "completeness",
           "pending_analysis_count",
           "open_risk_count",
-          "has_current_week_closed_loop"
+          "has_current_week_closed_loop",
+          "confirmed_snapshot_count",
+          "latest_maturity_bucket"
         ],
         "title": "WorkbenchAccountCard",
         "type": "object"
@@ -22482,6 +22628,43 @@
               "format": "uuid",
               "title": "Workspace Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "douyin",
+                    "xiaohongshu"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Platform"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
             }
           },
           {

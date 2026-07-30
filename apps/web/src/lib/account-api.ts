@@ -4,6 +4,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type EffectiveAccountConfiguration =
   components["schemas"]["EffectiveConfigurationRead"];
+export type AccountSummary = components["schemas"]["AccountSummaryRead"];
+export type ColumnCampaign = components["schemas"]["ColumnCampaignRead"];
 type ConfigurationInput = components["schemas"]["ConfigurationInput"];
 
 async function accountRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -22,6 +24,44 @@ async function accountRequest<T>(path: string, init?: RequestInit): Promise<T> {
 export function loadEffectiveAccountConfiguration(workspaceId: string, accountId: string) {
   return accountRequest<EffectiveAccountConfiguration>(
     `/v1/workspaces/${workspaceId}/accounts/${accountId}/effective-configuration`,
+  );
+}
+
+export function loadColumnCampaigns(
+  workspaceId: string,
+  accountId: string,
+): Promise<ColumnCampaign[]> {
+  return accountRequest(
+    `/v1/workspaces/${workspaceId}/accounts/${accountId}/columns-campaigns`,
+  );
+}
+
+export function loadEffectiveColumnConfiguration(
+  workspaceId: string,
+  accountId: string,
+  columnCampaignId: string,
+): Promise<EffectiveAccountConfiguration> {
+  const query = new URLSearchParams({
+    column_campaign_id: columnCampaignId,
+  });
+  return accountRequest(
+    `/v1/workspaces/${workspaceId}/accounts/${accountId}/effective-configuration?${query}`,
+  );
+}
+
+export function restoreColumnDefaults(
+  workspaceId: string,
+  accountId: string,
+  columnCampaignId: string,
+  csrfToken: string,
+): Promise<ColumnCampaign> {
+  return accountRequest(
+    `/v1/workspaces/${workspaceId}/accounts/${accountId}/columns-campaigns/${columnCampaignId}`,
+    {
+      method: "PATCH",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ restore_account_defaults: true }),
+    },
   );
 }
 

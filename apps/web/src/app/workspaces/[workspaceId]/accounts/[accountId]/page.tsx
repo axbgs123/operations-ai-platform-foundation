@@ -15,15 +15,11 @@ export default async function AccountDashboardPage({
     String(query.maturity_bucket),
   ) ? query.maturity_bucket as "1h" | "24h" | "72h" | "7d" : "24h";
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 sm:py-10">
-      <div className="mx-auto max-w-7xl">
-        <AccountDashboard
-          accountId={accountId}
-          initialContentType={contentType}
-          initialMaturityBucket={maturityBucket}
-          workspaceId={workspaceId}
-        />
-      </div>
-    </main>
+    <AccountDashboard
+      accountId={accountId}
+      initialContentType={contentType}
+      initialMaturityBucket={maturityBucket}
+      workspaceId={workspaceId}
+    />
   );
 }

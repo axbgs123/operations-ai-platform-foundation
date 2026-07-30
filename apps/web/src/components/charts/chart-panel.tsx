@@ -49,7 +49,7 @@ export function ChartPanel({ chart }: { chart: DashboardChart }) {
     let cleanup = () => {};
     void import("echarts").then((echarts) => {
       if (disposed || !target.current) return;
-      const instance = echarts.init(target.current, "dark");
+      const instance = echarts.init(target.current);
       instance.setOption(chartOption(chart));
       const resize = () => instance.resize();
       window.addEventListener("resize", resize);
@@ -67,15 +67,15 @@ export function ChartPanel({ chart }: { chart: DashboardChart }) {
   return (
     <Link
       aria-label={`查看${chart.title}对应内容`}
-      className="group block rounded-3xl border border-slate-800 bg-slate-900 p-5 transition hover:border-cyan-500"
+      className="group block rounded-xl border border-[var(--border)] bg-white p-5 transition hover:border-[var(--brand)]"
       href={dashboardDrillDownHref(chart.drill_down_filter)}
     >
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-lg font-semibold">{chart.title}</h3>
-        <span className="text-sm text-cyan-300">查看内容 →</span>
+        <span className="text-sm text-[var(--brand)]">查看内容 →</span>
       </div>
       <div aria-hidden="true" className="mt-4 h-64 w-full" ref={target} />
-      <p className="mt-3 text-xs text-slate-400">
+      <p className="mt-3 text-xs text-[var(--text-secondary)]">
         有效样本 {chart.sample_count} 条 · {chart.explanation}
       </p>
       <p className="sr-only">单一量纲：{chart.unit}，共 {chart.points.length} 个数据点</p>

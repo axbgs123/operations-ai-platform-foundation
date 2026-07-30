@@ -72,12 +72,24 @@ def read_workbench_context(
 def read_workbench_overview(
     workspace_id: UUID,
     session: DatabaseSession,
+    platform: Annotated[Literal["douyin", "xiaohongshu"] | None, Query()] = None,
+    account_id: Annotated[UUID | None, Query()] = None,
     session_token: Annotated[
         str | None,
         Cookie(alias="session"),
     ] = None,
 ) -> WorkbenchOverviewRead:
-    return _service(session, workspace_id, session_token).overview()
+    service = _service(session, workspace_id, session_token)
+    try:
+        return service.overview(
+            Platform(platform) if platform is not None else None,
+            account_id=account_id,
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=404,
+            detail="account not found",
+        ) from error
 
 
 @router.get("/analysis-queue", response_model=AnalysisQueueRead)

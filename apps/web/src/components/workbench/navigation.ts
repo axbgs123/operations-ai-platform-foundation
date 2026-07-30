@@ -44,7 +44,7 @@ export const WORKBENCH_NAV_GROUPS: readonly WorkbenchNavigationGroup[] = [
         label: "栏目与活动",
         href: "/columns",
         icon: "columns",
-        allowedRoles: EDIT_ROLES,
+        allowedRoles: ALL_ROLES,
       },
       {
         label: "内容库",

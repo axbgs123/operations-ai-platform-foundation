@@ -73,6 +73,24 @@ export function toWorkbenchApiScope(scope: WorkbenchScope): {
   };
 }
 
+export function scopeForWorkspacePath(
+  pathname: string,
+  workspaceId: string,
+  queryScope: WorkbenchScope,
+  accounts: readonly WorkbenchAccount[],
+): WorkbenchScope {
+  const accountPrefix = `/workspaces/${workspaceId}/accounts/`;
+  if (!pathname.startsWith(accountPrefix)) return queryScope;
+  const accountId = pathname.slice(accountPrefix.length);
+  if (!accountId || accountId.includes("/")) return queryScope;
+  const account = accounts.find((item) => item.account_id === accountId);
+  if (!account) return {};
+  return {
+    platform: account.platform,
+    accountId: account.account_id,
+  };
+}
+
 function decodeReturnValue(value: string): string | undefined {
   let decoded = value;
   for (let pass = 0; pass < 3; pass += 1) {

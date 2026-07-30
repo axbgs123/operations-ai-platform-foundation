@@ -1,16 +1,21 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
 
 from fastapi.testclient import TestClient
+import pytest
 from sqlalchemy.orm import Session
 
+from app.modules.analytics.north_star import AnalyticsService
 from app.modules.risk_rag.models import (
     RiskScan,
     RiskScanNode,
     RiskScanStatus,
 )
+from app.modules.metrics.models import ContentType, DataSnapshot, SnapshotSource
 from tests.imports.helpers import configured_client
 
 
@@ -126,6 +131,13 @@ def _seeded_workbench() -> Iterator[tuple[TestClient, object, dict[str, Any]]]:
             platform="douyin",
             name="抖音合成账号",
         )
+        douyin_secondary = _create_account(
+            client,
+            workspace_id=private["workspace_id"],
+            csrf=admin_login["csrf_token"],
+            platform="douyin",
+            name="抖音合成账号二",
+        )
         xiaohongshu = _create_account(
             client,
             workspace_id=private["workspace_id"],
@@ -231,6 +243,7 @@ def _seeded_workbench() -> Iterator[tuple[TestClient, object, dict[str, Any]]]:
                 "foreign_account": foreign_account,
                 "viewer_login": viewer_login,
                 "douyin": douyin,
+                "douyin_secondary": douyin_secondary,
                 "xiaohongshu": xiaohongshu,
                 "douyin_content": douyin_content,
                 "xiaohongshu_content": xiaohongshu_content,
@@ -273,6 +286,11 @@ def test_viewer_reads_context_and_overview_without_combined_platform_metrics() -
             "douyin",
             "xiaohongshu",
         }
+        assert all(
+            account["confirmed_snapshot_count"] == 0
+            and account["latest_maturity_bucket"] is None
+            for account in overview["accounts"]
+        )
         forbidden_aggregates = {
             "total_views",
             "combined_metrics",
@@ -346,6 +364,109 @@ def test_queues_require_platform_and_keep_platform_rows_separate() -> None:
         ):
             assert FORBIDDEN_RESPONSE_KEYS.isdisjoint(_keys(response.json()))
             assert "PRIVATE_" not in response.text
+
+
+def test_overview_scope_keeps_platform_accounts_and_attention_separate() -> None:
+    with _seeded_workbench() as (client, engine, seeded):
+        workspace_id = seeded["workspace"]["workspace_id"]
+        with Session(engine) as session:
+            session.add_all(
+                [
+                    DataSnapshot(
+                        workspace_id=UUID(workspace_id),
+                        content_id=UUID(seeded["douyin_content"]["id"]),
+                        account_id=UUID(seeded["douyin"]["id"]),
+                        platform="douyin",
+                        content_type=ContentType.VIDEO,
+                        collected_at=datetime(2026, 7, 29, tzinfo=UTC),
+                        age_seconds=86_400,
+                        maturity_bucket="24h",
+                        source=SnapshotSource.MANUAL,
+                        confirmed=True,
+                        analytics_eligible=True,
+                    ),
+                    DataSnapshot(
+                        workspace_id=UUID(workspace_id),
+                        content_id=UUID(seeded["xiaohongshu_content"]["id"]),
+                        account_id=UUID(seeded["xiaohongshu"]["id"]),
+                        platform="xiaohongshu",
+                        content_type=ContentType.VIDEO,
+                        collected_at=datetime(2026, 7, 29, tzinfo=UTC),
+                        age_seconds=259_200,
+                        maturity_bucket="72h",
+                        source=SnapshotSource.MANUAL,
+                        confirmed=True,
+                        analytics_eligible=True,
+                    ),
+                ]
+            )
+            session.commit()
+
+        douyin = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/overview",
+            params={
+                "platform": "douyin",
+                "account_id": seeded["douyin"]["id"],
+            },
+        )
+        assert douyin.status_code == 200, douyin.text
+        payload = douyin.json()
+        assert [item["account_id"] for item in payload["accounts"]] == [
+            seeded["douyin"]["id"]
+        ]
+        assert payload["attention"]["pending_analysis_count"] == 1
+        assert payload["attention"]["high_risk_count"] == 1
+        assert payload["accounts"][0]["confirmed_snapshot_count"] == 1
+        assert payload["accounts"][0]["latest_maturity_bucket"] == "24h"
+        assert payload["data_status"][
+            "accounts_missing_recommended_snapshot"
+        ] == 1
+
+        mismatched = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/overview",
+            params={
+                "platform": "douyin",
+                "account_id": seeded["xiaohongshu"]["id"],
+            },
+        )
+        assert mismatched.status_code == 404
+
+
+def test_closed_loop_status_is_attributed_to_the_evidence_account(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _seeded_workbench() as (client, _, seeded):
+        current = datetime.now(UTC).astimezone()
+        year, week, _ = current.isocalendar()
+        monkeypatch.setattr(
+            AnalyticsService,
+            "effective_loops",
+            lambda _service: [
+                SimpleNamespace(
+                    platform="douyin",
+                    iso_week=f"{year}-W{week:02d}",
+                    evidence_ids={
+                        "content_id": seeded["douyin_content"]["id"],
+                    },
+                )
+            ],
+        )
+
+        response = client.get(
+            "/v1/workspaces/"
+            f"{seeded['workspace']['workspace_id']}/workbench/overview"
+        )
+        assert response.status_code == 200, response.text
+        accounts = {
+            item["account_id"]: item
+            for item in response.json()["accounts"]
+        }
+        assert accounts[seeded["douyin"]["id"]][
+            "has_current_week_closed_loop"
+        ] is True
+        assert accounts[seeded["douyin_secondary"]["id"]][
+            "has_current_week_closed_loop"
+        ] is False
 
 
 def test_queue_filters_reject_foreign_or_platform_mismatched_accounts() -> None:

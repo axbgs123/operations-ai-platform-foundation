@@ -6,6 +6,7 @@ export type StyleCandidateData = components["schemas"]["StyleCandidateRead"];
 export type StyleProfileData = components["schemas"]["StyleProfileRead"];
 export type StyleSampleData = components["schemas"]["StyleSampleRead"];
 export type StyleScopeData = components["schemas"]["ColumnCampaignRead"];
+export type EffectiveStyleData = components["schemas"]["EffectiveStyleRead"];
 export type StyleProhibitedInput = {
   expressions: string[];
   colors: string[];
@@ -62,6 +63,19 @@ export function listStyleProfiles(workspaceId: string, accountId: string) {
 export function listStyleScopes(workspaceId: string, accountId: string) {
   return styleRequest<StyleScopeData[]>(
     `/v1/workspaces/${workspaceId}/accounts/${accountId}/columns-campaigns`,
+  );
+}
+
+export function loadEffectiveStyle(
+  workspaceId: string,
+  accountId: string,
+  columnCampaignId: string | null = null,
+) {
+  const query = columnCampaignId
+    ? `?${new URLSearchParams({ column_campaign_id: columnCampaignId })}`
+    : "";
+  return styleRequest<EffectiveStyleData>(
+    `/v1/workspaces/${workspaceId}/accounts/${accountId}/effective-style${query}`,
   );
 }
 

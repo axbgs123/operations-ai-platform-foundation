@@ -7,6 +7,13 @@ export type DashboardChart = components["schemas"]["DashboardChart"];
 export type AccountDashboardData = components["schemas"]["AccountDashboard"];
 export type DashboardContentItem = components["schemas"]["DashboardContentItem"];
 
+export class DashboardApiError extends Error {
+  constructor(readonly status: number) {
+    super("dashboard request failed");
+    this.name = "DashboardApiError";
+  }
+}
+
 export async function loadAccountDashboard(
   workspaceId: string,
   accountId: string,
@@ -21,7 +28,7 @@ export async function loadAccountDashboard(
     `${API_URL}/v1/workspaces/${workspaceId}/accounts/${accountId}/dashboard?${query}`,
     { credentials: "include" },
   );
-  if (!response.ok) throw new Error("仪表盘加载失败");
+  if (!response.ok) throw new DashboardApiError(response.status);
   return response.json() as Promise<AccountDashboardData>;
 }
 

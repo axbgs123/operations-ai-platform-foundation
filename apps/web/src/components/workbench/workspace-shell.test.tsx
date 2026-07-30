@@ -12,12 +12,14 @@ import {
   parseWorkbenchScope,
   readSidebarPreference,
   sanitizeReturnTo,
+  scopeForWorkspacePath,
   toWorkbenchApiScope,
   writeSidebarPreference,
 } from "./scope-query";
 import {
   WorkspaceShell,
   WorkspaceShellLoader,
+  useWorkbenchShellContext,
 } from "./workspace-shell";
 
 
@@ -138,6 +140,7 @@ describe("canonical navigation and roles", () => {
     expect(visibleNavigationItems("viewer").map((item) => item.label)).toEqual([
       "工作台总览",
       "账号仪表盘",
+      "栏目与活动",
       "内容库",
       "分析中心",
       "爆款素材库",
@@ -215,6 +218,28 @@ describe("workspace scope and safe returns", () => {
     });
   });
 
+  test("restores account scope from a direct account dashboard deep link", () => {
+    expect(
+      scopeForWorkspacePath(
+        "/workspaces/workspace-1/accounts/xhs-account",
+        "workspace-1",
+        {},
+        accounts,
+      ),
+    ).toEqual({
+      platform: "xiaohongshu",
+      accountId: "xhs-account",
+    });
+    expect(
+      scopeForWorkspacePath(
+        "/workspaces/workspace-1/accounts/unknown-account",
+        "workspace-1",
+        {},
+        accounts,
+      ),
+    ).toEqual({});
+  });
+
   test.each([
     "https://attacker.example/path",
     "//attacker.example/path",
@@ -247,6 +272,20 @@ describe("workspace scope and safe returns", () => {
 });
 
 describe("workspace shell behavior", () => {
+  test("provides the current member context to nested workbench pages", () => {
+    function ContextProbe() {
+      const shellContext = useWorkbenchShellContext();
+      return <p>{shellContext?.member_id}:{shellContext?.role}</p>;
+    }
+
+    render(
+      <WorkspaceShell context={context}>
+        <ContextProbe />
+      </WorkspaceShell>,
+    );
+    expect(screen.getByText("member-admin:admin")).toBeVisible();
+  });
+
   test("stores only an isolated expanded or collapsed member preference", () => {
     writeSidebarPreference(localStorage, "member-admin", "collapsed");
     writeSidebarPreference(localStorage, "member-viewer", "expanded");
@@ -285,6 +324,24 @@ describe("workspace shell behavior", () => {
       "#main-content",
     );
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
+  test("leaves an old account route when platform scope becomes incompatible", async () => {
+    navigationState.pathname = "/workspaces/workspace-1/accounts/xhs-account";
+    const user = userEvent.setup();
+    render(
+      <WorkspaceShell context={context}>
+        <p>账号页面</p>
+      </WorkspaceShell>,
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "平台范围" }),
+      "douyin",
+    );
+    expect(navigationState.replace).toHaveBeenCalledWith(
+      "/workspaces/workspace-1/accounts?platform=douyin",
+    );
   });
 
   test("persists the desktop width preference under the current member only", async () => {

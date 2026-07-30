@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  createContext,
   useCallback,
+  useContext,
   type ReactElement,
   type ReactNode,
   useEffect,
@@ -26,11 +28,17 @@ import {
   readSidebarPreference,
   type SidebarPreference,
   type WorkbenchScope,
+  scopeForWorkspacePath,
   writeSidebarPreference,
 } from "./scope-query";
 import { ErrorState, Skeleton } from "./ui";
 import { WorkspaceTopbar } from "./workspace-topbar";
 
+const WorkbenchShellContext = createContext<WorkbenchContext | null>(null);
+
+export function useWorkbenchShellContext(): WorkbenchContext | null {
+  return useContext(WorkbenchShellContext);
+}
 
 function useMobileViewport(): boolean {
   const [mobile, setMobile] = useState(() =>
@@ -102,12 +110,24 @@ export function WorkspaceShell({
   const [sidebarPreference, setSidebarPreference] = useSidebarPreference(
     context.member_id,
   );
-  const scope = parseWorkbenchScope(searchParams, context.accounts);
+  const scope = scopeForWorkspacePath(
+    pathname,
+    context.workspace_id,
+    parseWorkbenchScope(searchParams, context.accounts),
+    context.accounts,
+  );
   const mobileOpen = drawerPathname === pathname;
 
   function changeScope(nextScope: WorkbenchScope) {
+    const accountPrefix = `/workspaces/${context.workspace_id}/accounts/`;
+    let targetPath = pathname;
+    if (pathname.startsWith(accountPrefix)) {
+      targetPath = nextScope.accountId
+        ? `${accountPrefix}${nextScope.accountId}`
+        : `/workspaces/${context.workspace_id}/accounts`;
+    }
     router.replace(
-      buildWorkspaceHref(context.workspace_id, pathname, nextScope),
+      buildWorkspaceHref(context.workspace_id, targetPath, nextScope),
     );
   }
 
@@ -120,69 +140,71 @@ export function WorkspaceShell({
 
   const collapsed = sidebarPreference === "collapsed";
   return (
-    <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]">
-      <Link
-        className="sr-only z-[70] rounded bg-white px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
-        href="#main-content"
-      >
-        跳转到主内容
-      </Link>
-      {!isMobile ? (
-        <aside
-          className={`fixed inset-y-0 left-0 z-30 overflow-y-auto border-r bg-white ${
-            collapsed ? "w-[72px]" : "w-[240px]"
-          }`}
-          data-width={collapsed ? "72" : "240"}
+    <WorkbenchShellContext.Provider value={context}>
+      <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]">
+        <Link
+          className="sr-only z-[70] rounded bg-white px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+          href="#main-content"
         >
-          <div className="flex min-h-14 items-center justify-between border-b px-3">
-            <span className={collapsed ? "sr-only" : "font-semibold"}>
-              运营工作台
-            </span>
-            <button
-              aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
-              className="h-9 w-9 rounded-lg border bg-white"
-              onClick={toggleSidebar}
-              type="button"
-            >
-              {collapsed ? "»" : "«"}
-            </button>
-          </div>
-          <SidebarNav
-            collapsed={collapsed}
-            onNavigate={() => undefined}
+          跳转到主内容
+        </Link>
+        {!isMobile ? (
+          <aside
+            className={`fixed inset-y-0 left-0 z-30 overflow-y-auto border-r bg-white ${
+              collapsed ? "w-[72px]" : "w-[240px]"
+            }`}
+            data-width={collapsed ? "72" : "240"}
+          >
+            <div className="flex min-h-14 items-center justify-between border-b px-3">
+              <span className={collapsed ? "sr-only" : "font-semibold"}>
+                运营工作台
+              </span>
+              <button
+                aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
+                className="h-9 w-9 rounded-lg border bg-white"
+                onClick={toggleSidebar}
+                type="button"
+              >
+                {collapsed ? "»" : "«"}
+              </button>
+            </div>
+            <SidebarNav
+              collapsed={collapsed}
+              onNavigate={() => undefined}
+              pathname={pathname}
+              role={context.role}
+              workspaceId={context.workspace_id}
+            />
+          </aside>
+        ) : null}
+        <div
+          className={!isMobile ? (collapsed ? "pl-[72px]" : "pl-[240px]") : ""}
+          data-testid="workspace-shell-background"
+          inert={mobileOpen ? true : undefined}
+        >
+          <WorkspaceTopbar
+            context={context}
+            isMobile={isMobile}
+            navigationTriggerRef={navigationTriggerRef}
+            onOpenNavigation={() => setDrawerPathname(pathname)}
+            onScopeChange={changeScope}
             pathname={pathname}
-            role={context.role}
-            workspaceId={context.workspace_id}
+            scope={scope}
           />
-        </aside>
-      ) : null}
-      <div
-        className={!isMobile ? (collapsed ? "pl-[72px]" : "pl-[240px]") : ""}
-        data-testid="workspace-shell-background"
-        inert={mobileOpen ? true : undefined}
-      >
-        <WorkspaceTopbar
-          context={context}
-          isMobile={isMobile}
-          navigationTriggerRef={navigationTriggerRef}
-          onOpenNavigation={() => setDrawerPathname(pathname)}
-          onScopeChange={changeScope}
+          <main className="min-h-[calc(100vh-56px)] p-4 sm:p-6" id="main-content">
+            {children}
+          </main>
+        </div>
+        <MobileDrawer
+          onClose={() => setDrawerPathname(null)}
+          open={isMobile && mobileOpen}
           pathname={pathname}
-          scope={scope}
+          returnFocusRef={navigationTriggerRef}
+          role={context.role}
+          workspaceId={context.workspace_id}
         />
-        <main className="min-h-[calc(100vh-56px)] p-4 sm:p-6" id="main-content">
-          {children}
-        </main>
       </div>
-      <MobileDrawer
-        onClose={() => setDrawerPathname(null)}
-        open={isMobile && mobileOpen}
-        pathname={pathname}
-        returnFocusRef={navigationTriggerRef}
-        role={context.role}
-        workspaceId={context.workspace_id}
-      />
-    </div>
+    </WorkbenchShellContext.Provider>
   );
 }
 

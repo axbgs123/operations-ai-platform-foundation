@@ -1,5 +1,5 @@
-from datetime import UTC, datetime
-from typing import Literal
+from datetime import UTC, datetime, timedelta
+from typing import Literal, cast
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -14,6 +14,7 @@ from app.modules.content.account_models import Platform, PlatformAccount
 from app.modules.content.models import Content
 from app.modules.imports.models import ImportBatch, ImportBatchStatus
 from app.modules.metrics.models import DataSnapshot
+from app.modules.metrics.maturity import calculate_completeness
 from app.modules.risk_rag.models import RiskScan, RiskScanStatus
 from app.modules.workbench.schemas import (
     AnalysisQueueItem,
@@ -38,12 +39,21 @@ class WorkbenchService:
         self._session = session
         self._context = context
 
-    def _accounts(self) -> list[PlatformAccount]:
+    def _accounts(
+        self,
+        platform: Platform | None = None,
+        account_id: UUID | None = None,
+    ) -> list[PlatformAccount]:
+        query = select(PlatformAccount).where(
+            PlatformAccount.workspace_id == self._context.workspace_id
+        )
+        if platform is not None:
+            query = query.where(PlatformAccount.platform == platform)
+        if account_id is not None:
+            query = query.where(PlatformAccount.id == account_id)
         return list(
             self._session.scalars(
-                select(PlatformAccount)
-                .where(PlatformAccount.workspace_id == self._context.workspace_id)
-                .order_by(
+                query.order_by(
                     PlatformAccount.platform,
                     PlatformAccount.name,
                     PlatformAccount.id,
@@ -319,9 +329,18 @@ class WorkbenchService:
             items=items,
         )
 
-    def overview(self) -> WorkbenchOverviewRead:
-        accounts = self._accounts()
-        all_contents = self._contents()
+    def overview(
+        self,
+        platform: Platform | None = None,
+        *,
+        account_id: UUID | None = None,
+    ) -> WorkbenchOverviewRead:
+        if account_id is not None:
+            if platform is None:
+                raise LookupError("platform required for account scope")
+            self._account(account_id, platform)
+        accounts = self._accounts(platform, account_id)
+        all_contents = self._contents(platform, account_id)
         content_ids = [content.id for content in all_contents]
         latest_analysis = self._latest_analysis_runs(content_ids)
         latest_scans = self._latest_risk_scans(content_ids)
@@ -349,40 +368,83 @@ class WorkbenchService:
             ):
                 low_confidence_count += 1
 
-        confirmed_snapshot_accounts = set(
-            self._session.scalars(
-                select(DataSnapshot.account_id)
-                .where(
-                    DataSnapshot.workspace_id == self._context.workspace_id,
-                    DataSnapshot.confirmed.is_(True),
+        snapshot_count_by_account: dict[UUID, int] = {
+            account.id: 0 for account in accounts
+        }
+        latest_maturity_by_account: dict[
+            UUID,
+            Literal["1h", "24h", "72h", "7d"],
+        ] = {}
+        snapshot_ages_by_account: dict[UUID, list[timedelta]] = {
+            account.id: [] for account in accounts
+        }
+        selected_account_ids = [account.id for account in accounts]
+        confirmed_snapshots: list[DataSnapshot] = (
+            list(
+                self._session.scalars(
+                    select(DataSnapshot)
+                    .where(
+                        DataSnapshot.workspace_id == self._context.workspace_id,
+                        DataSnapshot.account_id.in_(selected_account_ids),
+                        DataSnapshot.confirmed.is_(True),
+                    )
+                    .order_by(
+                        DataSnapshot.collected_at.desc(),
+                        DataSnapshot.id.desc(),
+                    )
                 )
-                .distinct()
             )
+            if selected_account_ids
+            else []
         )
-        imports_waiting = int(
-            self._session.scalar(
-                select(func.count(ImportBatch.id)).where(
-                    ImportBatch.workspace_id == self._context.workspace_id,
-                    ImportBatch.status == ImportBatchStatus.PREVIEW,
-                )
+        for snapshot in confirmed_snapshots:
+            snapshot_count_by_account[snapshot.account_id] += 1
+            snapshot_ages_by_account[snapshot.account_id].append(
+                timedelta(seconds=snapshot.age_seconds)
             )
-            or 0
+            latest_maturity_by_account.setdefault(
+                snapshot.account_id,
+                cast(
+                    Literal["1h", "24h", "72h", "7d"],
+                    snapshot.maturity_bucket,
+                ),
+            )
+        imports_query = select(func.count(ImportBatch.id)).where(
+            ImportBatch.workspace_id == self._context.workspace_id,
+            ImportBatch.status == ImportBatchStatus.PREVIEW,
         )
+        if platform is not None:
+            imports_query = imports_query.where(ImportBatch.platform == platform)
+        if account_id is not None:
+            imports_query = imports_query.where(ImportBatch.account_id == account_id)
+        imports_waiting = int(self._session.scalar(imports_query) or 0)
         failed_task_count = self._failed_task_count()
         analytics = AnalyticsService(self._session, self._context)
         loops = analytics.effective_loops()
         local_now = datetime.now(UTC).astimezone(ZoneInfo("Asia/Shanghai"))
         year, week, _ = local_now.isocalendar()
         current_week = f"{year}-W{week:02d}"
-        loop_platforms = {
-            loop.platform for loop in loops if loop.iso_week == current_week
-        }
-        platform_account_counts = {
-            platform.value: sum(
-                account.platform == platform for account in accounts
+        loop_content_ids: list[UUID] = []
+        for loop in loops:
+            content_id = loop.evidence_ids.get("content_id")
+            if loop.iso_week != current_week or content_id is None:
+                continue
+            try:
+                loop_content_ids.append(UUID(content_id))
+            except ValueError:
+                continue
+        closed_loop_account_ids = (
+            set(
+                self._session.scalars(
+                    select(Content.account_id).where(
+                        Content.workspace_id == self._context.workspace_id,
+                        Content.id.in_(loop_content_ids),
+                    )
+                )
             )
-            for platform in Platform
-        }
+            if loop_content_ids
+            else set()
+        )
         cards: list[WorkbenchAccountCard] = []
         for account in accounts:
             completeness = analytics.completeness(account.id)
@@ -402,8 +464,11 @@ class WorkbenchService:
                     pending_analysis_count=pending_by_account[account.id],
                     open_risk_count=risk_by_account[account.id],
                     has_current_week_closed_loop=(
-                        account.platform.value in loop_platforms
-                        and platform_account_counts[account.platform.value] == 1
+                        account.id in closed_loop_account_ids
+                    ),
+                    confirmed_snapshot_count=snapshot_count_by_account[account.id],
+                    latest_maturity_bucket=latest_maturity_by_account.get(
+                        account.id
                     ),
                 )
             )
@@ -432,8 +497,9 @@ class WorkbenchService:
         return WorkbenchOverviewRead(
             data_status=WorkbenchDataStatus(
                 account_count=len(accounts),
-                accounts_missing_recommended_snapshot=(
-                    len(accounts) - len(confirmed_snapshot_accounts)
+                accounts_missing_recommended_snapshot=sum(
+                    bool(calculate_completeness(ages).missing)
+                    for ages in snapshot_ages_by_account.values()
                 ),
                 imports_waiting_confirmation=imports_waiting,
             ),

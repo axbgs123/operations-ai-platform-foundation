@@ -83,6 +83,25 @@ class DashboardAttentionItem(BaseModel):
     drill_down_filter: DrillDownFilter
 
 
+class DashboardBenchmarkBand(BaseModel):
+    metric_key: str
+    label: str
+    unit: Literal["count", "ratio", "seconds", "number"]
+    sample_count: int
+    median: float
+    top_25: float
+    top_10: float
+
+
+class DashboardChartGate(BaseModel):
+    kind: Literal["line", "funnel", "heatmap"]
+    eligible: bool
+    reason: str
+    actual_sample_count: int
+    required_sample_count: int
+    missing_metric_keys: list[str] = Field(default_factory=list)
+
+
 class DashboardContentItem(BaseModel):
     content_id: UUID
     title: str
@@ -97,10 +116,14 @@ class AccountDashboard(BaseModel):
     content_type: Literal["video", "image_text"]
     maturity_bucket: Literal["1h", "24h", "72h", "7d"]
     sample_count: int
+    data_completeness: float = Field(ge=0, le=1)
+    benchmark_sample_size: int
     confidence: Literal["raw_only", "low_confidence", "normal"]
     explanation: str
     goal_cards: list[GoalMetricCard]
+    benchmark_bands: list[DashboardBenchmarkBand]
     charts: list[DashboardChart]
+    chart_gates: list[DashboardChartGate]
     attention_items: list[DashboardAttentionItem]
     next_actions: list[str]
 
@@ -284,16 +307,19 @@ class DashboardService:
             if metric_key in sample.values
         ]
         charts: list[DashboardChart] = []
-        if len(trend_points) >= 5:
+        if len(trend_points) >= 2:
             charts.append(
                 DashboardChart(
                     id=f"trend-{metric_key}",
                     kind="line",
-                    title=f"{definition.label}趋势",
+                    title=f"账号{definition.label}表现趋势",
                     metric_key=metric_key,
                     unit=definition.unit.value,
                     sample_count=len(trend_points),
-                    explanation=f"同口径有效样本 {len(trend_points)} 条。",
+                    explanation=(
+                        "按每条内容最新一条同口径快照排列；"
+                        f"有效内容样本 {len(trend_points)} 条。"
+                    ),
                     points=trend_points,
                     drill_down_filter=DrillDownFilter.model_validate(
                         {**base_filter, "metric_key": metric_key}
@@ -371,6 +397,117 @@ class DashboardService:
                 )
             )
         return charts
+
+    @staticmethod
+    def _benchmark_bands(
+        samples: list[SnapshotSample],
+        definitions: dict,
+        metric_keys: list[str],
+    ) -> list[DashboardBenchmarkBand]:
+        bands: list[DashboardBenchmarkBand] = []
+        for metric_key in metric_keys:
+            definition = definitions[metric_key]
+            values = [
+                sample.values[metric_key]
+                for sample in samples
+                if metric_key in sample.values
+            ]
+            if len(values) < 5:
+                continue
+            top_25_quantile = 0.75 if definition.higher_is_better else 0.25
+            top_10_quantile = 0.9 if definition.higher_is_better else 0.1
+            bands.append(
+                DashboardBenchmarkBand(
+                    metric_key=metric_key,
+                    label=definition.label,
+                    unit=definition.unit.value,
+                    sample_count=len(values),
+                    median=float(percentile(values, 0.5)),
+                    top_25=float(percentile(values, top_25_quantile)),
+                    top_10=float(percentile(values, top_10_quantile)),
+                )
+            )
+        return bands
+
+    @staticmethod
+    def _chart_gates(
+        samples: list[SnapshotSample],
+        definitions: dict,
+        metric_key: str,
+    ) -> list[DashboardChartGate]:
+        trend_count = sum(metric_key in sample.values for sample in samples)
+        trend_eligible = trend_count >= 2
+        line = DashboardChartGate(
+            kind="line",
+            eligible=trend_eligible,
+            reason=(
+                "同口径有效快照满足趋势展示条件。"
+                if trend_eligible
+                else (
+                    "趋势图至少需要 2 条同口径有效快照；"
+                    f"当前 {trend_count} 条。"
+                )
+            ),
+            actual_sample_count=trend_count,
+            required_sample_count=2,
+        )
+
+        required_funnel_keys = ["impressions", "views"]
+        missing_funnel_keys = [
+            key for key in required_funnel_keys if key not in definitions
+        ]
+        funnel_count = (
+            0
+            if missing_funnel_keys
+            else sum(
+                all(key in sample.values for key in required_funnel_keys)
+                for sample in samples
+            )
+        )
+        funnel_eligible = not missing_funnel_keys and funnel_count >= 5
+        if missing_funnel_keys:
+            funnel_reason = (
+                "当前平台或内容类型不提供漏斗必要字段："
+                + "、".join(missing_funnel_keys)
+                + "。"
+            )
+        elif funnel_eligible:
+            funnel_reason = "漏斗必要字段完整且同口径样本满足展示条件。"
+        else:
+            funnel_reason = (
+                "漏斗至少需要 5 条同时包含曝光和阅读/播放的快照；"
+                f"当前 {funnel_count} 条。"
+            )
+        funnel = DashboardChartGate(
+            kind="funnel",
+            eligible=funnel_eligible,
+            reason=funnel_reason,
+            actual_sample_count=funnel_count,
+            required_sample_count=5,
+            missing_metric_keys=missing_funnel_keys,
+        )
+
+        publication_count = sum(
+            sample.content.published_at is not None
+            and metric_key in sample.values
+            for sample in samples
+        )
+        heatmap_eligible = publication_count >= 10
+        heatmap = DashboardChartGate(
+            kind="heatmap",
+            eligible=heatmap_eligible,
+            reason=(
+                "发布时间样本满足热力图展示条件。"
+                if heatmap_eligible
+                else (
+                    "发布时间热力图至少需要 10 条带发布时间的有效样本；"
+                    f"当前 {publication_count} 条。"
+                )
+            ),
+            actual_sample_count=publication_count,
+            required_sample_count=10,
+        )
+        return [line, funnel, heatmap]
 
     @staticmethod
     def _attention_pair(
@@ -533,6 +670,7 @@ class DashboardService:
             ]
         )
         primary_metric_key = cards[0].metric_key
+        metric_keys = [card.metric_key for card in cards]
         return AccountDashboard(
             account_id=account.id,
             account_name=account.name,
@@ -540,14 +678,29 @@ class DashboardService:
             content_type=content_type.value,
             maturity_bucket=maturity_bucket.value,
             sample_count=sample_count,
+            data_completeness=round(
+                sum(card.data_completeness for card in cards) / len(cards),
+                6,
+            ),
+            benchmark_sample_size=benchmark.sample_size,
             confidence=confidence.value,
             explanation=explanation,
             goal_cards=cards,
+            benchmark_bands=self._benchmark_bands(
+                samples,
+                definitions,
+                metric_keys,
+            ),
             charts=self._charts(
                 samples,
                 definitions,
                 primary_metric_key,
                 base_filter,
+            ),
+            chart_gates=self._chart_gates(
+                samples,
+                definitions,
+                primary_metric_key,
             ),
             attention_items=self._attention_items(
                 samples,
