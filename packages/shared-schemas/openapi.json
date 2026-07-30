@@ -1696,6 +1696,440 @@
         "title": "ContentCreate",
         "type": "object"
       },
+      "ContentDetailRead": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_runs": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisRunRead"
+            },
+            "title": "Analysis Runs",
+            "type": "array"
+          },
+          "content": {
+            "$ref": "#/components/schemas/ContentRead"
+          },
+          "generation_records": {
+            "items": {
+              "$ref": "#/components/schemas/ContentGenerationRecordRead"
+            },
+            "title": "Generation Records",
+            "type": "array"
+          },
+          "lifecycle_stage": {
+            "enum": [
+              "灵感/选题",
+              "AI生成",
+              "人工编辑",
+              "待审核",
+              "已发布",
+              "数据采集中",
+              "已分析",
+              "可复用",
+              "未知"
+            ],
+            "title": "Lifecycle Stage",
+            "type": "string"
+          },
+          "risk_scans": {
+            "items": {
+              "$ref": "#/components/schemas/ContentRiskRecordRead"
+            },
+            "title": "Risk Scans",
+            "type": "array"
+          },
+          "snapshot_trend": {
+            "$ref": "#/components/schemas/ContentSnapshotTrendRead"
+          },
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotRead"
+            },
+            "title": "Snapshots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "content",
+          "lifecycle_stage",
+          "snapshots",
+          "snapshot_trend",
+          "analysis_runs",
+          "risk_scans",
+          "generation_records"
+        ],
+        "title": "ContentDetailRead",
+        "type": "object"
+      },
+      "ContentGenerationRecordRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_style_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Style Version"
+          },
+          "adoption_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adoption Status"
+          },
+          "column_override_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Override Version"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "confirmed_facts_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Facts Version"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "final_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Result"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "cover",
+            "title": "Kind",
+            "type": "string"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "modification_magnitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modification Magnitude"
+          },
+          "original_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Result"
+          },
+          "preset_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preset Version"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "viral_reference_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Viral Reference Count"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "provider",
+          "model_id",
+          "contract_version",
+          "account_style_version",
+          "column_override_version",
+          "confirmed_facts_version",
+          "viral_reference_count",
+          "preset_version",
+          "original_result",
+          "final_result",
+          "adoption_status",
+          "modification_magnitude",
+          "created_at",
+          "completed_at"
+        ],
+        "title": "ContentGenerationRecordRead",
+        "type": "object"
+      },
+      "ContentListItemRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "account_name": {
+            "title": "Account Name",
+            "type": "string"
+          },
+          "analysis_status": {
+            "enum": [
+              "not_requested",
+              "pending",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Analysis Status",
+            "type": "string"
+          },
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "column_campaign_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Name"
+          },
+          "content_type": {
+            "enum": [
+              "video",
+              "image_text"
+            ],
+            "title": "Content Type",
+            "type": "string"
+          },
+          "cover": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssetRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_completeness": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Data Completeness",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "latest_maturity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "1h",
+                  "24h",
+                  "72h",
+                  "7d"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Maturity"
+          },
+          "lifecycle_status": {
+            "enum": [
+              "draft",
+              "published",
+              "archived"
+            ],
+            "title": "Lifecycle Status",
+            "type": "string"
+          },
+          "platform": {
+            "enum": [
+              "douyin",
+              "xiaohongshu"
+            ],
+            "title": "Platform",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "risk_status": {
+            "enum": [
+              "not_scanned",
+              "pending",
+              "clear",
+              "low",
+              "medium",
+              "high",
+              "failed"
+            ],
+            "title": "Risk Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "platform",
+          "account_id",
+          "account_name",
+          "column_campaign_id",
+          "column_campaign_name",
+          "content_type",
+          "lifecycle_status",
+          "published_at",
+          "latest_maturity",
+          "data_completeness",
+          "analysis_status",
+          "risk_status",
+          "cover"
+        ],
+        "title": "ContentListItemRead",
+        "type": "object"
+      },
+      "ContentListPageRead": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItemRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "minimum": 0.0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size",
+          "pages"
+        ],
+        "title": "ContentListPageRead",
+        "type": "object"
+      },
       "ContentRead": {
         "properties": {
           "account_id": {
@@ -1882,6 +2316,199 @@
           "assets"
         ],
         "title": "ContentRead",
+        "type": "object"
+      },
+      "ContentRiskRecordRead": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "embedding_model_id": {
+            "title": "Embedding Model Id",
+            "type": "string"
+          },
+          "embedding_version": {
+            "title": "Embedding Version",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "evidence_version": {
+            "title": "Evidence Version",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "node": {
+            "enum": [
+              "after_ingestion",
+              "after_generation",
+              "before_publication"
+            ],
+            "title": "Node",
+            "type": "string"
+          },
+          "ocr_model_id": {
+            "title": "Ocr Model Id",
+            "type": "string"
+          },
+          "ocr_provider": {
+            "title": "Ocr Provider",
+            "type": "string"
+          },
+          "previous_scan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Scan Id"
+          },
+          "rag_model_version": {
+            "title": "Rag Model Version",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RiskScanOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "string"
+          },
+          "scanner_version": {
+            "title": "Scanner Version",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled",
+              "retrying"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "previous_scan_id",
+          "status",
+          "node",
+          "result",
+          "error_code",
+          "diagnostics",
+          "rule_version",
+          "evidence_version",
+          "embedding_model_id",
+          "embedding_version",
+          "rag_model_version",
+          "scanner_version",
+          "ocr_provider",
+          "ocr_model_id",
+          "created_at"
+        ],
+        "title": "ContentRiskRecordRead",
+        "type": "object"
+      },
+      "ContentSnapshotTrendPointRead": {
+        "additionalProperties": false,
+        "properties": {
+          "collected_at": {
+            "format": "date-time",
+            "title": "Collected At",
+            "type": "string"
+          },
+          "normalized_value": {
+            "title": "Normalized Value",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "collected_at",
+          "normalized_value"
+        ],
+        "title": "ContentSnapshotTrendPointRead",
+        "type": "object"
+      },
+      "ContentSnapshotTrendRead": {
+        "additionalProperties": false,
+        "properties": {
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "metric_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metric Key"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ContentSnapshotTrendPointRead"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "eligible",
+          "reason",
+          "metric_key",
+          "points"
+        ],
+        "title": "ContentSnapshotTrendRead",
         "type": "object"
       },
       "ContentType": {
@@ -16110,6 +16737,341 @@
         "summary": "Read Weekly Retention",
         "tags": [
           "analytics"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/contents": {
+      "get": {
+        "operationId": "list_workspace_contents_v1_workspaces__workspace_id__contents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "platform",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Platform"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Platform"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "column_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Column Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "content_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ContentType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(draft|published|archived)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maturity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(1h|24h|72h|7d)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Maturity"
+            }
+          },
+          {
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 300,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "pattern": "^(newest|oldest|title_asc|title_desc|published_desc)$",
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric Key"
+            }
+          },
+          {
+            "in": "query",
+            "name": "required_metric_keys",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Required Metric Keys"
+            }
+          },
+          {
+            "in": "query",
+            "name": "attention",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "candidate",
+                    "anomaly"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Attention"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentListPageRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Workspace Contents",
+        "tags": [
+          "contents"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/contents/{content_id}/detail": {
+      "get": {
+        "operationId": "read_workspace_content_detail_v1_workspaces__workspace_id__contents__content_id__detail_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "content_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Content Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContentDetailRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Workspace Content Detail",
+        "tags": [
+          "contents"
         ]
       }
     },

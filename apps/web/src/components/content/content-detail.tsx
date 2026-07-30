@@ -7,7 +7,13 @@ import { ContentData, deleteContent, updateContent, uploadContentAsset } from "@
 
 export type ContentDetailData = ContentData;
 
-export function ContentDetail({ initialContent }: { initialContent: ContentDetailData }) {
+export function ContentDetail({
+  initialContent,
+  embedded = false,
+}: {
+  initialContent: ContentDetailData;
+  embedded?: boolean;
+}) {
   const [content, setContent] = useState(initialContent);
   const [title, setTitle] = useState(initialContent.title);
   const [body, setBody] = useState(initialContent.body);
@@ -69,9 +75,8 @@ export function ContentDetail({ initialContent }: { initialContent: ContentDetai
         : "当前草稿";
   const cover = content.assets.find((asset) => asset.category === "cover");
 
-  return (
-    <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-      <div className="mx-auto max-w-6xl space-y-6">
+  const bodyContent = (
+      <div className={embedded ? "space-y-6" : "mx-auto max-w-6xl space-y-6"}>
         <header className="rounded-3xl border border-slate-800 bg-slate-900 p-7">
           <div className="flex flex-wrap items-center gap-3 text-sm text-slate-400">
             <span>{content.platform === "douyin" ? "抖音" : "小红书"} · {content.account_name}</span>
@@ -119,6 +124,12 @@ export function ContentDetail({ initialContent }: { initialContent: ContentDetai
           </aside>
         </div>
       </div>
-    </main>
   );
+  return embedded
+    ? bodyContent
+    : (
+        <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
+          {bodyContent}
+        </main>
+      );
 }

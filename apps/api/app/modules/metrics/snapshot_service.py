@@ -210,6 +210,49 @@ class SnapshotService:
             timedelta(seconds=snapshot.age_seconds) for snapshot in snapshots
         )
 
+    def read_payload(
+        self,
+        snapshot: DataSnapshot,
+        *,
+        completeness: SnapshotCompleteness | None = None,
+        values: list[SnapshotMetricValue] | None = None,
+    ) -> dict[str, object]:
+        resolved_completeness = (
+            completeness
+            if completeness is not None
+            else self.completeness(snapshot.content_id)
+        )
+        resolved_values = values if values is not None else self.values(snapshot.id)
+        return {
+            "id": snapshot.id,
+            "workspace_id": snapshot.workspace_id,
+            "content_id": snapshot.content_id,
+            "platform": snapshot.platform.value,
+            "content_type": snapshot.content_type.value,
+            "collected_at": snapshot.collected_at,
+            "age_seconds": snapshot.age_seconds,
+            "maturity_bucket": snapshot.maturity_bucket,
+            "source": snapshot.source.value,
+            "confirmed": snapshot.confirmed,
+            "confirmed_at": snapshot.confirmed_at,
+            "original_screenshot_asset_id": snapshot.original_screenshot_asset_id,
+            "metrics": [
+                {
+                    "key": value.metric_key,
+                    "raw_value": value.raw_value,
+                    "normalized_value": value.normalized_value,
+                    "ocr_confidence": value.ocr_confidence,
+                    "eligible_for_benchmark": value.eligible_for_benchmark,
+                }
+                for value in resolved_values
+            ],
+            "completeness": {
+                "observed": list(resolved_completeness.observed),
+                "missing": list(resolved_completeness.missing),
+                "ratio": resolved_completeness.ratio,
+            },
+        }
+
     def confirm(self, content_id: UUID, snapshot_id: UUID) -> DataSnapshot:
         require_permission(self._context.role, Permission.WRITE_CONTENT)
         self._content(content_id)

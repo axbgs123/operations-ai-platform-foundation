@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_session
 from app.modules.analysis.service import AnalysisService, account_auto_analysis_enabled
 from app.modules.analysis.tasks import get_auto_analysis_enqueuer
-from app.modules.metrics.models import DataSnapshot, SnapshotSource
+from app.modules.metrics.models import SnapshotSource
 from app.modules.metrics.schemas import SnapshotCreate, SnapshotRead
 from app.modules.metrics.snapshot_service import SnapshotService
 from app.modules.workspace.auth import InviteAuthService
@@ -39,39 +39,6 @@ def _service(
     return SnapshotService(session, context)
 
 
-def _payload(service: SnapshotService, snapshot: DataSnapshot) -> dict:
-    completeness = service.completeness(snapshot.content_id)
-    return {
-        "id": snapshot.id,
-        "workspace_id": snapshot.workspace_id,
-        "content_id": snapshot.content_id,
-        "platform": snapshot.platform.value,
-        "content_type": snapshot.content_type.value,
-        "collected_at": snapshot.collected_at,
-        "age_seconds": snapshot.age_seconds,
-        "maturity_bucket": snapshot.maturity_bucket,
-        "source": snapshot.source.value,
-        "confirmed": snapshot.confirmed,
-        "confirmed_at": snapshot.confirmed_at,
-        "original_screenshot_asset_id": snapshot.original_screenshot_asset_id,
-        "metrics": [
-            {
-                "key": value.metric_key,
-                "raw_value": value.raw_value,
-                "normalized_value": value.normalized_value,
-                "ocr_confidence": value.ocr_confidence,
-                "eligible_for_benchmark": value.eligible_for_benchmark,
-            }
-            for value in service.values(snapshot.id)
-        ],
-        "completeness": {
-            "observed": list(completeness.observed),
-            "missing": list(completeness.missing),
-            "ratio": completeness.ratio,
-        },
-    }
-
-
 @router.post("", response_model=SnapshotRead, status_code=201)
 def create_snapshot(
     content_id: UUID,
@@ -96,7 +63,7 @@ def create_snapshot(
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     session.commit()
-    return _payload(service, snapshot)
+    return service.read_payload(snapshot)
 
 
 @router.get("", response_model=list[SnapshotRead])
@@ -112,7 +79,7 @@ def list_snapshots(
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return [_payload(service, snapshot) for snapshot in snapshots]
+    return [service.read_payload(snapshot) for snapshot in snapshots]
 
 
 @router.get("/{snapshot_id}", response_model=SnapshotRead)
@@ -129,7 +96,7 @@ def read_snapshot(
         raise HTTPException(status_code=403, detail="permission denied") from error
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
-    return _payload(service, snapshot)
+    return service.read_payload(snapshot)
 
 
 @router.post("/{snapshot_id}/confirm", response_model=SnapshotRead)
@@ -169,4 +136,4 @@ def confirm_snapshot(
     session.commit()
     if analysis_run is not None and should_enqueue:
         background_tasks.add_task(auto_enqueuer, analysis_run.id)
-    return _payload(service, snapshot)
+    return service.read_payload(snapshot)

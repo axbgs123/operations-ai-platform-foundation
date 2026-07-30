@@ -9,7 +9,10 @@ from app.modules.analysis.viral_router import router as viral_router
 from app.modules.analysis.router import router as analysis_router
 from app.modules.analytics.analytics_router import router as analytics_router
 from app.modules.content.account_router import router as account_router
-from app.modules.content.router import router as content_router
+from app.modules.content.router import (
+    router as content_router,
+    workspace_content_router,
+)
 from app.modules.demo.router import router as demo_router
 from app.modules.exports.router import (
     restore_router,
@@ -69,6 +72,7 @@ app.include_router(extension_router)
 app.include_router(extension_review_router)
 app.include_router(account_router)
 app.include_router(content_router)
+app.include_router(workspace_content_router)
 app.include_router(metrics_router)
 app.include_router(model_configs_router)
 app.include_router(model_usage_router)

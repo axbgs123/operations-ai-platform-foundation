@@ -34,13 +34,17 @@ export async function loadAccountDashboard(
 
 export function dashboardDrillDownHref(filter: DashboardFilter) {
   const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(filter)) {
-    if (Array.isArray(value)) {
-      value.forEach((item) => query.append(key, item));
-    } else if (value != null) {
-      query.set(key, value);
-    }
+  query.set("platform", filter.platform);
+  query.set("account", filter.account_id);
+  query.set("contentType", filter.content_type);
+  query.set("maturity", filter.maturity_bucket);
+  query.set("sort", "newest");
+  query.set("page", "1");
+  if (filter.metric_key) query.set("metric_key", filter.metric_key);
+  for (const key of filter.required_metric_keys ?? []) {
+    query.append("required_metric_keys", key);
   }
+  if (filter.attention) query.set("attention", filter.attention);
   return `/workspaces/${filter.workspace_id}/contents?${query}`;
 }
 

@@ -217,7 +217,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("renders evidence-led sections and makes every chart a filtered drill-down link", async () => {
+test("renders evidence-led sections and links charts into the scoped content library", async () => {
   render(<AccountDashboard accountId="account-1" workspaceId="workspace-1" />);
 
   expect(await screen.findByRole("heading", { name: "合成小红书账号" })).toBeInTheDocument();
@@ -230,8 +230,10 @@ test("renders evidence-led sections and makes every chart a filtered drill-down 
   const chartLink = screen.getByRole("link", { name: /查看曝光量趋势对应内容/ });
   expect(chartLink).toHaveAttribute(
     "href",
-    expect.stringContaining("account_id=account-1"),
+    expect.stringContaining("account=account-1"),
   );
+  expect(chartLink).toHaveAttribute("href", expect.stringContaining("contentType=image_text"));
+  expect(chartLink).toHaveAttribute("href", expect.stringContaining("maturity=24h"));
   expect(chartLink).toHaveAttribute(
     "href",
     expect.stringContaining("metric_key=impressions"),

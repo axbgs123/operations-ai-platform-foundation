@@ -1,7 +1,10 @@
+from __future__ import annotations
+
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
@@ -10,6 +13,7 @@ from app.modules.content.account_models import ColumnCampaign, Platform, Platfor
 from app.modules.content.account_service import AccountConfigurationService
 from app.modules.content.models import AssetCategory, Content, ContentAsset, ContentStatus
 from app.modules.metrics.models import ContentType
+from app.modules.metrics.models import DataSnapshot
 from app.modules.workspace.models import AuditLog
 from app.modules.workspace.permissions import Permission, require_permission
 
@@ -18,6 +22,10 @@ class ContentService:
     def __init__(self, session: Session, context: WorkspaceContext) -> None:
         self._session = session
         self._context = context
+
+    @property
+    def context(self) -> WorkspaceContext:
+        return self._context
 
     def _get(self, content_id: UUID, *, include_deleted: bool = False) -> Content:
         statement = select(Content).where(
@@ -157,6 +165,128 @@ class ContentService:
                 .order_by(Content.created_at)
             )
         )
+
+    def list_page(
+        self,
+        *,
+        platform: Platform | None,
+        account_id: UUID | None,
+        column_id: UUID | None,
+        content_type: ContentType | None,
+        status: ContentStatus | None,
+        maturity: str | None,
+        query: str | None,
+        sort: str,
+        page: int,
+        page_size: int,
+        allowed_content_ids: set[UUID] | None = None,
+    ) -> tuple[Sequence[Content], int]:
+        require_permission(self._context.role, Permission.READ_CONTENT)
+        if account_id is not None:
+            account = self._session.scalar(
+                select(PlatformAccount).where(
+                    PlatformAccount.id == account_id,
+                    PlatformAccount.workspace_id == self._context.workspace_id,
+                )
+            )
+            if account is None or (platform is not None and account.platform != platform):
+                raise LookupError("account not found")
+        if column_id is not None:
+            column = self._session.scalar(
+                select(ColumnCampaign).where(
+                    ColumnCampaign.id == column_id,
+                    ColumnCampaign.workspace_id == self._context.workspace_id,
+                )
+            )
+            if (
+                column is None
+                or (account_id is not None and column.account_id != account_id)
+            ):
+                raise LookupError("column or campaign not found")
+            column_account = self._session.scalar(
+                select(PlatformAccount).where(
+                    PlatformAccount.id == column.account_id,
+                    PlatformAccount.workspace_id == self._context.workspace_id,
+                )
+            )
+            if (
+                column_account is None
+                or (platform is not None and column_account.platform != platform)
+            ):
+                raise LookupError("column or campaign not found")
+
+        conditions = [
+            Content.workspace_id == self._context.workspace_id,
+            Content.deleted_at.is_(None),
+        ]
+        if allowed_content_ids is not None:
+            conditions.append(Content.id.in_(allowed_content_ids))
+        if platform is not None:
+            conditions.append(Content.platform == platform)
+        if account_id is not None:
+            conditions.append(Content.account_id == account_id)
+        if column_id is not None:
+            conditions.append(Content.column_campaign_id == column_id)
+        if content_type is not None:
+            conditions.append(Content.content_type == content_type)
+        if status is not None:
+            conditions.append(Content.status == status)
+        if query:
+            escaped = (
+                query.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            conditions.append(Content.title.ilike(f"%{escaped}%", escape="\\"))
+        if maturity is not None:
+            latest_maturity = (
+                select(DataSnapshot.maturity_bucket)
+                .where(
+                    DataSnapshot.workspace_id == self._context.workspace_id,
+                    DataSnapshot.content_id == Content.id,
+                    DataSnapshot.confirmed.is_(True),
+                )
+                .order_by(
+                    DataSnapshot.collected_at.desc(),
+                    DataSnapshot.id.desc(),
+                )
+                .limit(1)
+                .scalar_subquery()
+            )
+            conditions.append(latest_maturity == maturity)
+
+        total = self._session.scalar(
+            select(func.count()).select_from(Content).where(*conditions)
+        ) or 0
+        statement = select(Content).where(*conditions)
+        if sort == "newest":
+            statement = statement.order_by(
+                Content.created_at.desc(),
+                Content.id.desc(),
+            )
+        elif sort == "oldest":
+            statement = statement.order_by(
+                Content.created_at.asc(),
+                Content.id.asc(),
+            )
+        elif sort == "title_asc":
+            statement = statement.order_by(Content.title.asc(), Content.id.asc())
+        elif sort == "title_desc":
+            statement = statement.order_by(
+                Content.title.desc(),
+                Content.id.desc(),
+            )
+        else:
+            statement = statement.order_by(
+                Content.published_at.desc().nulls_last(),
+                Content.id.desc(),
+            )
+        items = list(
+            self._session.scalars(
+                statement.offset((page - 1) * page_size).limit(page_size)
+            )
+        )
+        return items, total
 
     def update(
         self,

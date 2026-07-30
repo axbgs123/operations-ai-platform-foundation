@@ -4,6 +4,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type ContentAssetData = components["schemas"]["AssetRead"];
 export type ContentData = components["schemas"]["ContentRead"];
+export type ContentListPageData =
+  components["schemas"]["ContentListPageRead"];
+export type ContentDetailData =
+  components["schemas"]["ContentDetailRead"];
 type AssetUploadGrant = components["schemas"]["AssetUploadGrantRead"];
 type AssetPresignRequest = components["schemas"]["AssetPresignRequest"];
 type ContentCreate = components["schemas"]["ContentCreate"];
@@ -25,6 +29,60 @@ async function contentRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function loadContent(contentId: string) {
   return contentRequest<ContentData>(`/v1/contents/${contentId}`);
+}
+
+export type ContentListQuery = {
+  platform?: "douyin" | "xiaohongshu";
+  account?: string;
+  column?: string;
+  contentType?: "video" | "image_text";
+  status?: "draft" | "published" | "archived";
+  maturity?: "1h" | "24h" | "72h" | "7d";
+  query?: string;
+  metricKey?: string;
+  requiredMetricKeys?: string[];
+  attention?: "candidate" | "anomaly";
+  sort: "newest" | "oldest" | "title_asc" | "title_desc" | "published_desc";
+  page: number;
+};
+
+export function loadWorkspaceContents(
+  workspaceId: string,
+  filters: ContentListQuery,
+  signal?: AbortSignal,
+) {
+  const query = new URLSearchParams({
+    sort: filters.sort,
+    page: String(filters.page),
+    page_size: "20",
+  });
+  if (filters.platform) query.set("platform", filters.platform);
+  if (filters.account) query.set("account_id", filters.account);
+  if (filters.column) query.set("column_id", filters.column);
+  if (filters.contentType) query.set("content_type", filters.contentType);
+  if (filters.status) query.set("status", filters.status);
+  if (filters.maturity) query.set("maturity", filters.maturity);
+  if (filters.query) query.set("query", filters.query);
+  if (filters.metricKey) query.set("metric_key", filters.metricKey);
+  for (const key of filters.requiredMetricKeys ?? []) {
+    query.append("required_metric_keys", key);
+  }
+  if (filters.attention) query.set("attention", filters.attention);
+  return contentRequest<ContentListPageData>(
+    `/v1/workspaces/${workspaceId}/contents?${query}`,
+    { signal },
+  );
+}
+
+export function loadContentDetail(
+  workspaceId: string,
+  contentId: string,
+  signal?: AbortSignal,
+) {
+  return contentRequest<ContentDetailData>(
+    `/v1/workspaces/${workspaceId}/contents/${contentId}/detail`,
+    { signal },
+  );
 }
 
 export function createContent(data: ContentCreate, csrfToken: string) {

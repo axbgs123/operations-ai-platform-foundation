@@ -1003,6 +1003,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Workspace Contents */
+        get: operations["list_workspace_contents_v1_workspaces__workspace_id__contents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/contents/{content_id}/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Workspace Content Detail */
+        get: operations["read_workspace_content_detail_v1_workspaces__workspace_id__contents__content_id__detail_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/deletion-confirmations": {
         parameters: {
             query?: never;
@@ -3003,6 +3037,136 @@ export interface components {
              */
             workspace_id: string;
         };
+        /** ContentDetailRead */
+        ContentDetailRead: {
+            /** Analysis Runs */
+            analysis_runs: components["schemas"]["AnalysisRunRead"][];
+            content: components["schemas"]["ContentRead"];
+            /** Generation Records */
+            generation_records: components["schemas"]["ContentGenerationRecordRead"][];
+            /**
+             * Lifecycle Stage
+             * @enum {string}
+             */
+            lifecycle_stage: "灵感/选题" | "AI生成" | "人工编辑" | "待审核" | "已发布" | "数据采集中" | "已分析" | "可复用" | "未知";
+            /** Risk Scans */
+            risk_scans: components["schemas"]["ContentRiskRecordRead"][];
+            snapshot_trend: components["schemas"]["ContentSnapshotTrendRead"];
+            /** Snapshots */
+            snapshots: components["schemas"]["SnapshotRead"][];
+        };
+        /** ContentGenerationRecordRead */
+        ContentGenerationRecordRead: {
+            /** Account Style Version */
+            account_style_version: string | null;
+            /** Adoption Status */
+            adoption_status: string | null;
+            /** Column Override Version */
+            column_override_version: string | null;
+            /** Completed At */
+            completed_at: string | null;
+            /** Confirmed Facts Version */
+            confirmed_facts_version: string | null;
+            /** Contract Version */
+            contract_version: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Final Result */
+            final_result: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "cover";
+            /** Model Id */
+            model_id: string;
+            /** Modification Magnitude */
+            modification_magnitude: number | null;
+            /** Original Result */
+            original_result: string | null;
+            /** Preset Version */
+            preset_version: string | null;
+            /** Provider */
+            provider: string;
+            /** Status */
+            status: string;
+            /** Viral Reference Count */
+            viral_reference_count: number | null;
+        };
+        /** ContentListItemRead */
+        ContentListItemRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Account Name */
+            account_name: string;
+            /**
+             * Analysis Status
+             * @enum {string}
+             */
+            analysis_status: "not_requested" | "pending" | "running" | "succeeded" | "failed";
+            /** Column Campaign Id */
+            column_campaign_id: string | null;
+            /** Column Campaign Name */
+            column_campaign_name: string | null;
+            /**
+             * Content Type
+             * @enum {string}
+             */
+            content_type: "video" | "image_text";
+            cover: components["schemas"]["AssetRead"] | null;
+            /** Data Completeness */
+            data_completeness: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Latest Maturity */
+            latest_maturity: ("1h" | "24h" | "72h" | "7d") | null;
+            /**
+             * Lifecycle Status
+             * @enum {string}
+             */
+            lifecycle_status: "draft" | "published" | "archived";
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Published At */
+            published_at: string | null;
+            /**
+             * Risk Status
+             * @enum {string}
+             */
+            risk_status: "not_scanned" | "pending" | "clear" | "low" | "medium" | "high" | "failed";
+            /** Title */
+            title: string;
+        };
+        /** ContentListPageRead */
+        ContentListPageRead: {
+            /** Items */
+            items: components["schemas"]["ContentListItemRead"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Pages */
+            pages: number;
+            /** Total */
+            total: number;
+        };
         /** ContentRead */
         ContentRead: {
             /**
@@ -3069,6 +3233,78 @@ export interface components {
              * Format: uuid
              */
             workspace_id: string;
+        };
+        /** ContentRiskRecordRead */
+        ContentRiskRecordRead: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Diagnostics */
+            diagnostics: string[];
+            /** Embedding Model Id */
+            embedding_model_id: string;
+            /** Embedding Version */
+            embedding_version: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Evidence Version */
+            evidence_version: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Node
+             * @enum {string}
+             */
+            node: "after_ingestion" | "after_generation" | "before_publication";
+            /** Ocr Model Id */
+            ocr_model_id: string;
+            /** Ocr Provider */
+            ocr_provider: string;
+            /** Previous Scan Id */
+            previous_scan_id: string | null;
+            /** Rag Model Version */
+            rag_model_version: string;
+            result: components["schemas"]["RiskScanOutput"] | null;
+            /** Rule Version */
+            rule_version: string;
+            /** Scanner Version */
+            scanner_version: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "retrying";
+        };
+        /** ContentSnapshotTrendPointRead */
+        ContentSnapshotTrendPointRead: {
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Normalized Value */
+            normalized_value: string;
+            /**
+             * Snapshot Id
+             * Format: uuid
+             */
+            snapshot_id: string;
+        };
+        /** ContentSnapshotTrendRead */
+        ContentSnapshotTrendRead: {
+            /** Eligible */
+            eligible: boolean;
+            /** Metric Key */
+            metric_key: string | null;
+            /** Points */
+            points: components["schemas"]["ContentSnapshotTrendPointRead"][];
+            /** Reason */
+            reason: string;
         };
         /**
          * ContentType
@@ -9015,6 +9251,87 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WeeklyRetention"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_workspace_contents_v1_workspaces__workspace_id__contents_get: {
+        parameters: {
+            query?: {
+                platform?: components["schemas"]["Platform"] | null;
+                account_id?: string | null;
+                column_id?: string | null;
+                content_type?: components["schemas"]["ContentType"] | null;
+                status?: string | null;
+                maturity?: string | null;
+                query?: string | null;
+                sort?: string;
+                page?: number;
+                page_size?: number;
+                metric_key?: string | null;
+                required_metric_keys?: string[] | null;
+                attention?: ("candidate" | "anomaly") | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentListPageRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_workspace_content_detail_v1_workspaces__workspace_id__contents__content_id__detail_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                content_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentDetailRead"];
                 };
             };
             /** @description Validation Error */
