@@ -5341,6 +5341,12 @@ export interface components {
              * Format: uuid
              */
             account_id: string;
+            /** Account Name */
+            account_name: string;
+            /** Column Campaign Id */
+            column_campaign_id: string | null;
+            /** Column Campaign Name */
+            column_campaign_name?: string | null;
             /**
              * Content Id
              * Format: uuid
@@ -5351,24 +5357,49 @@ export interface components {
              * @enum {string}
              */
             content_type: "video" | "image_text";
+            /**
+             * Evidence Status
+             * @enum {string}
+             */
+            evidence_status: "available" | "no_active_evidence" | "unavailable";
             /** Finding Count */
             finding_count: number;
+            /** Highest Severity */
+            highest_severity: ("low" | "medium" | "high") | null;
+            /** Lifecycle Status */
+            lifecycle_status: string;
+            /** Next Action */
+            next_action?: string | null;
+            /**
+             * Ocr Status
+             * @enum {string}
+             */
+            ocr_status: "not_run" | "succeeded" | "low_confidence" | "failed" | "unavailable";
             /**
              * Platform
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+            /** Rule Version */
+            rule_version?: string | null;
             /** Safe Summary */
             safe_summary: string;
             /** Scan Id */
             scan_id: string | null;
+            /** Scan Node */
+            scan_node: ("after_ingestion" | "after_generation" | "before_publication") | null;
             /** Scan Version */
             scan_version?: string | null;
             /**
              * Status
              * @enum {string}
              */
-            status: "not_scanned" | "scan_pending" | "high_risk" | "review_required" | "clear" | "scan_failed";
+            status: "pending_scan" | "high_risk_blocked" | "low_confidence_ocr" | "no_active_rag_evidence" | "modified_awaiting_rescan" | "manually_confirmed" | "review_required" | "scan_failed";
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** PreflightQueueRead */
         PreflightQueueRead: {
@@ -5376,11 +5407,24 @@ export interface components {
             account_id: string | null;
             /** Items */
             items: components["schemas"]["PreflightQueueItem"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Pages */
+            pages: number;
             /**
              * Platform
              * @enum {string}
              */
             platform: "douyin" | "xiaohongshu";
+            /**
+             * Sort
+             * @enum {string}
+             */
+            sort: "newest" | "oldest";
+            /** Status */
+            status: ("pending_scan" | "high_risk_blocked" | "low_confidence_ocr" | "no_active_rag_evidence" | "modified_awaiting_rescan" | "manually_confirmed" | "review_required" | "scan_failed") | null;
             /** Total */
             total: number;
         };
@@ -12514,6 +12558,10 @@ export interface operations {
             query: {
                 platform: "douyin" | "xiaohongshu";
                 account_id?: string | null;
+                status?: ("pending_scan" | "high_risk_blocked" | "low_confidence_ocr" | "no_active_rag_evidence" | "modified_awaiting_rescan" | "manually_confirmed" | "review_required" | "scan_failed") | null;
+                page?: number;
+                page_size?: number;
+                sort?: "newest" | "oldest";
             };
             header?: never;
             path: {

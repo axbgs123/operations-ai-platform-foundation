@@ -10,6 +10,8 @@ from app.modules.workbench.schemas import (
     AnalysisQueueSort,
     AnalysisQueueStatus,
     AnalysisQueueRead,
+    PreflightQueueSort,
+    PreflightQueueStatus,
     PreflightQueueRead,
     WorkbenchContextRead,
     WorkbenchOverviewRead,
@@ -132,6 +134,10 @@ def read_preflight_queue(
     platform: PlatformQuery,
     session: DatabaseSession,
     account_id: Annotated[UUID | None, Query()] = None,
+    status: Annotated[PreflightQueueStatus | None, Query()] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    sort: Annotated[PreflightQueueSort, Query()] = "newest",
     session_token: Annotated[
         str | None,
         Cookie(alias="session"),
@@ -142,6 +148,10 @@ def read_preflight_queue(
         return service.preflight_queue(
             Platform(platform),
             account_id=account_id,
+            status=status,
+            page=page,
+            page_size=page_size,
+            sort=sort,
         )
     except LookupError as error:
         raise HTTPException(

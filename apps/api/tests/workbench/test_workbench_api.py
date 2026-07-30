@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from uuid import UUID
@@ -345,7 +345,10 @@ def test_queues_require_platform_and_keep_platform_rows_separate() -> None:
         assert {row["content_id"] for row in douyin_preflight.json()["items"]} == {
             seeded["douyin_content"]["id"]
         }
-        assert douyin_preflight.json()["items"][0]["status"] == "high_risk"
+        assert (
+            douyin_preflight.json()["items"][0]["status"]
+            == "high_risk_blocked"
+        )
 
         xiaohongshu_preflight = client.get(
             f"/v1/workspaces/{workspace_id}/workbench/preflight-queue",
@@ -626,3 +629,215 @@ def test_analysis_queue_is_stably_paginated_and_status_scoped() -> None:
 
         assert FORBIDDEN_RESPONSE_KEYS.isdisjoint(_keys(first_page))
         assert "不得进入分析队列响应的完整文案" not in first.text
+
+
+def test_preflight_queue_is_bounded_stable_and_status_scoped() -> None:
+    with _seeded_workbench() as (client, engine, seeded):
+        workspace_id = seeded["workspace"]["workspace_id"]
+        expected_pending_ids: set[str] = set()
+        fixed_created_at = datetime(2026, 7, 29, 9, 0, tzinfo=UTC)
+        with Session(engine) as session:
+            source = session.get(Content, UUID(seeded["douyin_content"]["id"]))
+            assert source is not None
+            for index in range(3):
+                content = Content(
+                    workspace_id=source.workspace_id,
+                    account_id=source.account_id,
+                    platform=source.platform,
+                    title=f"发布前分页内容 {index}",
+                    body="PRIVATE_PREFLIGHT_BODY must never leave the queue",
+                    objective_profile_id=source.objective_profile_id,
+                    benchmark_profile_id=source.benchmark_profile_id,
+                    content_type=source.content_type,
+                )
+                content.created_at = fixed_created_at
+                session.add(content)
+                session.flush()
+                expected_pending_ids.add(str(content.id))
+            session.commit()
+
+        first = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/preflight-queue",
+            params={
+                "platform": "douyin",
+                "status": "pending_scan",
+                "sort": "newest",
+                "page": 1,
+                "page_size": 2,
+            },
+        )
+        assert first.status_code == 200, first.text
+        first_page = first.json()
+        assert set(first_page) == {
+            "platform",
+            "account_id",
+            "status",
+            "sort",
+            "page",
+            "page_size",
+            "total",
+            "pages",
+            "items",
+        }
+        assert first_page["status"] == "pending_scan"
+        assert first_page["page"] == 1
+        assert first_page["page_size"] == 2
+        assert first_page["total"] == 3
+        assert len(first_page["items"]) == 2
+
+        second = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/preflight-queue",
+            params={
+                "platform": "douyin",
+                "status": "pending_scan",
+                "sort": "newest",
+                "page": 2,
+                "page_size": 2,
+            },
+        )
+        assert second.status_code == 200, second.text
+        returned_ids = [
+            item["content_id"]
+            for item in first_page["items"] + second.json()["items"]
+        ]
+        assert set(returned_ids) == expected_pending_ids
+        assert len(returned_ids) == len(set(returned_ids))
+        assert returned_ids == sorted(returned_ids, reverse=True)
+
+        for status in (
+            "pending_scan",
+            "high_risk_blocked",
+            "low_confidence_ocr",
+            "no_active_rag_evidence",
+            "modified_awaiting_rescan",
+            "manually_confirmed",
+            "review_required",
+            "scan_failed",
+        ):
+            response = client.get(
+                f"/v1/workspaces/{workspace_id}/workbench/preflight-queue",
+                params={"platform": "douyin", "status": status},
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["status"] == status
+
+        too_large = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/preflight-queue",
+            params={"platform": "douyin", "page_size": 101},
+        )
+        assert too_large.status_code == 422
+        invalid_status = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/preflight-queue",
+            params={"platform": "douyin", "status": "safe"},
+        )
+        assert invalid_status.status_code == 422
+        assert FORBIDDEN_RESPONSE_KEYS.isdisjoint(_keys(first_page))
+        assert "PRIVATE_PREFLIGHT_BODY" not in first.text
+
+
+def test_preflight_queue_derives_fail_closed_review_states() -> None:
+    with _seeded_workbench() as (client, engine, seeded):
+        workspace_id = seeded["workspace"]["workspace_id"]
+        expected: dict[str, str] = {}
+        with Session(engine) as session:
+            source = session.get(Content, UUID(seeded["douyin_content"]["id"]))
+            assert source is not None
+
+            def add_scanned(
+                label: str,
+                expected_status: str,
+                *,
+                diagnostics: list[str] | None = None,
+                findings: list[dict[str, object]] | None = None,
+                result_error: str | None = None,
+                modified: bool = False,
+            ) -> None:
+                content = Content(
+                    workspace_id=source.workspace_id,
+                    account_id=source.account_id,
+                    platform=source.platform,
+                    title=f"合成发布前状态 {label}",
+                    body="人工合成且不应出现在队列响应的正文",
+                    objective_profile_id=source.objective_profile_id,
+                    benchmark_profile_id=source.benchmark_profile_id,
+                    content_type=source.content_type,
+                )
+                session.add(content)
+                session.flush()
+                scan = RiskScan(
+                    workspace_id=source.workspace_id,
+                    account_id=source.account_id,
+                    content_id=content.id,
+                    platform=source.platform,
+                    node=RiskScanNode.BEFORE_PUBLICATION,
+                    status=RiskScanStatus.SUCCEEDED,
+                    idempotency_key=f"task-8-{label}",
+                    input_fingerprint=(label[0] * 64),
+                    input_snapshot={"synthetic": True},
+                    rule_version="rules-v1",
+                    evidence_version="evidence-v1",
+                    embedding_model_id="mock-embedding",
+                    embedding_version="embedding-v1",
+                    embedding_dimension=3,
+                    rag_model_version="mock-rag-v1",
+                    scanner_version="scanner-v1",
+                    result={
+                        "findings": findings or [],
+                        "ocr_status": "succeeded",
+                        **({"error_code": result_error} if result_error else {}),
+                    },
+                    diagnostics=diagnostics or [],
+                    requested_by=None,
+                )
+                session.add(scan)
+                session.flush()
+                if modified:
+                    content.updated_at = scan.created_at + timedelta(microseconds=1)
+                expected[str(content.id)] = expected_status
+
+            add_scanned(
+                "low-ocr",
+                "low_confidence_ocr",
+                diagnostics=["OCR_LOW_CONFIDENCE"],
+            )
+            add_scanned(
+                "no-evidence",
+                "no_active_rag_evidence",
+                result_error="NO_ACTIVE_RISK_EVIDENCE",
+            )
+            add_scanned(
+                "manual",
+                "manually_confirmed",
+                diagnostics=["HUMAN_CONFIRMED"],
+            )
+            add_scanned("review", "review_required")
+            add_scanned(
+                "modified",
+                "modified_awaiting_rescan",
+                modified=True,
+            )
+            add_scanned(
+                "modified-high-risk",
+                "high_risk_blocked",
+                findings=[
+                    {
+                        "risk_type": "synthetic_high_risk",
+                        "severity": "high",
+                        "requires_human_review": True,
+                    }
+                ],
+                modified=True,
+            )
+            session.commit()
+
+        response = client.get(
+            f"/v1/workspaces/{workspace_id}/workbench/preflight-queue",
+            params={"platform": "douyin", "page_size": 100},
+        )
+        assert response.status_code == 200, response.text
+        by_id = {
+            item["content_id"]: item["status"]
+            for item in response.json()["items"]
+        }
+        assert {content_id: by_id[content_id] for content_id in expected} == expected
+        assert "人工合成且不应出现在队列响应的正文" not in response.text

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -15,6 +16,17 @@ AnalysisQueueStatus = Literal[
     "suggestion_pending",
 ]
 AnalysisQueueSort = Literal["newest", "oldest"]
+PreflightQueueStatus = Literal[
+    "pending_scan",
+    "high_risk_blocked",
+    "low_confidence_ocr",
+    "no_active_rag_evidence",
+    "modified_awaiting_rescan",
+    "manually_confirmed",
+    "review_required",
+    "scan_failed",
+]
+PreflightQueueSort = Literal["newest", "oldest"]
 
 
 class StrictReadModel(BaseModel):
@@ -124,24 +136,39 @@ class AnalysisQueueRead(StrictReadModel):
 class PreflightQueueItem(StrictReadModel):
     content_id: UUID
     account_id: UUID
+    account_name: str = Field(min_length=1, max_length=120)
+    column_campaign_id: UUID | None
+    column_campaign_name: str | None = Field(default=None, max_length=120)
     platform: PlatformName
     content_type: Literal["video", "image_text"]
-    status: Literal[
-        "not_scanned",
-        "scan_pending",
-        "high_risk",
-        "review_required",
-        "clear",
-        "scan_failed",
-    ]
+    lifecycle_status: str = Field(min_length=1, max_length=80)
+    status: PreflightQueueStatus
     scan_id: UUID | None
+    scan_node: Literal["after_ingestion", "after_generation", "before_publication"] | None
     finding_count: int = Field(ge=0, le=10_000)
+    highest_severity: Literal["low", "medium", "high"] | None
+    ocr_status: Literal[
+        "not_run",
+        "succeeded",
+        "low_confidence",
+        "failed",
+        "unavailable",
+    ]
+    evidence_status: Literal["available", "no_active_evidence", "unavailable"]
+    rule_version: str | None = Field(default=None, max_length=160)
     scan_version: str | None = Field(default=None, max_length=160)
+    updated_at: datetime
     safe_summary: str = Field(min_length=1, max_length=200)
+    next_action: str | None = Field(default=None, min_length=1, max_length=160)
 
 
 class PreflightQueueRead(StrictReadModel):
     platform: PlatformName
     account_id: UUID | None
+    status: PreflightQueueStatus | None
+    sort: PreflightQueueSort
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
     total: int = Field(ge=0)
+    pages: int = Field(ge=0)
     items: list[PreflightQueueItem]

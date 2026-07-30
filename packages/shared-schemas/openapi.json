@@ -7855,6 +7855,36 @@
             "title": "Account Id",
             "type": "string"
           },
+          "account_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Account Name",
+            "type": "string"
+          },
+          "column_campaign_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Id"
+          },
+          "column_campaign_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Column Campaign Name"
+          },
           "content_id": {
             "format": "uuid",
             "title": "Content Id",
@@ -7868,11 +7898,66 @@
             "title": "Content Type",
             "type": "string"
           },
+          "evidence_status": {
+            "enum": [
+              "available",
+              "no_active_evidence",
+              "unavailable"
+            ],
+            "title": "Evidence Status",
+            "type": "string"
+          },
           "finding_count": {
             "maximum": 10000.0,
             "minimum": 0.0,
             "title": "Finding Count",
             "type": "integer"
+          },
+          "highest_severity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Highest Severity"
+          },
+          "lifecycle_status": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Lifecycle Status",
+            "type": "string"
+          },
+          "next_action": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Action"
+          },
+          "ocr_status": {
+            "enum": [
+              "not_run",
+              "succeeded",
+              "low_confidence",
+              "failed",
+              "unavailable"
+            ],
+            "title": "Ocr Status",
+            "type": "string"
           },
           "platform": {
             "enum": [
@@ -7881,6 +7966,18 @@
             ],
             "title": "Platform",
             "type": "string"
+          },
+          "rule_version": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Version"
           },
           "safe_summary": {
             "maxLength": 200,
@@ -7900,6 +7997,22 @@
             ],
             "title": "Scan Id"
           },
+          "scan_node": {
+            "anyOf": [
+              {
+                "enum": [
+                  "after_ingestion",
+                  "after_generation",
+                  "before_publication"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scan Node"
+          },
           "scan_version": {
             "anyOf": [
               {
@@ -7914,25 +8027,40 @@
           },
           "status": {
             "enum": [
-              "not_scanned",
-              "scan_pending",
-              "high_risk",
+              "pending_scan",
+              "high_risk_blocked",
+              "low_confidence_ocr",
+              "no_active_rag_evidence",
+              "modified_awaiting_rescan",
+              "manually_confirmed",
               "review_required",
-              "clear",
               "scan_failed"
             ],
             "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
             "type": "string"
           }
         },
         "required": [
           "content_id",
           "account_id",
+          "account_name",
+          "column_campaign_id",
           "platform",
           "content_type",
+          "lifecycle_status",
           "status",
           "scan_id",
+          "scan_node",
           "finding_count",
+          "highest_severity",
+          "ocr_status",
+          "evidence_status",
+          "updated_at",
           "safe_summary"
         ],
         "title": "PreflightQueueItem",
@@ -7960,6 +8088,22 @@
             "title": "Items",
             "type": "array"
           },
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "pages": {
+            "minimum": 0.0,
+            "title": "Pages",
+            "type": "integer"
+          },
           "platform": {
             "enum": [
               "douyin",
@@ -7967,6 +8111,35 @@
             ],
             "title": "Platform",
             "type": "string"
+          },
+          "sort": {
+            "enum": [
+              "newest",
+              "oldest"
+            ],
+            "title": "Sort",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pending_scan",
+                  "high_risk_blocked",
+                  "low_confidence_ocr",
+                  "no_active_rag_evidence",
+                  "modified_awaiting_rescan",
+                  "manually_confirmed",
+                  "review_required",
+                  "scan_failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
           },
           "total": {
             "minimum": 0.0,
@@ -7977,7 +8150,12 @@
         "required": [
           "platform",
           "account_id",
+          "status",
+          "sort",
+          "page",
+          "page_size",
           "total",
+          "pages",
           "items"
         ],
         "title": "PreflightQueueRead",
@@ -24279,6 +24457,69 @@
                 }
               ],
               "title": "Account Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pending_scan",
+                    "high_risk_blocked",
+                    "low_confidence_ocr",
+                    "no_active_rag_evidence",
+                    "modified_awaiting_rescan",
+                    "manually_confirmed",
+                    "review_required",
+                    "scan_failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "newest",
+              "enum": [
+                "newest",
+                "oldest"
+              ],
+              "title": "Sort",
+              "type": "string"
             }
           },
           {

@@ -31,6 +31,8 @@ from app.modules.workbench.schemas import (
     AnalysisQueueStatus,
     PreflightQueueItem,
     PreflightQueueRead,
+    PreflightQueueSort,
+    PreflightQueueStatus,
     WorkbenchAccountCard,
     WorkbenchAccountOption,
     WorkbenchAttentionCounts,
@@ -474,12 +476,37 @@ class WorkbenchService:
         platform: Platform,
         *,
         account_id: UUID | None,
+        status: PreflightQueueStatus | None,
+        page: int,
+        page_size: int,
+        sort: PreflightQueueSort,
     ) -> PreflightQueueRead:
         if account_id is not None:
             self._account(account_id, platform)
         contents = self._contents(platform, account_id)
+        content_created_at = {
+            content.id: content.created_at for content in contents
+        }
         latest = self._latest_risk_scans([content.id for content in contents])
-        items: list[PreflightQueueItem] = []
+        account_names = {
+            account.id: account.name
+            for account in self._accounts(platform, account_id)
+        }
+        column_ids = {
+            content.column_campaign_id
+            for content in contents
+            if content.column_campaign_id is not None
+        }
+        column_names = {
+            column.id: column.name
+            for column in self._session.scalars(
+                select(ColumnCampaign).where(
+                    ColumnCampaign.workspace_id == self._context.workspace_id,
+                    ColumnCampaign.id.in_(column_ids),
+                )
+            )
+        } if column_ids else {}
+        all_items: list[PreflightQueueItem] = []
         for content in contents:
             scan = latest.get(content.id)
             findings = self._findings(scan)
@@ -488,59 +515,160 @@ class WorkbenchService:
                 for finding in findings
                 if isinstance(finding.get("severity"), str)
             }
-            requires_review = any(
-                finding.get("requires_human_review") is True for finding in findings
+            diagnostics = (
+                scan.diagnostics
+                if scan is not None and isinstance(scan.diagnostics, list)
+                else []
             )
-            status: Literal[
-                "not_scanned",
-                "scan_pending",
-                "high_risk",
-                "review_required",
-                "clear",
-                "scan_failed",
-            ]
+            result = (
+                scan.result
+                if scan is not None and isinstance(scan.result, dict)
+                else {}
+            )
+            result_error = result.get("error_code")
+            item_status: PreflightQueueStatus
+            next_action: str
             if scan is None:
-                status = "not_scanned"
+                item_status = "pending_scan"
                 summary = "尚未执行发布前检查"
+                next_action = "执行发布前检查"
             elif scan.status in {
                 RiskScanStatus.QUEUED,
                 RiskScanStatus.RUNNING,
                 RiskScanStatus.RETRYING,
             }:
-                status = "scan_pending"
+                item_status = "pending_scan"
                 summary = "发布前检查正在处理"
+                next_action = "等待检查完成"
             elif scan.status in {
                 RiskScanStatus.FAILED,
                 RiskScanStatus.CANCELLED,
             }:
-                status = "scan_failed"
+                item_status = "scan_failed"
                 summary = "发布前检查未完成"
+                next_action = "查看安全错误码并重试"
             elif "high" in severities:
-                status = "high_risk"
+                item_status = "high_risk_blocked"
                 summary = f"检测到 {len(findings)} 项风险，其中包含高风险"
-            elif requires_review:
-                status = "review_required"
-                summary = f"检测到 {len(findings)} 项需要人工复核的问题"
+                next_action = "修改内容后重新检查"
+            elif content.updated_at > scan.created_at:
+                item_status = "modified_awaiting_rescan"
+                summary = "内容在最近一次检查后已修改"
+                next_action = "修改后重新检查"
+            elif "HUMAN_CONFIRMED" in diagnostics:
+                item_status = "manually_confirmed"
+                summary = "最近一次检查已由人工确认"
+                next_action = "查看确认记录"
+            elif "OCR_LOW_CONFIDENCE" in diagnostics:
+                item_status = "low_confidence_ocr"
+                summary = "封面文字识别置信度较低"
+                next_action = "人工核对封面并复检"
+            elif (
+                scan.error_code == "NO_ACTIVE_RISK_EVIDENCE"
+                or result_error == "NO_ACTIVE_RISK_EVIDENCE"
+                or "NO_ACTIVE_RISK_EVIDENCE" in diagnostics
+            ):
+                item_status = "no_active_rag_evidence"
+                summary = "未检索到当前有效的风控证据"
+                next_action = "人工复核确定性规则结果"
             else:
-                status = "clear"
-                summary = "当前扫描未发现高风险问题"
-            items.append(
+                item_status = "review_required"
+                summary = f"检测到 {len(findings)} 项需要人工复核的问题"
+                next_action = "完成发布前人工确认"
+
+            highest_severity: Literal["low", "medium", "high"] | None = None
+            for candidate in ("high", "medium", "low"):
+                if candidate in severities:
+                    highest_severity = cast(
+                        Literal["low", "medium", "high"],
+                        candidate,
+                    )
+                    break
+            ocr_result = result.get("ocr_status")
+            if scan is None:
+                ocr_status = "not_run"
+            elif scan.status in {
+                RiskScanStatus.FAILED,
+                RiskScanStatus.CANCELLED,
+            } or ocr_result == "failed":
+                ocr_status = "failed"
+            elif "OCR_LOW_CONFIDENCE" in diagnostics:
+                ocr_status = "low_confidence"
+            elif ocr_result == "succeeded":
+                ocr_status = "succeeded"
+            else:
+                ocr_status = "unavailable"
+            if item_status == "no_active_rag_evidence":
+                evidence_status = "no_active_evidence"
+            elif scan is None or item_status == "scan_failed":
+                evidence_status = "unavailable"
+            else:
+                evidence_status = "available"
+            all_items.append(
                 PreflightQueueItem(
                     content_id=content.id,
                     account_id=content.account_id,
+                    account_name=account_names[content.account_id],
+                    column_campaign_id=content.column_campaign_id,
+                    column_campaign_name=(
+                        column_names.get(content.column_campaign_id)
+                        if content.column_campaign_id is not None
+                        else None
+                    ),
                     platform=content.platform.value,
                     content_type=content.content_type.value,
-                    status=status,
+                    lifecycle_status=content.status.value,
+                    status=item_status,
                     scan_id=scan.id if scan is not None else None,
+                    scan_node=scan.node.value if scan is not None else None,
                     finding_count=min(len(findings), 10_000),
+                    highest_severity=highest_severity,
+                    ocr_status=cast(
+                        Literal[
+                            "not_run",
+                            "succeeded",
+                            "low_confidence",
+                            "failed",
+                            "unavailable",
+                        ],
+                        ocr_status,
+                    ),
+                    evidence_status=cast(
+                        Literal[
+                            "available",
+                            "no_active_evidence",
+                            "unavailable",
+                        ],
+                        evidence_status,
+                    ),
+                    rule_version=scan.rule_version if scan is not None else None,
                     scan_version=(scan.scanner_version if scan is not None else None),
+                    updated_at=content.updated_at,
                     safe_summary=summary,
+                    next_action=next_action,
                 )
             )
+        if status is not None:
+            all_items = [item for item in all_items if item.status == status]
+        all_items.sort(
+            key=lambda item: (
+                content_created_at[item.content_id],
+                item.content_id,
+            ),
+            reverse=sort == "newest",
+        )
+        total = len(all_items)
+        offset = (page - 1) * page_size
+        items = all_items[offset : offset + page_size]
         return PreflightQueueRead(
             platform=platform.value,
             account_id=account_id,
-            total=len(items),
+            status=status,
+            sort=sort,
+            page=page,
+            page_size=page_size,
+            total=total,
+            pages=(total + page_size - 1) // page_size,
             items=items,
         )
 

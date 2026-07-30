@@ -131,4 +131,26 @@ test("distinguishes deterministic rag low-ocr no-evidence and history", () => {
     />,
   );
   expect(screen.getByText("未检索到有效规则")).toBeInTheDocument();
+  expect(screen.getByText(/不能据此判断为安全通过/)).toBeInTheDocument();
+});
+
+
+test("fails closed when cover OCR fails", () => {
+  render(
+    <RiskReport
+      scan={{
+        ...scan,
+        result: scan.result
+          ? {
+              ...scan.result,
+              ocr_status: "failed",
+              findings: [],
+              diagnostics: ["OCR_FAILED"],
+            }
+          : null,
+      }}
+    />,
+  );
+  expect(screen.getByText(/OCR失败或不可用，不能进入待发布/)).toBeVisible();
+  expect(screen.queryByText("安全通过")).not.toBeInTheDocument();
 });

@@ -227,36 +227,57 @@ test("governed generation saves a checked draft and explains degraded paths", as
   await expect(page.getByText("已确认：面料")).toBeVisible();
   const facts = await factContext(page, workspace.workspace_id);
 
-  await page.goto(`/workspaces/${workspace.workspace_id}/generation`);
-  await expect(
-    page.getByLabel("沿用已确认历史风格（默认开启）"),
-  ).toBeChecked();
-  await page.getByLabel("账号 ID").fill(fixtures.accountId);
-  await page.getByLabel("模型配置 ID").fill(fixtures.modelConfigId);
-  await page.getByLabel("栏目或活动 ID").fill(fixtures.columnCampaignId);
-  await page.getByLabel("风格档案 ID").fill(fixtures.styleProfileId);
-  await page
-    .getByLabel("爆款引用 ID（最多 3 条）")
-    .fill(fixtures.viralLibraryItemId);
+  await page.goto(
+    `/workspaces/${workspace.workspace_id}/generation?platform=douyin&account=${fixtures.accountId}&step=scope`,
+  );
+  await page.getByLabel("栏目/活动").selectOption(fixtures.columnCampaignId);
   await page.getByLabel("生成目标").fill("夏日通勤新品");
-  await page
-    .getByLabel("已确认事实 ID（逗号分隔）")
-    .fill(facts.confirmedItemIds.join(","));
-  await page.getByLabel("资料来源 ID（逗号分隔）").fill(facts.sourceId);
+  await page.getByRole("button", { name: "下一步：事实资料" }).click();
+  await page.getByRole("checkbox", { name: /面料.*100% 棉/ }).check();
+  await page.getByRole("button", { name: "下一步：风格与参考" }).click();
+  await expect(page.getByRole("checkbox", { name: "沿用标题风格" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "沿用文案风格" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "沿用封面风格" })).toBeChecked();
+  await page.getByRole("checkbox", { name: /合成穿搭样本 10/ }).check();
+  await page.getByRole("button", { name: "继续下一步" }).click();
+  await expect(page.getByLabel("账号 ID")).toHaveValue(fixtures.accountId);
+  await expect(page.getByLabel("模型配置 ID")).toHaveValue(fixtures.modelConfigId);
+  await expect(page.getByLabel("栏目或活动 ID")).toHaveValue(
+    fixtures.columnCampaignId,
+  );
+  await expect(page.getByLabel("风格档案 ID")).toHaveValue(
+    fixtures.styleProfileId,
+  );
+  await expect(page.getByLabel("资料来源 ID（逗号分隔）")).toHaveValue(
+    facts.sourceId,
+  );
+  await expect(page.getByLabel("已确认事实 ID（逗号分隔）")).toHaveValue(
+    facts.confirmedItemIds.join(","),
+  );
+  await expect(page.getByLabel("爆款引用 ID（最多 3 条）")).toHaveValue(
+    fixtures.viralLibraryItemId,
+  );
   await page.getByRole("button", { name: "生成标题与文案" }).click();
   await expect(page.getByText("执行成功")).toBeVisible();
   await page.getByLabel("人工最终标题").fill("人工编辑：夏日棉质通勤穿搭");
+  await page
+    .getByRole("button", { name: "复核与保存", exact: true })
+    .click();
   await page.getByRole("button", { name: "复检并保存草稿" }).click();
-  await expect(page.getByText("复检完成，草稿已保存")).toBeVisible();
+  await expect(page.getByText("服务端复检完成，草稿已保存")).toBeVisible();
   await expect(
     page.getByText("未检索到有效风控证据；草稿已保存，但不能进入待发布"),
   ).toBeVisible();
 
-  await page.goto(`/workspaces/${workspace.workspace_id}/generation`);
-  await page.getByLabel("沿用已确认历史风格（默认开启）").uncheck();
-  await page.getByLabel("账号 ID").fill(fixtures.accountId);
-  await page.getByLabel("模型配置 ID").fill(fixtures.modelConfigId);
+  await page.goto(
+    `/workspaces/${workspace.workspace_id}/generation?platform=douyin&account=${fixtures.accountId}&step=generate`,
+  );
+  await page.getByLabel("标题风格").uncheck();
+  await page.getByLabel("文案风格").uncheck();
+  await page.getByLabel("封面风格").uncheck();
   await page.getByLabel("生成目标").fill("无资料创意草稿");
+  await page.getByLabel("已确认事实 ID（逗号分隔）").fill("");
+  await page.getByLabel("资料来源 ID（逗号分隔）").fill("");
   await page.getByRole("button", { name: "生成标题与文案" }).click();
   await expect(
     page.getByText("未提供已确认事实或资料，输出仅可作为创意草稿。"),
@@ -299,11 +320,14 @@ test("governed generation saves a checked draft and explains degraded paths", as
     return [await create("99 元"), await create("199 元")];
   }, { workspaceId: workspace.workspace_id });
 
-  await page.goto(`/workspaces/${workspace.workspace_id}/generation`);
-  await page.getByLabel("沿用已确认历史风格（默认开启）").uncheck();
-  await page.getByLabel("账号 ID").fill(fixtures.accountId);
-  await page.getByLabel("模型配置 ID").fill(fixtures.modelConfigId);
+  await page.goto(
+    `/workspaces/${workspace.workspace_id}/generation?platform=douyin&account=${fixtures.accountId}&step=generate`,
+  );
+  await page.getByLabel("标题风格").uncheck();
+  await page.getByLabel("文案风格").uncheck();
+  await page.getByLabel("封面风格").uncheck();
   await page.getByLabel("生成目标").fill("冲突事实解释");
+  await page.getByLabel("资料来源 ID（逗号分隔）").fill("");
   await page
     .getByLabel("已确认事实 ID（逗号分隔）")
     .fill(conflictIds.join(","));

@@ -11,10 +11,17 @@ export type WorkbenchContext =
   components["schemas"]["WorkbenchContextRead"];
 export type WorkbenchOverviewData =
   components["schemas"]["WorkbenchOverviewRead"];
+export type PreflightQueuePageData =
+  components["schemas"]["PreflightQueueRead"];
 type WorkbenchOverviewOperation =
   operations["read_workbench_overview_v1_workspaces__workspace_id__workbench_overview_get"];
 export type WorkbenchOverviewScope = NonNullable<
   WorkbenchOverviewOperation["parameters"]["query"]
+>;
+type PreflightQueueOperation =
+  operations["read_preflight_queue_v1_workspaces__workspace_id__workbench_preflight_queue_get"];
+export type PreflightQueueApiQuery = NonNullable<
+  PreflightQueueOperation["parameters"]["query"]
 >;
 
 export class WorkbenchApiError extends Error {
@@ -54,6 +61,28 @@ export async function loadWorkbenchOverview(
       params: {
         path: { workspace_id: workspaceId },
         query: scope,
+      },
+      signal,
+    },
+  );
+  if (!response.ok || !data) {
+    throw new WorkbenchApiError(response.status);
+  }
+  return data;
+}
+
+export async function loadPreflightQueue(
+  workspaceId: string,
+  query: PreflightQueueApiQuery,
+  signal?: AbortSignal,
+): Promise<PreflightQueuePageData> {
+  const client = createApiClient(API_URL);
+  const { data, response } = await client.GET(
+    "/v1/workspaces/{workspace_id}/workbench/preflight-queue",
+    {
+      params: {
+        path: { workspace_id: workspaceId },
+        query,
       },
       signal,
     },
