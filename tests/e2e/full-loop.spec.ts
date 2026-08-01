@@ -849,32 +849,52 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
       new RegExp(`/workspaces/${sourceWorkspace.workspace_id}/`),
     );
 
-    const navigation = page.getByRole("navigation", { name: "主导航" });
+    const categoryForModule: Record<string, {
+      category: string;
+      navigation: string;
+    }> = {
+      "工作台总览": { category: "总览", navigation: "工作台总览功能" },
+      "账号仪表盘": { category: "运营", navigation: "内容运营功能" },
+      "栏目与活动": { category: "运营", navigation: "内容运营功能" },
+      "数据导入": { category: "运营", navigation: "内容运营功能" },
+      "内容库": { category: "运营", navigation: "内容运营功能" },
+      "分析中心": { category: "运营", navigation: "内容运营功能" },
+      "爆款素材库": { category: "资产", navigation: "策略资产功能" },
+      "事实资料": { category: "资产", navigation: "策略资产功能" },
+      "账号风格": { category: "资产", navigation: "策略资产功能" },
+      "生成中心": { category: "创作", navigation: "AI 创作功能" },
+      "发布前检查": { category: "创作", navigation: "AI 创作功能" },
+      "导出与备份": { category: "管理", navigation: "工作区管理功能" },
+    };
     const openModule = async (label: string, heading: string) => {
-      await navigation.getByRole("link", { name: label, exact: true }).click();
+      const target = categoryForModule[label];
+      await page
+        .getByRole("navigation", { name: "功能大类" })
+        .getByRole("link", { name: target.category, exact: true })
+        .click();
+      await page
+        .getByRole("navigation", { name: target.navigation })
+        .getByRole("link", { name: label, exact: true })
+        .click();
       await expect(
         page.getByRole("heading", { level: 1, name: heading }),
       ).toBeVisible();
-      if (await page.getByLabel("平台范围").inputValue() !== "douyin") {
-        await page.getByLabel("平台范围").selectOption("douyin");
-      }
-      if (await page.getByLabel("账号范围").inputValue() !== douyin.id) {
-        await page.getByLabel("账号范围").selectOption(douyin.id);
-      }
       await expect(page.getByLabel("平台范围")).toHaveValue("douyin");
       await expect(page.getByLabel("账号范围")).toHaveValue(douyin.id);
     };
 
-    await navigation
-      .getByRole("link", { name: "工作台总览", exact: true })
-      .click();
+    await page.getByLabel("平台范围").selectOption("douyin");
+    await page.getByLabel("账号范围").selectOption(douyin.id);
+    await openModule("工作台总览", "工作台总览");
     await expect(
       page.getByRole("heading", { level: 1, name: "工作台总览" }),
     ).toBeVisible();
-    await page.getByLabel("平台范围").selectOption("douyin");
-    await page.getByLabel("账号范围").selectOption(douyin.id);
-
-    await navigation
+    await page
+      .getByRole("navigation", { name: "功能大类" })
+      .getByRole("link", { name: "运营", exact: true })
+      .click();
+    await page
+      .getByRole("navigation", { name: "内容运营功能" })
       .getByRole("link", { name: "账号仪表盘", exact: true })
       .click();
     await expect(
@@ -891,7 +911,7 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
     await openModule("数据导入", "数据导入");
     await openModule("内容库", "内容库");
     await openModule("分析中心", "分析中心");
-    await openModule("爆款素材库", "爆款素材库");
+    await openModule("爆款素材库", "爆款候选与素材库");
     await openModule("事实资料", "事实资料中心");
     await openModule("账号风格", "账号风格");
     await openModule("生成中心", "生成中心");

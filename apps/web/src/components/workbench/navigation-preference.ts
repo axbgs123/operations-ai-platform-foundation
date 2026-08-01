@@ -43,3 +43,19 @@ export function writeRecentNavigationPath(
   }
   storage.setItem(recentNavigationKey(memberId, categoryId), item.href);
 }
+
+export function clearNavigationPreferences(
+  storage: Pick<Storage, "key" | "length" | "removeItem">,
+): void {
+  const removable: string[] = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (
+      key?.startsWith("operations-ai:sidebar:")
+      || key?.startsWith("operations-ai:navigation:")
+    ) {
+      removable.push(key);
+    }
+  }
+  for (const key of removable) storage.removeItem(key);
+}

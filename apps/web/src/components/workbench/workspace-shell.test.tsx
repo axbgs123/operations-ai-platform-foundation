@@ -11,6 +11,7 @@ import {
   WORKBENCH_NAV_CATEGORIES,
 } from "./navigation";
 import {
+  clearNavigationPreferences,
   readRecentNavigationPath,
   writeRecentNavigationPath,
 } from "./navigation-preference";
@@ -301,6 +302,43 @@ describe("canonical navigation and roles", () => {
     expect(screen.queryByRole("link", { name: "生成中心" })).toBeNull();
     expect(screen.queryByRole("link", { name: "工作区设置" })).toBeNull();
   });
+
+  test("does not expose an empty management category on a viewer deep link", () => {
+    render(
+      <SidebarNav
+        collapsed={false}
+        onNavigate={() => undefined}
+        pathname="/workspaces/workspace-1/settings"
+        role="viewer"
+        workspaceId="workspace-1"
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: "管理" })).toBeNull();
+    expect(
+      screen.queryByRole("navigation", { name: "工作区管理功能" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("navigation", { name: "工作台总览功能" }),
+    ).toBeVisible();
+  });
+
+  test("keeps an editor category link on a role-safe child", () => {
+    render(
+      <SidebarNav
+        collapsed={false}
+        onNavigate={() => undefined}
+        pathname="/workspaces/workspace-1/settings"
+        role="editor"
+        workspaceId="workspace-1"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "管理" })).toHaveAttribute(
+      "href",
+      "/workspaces/workspace-1/data-management/exports",
+    );
+  });
 });
 
 describe("workspace scope and safe returns", () => {
@@ -458,6 +496,31 @@ describe("workspace shell behavior", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 
+  test("preserves validated platform and account scope across navigation", () => {
+    navigationState.search = "platform=douyin&account=dy-account";
+    render(
+      <WorkspaceShell context={context}>
+        <p>页面业务内容</p>
+      </WorkspaceShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "创作" })).toHaveAttribute(
+      "href",
+      "/workspaces/workspace-1/generation?platform=douyin&account=dy-account",
+    );
+    expect(screen.getByRole("link", { name: "分析中心" })).toHaveAttribute(
+      "href",
+      "/workspaces/workspace-1/analysis?platform=douyin&account=dy-account",
+    );
+    const breadcrumb = screen.getByRole("navigation", { name: "面包屑" });
+    expect(
+      within(breadcrumb).getByRole("link", { name: "运营" }),
+    ).toHaveAttribute(
+      "href",
+      "/workspaces/workspace-1/contents?platform=douyin&account=dy-account",
+    );
+  });
+
   test("leaves an old account route when platform scope becomes incompatible", async () => {
     navigationState.pathname = "/workspaces/workspace-1/accounts/xhs-account";
     const user = userEvent.setup();
@@ -533,6 +596,92 @@ describe("workspace shell behavior", () => {
     expect(trigger).toHaveFocus();
   });
 
+  test("uses category-first mobile navigation from the workspace overview", async () => {
+    navigationState.pathname = "/workspaces/workspace-1";
+    navigationState.search = "platform=douyin&account=dy-account";
+    setMobileViewport(true);
+    const user = userEvent.setup();
+    render(
+      <WorkspaceShell context={context}>
+        <p>工作台总览</p>
+      </WorkspaceShell>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "打开主导航" }));
+    const dialog = screen.getByRole("dialog", { name: "主导航" });
+    expect(
+      within(dialog).getByRole("navigation", { name: "功能大类" }),
+    ).toBeVisible();
+    expect(
+      within(dialog).queryByRole("link", { name: "内容库" }),
+    ).toBeNull();
+
+    await user.click(within(dialog).getByRole("button", { name: "运营" }));
+    expect(
+      within(dialog).getByRole("navigation", { name: "内容运营功能" }),
+    ).toBeVisible();
+    expect(within(dialog).getByRole("link", { name: "内容库" })).toHaveAttribute(
+      "href",
+      "/workspaces/workspace-1/contents?platform=douyin&account=dy-account",
+    );
+    const backButton = within(dialog).getByRole("button", {
+      name: "返回全部分类",
+    });
+    expect(backButton).toHaveFocus();
+    await user.click(backButton);
+    expect(
+      within(dialog).getByRole("navigation", { name: "功能大类" }),
+    ).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "运营" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "主导航" })).toBeNull();
+  });
+
+  test("opens the matching mobile category on a deep link", async () => {
+    navigationState.pathname = "/workspaces/workspace-1/facts";
+    setMobileViewport(true);
+    const user = userEvent.setup();
+    render(
+      <WorkspaceShell context={context}>
+        <p>事实资料页面</p>
+      </WorkspaceShell>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "打开主导航" }));
+    const dialog = screen.getByRole("dialog", { name: "主导航" });
+    expect(
+      within(dialog).getByRole("navigation", { name: "策略资产功能" }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("link", { name: "事实资料" }),
+    ).toHaveAttribute("aria-current", "page");
+    await user.click(
+      within(dialog).getByRole("button", { name: "返回全部分类" }),
+    );
+    expect(within(dialog).getByRole("button", { name: "资产" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "主导航" })).toBeNull();
+  });
+
+  test("does not open a mobile category that has no viewer-visible children", async () => {
+    navigationState.pathname = "/workspaces/workspace-1/settings";
+    setMobileViewport(true);
+    const user = userEvent.setup();
+    render(
+      <WorkspaceShell context={{ ...context, role: "viewer" }}>
+        <p>无管理权限页面</p>
+      </WorkspaceShell>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "打开主导航" }));
+    const dialog = screen.getByRole("dialog", { name: "主导航" });
+    expect(
+      within(dialog).getByRole("navigation", { name: "功能大类" }),
+    ).toBeVisible();
+    expect(within(dialog).queryByRole("button", { name: "管理" })).toBeNull();
+    expect(within(dialog).queryByText("工作区管理")).toBeNull();
+  });
+
   test("closes the mobile drawer after the route changes", async () => {
     setMobileViewport(true);
     const user = userEvent.setup();
@@ -573,6 +722,12 @@ describe("workbench context loading", () => {
   });
 
   test("does not render private children when the session has expired", async () => {
+    localStorage.setItem("operations-ai:sidebar:member-admin", "collapsed");
+    localStorage.setItem(
+      "operations-ai:navigation:member-admin:operations",
+      "/analysis",
+    );
+    localStorage.setItem("unrelated-preference", "keep");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => jsonResponse({ detail: "invalid session" }, 401)),
@@ -589,6 +744,27 @@ describe("workbench context loading", () => {
       screen.getByRole("link", { name: "重新进入工作区" }),
     ).toHaveAttribute("href", "/enter");
     expect(screen.queryByText("不得泄露的私有页面")).toBeNull();
+    expect(localStorage.getItem("operations-ai:sidebar:member-admin")).toBeNull();
+    expect(
+      localStorage.getItem(
+        "operations-ai:navigation:member-admin:operations",
+      ),
+    ).toBeNull();
+    expect(localStorage.getItem("unrelated-preference")).toBe("keep");
+  });
+
+  test("clears only navigation display preferences", () => {
+    localStorage.setItem("operations-ai:sidebar:member-admin", "collapsed");
+    localStorage.setItem(
+      "operations-ai:navigation:member-admin:operations",
+      "/analysis",
+    );
+    localStorage.setItem("other", "keep");
+
+    clearNavigationPreferences(localStorage);
+
+    expect(localStorage).toHaveLength(1);
+    expect(localStorage.getItem("other")).toBe("keep");
   });
 
   test("shows a retryable safe error without exposing API details", async () => {

@@ -157,6 +157,11 @@ test("canonical workbench routes retain stable synthetic visual baselines", asyn
     await capture(page, `${name}.png`);
   }
 
+  await page.goto(root);
+  await page.getByRole("button", { name: "收起功能列表" }).click();
+  await capture(page, "navigation-collapsed.png");
+  await page.getByRole("button", { name: "展开功能列表" }).click();
+
   const detailTabs = [
     "overview",
     "snapshots",
@@ -189,6 +194,10 @@ test("canonical workbench routes retain stable synthetic visual baselines", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(root);
   await capture(page, "mobile-overview.png");
+  await page.getByRole("button", { name: "打开主导航" }).click();
+  await capture(page, "mobile-navigation-categories.png");
+  await page.getByRole("button", { name: "资产", exact: true }).click();
+  await capture(page, "mobile-navigation-assets.png");
   await page.goto(
     `${root}/contents/${fixture.contentId}?tab=overview&${scoped}`,
   );

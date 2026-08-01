@@ -35,7 +35,10 @@ import {
   scopeForWorkspacePath,
   writeSidebarPreference,
 } from "./scope-query";
-import { writeRecentNavigationPath } from "./navigation-preference";
+import {
+  clearNavigationPreferences,
+  writeRecentNavigationPath,
+} from "./navigation-preference";
 import { ErrorState, Skeleton } from "./ui";
 import { WorkspaceTopbar } from "./workspace-topbar";
 
@@ -183,6 +186,7 @@ export function WorkspaceShell({
               onToggleSecondary={toggleSidebar}
               pathname={pathname}
               role={context.role}
+              scope={scope}
               workspaceId={context.workspace_id}
             />
           </aside>
@@ -206,11 +210,13 @@ export function WorkspaceShell({
           </main>
         </div>
         <MobileDrawer
+          key={`${mobileOpen}:${drawerPathname ?? "closed"}`}
           onClose={() => setDrawerPathname(null)}
           open={isMobile && mobileOpen}
           pathname={pathname}
           returnFocusRef={navigationTriggerRef}
           role={context.role}
+          scope={scope}
           workspaceId={context.workspace_id}
         />
       </div>
@@ -254,6 +260,9 @@ function WorkspaceShellContextLoader({
       .then((context) => setState({ status: "ready", context }))
       .catch((error: unknown) => {
         if (controller.signal.aborted) return;
+        if (error instanceof WorkbenchApiError && error.status === 401) {
+          clearNavigationPreferences(window.localStorage);
+        }
         setState(
           error instanceof WorkbenchApiError && error.status === 401
             ? { status: "session_expired" }

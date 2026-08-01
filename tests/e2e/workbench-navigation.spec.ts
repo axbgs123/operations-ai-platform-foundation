@@ -42,6 +42,39 @@ const viewerLabels = [
   "发布前检查",
 ] as const;
 
+const categories = [
+  {
+    label: "总览",
+    navigationLabel: "工作台总览功能",
+    defaultSuffix: "",
+    itemLabels: ["工作台总览"],
+  },
+  {
+    label: "运营",
+    navigationLabel: "内容运营功能",
+    defaultSuffix: "/contents",
+    itemLabels: ["内容库", "数据导入", "分析中心", "账号仪表盘", "栏目与活动"],
+  },
+  {
+    label: "创作",
+    navigationLabel: "AI 创作功能",
+    defaultSuffix: "/generation",
+    itemLabels: ["生成中心", "发布前检查"],
+  },
+  {
+    label: "资产",
+    navigationLabel: "策略资产功能",
+    defaultSuffix: "/viral-library",
+    itemLabels: ["爆款素材库", "账号风格", "事实资料"],
+  },
+  {
+    label: "管理",
+    navigationLabel: "工作区管理功能",
+    defaultSuffix: "/data-management/exports",
+    itemLabels: ["导出与备份", "后台任务", "风控知识库", "回收站", "工作区设置"],
+  },
+] as const;
+
 type Workspace = {
   workspace_id: string;
   admin_code: string;
@@ -106,14 +139,38 @@ async function assertNavigationLabels(
   page: Page,
   expected: readonly string[],
 ) {
-  const navigation = page.getByRole("navigation", { name: "主导航" });
-  await expect(navigation).toBeVisible();
-  await expect(navigation.getByRole("link")).toHaveCount(expected.length);
-  for (const label of expected) {
-    await expect(
-      navigation.getByRole("link", { name: label, exact: true }),
-    ).toBeVisible();
+  const primary = page.getByRole("navigation", { name: "功能大类" });
+  await expect(primary).toBeVisible();
+  const expectedCategories = categories.filter((category) =>
+    category.itemLabels.some((label) => expected.includes(label))
+  );
+  await expect(primary.getByRole("link")).toHaveCount(
+    expectedCategories.length,
+  );
+  let visibleChildren = 0;
+  for (const category of expectedCategories) {
+    const categoryLink = primary.getByRole("link", {
+      name: category.label,
+      exact: true,
+    });
+    await expect(categoryLink).toBeVisible();
+    await categoryLink.click();
+    const secondary = page.getByRole("navigation", {
+      name: category.navigationLabel,
+    });
+    await expect(secondary).toBeVisible();
+    const childLabels = category.itemLabels.filter((label) =>
+      expected.includes(label)
+    );
+    await expect(secondary.getByRole("link")).toHaveCount(childLabels.length);
+    visibleChildren += childLabels.length;
+    for (const label of childLabels) {
+      await expect(
+        secondary.getByRole("link", { name: label, exact: true }),
+      ).toBeVisible();
+    }
   }
+  expect(visibleChildren).toBe(expected.length);
 }
 
 test("admin reaches all 16 formal modules through visible primary navigation", async ({
@@ -130,8 +187,15 @@ test("admin reaches all 16 formal modules through visible primary navigation", a
   await assertNavigationLabels(page, routes.map(([label]) => label));
 
   for (const [label, suffix] of routes) {
+    const category = categories.find(({ itemLabels }) =>
+      itemLabels.some((itemLabel) => itemLabel === label)
+    )!;
+    await page
+      .getByRole("navigation", { name: "功能大类" })
+      .getByRole("link", { name: category.label, exact: true })
+      .click();
     const link = page
-      .getByRole("navigation", { name: "主导航" })
+      .getByRole("navigation", { name: category.navigationLabel })
       .getByRole("link", { name: label, exact: true });
     await link.click();
     await expect(page).toHaveURL(
@@ -193,9 +257,41 @@ test("admin reaches all 16 formal modules through visible primary navigation", a
     ).toBeVisible();
     await expect(page.getByRole("main")).toHaveCount(1);
     await expect(
-      page.getByRole("navigation", { name: "主导航" }),
+      page.getByRole("navigation", { name: "功能大类" }),
     ).toBeVisible();
   }
+
+  await page.evaluate(() => {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("operations-ai:navigation:")) {
+        localStorage.removeItem(key);
+      }
+    }
+  });
+  await page.goto(`/workspaces/${workspace.workspace_id}`);
+  for (const category of categories) {
+    await expect(
+      page
+        .getByRole("navigation", { name: "功能大类" })
+        .getByRole("link", { name: category.label, exact: true }),
+    ).toHaveAttribute(
+      "href",
+      `/workspaces/${workspace.workspace_id}${category.defaultSuffix}`,
+    );
+  }
+  await page.goto(`/workspaces/${workspace.workspace_id}/preflight`);
+  await page
+    .getByRole("navigation", { name: "功能大类" })
+    .getByRole("link", { name: "运营", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("navigation", { name: "功能大类" })
+      .getByRole("link", { name: "创作", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    `/workspaces/${workspace.workspace_id}/preflight`,
+  );
 });
 
 test("editor and viewer receive the approved 13 and 9 item navigation matrices", async ({
@@ -221,7 +317,8 @@ test("editor and viewer receive the approved 13 and 9 item navigation matrices",
   await editorPage.goto(`/workspaces/${workspace.workspace_id}`);
   await assertNavigationLabels(editorPage, editorLabels);
   await expect(
-    editorPage.getByRole("link", { name: "工作区设置", exact: true }),
+    editorPage.getByRole("navigation", { name: "工作区管理功能" })
+      .getByRole("link", { name: "工作区设置", exact: true }),
   ).toHaveCount(0);
   await editorPage.goto(`/workspaces/${workspace.workspace_id}/settings/jobs`);
   await expect(
@@ -234,10 +331,16 @@ test("editor and viewer receive the approved 13 and 9 item navigation matrices",
   await viewerPage.goto(`/workspaces/${workspace.workspace_id}`);
   await assertNavigationLabels(viewerPage, viewerLabels);
   await expect(
-    viewerPage.getByRole("link", { name: "栏目与活动", exact: true }),
+    viewerPage.getByRole("navigation", { name: "功能大类" })
+      .getByRole("link", { name: "管理", exact: true }),
   ).toHaveCount(0);
+  await viewerPage
+    .getByRole("navigation", { name: "功能大类" })
+    .getByRole("link", { name: "运营", exact: true })
+    .click();
   await expect(
-    viewerPage.getByRole("link", { name: "数据导入", exact: true }),
+    viewerPage.getByRole("navigation", { name: "内容运营功能" })
+      .getByRole("link", { name: "数据导入", exact: true }),
   ).toHaveCount(0);
 
   const permissionResults = await viewerPage.evaluate(
@@ -276,7 +379,7 @@ test("public Demo remains read-only and outside the private WorkspaceShell", asy
   await page.goto("/demo");
   await expect(page.getByText("示例工作区 · 只读")).toBeVisible();
   await expect(
-    page.getByRole("navigation", { name: "主导航" }),
+    page.getByRole("navigation", { name: "功能大类" }),
   ).toHaveCount(0);
   await expect(page.getByRole("link", { name: /进入私有工作区/ })).toHaveAttribute(
     "href",

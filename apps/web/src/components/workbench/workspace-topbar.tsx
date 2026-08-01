@@ -50,6 +50,7 @@ export function WorkspaceTopbar({
         <Breadcrumbs
           pathname={pathname}
           role={context.role}
+          scope={scope}
           workspaceId={context.workspace_id}
           workspaceName={context.workspace_name}
         />

@@ -3,10 +3,12 @@ import type { ReactElement } from "react";
 import {
   activeNavigationCategory,
   navigationCategory,
+  visibleCategoryItems,
   type WorkbenchRole,
 } from "./navigation";
 import { PrimaryNav } from "./primary-nav";
 import { SecondaryNav } from "./secondary-nav";
+import type { WorkbenchScope } from "./scope-query";
 
 
 export function SidebarNav({
@@ -14,6 +16,7 @@ export function SidebarNav({
   memberId = "navigation-member",
   role,
   pathname,
+  scope = {},
   collapsed,
   onNavigate,
   onToggleSecondary = () => undefined,
@@ -22,13 +25,16 @@ export function SidebarNav({
   memberId?: string;
   role: WorkbenchRole;
   pathname: string;
+  scope?: WorkbenchScope;
   collapsed: boolean;
   onNavigate: () => void;
   onToggleSecondary?: () => void;
 }): ReactElement {
+  const routeCategory = activeNavigationCategory(pathname, workspaceId);
   const activeCategory = (
-    activeNavigationCategory(pathname, workspaceId)
-    ?? navigationCategory("overview")
+    routeCategory && visibleCategoryItems(routeCategory, role).length > 0
+      ? routeCategory
+      : navigationCategory("overview")
   );
   return (
     <div className="flex h-full">
@@ -38,6 +44,7 @@ export function SidebarNav({
         onToggleSecondary={onToggleSecondary}
         pathname={pathname}
         role={role}
+        scope={scope}
         secondaryCollapsed={collapsed}
         workspaceId={workspaceId}
       />
@@ -48,6 +55,7 @@ export function SidebarNav({
           onNavigate={onNavigate}
           pathname={pathname}
           role={role}
+          scope={scope}
           workspaceId={workspaceId}
         />
       ) : null}

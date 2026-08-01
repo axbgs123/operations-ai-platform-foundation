@@ -14,10 +14,13 @@ import {
   visibleNavigationCategories,
   type WorkbenchNavigationCategory,
   type WorkbenchRole,
-  workbenchHref,
 } from "./navigation";
 import { NavigationIcon } from "./navigation-icon";
 import { readRecentNavigationPath } from "./navigation-preference";
+import {
+  buildWorkspaceHref,
+  type WorkbenchScope,
+} from "./scope-query";
 
 
 function PrimaryCategoryLink({
@@ -27,6 +30,7 @@ function PrimaryCategoryLink({
   category,
   active,
   activeItemHref,
+  scope,
   onNavigate,
 }: {
   workspaceId: string;
@@ -35,6 +39,7 @@ function PrimaryCategoryLink({
   category: WorkbenchNavigationCategory;
   active: boolean;
   activeItemHref?: string;
+  scope: WorkbenchScope;
   onNavigate: () => void;
 }): ReactElement {
   const subscribe = useCallback((notify: () => void) => {
@@ -70,7 +75,7 @@ function PrimaryCategoryLink({
           ? "bg-violet-100 text-[var(--brand)]"
           : "text-[var(--text-secondary)] hover:bg-white hover:text-[var(--text-primary)]"
       }`}
-      href={workbenchHref(workspaceId, href)}
+      href={buildWorkspaceHref(workspaceId, href, scope)}
       onClick={onNavigate}
       title={category.navigationLabel}
     >
@@ -85,6 +90,7 @@ export function PrimaryNav({
   memberId,
   role,
   pathname,
+  scope = {},
   onNavigate,
   secondaryCollapsed,
   onToggleSecondary,
@@ -93,6 +99,7 @@ export function PrimaryNav({
   memberId: string;
   role: WorkbenchRole;
   pathname: string;
+  scope?: WorkbenchScope;
   onNavigate: () => void;
   secondaryCollapsed: boolean;
   onToggleSecondary: () => void;
@@ -127,11 +134,16 @@ export function PrimaryNav({
             <li key={category.id}>
               <PrimaryCategoryLink
                 active={active}
-                activeItemHref={active ? activeItem?.href : undefined}
+                activeItemHref={
+                  active && activeItem?.allowedRoles.includes(role)
+                    ? activeItem.href
+                    : undefined
+                }
                 category={category}
                 memberId={memberId}
                 onNavigate={onNavigate}
                 role={role}
+                scope={scope}
                 workspaceId={workspaceId}
               />
             </li>

@@ -8,24 +8,31 @@ import {
   activeNavigationItem,
   defaultNavigationItem,
   type WorkbenchRole,
-  workbenchHref,
 } from "./navigation";
+import {
+  buildWorkspaceHref,
+  type WorkbenchScope,
+} from "./scope-query";
 
 
 export function Breadcrumbs({
   workspaceId,
   workspaceName,
   role,
+  scope,
   pathname,
 }: {
   workspaceId: string;
   workspaceName: string;
   role: WorkbenchRole;
+  scope: WorkbenchScope;
   pathname: string;
 }): ReactElement {
   const active = activeNavigationItem(pathname, workspaceId);
   const category = activeNavigationCategory(pathname, workspaceId);
-  const categoryHref = active?.href ?? (
+  const categoryHref = (
+    active?.allowedRoles.includes(role) ? active.href : undefined
+  ) ?? (
     category ? defaultNavigationItem(category.id, role)?.href : undefined
   );
 
@@ -35,7 +42,7 @@ export function Breadcrumbs({
         <li className="min-w-0">
           <Link
             className="block max-w-48 truncate text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-            href={workbenchHref(workspaceId, "")}
+            href={buildWorkspaceHref(workspaceId, "", scope)}
           >
             {workspaceName}
           </Link>
@@ -48,7 +55,7 @@ export function Breadcrumbs({
             <li>
               <Link
                 className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                href={workbenchHref(workspaceId, categoryHref)}
+                href={buildWorkspaceHref(workspaceId, categoryHref, scope)}
               >
                 {category.label}
               </Link>

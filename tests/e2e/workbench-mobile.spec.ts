@@ -112,11 +112,35 @@ test("390px navigation drawer traps focus, closes safely, and closes after navig
   await expect(trigger).toBeFocused();
 
   await trigger.click();
+  await drawer.getByRole("button", { name: "运营" }).click();
+  const backToCategories = drawer.getByRole("button", {
+    name: "返回全部分类",
+  });
+  await expect(backToCategories).toBeFocused();
+  await backToCategories.click();
+  await expect(
+    drawer.getByRole("button", { name: "运营" }),
+  ).toBeFocused();
+  await drawer.getByRole("button", { name: "运营" }).click();
+  await expect(
+    drawer.getByRole("navigation", { name: "内容运营功能" }),
+  ).toBeVisible();
   await drawer.getByRole("link", { name: "内容库", exact: true }).click();
   await expect(page).toHaveURL(
     `/workspaces/${workspace.workspace_id}/contents`,
   );
   await expect(drawer).toHaveCount(0);
+  await trigger.click();
+  await expect(
+    drawer.getByRole("navigation", { name: "内容运营功能" }),
+  ).toBeVisible();
+  await drawer.getByRole("button", { name: "返回全部分类" }).click();
+  await expect(
+    drawer.getByRole("button", { name: "运营" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(trigger).toBeFocused();
   await expectNoHorizontalOverflow(page);
 });
 

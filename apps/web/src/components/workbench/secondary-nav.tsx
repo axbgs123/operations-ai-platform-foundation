@@ -6,8 +6,11 @@ import {
   type WorkbenchNavigationCategory,
   type WorkbenchRole,
   visibleCategoryItems,
-  workbenchHref,
 } from "./navigation";
+import {
+  buildWorkspaceHref,
+  type WorkbenchScope,
+} from "./scope-query";
 
 
 export function SecondaryNav({
@@ -15,6 +18,7 @@ export function SecondaryNav({
   workspaceId,
   role,
   pathname,
+  scope = {},
   onNavigate,
   onCollapse,
 }: {
@@ -22,6 +26,7 @@ export function SecondaryNav({
   workspaceId: string;
   role: WorkbenchRole;
   pathname: string;
+  scope?: WorkbenchScope;
   onNavigate: () => void;
   onCollapse: () => void;
 }): ReactElement {
@@ -59,7 +64,7 @@ export function SecondaryNav({
                       ? "bg-violet-50 text-[var(--brand)]"
                       : "text-[var(--text-secondary)] hover:bg-slate-100 hover:text-[var(--text-primary)]"
                   }`}
-                  href={workbenchHref(workspaceId, item.href)}
+                  href={buildWorkspaceHref(workspaceId, item.href, scope)}
                   onClick={onNavigate}
                 >
                   {item.label}
