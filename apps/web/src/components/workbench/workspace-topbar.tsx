@@ -6,6 +6,7 @@ import type { ReactElement } from "react";
 import type { WorkbenchContext } from "@/lib/workbench-api";
 
 import { Breadcrumbs } from "./breadcrumbs";
+import { ExperienceControls } from "./experience-controls";
 import { ScopeFilters } from "./scope-filters";
 import type { WorkbenchScope } from "./scope-query";
 
@@ -70,6 +71,7 @@ export function WorkspaceTopbar({
           </Link>
         </span>
       ) : null}
+      <ExperienceControls compact={isMobile} />
       <Link
         className="rounded-lg px-2 py-2 text-sm text-[var(--text-secondary)] hover:bg-slate-100"
         href="/#help"

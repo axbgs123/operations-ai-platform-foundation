@@ -39,6 +39,8 @@ import {
   clearNavigationPreferences,
   writeRecentNavigationPath,
 } from "./navigation-preference";
+import { clearExperiencePreferences } from "./experience-preferences";
+import { ExperiencePreferencesProvider } from "./experience-preferences-context";
 import { ErrorState, Skeleton } from "./ui";
 import { WorkspaceTopbar } from "./workspace-topbar";
 
@@ -165,7 +167,8 @@ export function WorkspaceShell({
   const collapsed = sidebarPreference === "collapsed";
   return (
     <WorkbenchShellContext.Provider value={context}>
-      <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]">
+      <ExperiencePreferencesProvider memberId={context.member_id}>
+        <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]">
         <Link
           className="sr-only z-[70] rounded bg-white px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
           href="#main-content"
@@ -219,7 +222,8 @@ export function WorkspaceShell({
           scope={scope}
           workspaceId={context.workspace_id}
         />
-      </div>
+        </div>
+      </ExperiencePreferencesProvider>
     </WorkbenchShellContext.Provider>
   );
 }
@@ -262,6 +266,7 @@ function WorkspaceShellContextLoader({
         if (controller.signal.aborted) return;
         if (error instanceof WorkbenchApiError && error.status === 401) {
           clearNavigationPreferences(window.localStorage);
+          clearExperiencePreferences(window.localStorage);
         }
         setState(
           error instanceof WorkbenchApiError && error.status === 401

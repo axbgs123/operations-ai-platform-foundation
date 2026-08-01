@@ -455,6 +455,52 @@ describe("workspace shell behavior", () => {
     expect(screen.getByText("member-admin:admin")).toBeVisible();
   });
 
+  test("offers independent easy/professional and guidance controls", async () => {
+    const user = userEvent.setup();
+    render(<WorkspaceShell context={context}><p>页面业务内容</p></WorkspaceShell>);
+
+    expect(screen.getByRole("radiogroup", { name: "文案模式" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "易懂" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "页面引导" })).toBeChecked();
+
+    await user.click(screen.getByRole("radio", { name: "专业" }));
+    expect(screen.getByRole("switch", { name: "页面引导" })).toBeChecked();
+    expect(localStorage.getItem(
+      "operations-ai:copy-mode:member-admin",
+    )).toBe("professional");
+
+    await user.click(screen.getByRole("switch", { name: "页面引导" }));
+    expect(screen.getByRole("radio", { name: "专业" })).toBeChecked();
+    expect(localStorage.getItem(
+      "operations-ai:page-guidance:member-admin",
+    )).toBe("off");
+  });
+
+  test("keeps preferences isolated when the current member changes", () => {
+    localStorage.setItem(
+      "operations-ai:copy-mode:member-admin",
+      "professional",
+    );
+    const { rerender } = render(
+      <WorkspaceShell context={context}><p>管理员页面</p></WorkspaceShell>,
+    );
+    expect(screen.getByRole("radio", { name: "专业" })).toBeChecked();
+
+    rerender(
+      <WorkspaceShell
+        context={{
+          ...context,
+          member_id: "member-viewer",
+          member_display_name: "运营查看者",
+          role: "viewer",
+        }}
+      >
+        <p>查看者页面</p>
+      </WorkspaceShell>,
+    );
+    expect(screen.getByRole("radio", { name: "易懂" })).toBeChecked();
+  });
+
   test("stores only an isolated expanded or collapsed member preference", () => {
     writeSidebarPreference(localStorage, "member-admin", "collapsed");
     writeSidebarPreference(localStorage, "member-viewer", "expanded");
@@ -727,6 +773,8 @@ describe("workbench context loading", () => {
       "operations-ai:navigation:member-admin:operations",
       "/analysis",
     );
+    localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+    localStorage.setItem("operations-ai:page-guidance:member-admin", "off");
     localStorage.setItem("unrelated-preference", "keep");
     vi.stubGlobal(
       "fetch",
@@ -749,6 +797,12 @@ describe("workbench context loading", () => {
       localStorage.getItem(
         "operations-ai:navigation:member-admin:operations",
       ),
+    ).toBeNull();
+    expect(
+      localStorage.getItem("operations-ai:copy-mode:member-admin"),
+    ).toBeNull();
+    expect(
+      localStorage.getItem("operations-ai:page-guidance:member-admin"),
     ).toBeNull();
     expect(localStorage.getItem("unrelated-preference")).toBe("keep");
   });

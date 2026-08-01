@@ -1,0 +1,63 @@
+"use client";
+
+import { useExperiencePreferences } from "./experience-preferences-context";
+
+function ControlFields() {
+  const {
+    copyMode,
+    pageGuidance,
+    setCopyMode,
+    setPageGuidance,
+  } = useExperiencePreferences();
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-label="界面说明设置">
+      <div
+        aria-label="文案模式"
+        className="inline-flex rounded-lg border bg-white p-1"
+        role="radiogroup"
+      >
+        {([
+          ["simple", "易懂"],
+          ["professional", "专业"],
+        ] as const).map(([value, label]) => (
+          <button
+            aria-checked={copyMode === value}
+            className={copyMode === value
+              ? "rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-sm font-semibold text-white"
+              : "rounded-md px-2.5 py-1.5 text-sm text-[var(--text-secondary)]"}
+            key={value}
+            onClick={() => setCopyMode(value)}
+            role="radio"
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <button
+        aria-checked={pageGuidance === "on"}
+        aria-label="页面引导"
+        className="rounded-lg border bg-white px-3 py-2 text-sm"
+        onClick={() => setPageGuidance(pageGuidance === "on" ? "off" : "on")}
+        role="switch"
+        type="button"
+      >
+        引导：{pageGuidance === "on" ? "开" : "关"}
+      </button>
+    </div>
+  );
+}
+
+export function ExperienceControls({ compact = false }: { compact?: boolean }) {
+  if (!compact) return <ControlFields />;
+  return (
+    <details className="relative">
+      <summary className="cursor-pointer rounded-lg border bg-white px-3 py-2 text-sm">
+        界面说明
+      </summary>
+      <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border bg-white p-3 shadow-lg">
+        <ControlFields />
+      </div>
+    </details>
+  );
+}

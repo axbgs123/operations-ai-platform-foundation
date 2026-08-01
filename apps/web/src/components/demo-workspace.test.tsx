@@ -1,8 +1,10 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, expect, test } from "vitest";
 
 import { DemoWorkspace } from "./demo-workspace";
 
+beforeEach(() => localStorage.clear());
+afterEach(cleanup);
 
 test("labels synthetic data and mock generation clearly", () => {
   render(
@@ -33,4 +35,26 @@ test("labels synthetic data and mock generation clearly", () => {
   );
   expect(screen.queryByText("API Key")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /上传|删除|恢复/ })).not.toBeInTheDocument();
+});
+
+test("uses its fixed public preference scope instead of a private member preference", () => {
+  localStorage.setItem(
+    "operations-ai:copy-mode:member-admin",
+    "professional",
+  );
+
+  render(
+    <DemoWorkspace
+      initialWorkspace={{
+        id: "public-demo",
+        name: "内容运营示例工作区",
+        label: "示例数据",
+        seed_version: "synthetic-ai-tech-v1",
+        synthetic: true,
+        accounts: [],
+      }}
+    />,
+  );
+
+  expect(screen.getByRole("radio", { name: "易懂" })).toBeChecked();
 });

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { DemoBanner } from "@/components/demo-banner";
+import { ExperienceControls } from "@/components/workbench/experience-controls";
+import { ExperiencePreferencesProvider } from "@/components/workbench/experience-preferences-context";
 import { Panel, StatusBadge } from "@/components/workbench/ui";
 import { createDemoSession, generateDemoTitle, loadDemoWorkspace } from "@/lib/demo-api";
 
@@ -69,6 +71,7 @@ export function DemoWorkspace({
   ];
 
   return (
+    <ExperiencePreferencesProvider memberId="demo-public">
     <main className="min-h-screen bg-[var(--canvas)] px-4 py-8 text-[var(--text-primary)] sm:px-6">
       <div className="mx-auto max-w-6xl space-y-8">
         <DemoBanner />
@@ -80,12 +83,15 @@ export function DemoWorkspace({
             在不注册、不接入真实账号的情况下，先了解数据复盘和内容生成的工作方式。
           </p>
           </div>
-          <Link
-            className="rounded-lg bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
-            href="/enter"
-          >
-            进入私有工作区
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <ExperienceControls />
+            <Link
+              className="rounded-lg bg-[var(--brand)] px-4 py-2 text-center text-sm font-semibold text-white"
+              href="/enter"
+            >
+              进入私有工作区
+            </Link>
+          </div>
         </header>
 
         <section className="grid gap-5 md:grid-cols-2">
@@ -132,5 +138,6 @@ export function DemoWorkspace({
         </Panel>
       </div>
     </main>
+    </ExperiencePreferencesProvider>
   );
 }
