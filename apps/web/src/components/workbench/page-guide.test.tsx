@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -89,4 +89,30 @@ test("gives viewers only read or contact guidance", () => {
   renderGuidance("settingsModels", "viewer");
   expect(screen.getByText("联系管理员配置模型和费用上限")).toBeVisible();
   expect(screen.queryByText("配置模型、预算并执行受控验收")).toBeNull();
+});
+
+test("keeps viewer import instructions read-only when expanded", async () => {
+  const user = userEvent.setup();
+  renderGuidance("imports", "viewer");
+
+  await user.click(screen.getByRole("button", { name: "查看操作说明" }));
+
+  const guide = screen.getByRole("region", { name: "数据导入操作说明" });
+  expect(within(guide).getByText("查看最近导入记录")).toBeVisible();
+  expect(within(guide).getByText("查看页面中已有的数据、状态和说明。")).toBeVisible();
+  expect(within(guide).getByText("需要新增、修改或确认时，请联系管理员或编辑者。")).toBeVisible();
+  expect(screen.queryByText(/修改错误后确认/)).toBeNull();
+});
+
+test("keeps viewer model-setting instructions read-only when expanded", async () => {
+  const user = userEvent.setup();
+  renderGuidance("settingsModels", "viewer");
+
+  await user.click(screen.getByRole("button", { name: "查看操作说明" }));
+
+  const guide = screen.getByRole("region", { name: "模型配置操作说明" });
+  expect(within(guide).getByText("联系管理员配置模型和费用上限")).toBeVisible();
+  expect(within(guide).getByText("查看页面中已有的数据、状态和说明。")).toBeVisible();
+  expect(within(guide).getByText("需要新增、修改或确认时，请联系管理员或编辑者。")).toBeVisible();
+  expect(screen.queryByText(/输入密钥/)).toBeNull();
 });

@@ -12,6 +12,17 @@ import {
 import { PAGE_GUIDANCE_CATALOG, nextActionForRole } from "./page-guidance-catalog";
 import { useWorkbenchShellContext } from "./workspace-shell";
 
+const viewerSteps: readonly ModeAwareCopy[] = [
+  {
+    simple: "查看页面中已有的数据、状态和说明。",
+    professional: "只读查看当前工作区已有记录和安全状态。",
+  },
+  {
+    simple: "需要新增、修改或确认时，请联系管理员或编辑者。",
+    professional: "写操作仍由服务端权限控制，请联系 Admin 或 Editor。",
+  },
+];
+
 function GuideList({ title, items }: { title: string; items: readonly string[] }) {
   return (
     <div>
@@ -32,6 +43,9 @@ export function PageGuide({ pageId }: { pageId: OperatorPageId }) {
   const guide = PAGE_GUIDANCE_CATALOG[pageId];
   const next = nextActionForRole(guide, context.role);
   const text = (value: ModeAwareCopy) => copyForMode(value, copyMode);
+  const steps = context.role === "viewer"
+    ? [next.label, ...viewerSteps].map(text)
+    : guide.steps.map(text);
 
   return (
     <section aria-label={`${page.title}页面说明`} className="mt-2 max-w-4xl">
@@ -62,7 +76,7 @@ export function PageGuide({ pageId }: { pageId: OperatorPageId }) {
               className="mt-4 grid gap-4 lg:grid-cols-3"
               role="region"
             >
-              <GuideList title="怎么使用" items={guide.steps.map(text)} />
+              <GuideList title="怎么使用" items={steps} />
               <GuideList title="你会看到什么" items={guide.concepts.map(text)} />
               <GuideList title="常见情况" items={guide.blockers.map(text)} />
             </div>
