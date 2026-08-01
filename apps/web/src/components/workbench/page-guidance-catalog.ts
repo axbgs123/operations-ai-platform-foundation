@@ -43,15 +43,17 @@ const action = (kind: GuidanceAction["kind"], label: string): GuidanceAction => 
   kind,
   label: same(label),
 });
-const steps = (...items: readonly string[]): readonly ModeAwareCopy[] =>
-  items.map(same);
+const steps = (
+  ...items: readonly (string | ModeAwareCopy)[]
+): readonly ModeAwareCopy[] =>
+  items.map((item) => (typeof item === "string" ? same(item) : item));
 const contactBlocker = (blocker: string): ModeAwareCopy =>
   same(`${blocker}当前是查看权限；需要修改时请联系管理员或编辑者。`);
 const guidance = (
   admin: GuidanceAction,
   editor: GuidanceAction,
   viewer: GuidanceAction,
-  pageSteps: readonly string[],
+  pageSteps: readonly (string | ModeAwareCopy)[],
   blocker: string,
   concepts: readonly ModeAwareCopy[] = [],
 ): PageGuidanceEntry => ({
@@ -94,7 +96,14 @@ export const PAGE_GUIDANCE_CATALOG: Record<OperatorPageId, PageGuidanceEntry> = 
   ),
   accountDashboard: guidance(
     action("write", "检查缺少的数据并处理异常内容"), action("write", "检查缺少的数据并处理异常内容"), action("read", "查看趋势、目标和异常说明"),
-    ["选择作品类型和数据采集时间。", "查看目标、变化趋势、漏斗和异常候选。", "根据“下一步行动”补数据或打开异常作品。"],
+    [
+      {
+        simple: "选择作品类型和数据采集时间。",
+        professional: "选择作品类型和数据成熟度：1h、24h、72h 或 7d。",
+      },
+      "查看目标、变化趋势、漏斗和异常候选。",
+      "根据“下一步行动”补数据或打开异常作品。",
+    ],
     "还没有确认过的数据；先导入并确认一次发布后的表现数据。", [sharedConcepts.maturity, sharedConcepts.benchmark],
   ),
   columns: guidance(

@@ -43,6 +43,14 @@ test("preserves exact professional copy while selecting simple by default", () =
   );
 });
 
+test("uses professional maturity wording in account dashboard guidance", () => {
+  const step = PAGE_GUIDANCE_CATALOG.accountDashboard.steps[0];
+  expect(step.simple).toBe("选择作品类型和数据采集时间。");
+  expect(step.professional).toBe(
+    "选择作品类型和数据成熟度：1h、24h、72h 或 7d。",
+  );
+});
+
 test("never gives a viewer a write action", () => {
   for (const entry of Object.values(PAGE_GUIDANCE_CATALOG)) {
     const action = nextActionForRole(entry, "viewer");
