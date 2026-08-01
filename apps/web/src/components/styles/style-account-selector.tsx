@@ -28,10 +28,6 @@ export function StyleAccountSelector({
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <GuidedPageHeader context={styleBoundary} pageId="styles" />
-      <div className="rounded-xl border bg-white p-4 text-sm text-[var(--text-secondary)]">
-        <p>风格档案始终固定到单个平台账号，不提供全部账号合并视图。</p>
-        <p className="mt-1">优秀内容结构不会自动变成账号风格。</p>
-      </div>
       {accounts.length === 0 ? (
         <EmptyState
           description="先在工作区设置中创建抖音或小红书账号，再人工选择已发布内容作为风格样本。"

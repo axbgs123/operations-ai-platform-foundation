@@ -133,20 +133,36 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-test("explains the easy fact purpose and visual-fact boundary", async () => {
+test("shows one easy visual-fact boundary without professional or static duplicates", async () => {
   renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
 
   expect(await screen.findByText(
     "保存商品、活动或选题中可以确认的事实，生成时用它减少写错和虚假宣传。",
   )).toBeVisible();
-  expect(screen.getByText(/视觉判断不能证明面料、价格、功效或认证/)).toBeVisible();
+  expect(screen.getAllByText(
+    "图片只能帮助识别可能出现的文字或外观，不能证明面料、价格、功效、认证等事实。",
+  )).toHaveLength(1);
+  expect(screen.queryByText(
+    "L5 视觉推断不能升级为已验证事实，也不能单独支撑确定性生成声明。",
+  )).not.toBeInTheDocument();
+  expect(screen.queryByText(
+    "视觉判断不能证明面料、价格、功效或认证。",
+  )).not.toBeInTheDocument();
 });
 
-test("keeps OCR and L5 terminology in professional fact copy", async () => {
+test("shows one professional visual-fact boundary without easy or static duplicates", async () => {
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
   renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
 
-  expect(await screen.findByText(/L5 视觉推断不能升级为已验证事实/)).toBeVisible();
+  expect(await screen.findAllByText(
+    "L5 视觉推断不能升级为已验证事实，也不能单独支撑确定性生成声明。",
+  )).toHaveLength(1);
+  expect(screen.queryByText(
+    "图片只能帮助识别可能出现的文字或外观，不能证明面料、价格、功效、认证等事实。",
+  )).not.toBeInTheDocument();
+  expect(screen.queryByText(
+    "视觉判断不能证明面料、价格、功效或认证。",
+  )).not.toBeInTheDocument();
   expect(document.body).toHaveTextContent("OCR");
 });
 

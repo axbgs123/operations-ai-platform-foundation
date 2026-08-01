@@ -18,8 +18,8 @@ import {
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 
-const styleBoundary = {
-  simple: "账号风格用于保持表达稳定；优秀内容结构只是参考，不会自动变成账号风格。",
+const styleProfileContext = {
+  simple: "只有人工选择并确认的风格版本才会生效。",
   professional: "账号 Style Profile 与已确认 Viral Reference 保持独立版本和引用边界。",
 };
 
@@ -205,7 +205,7 @@ export function StyleProfileCenter({
   return (
     <section className="space-y-8">
       <div>
-        <GuidedPageHeader context={styleBoundary} pageId="styleProfile" />
+        <GuidedPageHeader context={styleProfileContext} pageId="styleProfile" />
         {columnCampaignId ? (
           <p className="mt-2 text-sm font-medium text-amber-900">
             当前正在维护栏目/活动覆盖风格
@@ -215,9 +215,6 @@ export function StyleProfileCenter({
           人工选择 · 版本确认 · 默认继承
         </p>
       </div>
-      <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="note">
-        账号风格用于稳定表达；爆款结构只是人工确认的策略参考，二者不会自动合并。
-      </aside>
       {!canWrite ? (
         <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
           查看者可查看历史风格，不能选择样本、提取或确认版本

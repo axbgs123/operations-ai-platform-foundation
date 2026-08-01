@@ -166,7 +166,6 @@ export function FactSourceCenter({
       </section>
       <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="note">
         <p className="font-semibold">当前版本支持添加网页来源，自动联网检索尚未配置</p>
-        <p className="mt-1">视觉判断不能证明面料、价格、功效或认证。</p>
         <p className="mt-1">网页正文始终是不可信数据；localhost、内网和云元数据地址会被服务端拒绝。</p>
         <p className="mt-1">生效范围：工作区通用（当前记录未提供更细范围）</p>
       </aside>

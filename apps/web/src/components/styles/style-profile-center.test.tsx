@@ -162,25 +162,41 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-test("explains the easy style-profile purpose and style/reference boundary", async () => {
+test("uses the catalog as the only easy style boundary and shows one activation hint", async () => {
   renderInWorkspace(
     <StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />,
   );
 
-  expect(await screen.findByText(
+  expect(await screen.findAllByText(
     "用人工确认的样本稳定账号表达；优秀内容结构不会自动变成账号风格。",
-  )).toBeVisible();
-  expect(screen.getAllByText(/优秀内容结构不会自动变成账号风格/).length).toBeGreaterThan(0);
+  )).toHaveLength(1);
+  expect(screen.getAllByText(
+    "只有人工选择并确认的风格版本才会生效。",
+  )).toHaveLength(1);
+  expect(screen.queryByText(
+    "账号 Style Profile 与已确认 Viral Reference 保持独立版本和引用边界。",
+  )).not.toBeInTheDocument();
+  expect(screen.queryByText(
+    "账号风格用于稳定表达；爆款结构只是人工确认的策略参考，二者不会自动合并。",
+  )).not.toBeInTheDocument();
 });
 
-test("retains version-confirmation terminology in professional mode", async () => {
+test("shows one professional style boundary without easy or static duplicates", async () => {
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
   renderInWorkspace(
     <StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />,
   );
 
   expect(await screen.findByText(/版本确认/)).toBeVisible();
-  expect(screen.getByText(/Style Profile.*Viral Reference/)).toBeVisible();
+  expect(screen.getAllByText(
+    "账号 Style Profile 与已确认 Viral Reference 保持独立版本和引用边界。",
+  )).toHaveLength(1);
+  expect(screen.queryByText(
+    "只有人工选择并确认的风格版本才会生效。",
+  )).not.toBeInTheDocument();
+  expect(screen.queryByText(
+    "账号风格用于稳定表达；爆款结构只是人工确认的策略参考，二者不会自动合并。",
+  )).not.toBeInTheDocument();
 });
 
 test("shows sources, extraction result, version diff, and requires confirmation", async () => {
@@ -342,7 +358,6 @@ test("separates title copy and cover style with traceable account scope", async 
   expect(screen.getByText("开头：先说结论")).toBeVisible();
   expect(screen.getByText("构图：subject-right")).toBeVisible();
   expect(screen.getByText("当前账号范围：account-1")).toBeVisible();
-  expect(screen.getByText("账号风格用于稳定表达；爆款结构只是人工确认的策略参考，二者不会自动合并。")).toBeVisible();
   expect(screen.getByText("生成预设合同：当前记录未提供")).toBeVisible();
   expect(screen.getByText("历史版本")).toBeVisible();
 });
