@@ -1,10 +1,38 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 
 import { WorkspaceSettings } from "./workspace-settings";
+
+const {
+  confirmWorkspaceDeletion,
+  readWorkspaceDeletionImpact,
+  requestWorkspaceDeletionConfirmation,
+} = vi.hoisted(() => ({
+  confirmWorkspaceDeletion: vi.fn(),
+  readWorkspaceDeletionImpact: vi.fn(),
+  requestWorkspaceDeletionConfirmation: vi.fn(),
+}));
+
+vi.mock("@/lib/export-api", () => ({
+  confirmWorkspaceDeletion,
+  readWorkspaceDeletionImpact,
+  requestWorkspaceDeletionConfirmation,
+}));
+
+const deletionImpact = {
+  workspace_id: "ws-1",
+  structured_records: 12,
+  assets: 3,
+  vectors: 5,
+  staging_tasks: 1,
+  evidence_retained_objects: 2,
+  compensation_required_jobs: 1,
+  private_knowledge_documents: 1,
+  cache_prefixes: ["workspace:ws-1"],
+};
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/workspaces/ws-1/settings",
@@ -45,6 +73,25 @@ beforeEach(() => {
       removeEventListener: vi.fn(),
     }),
   });
+  confirmWorkspaceDeletion.mockReset();
+  readWorkspaceDeletionImpact.mockReset();
+  requestWorkspaceDeletionConfirmation.mockReset();
+  readWorkspaceDeletionImpact.mockResolvedValue(deletionImpact);
+  requestWorkspaceDeletionConfirmation.mockResolvedValue({
+    confirmation_token: "one-time-confirmation-secret",
+    expires_at: "2026-08-01T08:10:00Z",
+    impact: deletionImpact,
+  });
+  confirmWorkspaceDeletion.mockResolvedValue({
+    id: "deletion-1",
+    workspace_id: "ws-1",
+    status: "queued",
+    phase: "queued",
+    inventory: {},
+    error_code: null,
+    completed_at: null,
+  });
+  sessionStorage.setItem("workspace_csrf", "csrf-token");
 });
 
 afterEach(cleanup);
@@ -88,11 +135,79 @@ test("admin deletion starts with impact preview and cannot skip confirmations", 
   ).not.toBeInTheDocument();
 });
 
-test("professional mode preserves experimental, Provider, and impact preview terms", () => {
+test("admin deletion requires impact, one-time confirmation, and final mutation", async () => {
+  renderInWorkspace(<WorkspaceSettings role="admin" workspaceId="ws-1" />);
+
+  expect(screen.queryByRole("button", {
+    name: "第二步：申请短期一次性确认",
+  })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", {
+    name: "最终确认删除工作区",
+  })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "第一步：查看删除影响",
+  }));
+  await waitFor(() => expect(readWorkspaceDeletionImpact).toHaveBeenCalledWith("ws-1"));
+  expect(screen.getByText("删除前影响检查已加载；尚未申请或执行删除。")).toBeVisible();
+  expect(screen.getByRole("button", {
+    name: "第二步：申请短期一次性确认",
+  })).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "第二步：申请短期一次性确认",
+  }));
+  await waitFor(() => expect(requestWorkspaceDeletionConfirmation).toHaveBeenCalledWith(
+    "ws-1",
+    "csrf-token",
+  ));
+  expect(screen.getByRole("button", {
+    name: "最终确认删除工作区",
+  })).toBeVisible();
+  expect(document.body.textContent).not.toContain("one-time-confirmation-secret");
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "最终确认删除工作区",
+  }));
+  await waitFor(() => expect(confirmWorkspaceDeletion).toHaveBeenCalledWith(
+    "ws-1",
+    "one-time-confirmation-secret",
+    "csrf-token",
+  ));
+  expect(document.body.textContent).not.toContain("one-time-confirmation-secret");
+});
+
+test("easy and professional deletion fallbacks use their own terminology", async () => {
+  readWorkspaceDeletionImpact.mockRejectedValueOnce("synthetic failure");
+  const { unmount } = renderInWorkspace(
+    <WorkspaceSettings role="admin" workspaceId="ws-1" />,
+  );
+  fireEvent.click(screen.getByRole("button", {
+    name: "第一步：查看删除影响",
+  }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("删除前影响检查失败");
+
+  unmount();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  readWorkspaceDeletionImpact.mockRejectedValueOnce("synthetic failure");
+  renderInWorkspace(<WorkspaceSettings role="admin" workspaceId="ws-1" />);
+  fireEvent.click(screen.getByRole("button", {
+    name: "第一步：查看删除影响",
+  }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("影响预览失败");
+});
+
+test("professional mode preserves experimental, Provider, and impact preview terms", async () => {
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
   renderInWorkspace(<WorkspaceSettings role="admin" workspaceId="ws-1" />);
 
   expect(screen.getByText("Catalog experimental")).toBeVisible();
   expect(screen.getByText(/Provider Workspace ID/)).toBeVisible();
   expect(screen.getByText(/影响预览/)).toBeVisible();
+  fireEvent.click(screen.getByRole("button", {
+    name: "第一步：查看删除影响",
+  }));
+  expect(await screen.findByText(
+    "影响预览已加载；尚未申请或执行删除。",
+  )).toBeVisible();
 });

@@ -68,3 +68,32 @@ The same focused command exited 0: 45 test files passed, 225 tests passed. In th
 
 - No product or safety blocker found.
 - The required focused command currently runs all 45 Web test files because of the existing `test:run` script argument behavior; it is slower than a truly focused run but passed consistently.
+
+## Review fix round 1
+
+### Findings addressed
+
+- Added mode-aware model configuration cards for loaded and newly saved configurations. Easy mode translates `experimental`, `not_run`, unavailable/failed states, and safe error codes into operator guidance; professional mode preserves exact status and code values.
+- Added the guided page header to the production no-role operations-access loading branch, so that branch renders exactly one `h1`.
+- Made export-history error terminology, workspace deletion impact success/fallback notices, and model Provider post-action/accessibility copy mode-aware.
+- Extended destructive-flow coverage through ZIP preview → explicit confirmation and workspace impact → one-time confirmation → final deletion mutation. Tests assert that manifest fingerprints and one-time confirmation tokens are not rendered.
+
+### TDD evidence
+
+The four affected test files were run before production changes. The RED run failed on eight expected reviewed behaviors: two export terminology assertions, the no-role jobs heading, three model display/accessibility assertions, and two deletion-impact notice assertions. After implementation, the same command passed with 45 files and 233 tests.
+
+### Verification
+
+- Seven Task 6 component tests: PASS, exit 0, 45 files / 233 tests.
+- `pnpm --filter web test:run`: PASS, exit 0, 45 files / 233 tests.
+- `pnpm --filter web lint`: PASS, exit 0.
+- `pnpm --filter web typecheck`: PASS, exit 0.
+- `pnpm --filter web build`: PASS, exit 0.
+- `pnpm schemas:check`: PASS, exit 0; no schema drift.
+- `pnpm metrics:check`: PASS, exit 0; no metrics drift.
+- `git diff --check`: PASS.
+
+### Remaining risks
+
+- No known product, permission, secret-handling, or destructive-order risk remains from the round 1 findings.
+- Deferred minor items remain unchanged as requested: viewer rerender tests keep their existing shell-context setup, and the professional export purpose retains its existing duplicated sentence.

@@ -190,7 +190,12 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
   }
 
   if (role === null) {
-    return <div>正在加载运维权限…</div>;
+    return (
+      <div className="space-y-6">
+        <GuidedPageHeader pageId="jobs" />
+        <p role="status">正在加载运维权限…</p>
+      </div>
+    );
   }
 
   if (!canRead) {

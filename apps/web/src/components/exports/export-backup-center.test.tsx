@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -8,6 +8,17 @@ import {
   ExportBackupCenter,
   type ExportBackupFixture,
 } from "./export-backup-center";
+
+const { confirmZipRestore, previewZipRestore } = vi.hoisted(() => ({
+  confirmZipRestore: vi.fn(),
+  previewZipRestore: vi.fn(),
+}));
+
+vi.mock("@/lib/export-api", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/export-api")>(),
+  confirmZipRestore,
+  previewZipRestore,
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/workspaces/ws-1/exports",
@@ -70,6 +81,9 @@ beforeEach(() => {
       removeEventListener: vi.fn(),
     }),
   });
+  confirmZipRestore.mockReset();
+  previewZipRestore.mockReset();
+  sessionStorage.setItem("workspace_csrf", "csrf-token");
 });
 
 afterEach(cleanup);
@@ -108,6 +122,8 @@ test("distinguishes every backup type, restore action and secret exclusion", () 
   expect(screen.getByText(/API Key及密文/)).toBeVisible();
   expect(screen.getByText(/Embedding和向量/)).toBeVisible();
   expect(screen.getByText(/下载地址已过期/)).toBeVisible();
+  expect(screen.getByText("失败原因编号")).toBeVisible();
+  expect(screen.queryByText("安全错误码")).not.toBeInTheDocument();
   expect(screen.getByLabelText("内容 ID")).toBeVisible();
   expect(
     screen.getByRole("button", { name: "创建Markdown 单条分析报告" }),
@@ -120,6 +136,19 @@ test("distinguishes every backup type, restore action and secret exclusion", () 
     "accept",
     "application/zip,.zip",
   );
+});
+
+test("easy empty export history uses operator-facing error terminology", () => {
+  renderInWorkspace(
+    <ExportBackupCenter
+      fixture={{ tasks: [], restorePreview: [] }}
+      role="admin"
+      workspaceId="ws-1"
+    />,
+  );
+
+  expect(screen.getByText(/状态、完成时间和失败原因编号/)).toBeVisible();
+  expect(screen.queryByText(/状态、完成时间和安全错误码/)).not.toBeInTheDocument();
 });
 
 test("viewer sees task state but no export or restore write actions", () => {
@@ -152,4 +181,61 @@ test("professional mode keeps ZIP restore preview and safe error terminology", (
   expect(screen.getByText("ZIP 完整恢复")).toBeVisible();
   expect(screen.getByText("安全错误码")).toBeVisible();
   expect(document.body.textContent).not.toContain("synthetic-secret-value");
+});
+
+test("ZIP restore requires preview before confirmation and never renders its fingerprint", async () => {
+  const preview = {
+    id: "restore-1",
+    workspace_id: "ws-1",
+    target_workspace_id: "ws-1",
+    mode: "merge",
+    phase: "preview_ready",
+    status: "queued",
+    preview_id: "preview-1",
+    manifest_fingerprint: "manifest-secret-fingerprint",
+    preview: {},
+    knowledge_indexes: [],
+    knowledge_index_message: null,
+    error_code: null,
+  } as const;
+  previewZipRestore.mockResolvedValueOnce(preview);
+  confirmZipRestore.mockResolvedValueOnce({
+    ...preview,
+    phase: "database",
+    status: "running",
+  });
+  renderInWorkspace(
+    <ExportBackupCenter fixture={fixture} role="admin" workspaceId="ws-1" />,
+  );
+
+  expect(screen.queryByRole("button", {
+    name: "再次确认并开始完整恢复",
+  })).not.toBeInTheDocument();
+
+  const file = new File(["synthetic zip"], "backup.zip", {
+    type: "application/zip",
+  });
+  fireEvent.change(screen.getByLabelText("选择 ZIP 并生成预览"), {
+    target: { files: [file] },
+  });
+
+  await waitFor(() => expect(previewZipRestore).toHaveBeenCalledWith(
+    "ws-1",
+    file,
+    "csrf-token",
+  ));
+  expect(await screen.findByRole("button", {
+    name: "再次确认并开始完整恢复",
+  })).toBeVisible();
+  expect(document.body.textContent).not.toContain("manifest-secret-fingerprint");
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "再次确认并开始完整恢复",
+  }));
+  await waitFor(() => expect(confirmZipRestore).toHaveBeenCalledWith(
+    "ws-1",
+    preview,
+    "csrf-token",
+  ));
+  expect(document.body.textContent).not.toContain("manifest-secret-fingerprint");
 });

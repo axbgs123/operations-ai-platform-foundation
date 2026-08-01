@@ -36,12 +36,14 @@ function renderInWorkspace(
 
 vi.mock("@/lib/operations-api", () => ({
   listOperationalTasks: vi.fn(),
+  readOperationsAccess: vi.fn(),
   readOperationsReadiness: vi.fn(),
   mutateOperationalTask: vi.fn(),
 }));
 
 import {
   listOperationalTasks,
+  readOperationsAccess,
   readOperationsReadiness,
 } from "@/lib/operations-api";
 
@@ -189,4 +191,14 @@ test("professional mode preserves readiness, safe codes, and internal failure te
   expect(screen.getAllByText("安全错误码")[0]).toBeVisible();
   expect(screen.getByText(/需要人工补偿：普通取消不会覆盖/)).toBeVisible();
   expect(screen.getByText(/死信任务：请检查安全错误码/)).toBeVisible();
+});
+
+test("no-role access loading branch keeps exactly one page heading", () => {
+  vi.mocked(readOperationsAccess).mockReturnValueOnce(new Promise(() => undefined));
+
+  renderInWorkspace(<JobOperations workspaceId="workspace-1" />);
+
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1, name: "后台任务" })).toBeVisible();
+  expect(screen.getByText("正在加载运维权限…")).toBeVisible();
 });

@@ -44,9 +44,17 @@ export function WorkspaceSettings({
     try {
       setImpact(await readWorkspaceDeletionImpact(workspaceId));
       setConfirmation(null);
-      setDeletionNotice("影响预览已加载；尚未申请或执行删除。");
+      setDeletionNotice(
+        copyMode === "simple"
+          ? "删除前影响检查已加载；尚未申请或执行删除。"
+          : "影响预览已加载；尚未申请或执行删除。",
+      );
     } catch (error) {
-      setDeletionError(error instanceof Error ? error.message : "影响预览失败");
+      setDeletionError(
+        error instanceof Error
+          ? error.message
+          : copyMode === "simple" ? "删除前影响检查失败" : "影响预览失败",
+      );
     } finally {
       setDeletionBusy(false);
     }

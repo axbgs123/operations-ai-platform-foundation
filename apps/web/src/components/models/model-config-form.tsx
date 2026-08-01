@@ -15,7 +15,12 @@ import {
   type ModelCatalog,
   type ModelConfig,
 } from "@/lib/model-api";
-import { ModelStatus } from "./model-status";
+import {
+  modelSafeErrorLabel,
+  modelStateLabel,
+  modelValidationLabel,
+  ModelStatus,
+} from "./model-status";
 
 
 type WorkspaceRole = "admin" | "editor" | "viewer" | "demo";
@@ -75,12 +80,7 @@ export function ModelConfigForm({
   const selected = catalog?.models.find((item) => item.model_id === modelId);
   const canManage = role === "admin";
   const displayInternalState = (value: string) => {
-    if (copyMode === "professional") return value;
-    return {
-      configuration_required: "还没有完成所需配置",
-      experimental: "试用状态，真实效果和费用尚未完成验收",
-      provider_outcome_unknown: "模型服务是否已经计费暂时无法确认，请勿直接重复提交",
-    }[value] ?? value;
+    return modelStateLabel(value, copyMode);
   };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -179,8 +179,10 @@ export function ModelConfigForm({
       );
       setMessage(
         result.result === "not_run"
-          ? `未运行：${displayInternalState(result.safe_error_code ?? "未授权")}`
-          : `验证状态：${displayInternalState(result.result)}`,
+          ? `未运行：${result.safe_error_code
+            ? modelSafeErrorLabel(result.safe_error_code, copyMode)
+            : copyMode === "simple" ? "尚未获得真实调用授权" : "未授权"}`
+          : `验证状态：${modelValidationLabel(result.result, copyMode)}`,
       );
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "验证发起失败");
@@ -206,7 +208,9 @@ export function ModelConfigForm({
       );
       setMessage(
         nextStatus === "incompatible"
-          ? "配置已禁用；新任务不会调用该 Provider"
+          ? copyMode === "simple"
+            ? "配置已禁用；新任务不会调用该模型服务"
+            : "配置已禁用；新任务不会调用该 Provider"
           : "配置已重新启用；调用前仍会检查预算和配置版本",
       );
     } catch (caught) {
@@ -250,7 +254,7 @@ export function ModelConfigForm({
           <label className="text-sm">
             {copyMode === "simple" ? "模型服务" : "Provider"}
             <input
-              aria-label="Provider"
+              aria-label={copyMode === "simple" ? "模型服务" : "Provider"}
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
               disabled
               value="qianwen"

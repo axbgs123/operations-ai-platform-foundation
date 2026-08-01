@@ -41,7 +41,8 @@ function renderInWorkspace(
 }
 
 
-const { saveModelConfig, updateModelConfigStatus } = vi.hoisted(() => ({
+const { listModelConfigs, saveModelConfig, updateModelConfigStatus } = vi.hoisted(() => ({
+  listModelConfigs: vi.fn(),
   saveModelConfig: vi.fn(),
   updateModelConfigStatus: vi.fn(),
 }));
@@ -71,7 +72,7 @@ vi.mock("@/lib/model-api", () => ({
       },
     ],
   })),
-  listModelConfigs: vi.fn(async () => []),
+  listModelConfigs,
   listModelUsagePolicies: vi.fn(async () => []),
   saveModelConfig,
   updateModelConfigStatus,
@@ -90,6 +91,8 @@ beforeEach(() => {
     }),
   });
   saveModelConfig.mockReset();
+  listModelConfigs.mockReset();
+  listModelConfigs.mockResolvedValue([]);
   updateModelConfigStatus.mockReset();
   saveModelConfig.mockResolvedValue({
     id: "config-1",
@@ -227,4 +230,108 @@ test("easy mode explains secret storage, real provider cost, and trial status", 
     "试用状态，真实效果和费用尚未完成验收",
   )).toBeVisible();
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByLabelText("模型服务")).toHaveValue("qianwen");
+  expect(screen.queryByLabelText("Provider")).not.toBeInTheDocument();
+});
+
+test("easy mode translates loaded model and validation states without exposing safe codes", async () => {
+  listModelConfigs.mockResolvedValueOnce([
+    {
+      id: "config-loaded-1",
+      provider: "qianwen",
+      model_id: "qwen3.5-plus-2026-04-20",
+      capability: "text",
+      region: "cn-beijing",
+      status: "experimental",
+      experimental: true,
+      credential_configured: true,
+      credential_updated_at: "2026-07-29T00:00:00Z",
+      configuration_version: "config-loaded-v1",
+      contract_version: "qianwen-chat-json-v1",
+      last_validation_status: "not_run",
+      last_validated_at: null,
+      safe_error_code: "explicit_user_authorization_missing",
+    },
+    {
+      id: "config-loaded-2",
+      provider: "qianwen",
+      model_id: "text-embedding-v4",
+      capability: "embedding",
+      region: "cn-beijing",
+      status: "incompatible",
+      experimental: false,
+      credential_configured: true,
+      credential_updated_at: "2026-07-29T00:00:00Z",
+      configuration_version: "config-loaded-v2",
+      contract_version: "qianwen-text-embedding-v4-d1024-v1",
+      last_validation_status: "failed",
+      last_validated_at: "2026-07-29T00:01:00Z",
+      safe_error_code: "provider_outcome_unknown",
+    },
+  ]);
+
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  expect(await screen.findByText("验证：尚未验收")).toBeVisible();
+  expect(screen.getByText("验收提示：尚未确认进行真实调用")).toBeVisible();
+  expect(screen.getByText("当前配置不可用")).toBeVisible();
+  expect(screen.getByText("验证：验收未通过")).toBeVisible();
+  expect(screen.getByText(
+    "验收提示：模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+  )).toBeVisible();
+  expect(screen.queryByText("not_run")).not.toBeInTheDocument();
+  expect(screen.queryByText(/explicit_user_authorization_missing/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/provider_outcome_unknown/)).not.toBeInTheDocument();
+});
+
+test("professional mode preserves loaded model states and safe error codes", async () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  listModelConfigs.mockResolvedValueOnce([
+    {
+      id: "config-loaded-1",
+      provider: "qianwen",
+      model_id: "qwen3.5-plus-2026-04-20",
+      capability: "text",
+      region: "cn-beijing",
+      status: "experimental",
+      experimental: true,
+      credential_configured: true,
+      credential_updated_at: "2026-07-29T00:00:00Z",
+      configuration_version: "config-loaded-v1",
+      contract_version: "qianwen-chat-json-v1",
+      last_validation_status: "not_run",
+      last_validated_at: null,
+      safe_error_code: "explicit_user_authorization_missing",
+    },
+  ]);
+
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  expect(await screen.findByText("验证：not_run")).toBeVisible();
+  expect(screen.getByText("状态码：explicit_user_authorization_missing")).toBeVisible();
+  expect(screen.getAllByText("experimental")).toHaveLength(2);
+  expect(screen.getByLabelText("Provider")).toHaveValue("qianwen");
+});
+
+test("easy mode translates provider post-actions and uncertain validation outcomes", async () => {
+  createModelValidation.mockResolvedValueOnce({
+    result: "not_run",
+    safe_error_code: "provider_outcome_unknown",
+  });
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  const key = await screen.findByLabelText("API Key");
+  fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
+  await screen.findByRole("button", { name: "运行受控合同验证" });
+
+  fireEvent.click(screen.getByRole("button", { name: "运行受控合同验证" }));
+  expect(await screen.findByText(
+    "未运行：模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+  )).toBeVisible();
+
+  fireEvent.click(screen.getByRole("button", { name: "禁用配置" }));
+  expect(await screen.findByText(
+    "配置已禁用；新任务不会调用该模型服务",
+  )).toBeVisible();
 });

@@ -96,6 +96,11 @@ const exportSafetyCopy: ModeAwareCopy = {
   professional: "所有文件通过异步任务生成；短期下载地址不写入浏览器存储，恢复必须先预览再确认。",
 };
 
+const exportHistoryEmptyCopy: ModeAwareCopy = {
+  simple: "创建导出后会在这里显示状态、完成时间和失败原因编号。",
+  professional: "创建导出后会在这里显示状态、完成时间和安全错误码。",
+};
+
 const internalStateCopy: Record<string, ModeAwareCopy> = {
   configuration_required: {
     simple: "还没有完成所需配置",
@@ -382,7 +387,7 @@ export function ExportBackupCenter({
         {loading ? <p role="status">正在加载导出任务…</p> : null}
         {!loading && tasks.length === 0 ? (
           <EmptyState
-            description="创建导出后会在这里显示状态、完成时间和安全错误码。"
+            description={exportHistoryEmptyCopy}
             title="暂无导出任务"
           />
         ) : null}
@@ -408,7 +413,12 @@ export function ExportBackupCenter({
                   <div><dt>创建时间</dt><dd>{task.created_at}</dd></div>
                   <div><dt>完成时间</dt><dd>{task.completed_at ?? "未完成"}</dd></div>
                   <div><dt>下载过期时间</dt><dd>{task.download_expires_at ?? "尚未生成"}</dd></div>
-                  <div><dt>安全错误码</dt><dd>{task.error_code ?? "无"}</dd></div>
+                  <div>
+                    <dt>
+                      {copyMode === "simple" ? "失败原因编号" : "安全错误码"}
+                    </dt>
+                    <dd>{task.error_code ?? "无"}</dd>
+                  </div>
                 </dl>
                 {expired ? (
                   <p className="mt-3 text-sm text-amber-800">
