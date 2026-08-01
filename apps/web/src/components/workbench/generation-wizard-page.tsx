@@ -176,7 +176,11 @@ export function GenerationWizardPage({
 
   function syncUrl(next: GenerationWizardState) {
     const query = new URLSearchParams(currentQuery);
-    query.set("step", next.step);
+    if (next.step === "scope" && !currentQuery.has("step")) {
+      query.delete("step");
+    } else {
+      query.set("step", next.step);
+    }
     const account = context?.accounts.find(
       (candidate) => candidate.account_id === next.accountId,
     );
@@ -186,7 +190,10 @@ export function GenerationWizardPage({
     } else {
       query.delete("account");
     }
-    router.replace(`/workspaces/${workspaceId}/generation?${query}`);
+    const queryString = query.toString();
+    router.replace(
+      `/workspaces/${workspaceId}/generation${queryString ? `?${queryString}` : ""}`,
+    );
   }
 
   return (

@@ -21,14 +21,16 @@ function ControlFields() {
           ["professional", "专业"],
         ] as const).map(([value, label]) => (
           <label
-            className={copyMode === value
-              ? "rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-sm font-semibold text-white"
-              : "rounded-md px-2.5 py-1.5 text-sm text-[var(--text-secondary)]"}
+            className={`relative cursor-pointer rounded-md px-2.5 py-1.5 text-sm focus-within:ring-2 focus-within:ring-[var(--brand)] focus-within:ring-offset-2 ${
+              copyMode === value
+                ? "bg-[var(--brand)] font-semibold text-white"
+                : "text-[var(--text-secondary)]"
+            }`}
             key={value}
           >
             <input
               checked={copyMode === value}
-              className="sr-only"
+              className="absolute inset-0 cursor-pointer opacity-0"
               name="copy-mode"
               onChange={() => setCopyMode(value)}
               type="radio"

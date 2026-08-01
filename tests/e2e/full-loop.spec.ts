@@ -928,6 +928,6 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
       ).toHaveAttribute("aria-current", "step");
     }
     await openModule("发布前检查", "发布前检查");
-    await openModule("导出与备份", "导出、备份与恢复");
+    await openModule("导出与备份", "导出与备份");
   });
 });

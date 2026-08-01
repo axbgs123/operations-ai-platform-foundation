@@ -250,7 +250,7 @@ test("390px workbench keeps key states readable and explains desktop-only operat
 
   const desktopOnlyRoutes = [
     ["/risk-knowledge", "复杂知识库审核"],
-    ["/data-management/exports", "ZIP 完整恢复"],
+    ["/data-management/exports", "完整备份恢复前检查"],
     ["/settings", "模型密钥和预算配置"],
     ["/settings", "工作区删除和二次确认"],
   ] as const;
@@ -261,10 +261,10 @@ test("390px workbench keeps key states readable and explains desktop-only operat
   }
 
   for (const [suffix, heading] of [
-    ["/risk-knowledge", "风控知识治理"],
-    ["/data-management/exports", "导出、备份与恢复"],
-    ["/data-management/trash", "内容回收站"],
-    ["/settings/jobs", "后台任务运维"],
+    ["/risk-knowledge", "风控知识库"],
+    ["/data-management/exports", "导出与备份"],
+    ["/data-management/trash", "回收站"],
+    ["/settings/jobs", "后台任务"],
   ] as const) {
     await page.goto(`/workspaces/${workspace.workspace_id}${suffix}`);
     await expect(

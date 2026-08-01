@@ -202,4 +202,22 @@ test("canonical workbench routes retain stable synthetic visual baselines", asyn
     `${root}/contents/${fixture.contentId}?tab=overview&${scoped}`,
   );
   await capture(page, "mobile-content-detail.png");
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${root}/analysis?${scoped}`);
+  await capture(page, "guidance-easy.png");
+
+  await page.getByRole("radio", { name: "专业" }).click();
+  await capture(page, "guidance-professional.png");
+
+  await page.getByRole("switch", { name: "页面引导" }).click();
+  await capture(page, "guidance-off.png");
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${root}/preflight?${scoped}`);
+  await page.getByText("界面说明", { exact: true }).click();
+  await page.getByRole("switch", { name: "页面引导" }).click();
+  await page.getByText("界面说明", { exact: true }).click();
+  await page.getByRole("button", { name: "查看操作说明" }).click();
+  await capture(page, "mobile-guidance.png");
 });

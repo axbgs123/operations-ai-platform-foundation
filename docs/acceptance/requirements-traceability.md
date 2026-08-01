@@ -2,6 +2,10 @@
 
 验证日期：2026-07-30。状态只使用 `passed`、`partial`、`blocked`、`not_run`。自动化证据来自隔离临时环境、人工合成数据和 Mock Provider，不等同于真实平台、真实千问或独立非开发者验证。
 
+| 需求编号 | 需求 | 自动化证据 | 当前状态 |
+| --- | --- | --- | --- |
+| UX-COPY-01 | 运营用户可切换易懂/专业文案并随时开关页面引导；偏好按成员隔离，风险语义不弱化 | `experience-preferences.test.ts`, `operator-copy-catalog.test.ts`, `page-guide.test.tsx`, `workbench-guidance.spec.ts`, four visual baselines | automated_passed; independent_non_developer_pending |
+
 ## AC-01
 
 - 原始需求文字：无邀请码访客可以安全体验只读示例工作区。

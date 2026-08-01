@@ -64,38 +64,57 @@ export function WorkbenchOverview({
 }): ReactElement {
   const shellContext = useWorkbenchShellContext();
   const effectiveRole = role ?? shellContext?.role ?? "viewer";
-  if (state === "loading") return <Skeleton label="正在加载工作台" />;
+  const header = <GuidedPageHeader pageId="overview" />;
+  if (state === "loading") {
+    return (
+      <div className="mx-auto max-w-7xl space-y-6">
+        {header}
+        <Skeleton label="正在加载工作台" />
+      </div>
+    );
+  }
   if (state === "permission") {
-    return <PermissionNotice currentRole="当前成员" requiredRole="工作区只读成员" />;
+    return (
+      <div className="mx-auto max-w-7xl space-y-6">
+        {header}
+        <PermissionNotice currentRole="当前成员" requiredRole="工作区只读成员" />
+      </div>
+    );
   }
   if (state === "error" || state === "dependency_unavailable") {
     return (
-      <ErrorState
-        description="工作台只读聚合暂时无法获取，已保存的数据不会受到影响。"
-        title={state === "dependency_unavailable" ? "依赖服务暂不可用" : "工作台加载失败"}
-      />
+      <div className="mx-auto max-w-7xl space-y-6">
+        {header}
+        <ErrorState
+          description="工作台只读聚合暂时无法获取，已保存的数据不会受到影响。"
+          title={state === "dependency_unavailable" ? "依赖服务暂不可用" : "工作台加载失败"}
+        />
+      </div>
     );
   }
   if (state === "empty" || !overview) {
     return (
-      <EmptyState
-        action={effectiveRole !== "viewer" ? (
-          <Link
-            className="inline-flex rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
-            href={`/workspaces/${workspaceId}/settings`}
-          >
-            配置平台账号
-          </Link>
-        ) : undefined}
-        description="创建抖音或小红书账号后，这里会分别展示数据状态和运营待办。"
-        title="还没有平台账号"
-      />
+      <div className="mx-auto max-w-7xl space-y-6">
+        {header}
+        <EmptyState
+          action={effectiveRole !== "viewer" ? (
+            <Link
+              className="inline-flex rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
+              href={`/workspaces/${workspaceId}/settings`}
+            >
+              配置平台账号
+            </Link>
+          ) : undefined}
+          description="创建抖音或小红书账号后，这里会分别展示数据状态和运营待办。"
+          title="还没有平台账号"
+        />
+      </div>
     );
   }
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <GuidedPageHeader pageId="overview" />
+      {header}
 
       <Panel title="数据状态">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
