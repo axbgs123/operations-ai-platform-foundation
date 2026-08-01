@@ -20,18 +20,22 @@ function ControlFields() {
           ["simple", "易懂"],
           ["professional", "专业"],
         ] as const).map(([value, label]) => (
-          <button
-            aria-checked={copyMode === value}
+          <label
             className={copyMode === value
               ? "rounded-md bg-[var(--brand)] px-2.5 py-1.5 text-sm font-semibold text-white"
               : "rounded-md px-2.5 py-1.5 text-sm text-[var(--text-secondary)]"}
             key={value}
-            onClick={() => setCopyMode(value)}
-            role="radio"
-            type="button"
           >
+            <input
+              checked={copyMode === value}
+              className="sr-only"
+              name="copy-mode"
+              onChange={() => setCopyMode(value)}
+              type="radio"
+              value={value}
+            />
             {label}
-          </button>
+          </label>
         ))}
       </div>
       <button

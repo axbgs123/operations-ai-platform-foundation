@@ -476,6 +476,26 @@ describe("workspace shell behavior", () => {
     )).toBe("off");
   });
 
+  test("supports keyboard selection in the copy mode radio group", async () => {
+    const user = userEvent.setup();
+    render(<WorkspaceShell context={context}><p>页面业务内容</p></WorkspaceShell>);
+
+    const easy = screen.getByRole("radio", { name: "易懂" });
+    const professional = screen.getByRole("radio", { name: "专业" });
+    expect(easy).toBeChecked();
+    expect(professional).not.toBeChecked();
+
+    easy.focus();
+    await user.keyboard("{ArrowRight}");
+
+    expect(easy).not.toBeChecked();
+    expect(professional).toBeChecked();
+    expect(professional).toHaveFocus();
+    expect(localStorage.getItem(
+      "operations-ai:copy-mode:member-admin",
+    )).toBe("professional");
+  });
+
   test("keeps preferences isolated when the current member changes", () => {
     localStorage.setItem(
       "operations-ai:copy-mode:member-admin",
