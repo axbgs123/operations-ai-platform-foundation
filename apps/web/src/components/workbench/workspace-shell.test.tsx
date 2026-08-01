@@ -4,8 +4,16 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   ALL_WORKBENCH_MODULE_LABELS,
+  activeNavigationCategory,
+  defaultNavigationItem,
   visibleNavigationItems,
+  visibleNavigationCategories,
+  WORKBENCH_NAV_CATEGORIES,
 } from "./navigation";
+import {
+  readRecentNavigationPath,
+  writeRecentNavigationPath,
+} from "./navigation-preference";
 import { SidebarNav } from "./sidebar-nav";
 import {
   buildWorkspaceHref,
@@ -96,59 +104,154 @@ afterEach(() => {
 });
 
 describe("canonical navigation and roles", () => {
-  test("gives every formal module exactly one grouped entry", () => {
+  test("maps every formal module exactly once into five stable categories", () => {
+    expect(WORKBENCH_NAV_CATEGORIES.map((category) => category.id)).toEqual([
+      "overview",
+      "operations",
+      "creation",
+      "assets",
+      "management",
+    ]);
     expect(ALL_WORKBENCH_MODULE_LABELS).toEqual([
       "工作台总览",
-      "账号仪表盘",
-      "栏目与活动",
       "内容库",
       "数据导入",
       "分析中心",
+      "账号仪表盘",
+      "栏目与活动",
+      "生成中心",
+      "发布前检查",
       "爆款素材库",
       "账号风格",
       "事实资料",
-      "生成中心",
-      "发布前检查",
-      "风控知识库",
       "导出与备份",
-      "回收站",
       "后台任务",
+      "风控知识库",
+      "回收站",
       "工作区设置",
     ]);
     expect(new Set(ALL_WORKBENCH_MODULE_LABELS)).toHaveLength(16);
   });
 
   test("applies the approved admin editor and viewer navigation matrix", () => {
+    expect(visibleNavigationCategories("admin").map(({ id }) => id)).toEqual([
+      "overview",
+      "operations",
+      "creation",
+      "assets",
+      "management",
+    ]);
+    expect(visibleNavigationCategories("editor").map(({ id }) => id)).toEqual([
+      "overview",
+      "operations",
+      "creation",
+      "assets",
+      "management",
+    ]);
+    expect(visibleNavigationCategories("viewer").map(({ id }) => id)).toEqual([
+      "overview",
+      "operations",
+      "creation",
+      "assets",
+    ]);
     expect(visibleNavigationItems("admin").map((item) => item.label)).toEqual(
       ALL_WORKBENCH_MODULE_LABELS,
     );
     expect(visibleNavigationItems("editor").map((item) => item.label)).toEqual([
       "工作台总览",
-      "账号仪表盘",
-      "栏目与活动",
       "内容库",
       "数据导入",
       "分析中心",
+      "账号仪表盘",
+      "栏目与活动",
+      "生成中心",
+      "发布前检查",
       "爆款素材库",
       "账号风格",
       "事实资料",
-      "生成中心",
-      "发布前检查",
       "导出与备份",
       "后台任务",
     ]);
     expect(visibleNavigationItems("viewer").map((item) => item.label)).toEqual([
       "工作台总览",
-      "账号仪表盘",
       "内容库",
       "分析中心",
+      "账号仪表盘",
+      "生成中心",
+      "发布前检查",
       "爆款素材库",
       "账号风格",
       "事实资料",
-      "生成中心",
-      "发布前检查",
     ]);
   });
+
+  test("derives active categories and role-safe defaults from canonical routes", () => {
+    expect(
+      activeNavigationCategory(
+        "/workspaces/workspace-1/contents/content-1",
+        "workspace-1",
+      )?.id,
+    ).toBe("operations");
+    expect(defaultNavigationItem("operations", "viewer")?.href).toBe(
+      "/contents",
+    );
+    expect(defaultNavigationItem("management", "viewer")).toBeUndefined();
+    expect(defaultNavigationItem("management", "editor")?.href).toBe(
+      "/data-management/exports",
+    );
+  });
+
+  test("stores only a member-scoped canonical child in its own category", () => {
+    const analysis = visibleNavigationItems("admin").find(
+      (item) => item.label === "分析中心",
+    );
+    expect(analysis).toBeDefined();
+    writeRecentNavigationPath(
+      localStorage,
+      "member-admin",
+      "operations",
+      analysis!,
+    );
+    expect(
+      readRecentNavigationPath(
+        localStorage,
+        "member-admin",
+        "operations",
+        "admin",
+      ),
+    ).toBe("/analysis");
+    expect(
+      readRecentNavigationPath(
+        localStorage,
+        "member-viewer",
+        "operations",
+        "viewer",
+      ),
+    ).toBeUndefined();
+  });
+
+  test.each([
+    ["management", "/settings", "viewer"],
+    ["operations", "/settings", "admin"],
+    ["operations", "https://attacker.example", "admin"],
+    ["operations", "/contents?prompt=private", "admin"],
+  ] as const)(
+    "rejects unsafe or unauthorized recent path %s %s for %s",
+    (categoryId, stored, role) => {
+      localStorage.setItem(
+        `operations-ai:navigation:member-1:${categoryId}`,
+        stored,
+      );
+      expect(
+        readRecentNavigationPath(
+          localStorage,
+          "member-1",
+          categoryId,
+          role,
+        ),
+      ).toBeUndefined();
+    },
+  );
 
   test("marks only the unique primary entry for the current route", () => {
     render(

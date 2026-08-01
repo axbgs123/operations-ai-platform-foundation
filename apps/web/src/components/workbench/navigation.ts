@@ -4,6 +4,13 @@ import type { components } from "@operations-ai/shared-schemas";
 export type WorkbenchRole =
   components["schemas"]["WorkbenchContextRead"]["role"];
 
+export type WorkbenchNavigationCategoryId =
+  | "overview"
+  | "operations"
+  | "creation"
+  | "assets"
+  | "management";
+
 export type WorkbenchNavigationItem = {
   label: string;
   href: string;
@@ -11,17 +18,25 @@ export type WorkbenchNavigationItem = {
   allowedRoles: readonly WorkbenchRole[];
 };
 
-export type WorkbenchNavigationGroup = {
+export type WorkbenchNavigationCategory = {
+  id: WorkbenchNavigationCategoryId;
   label: string;
+  navigationLabel: string;
+  icon: string;
+  defaultHref: string;
   items: readonly WorkbenchNavigationItem[];
 };
 
 const ALL_ROLES = ["admin", "editor", "viewer"] as const;
 const EDIT_ROLES = ["admin", "editor"] as const;
 
-export const WORKBENCH_NAV_GROUPS: readonly WorkbenchNavigationGroup[] = [
+export const WORKBENCH_NAV_CATEGORIES: readonly WorkbenchNavigationCategory[] = [
   {
-    label: "工作台",
+    id: "overview",
+    label: "总览",
+    navigationLabel: "工作台总览",
+    icon: "home",
+    defaultHref: "",
     items: [
       {
         label: "工作台总览",
@@ -32,20 +47,12 @@ export const WORKBENCH_NAV_GROUPS: readonly WorkbenchNavigationGroup[] = [
     ],
   },
   {
-    label: "内容运营",
+    id: "operations",
+    label: "运营",
+    navigationLabel: "内容运营",
+    icon: "operations",
+    defaultHref: "/contents",
     items: [
-      {
-        label: "账号仪表盘",
-        href: "/accounts",
-        icon: "accounts",
-        allowedRoles: ALL_ROLES,
-      },
-      {
-        label: "栏目与活动",
-        href: "/columns",
-        icon: "columns",
-        allowedRoles: EDIT_ROLES,
-      },
       {
         label: "内容库",
         href: "/contents",
@@ -64,10 +71,47 @@ export const WORKBENCH_NAV_GROUPS: readonly WorkbenchNavigationGroup[] = [
         icon: "analysis",
         allowedRoles: ALL_ROLES,
       },
+      {
+        label: "账号仪表盘",
+        href: "/accounts",
+        icon: "accounts",
+        allowedRoles: ALL_ROLES,
+      },
+      {
+        label: "栏目与活动",
+        href: "/columns",
+        icon: "columns",
+        allowedRoles: EDIT_ROLES,
+      },
     ],
   },
   {
-    label: "策略资产",
+    id: "creation",
+    label: "创作",
+    navigationLabel: "AI 创作",
+    icon: "creation",
+    defaultHref: "/generation",
+    items: [
+      {
+        label: "生成中心",
+        href: "/generation",
+        icon: "generation",
+        allowedRoles: ALL_ROLES,
+      },
+      {
+        label: "发布前检查",
+        href: "/preflight",
+        icon: "preflight",
+        allowedRoles: ALL_ROLES,
+      },
+    ],
+  },
+  {
+    id: "assets",
+    label: "资产",
+    navigationLabel: "策略资产",
+    icon: "assets",
+    defaultHref: "/viral-library",
     items: [
       {
         label: "爆款素材库",
@@ -90,31 +134,12 @@ export const WORKBENCH_NAV_GROUPS: readonly WorkbenchNavigationGroup[] = [
     ],
   },
   {
-    label: "AI 创作",
+    id: "management",
+    label: "管理",
+    navigationLabel: "工作区管理",
+    icon: "management",
+    defaultHref: "/data-management/exports",
     items: [
-      {
-        label: "生成中心",
-        href: "/generation",
-        icon: "generation",
-        allowedRoles: ALL_ROLES,
-      },
-      {
-        label: "发布前检查",
-        href: "/preflight",
-        icon: "preflight",
-        allowedRoles: ALL_ROLES,
-      },
-    ],
-  },
-  {
-    label: "治理与数据",
-    items: [
-      {
-        label: "风控知识库",
-        href: "/risk-knowledge",
-        icon: "risk",
-        allowedRoles: ["admin"],
-      },
       {
         label: "导出与备份",
         href: "/data-management/exports",
@@ -122,21 +147,22 @@ export const WORKBENCH_NAV_GROUPS: readonly WorkbenchNavigationGroup[] = [
         allowedRoles: EDIT_ROLES,
       },
       {
-        label: "回收站",
-        href: "/data-management/trash",
-        icon: "trash",
-        allowedRoles: ["admin"],
-      },
-    ],
-  },
-  {
-    label: "工作区管理",
-    items: [
-      {
         label: "后台任务",
         href: "/settings/jobs",
         icon: "jobs",
         allowedRoles: EDIT_ROLES,
+      },
+      {
+        label: "风控知识库",
+        href: "/risk-knowledge",
+        icon: "risk",
+        allowedRoles: ["admin"],
+      },
+      {
+        label: "回收站",
+        href: "/data-management/trash",
+        icon: "trash",
+        allowedRoles: ["admin"],
       },
       {
         label: "工作区设置",
@@ -148,15 +174,33 @@ export const WORKBENCH_NAV_GROUPS: readonly WorkbenchNavigationGroup[] = [
   },
 ];
 
-export const ALL_WORKBENCH_MODULE_LABELS = WORKBENCH_NAV_GROUPS.flatMap(
-  (group) => group.items.map((item) => item.label),
+// Kept as a compatibility export while consumers migrate to categories.
+export const WORKBENCH_NAV_GROUPS = WORKBENCH_NAV_CATEGORIES;
+
+export const ALL_WORKBENCH_MODULE_LABELS = WORKBENCH_NAV_CATEGORIES.flatMap(
+  (category) => category.items.map((item) => item.label),
 );
+
+export function visibleCategoryItems(
+  category: WorkbenchNavigationCategory,
+  role: WorkbenchRole,
+): WorkbenchNavigationItem[] {
+  return category.items.filter((item) => item.allowedRoles.includes(role));
+}
+
+export function visibleNavigationCategories(
+  role: WorkbenchRole,
+): WorkbenchNavigationCategory[] {
+  return WORKBENCH_NAV_CATEGORIES.filter(
+    (category) => visibleCategoryItems(category, role).length > 0,
+  );
+}
 
 export function visibleNavigationItems(
   role: WorkbenchRole,
 ): WorkbenchNavigationItem[] {
-  return WORKBENCH_NAV_GROUPS.flatMap((group) =>
-    group.items.filter((item) => item.allowedRoles.includes(role)),
+  return visibleNavigationCategories(role).flatMap((category) =>
+    visibleCategoryItems(category, role),
   );
 }
 
@@ -190,5 +234,36 @@ export function activeNavigationItem(
 ): WorkbenchNavigationItem | undefined {
   return visibleNavigationItems("admin").find((item) =>
     isNavigationItemActive(pathname, workspaceId, item),
+  );
+}
+
+export function activeNavigationCategory(
+  pathname: string,
+  workspaceId: string,
+): WorkbenchNavigationCategory | undefined {
+  const activeItem = activeNavigationItem(pathname, workspaceId);
+  if (!activeItem) return undefined;
+  return WORKBENCH_NAV_CATEGORIES.find((category) =>
+    category.items.some((item) => item.href === activeItem.href),
+  );
+}
+
+export function navigationCategory(
+  categoryId: WorkbenchNavigationCategoryId,
+): WorkbenchNavigationCategory {
+  return WORKBENCH_NAV_CATEGORIES.find(
+    (category) => category.id === categoryId,
+  )!;
+}
+
+export function defaultNavigationItem(
+  categoryId: WorkbenchNavigationCategoryId,
+  role: WorkbenchRole,
+): WorkbenchNavigationItem | undefined {
+  const category = navigationCategory(categoryId);
+  const allowedItems = visibleCategoryItems(category, role);
+  return (
+    allowedItems.find((item) => item.href === category.defaultHref)
+    ?? allowedItems[0]
   );
 }
