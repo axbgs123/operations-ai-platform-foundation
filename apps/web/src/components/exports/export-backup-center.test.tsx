@@ -1,10 +1,42 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 
 import {
   ExportBackupCenter,
   type ExportBackupFixture,
 } from "./export-backup-center";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/ws-1/exports",
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+const shellContext = {
+  workspace_id: "ws-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 const fixture: ExportBackupFixture = {
   tasks: [
@@ -28,10 +60,22 @@ const fixture: ExportBackupFixture = {
   ],
 };
 
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
+
 afterEach(cleanup);
 
 test("distinguishes every backup type, restore action and secret exclusion", () => {
-  render(
+  renderInWorkspace(
     <ExportBackupCenter
       evaluatedAt="2026-07-30T00:00:00Z"
       fixture={fixture}
@@ -40,13 +84,21 @@ test("distinguishes every backup type, restore action and secret exclusion", () 
     />,
   );
 
+  expect(screen.getByText(
+    "导出运营数据和分析报告，或备份整个工作区后再恢复。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "系统会先检查版本、文件和冲突；确认恢复前不会改动正式数据。",
+  )).toBeVisible();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+
   for (const label of [
     "CSV 内容与运营数据",
     "Markdown 单条分析报告",
     "JSON 轻量备份",
     "ZIP 完整备份",
     "JSON 恢复预览",
-    "ZIP 完整恢复",
+    "完整备份恢复前检查",
   ]) {
     expect(screen.getAllByText(label)[0]).toBeVisible();
   }
@@ -71,16 +123,33 @@ test("distinguishes every backup type, restore action and secret exclusion", () 
 });
 
 test("viewer sees task state but no export or restore write actions", () => {
-  render(
+  renderInWorkspace(
     <ExportBackupCenter
       evaluatedAt="2026-07-30T00:00:00Z"
       fixture={fixture}
       role="viewer"
       workspaceId="ws-1"
     />,
+    "viewer",
   );
 
   expect(screen.getAllByText("CSV 内容与运营数据")[0]).toBeVisible();
   expect(screen.queryByRole("button", { name: /创建/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /确认恢复/ })).not.toBeInTheDocument();
+});
+
+test("professional mode keeps ZIP restore preview and safe error terminology", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <ExportBackupCenter
+      evaluatedAt="2026-07-30T00:00:00Z"
+      fixture={fixture}
+      role="admin"
+      workspaceId="ws-1"
+    />,
+  );
+
+  expect(screen.getByText("ZIP 完整恢复")).toBeVisible();
+  expect(screen.getByText("安全错误码")).toBeVisible();
+  expect(document.body.textContent).not.toContain("synthetic-secret-value");
 });

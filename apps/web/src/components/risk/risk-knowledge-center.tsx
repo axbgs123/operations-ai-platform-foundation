@@ -9,8 +9,9 @@ import {
   type RiskDocumentAdminData,
   type RiskEvaluationData,
 } from "@/lib/risk-admin-api";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
-import { DesktopOnlyNotice, PageHeader, Panel, StatusBadge } from "@/components/workbench/ui";
+import { DesktopOnlyNotice, Panel, StatusBadge } from "@/components/workbench/ui";
 import { RiskFeedbackPanel } from "./risk-feedback-panel";
 
 type WorkspaceRole = "admin" | "editor" | "viewer";
@@ -96,10 +97,7 @@ export function RiskKnowledgeCenter({
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        description="文档正文始终是不可信资料；当前扫描只使用已生效、已到生效日期的对应平台版本。"
-        title="风控知识治理"
-      />
+      <GuidedPageHeader pageId="riskKnowledge" />
       <Panel title="文档生命周期">
         <p className="text-sm font-semibold">
           草稿 → 已解析 → 待审核 → 生效 → 已替代/已失效

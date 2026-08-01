@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   createMemberCode,
@@ -107,13 +108,13 @@ export function MemberSettings({
 
   return (
     <section className="rounded-xl border bg-white p-8">
-      <h1 className="text-3xl font-semibold">成员与邀请码</h1>
-      <p className="mt-3 text-[var(--text-secondary)]">
-        坚持一人一码、一种角色；成员离开后可单独撤销，不影响其他人。
-      </p>
-      <p className="mt-2 text-sm text-[var(--text-secondary)]">
-        邀请码只在新建时显示一次，无法找回原邀请码；页面不会写入 URL 或浏览器持久化存储。
-      </p>
+      <GuidedPageHeader
+        context={{
+          simple: "邀请码只在创建时显示一次。请立即交给对应成员，不要发到公开群或截图保存到公共位置。",
+          professional: "邀请码只在新建时显示一次，无法找回原邀请码；页面不会写入 URL 或浏览器持久化存储。",
+        }}
+        pageId="settingsMembers"
+      />
       {canManage ? (
         <form className="mt-8 flex flex-col gap-4 sm:flex-row" onSubmit={handleSubmit}>
           <label className="flex-1 text-sm font-medium">

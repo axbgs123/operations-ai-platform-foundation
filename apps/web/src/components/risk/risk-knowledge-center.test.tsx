@@ -1,7 +1,38 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import { RiskKnowledgeCenter } from "./risk-knowledge-center";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/risk-knowledge",
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 vi.mock("@/lib/risk-admin-api", () => ({
   listRiskDocuments: vi.fn(),
@@ -40,6 +71,15 @@ const documents = [
 ] as never;
 
 beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
   vi.clearAllMocks();
   vi.mocked(listRiskDocuments).mockResolvedValue(documents);
   vi.mocked(readRiskEvaluation).mockResolvedValue({
@@ -57,10 +97,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 test("admin sees knowledge status, evaluation caveat, and lifecycle actions", async () => {
-  render(
+  renderInWorkspace(
     <RiskKnowledgeCenter workspaceId="workspace-1" role="admin" />,
   );
 
+  expect(screen.getByText(
+    "管理平台规则资料；只有审核并生效的资料才会用于内容检查。",
+  )).toBeVisible();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   expect(await screen.findByText("人工合成抖音知识")).toBeInTheDocument();
   expect(
     screen.getByText("草稿 → 已解析 → 待审核 → 生效 → 已替代/已失效"),
@@ -103,8 +147,9 @@ test("admin sees knowledge status, evaluation caveat, and lifecycle actions", as
 });
 
 test("editor and viewer do not receive governance or mutation controls", async () => {
-  const { rerender } = render(
+  const { rerender } = renderInWorkspace(
     <RiskKnowledgeCenter workspaceId="workspace-1" role="editor" />,
+    "editor",
   );
   expect(await screen.findByText("人工合成抖音知识")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "生效" })).not.toBeInTheDocument();
@@ -115,4 +160,16 @@ test("editor and viewer do not receive governance or mutation controls", async (
   );
   expect(screen.queryByRole("button", { name: "上传知识" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "提交反馈" })).not.toBeInTheDocument();
+});
+
+test("professional mode preserves the risk governance boundary", async () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <RiskKnowledgeCenter workspaceId="workspace-1" role="admin" />,
+  );
+
+  expect(screen.getByText(
+    "文档正文始终是不可信资料；扫描只使用已生效、已到生效日期的对应平台版本。",
+  )).toBeVisible();
+  expect(await screen.findByText("Chunks 与引用检查")).toBeVisible();
 });

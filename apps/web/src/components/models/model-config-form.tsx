@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import { readOperationsAccess } from "@/lib/operations-api";
 import {
   getModelCatalog,
@@ -25,6 +27,7 @@ export function ModelConfigForm({
   workspaceId: string;
   role?: WorkspaceRole;
 }) {
+  const { copyMode } = useExperiencePreferences();
   const [role, setRole] = useState<WorkspaceRole | null>(
     suppliedRole ?? null,
   );
@@ -71,6 +74,14 @@ export function ModelConfigForm({
 
   const selected = catalog?.models.find((item) => item.model_id === modelId);
   const canManage = role === "admin";
+  const displayInternalState = (value: string) => {
+    if (copyMode === "professional") return value;
+    return {
+      configuration_required: "还没有完成所需配置",
+      experimental: "试用状态，真实效果和费用尚未完成验收",
+      provider_outcome_unknown: "模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+    }[value] ?? value;
+  };
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,8 +179,8 @@ export function ModelConfigForm({
       );
       setMessage(
         result.result === "not_run"
-          ? `未运行：${result.safe_error_code ?? "未授权"}`
-          : `验证状态：${result.result}`,
+          ? `未运行：${displayInternalState(result.safe_error_code ?? "未授权")}`
+          : `验证状态：${displayInternalState(result.result)}`,
       );
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "验证发起失败");
@@ -207,17 +218,18 @@ export function ModelConfigForm({
 
   return (
     <section className="rounded-xl border bg-white p-6 sm:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">千问模型配置</h1>
-        <span className="rounded-full bg-amber-950 px-3 py-1 text-xs text-amber-200">
-          experimental
-        </span>
-      </div>
-      <p className="mt-3 text-sm text-[var(--text-secondary)]">
-        数据将发送到所选地域的阿里云百炼服务；调用可能产生费用。Embedding
-        当前固定内部合同为 qianwen-text-embedding-v4-d1024-v1，
-        上游尚无已确认日期快照。
-      </p>
+      <GuidedPageHeader
+        context={{
+          simple: "真实调用可能产生费用；没有设置每日上限时，系统不会允许调用。",
+          professional: "数据将发送到所选地域的阿里云百炼服务；调用可能产生费用。Embedding 当前固定内部合同为 qianwen-text-embedding-v4-d1024-v1，上游尚无已确认日期快照。",
+        }}
+        pageId="settingsModels"
+        secondaryActions={(
+          <span className="rounded-full bg-amber-950 px-3 py-1 text-xs text-amber-200">
+            {displayInternalState("experimental")}
+          </span>
+        )}
+      />
 
       <div className="mt-6">
         <ModelStatus
@@ -236,7 +248,7 @@ export function ModelConfigForm({
       ) : (
         <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
           <label className="text-sm">
-            Provider
+            {copyMode === "simple" ? "模型服务" : "Provider"}
             <input
               aria-label="Provider"
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
@@ -291,6 +303,11 @@ export function ModelConfigForm({
               type="password"
               value={apiKey}
             />
+            <span className="mt-2 block text-[var(--text-secondary)]">
+              {copyMode === "simple"
+                ? "密钥保存后不会再次显示；更换密钥需要重新输入。"
+                : "API Key 保存后不回显；留空保留现有密钥，输入新值即替换。"}
+            </span>
           </label>
           <button
             className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50 sm:col-span-2"

@@ -1,7 +1,39 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 
 import { TrashCenter, type TrashFixture } from "./trash-center";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/ws-1/trash",
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+const shellContext = {
+  workspace_id: "ws-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 const fixture: TrashFixture = {
   policy: {
@@ -44,10 +76,22 @@ const fixture: TrashFixture = {
   ],
 };
 
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
+
 afterEach(cleanup);
 
 test("shows content lifecycle and separates workspace deletion", () => {
-  render(
+  renderInWorkspace(
     <TrashCenter
       evaluatedAt="2026-07-30T00:00:00Z"
       fixture={fixture}
@@ -56,23 +100,45 @@ test("shows content lifecycle and separates workspace deletion", () => {
     />,
   );
 
+  expect(screen.getByText(
+    "恢复还在保留期内的内容；永久删除工作区要到设置中单独操作。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "这里只恢复仍在保留期内的内容。永久删除整个工作区需要到设置中查看影响并再次确认。",
+  )).toBeVisible();
   expect(screen.getByText("可恢复")).toBeVisible();
   expect(screen.getByText("已恢复")).toBeVisible();
-  expect(screen.getByText("Evidence 保留：关联风控扫描证据")).toBeVisible();
+  expect(screen.getByText(
+    "因审计或关联资料要求而保留，暂时不能删除：关联风控扫描证据",
+  )).toBeVisible();
   expect(screen.queryByRole("button", { name: "删除工作区" })).not.toBeInTheDocument();
-  expect(screen.getByText(/工作区删除位于设置的危险操作/)).toBeVisible();
 });
 
 test("viewer receives no restore or purge operation", () => {
-  render(
+  renderInWorkspace(
     <TrashCenter
       evaluatedAt="2026-07-30T00:00:00Z"
       fixture={fixture}
       role="viewer"
       workspaceId="ws-1"
     />,
+    "viewer",
   );
 
   expect(screen.queryByRole("button", { name: "恢复内容" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "最终删除" })).not.toBeInTheDocument();
+});
+
+test("professional mode preserves retention evidence terminology", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <TrashCenter
+      evaluatedAt="2026-07-30T00:00:00Z"
+      fixture={fixture}
+      role="admin"
+      workspaceId="ws-1"
+    />,
+  );
+
+  expect(screen.getByText("Evidence 保留：关联风控扫描证据")).toBeVisible();
 });

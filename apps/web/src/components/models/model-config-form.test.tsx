@@ -5,9 +5,40 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import { ModelConfigForm } from "./model-config-form";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/settings/models",
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 
 const { saveModelConfig, updateModelConfigStatus } = vi.hoisted(() => ({
@@ -49,6 +80,15 @@ vi.mock("@/lib/model-api", () => ({
 }));
 
 beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
   saveModelConfig.mockReset();
   updateModelConfigStatus.mockReset();
   saveModelConfig.mockResolvedValue({
@@ -102,9 +142,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 test("admin sees only catalog choices and clears the key after save", async () => {
-  render(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
-  expect(await screen.findByText("千问模型配置")).toBeInTheDocument();
+  expect(await screen.findByText("模型配置")).toBeInTheDocument();
   expect(screen.getByLabelText("Provider")).toHaveValue("qianwen");
   expect(screen.getByLabelText("精确模型")).toHaveValue(
     "qwen3.5-plus-2026-04-20",
@@ -151,9 +192,15 @@ test("admin sees only catalog choices and clears the key after save", async () =
 });
 
 test("viewer receives safe status without credential controls", async () => {
-  render(<ModelConfigForm role="viewer" workspaceId="workspace-1" />);
+  renderInWorkspace(
+    <ModelConfigForm role="viewer" workspaceId="workspace-1" />,
+    "viewer",
+  );
 
-  expect(await screen.findByText("千问模型配置")).toBeInTheDocument();
+  expect(await screen.findByText("模型配置")).toBeInTheDocument();
+  expect(screen.getByText(
+    "配置要使用的千问能力和每日费用上限；真实调用前请先确认地域和预算。",
+  )).toBeVisible();
   expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "保存或替换密钥" }),
@@ -162,4 +209,22 @@ test("viewer receives safe status without credential controls", async () => {
   expect(
     screen.queryByRole("button", { name: "保存用量政策" }),
   ).not.toBeInTheDocument();
+});
+
+test("easy mode explains secret storage, real provider cost, and trial status", async () => {
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  expect(await screen.findByText(
+    "配置要使用的千问能力和每日费用上限；真实调用前请先确认地域和预算。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "密钥保存后不会再次显示；更换密钥需要重新输入。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "真实调用可能产生费用；没有设置每日上限时，系统不会允许调用。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "试用状态，真实效果和费用尚未完成验收",
+  )).toBeVisible();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 });

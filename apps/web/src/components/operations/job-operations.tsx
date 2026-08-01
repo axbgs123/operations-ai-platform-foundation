@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import { copyForMode, type ModeAwareCopy } from "@/components/workbench/operator-copy-catalog";
 import {
   listOperationalTasks,
   mutateOperationalTask,
@@ -18,16 +21,45 @@ type Props = {
   role?: WorkspaceRole;
 };
 
-const statusLabels: Record<string, string> = {
-  queued: "排队中",
-  pending: "等待中",
-  running: "执行中",
-  retrying: "等待重试",
-  succeeded: "已完成",
-  failed: "失败",
-  cancelled: "已取消",
-  dead_letter: "死信",
-  compensation_required: "需要人工补偿",
+const same = (text: string): ModeAwareCopy => ({
+  simple: text,
+  professional: text,
+});
+
+const statusLabels: Record<string, ModeAwareCopy> = {
+  queued: same("排队中"),
+  pending: same("等待中"),
+  running: same("执行中"),
+  retrying: same("等待重试"),
+  succeeded: same("已完成"),
+  failed: same("失败"),
+  cancelled: same("已取消"),
+  dead_letter: {
+    simple: "多次尝试仍失败，需要管理员处理",
+    professional: "dead_letter",
+  },
+  compensation_required: {
+    simple: "自动清理没有完成，需要管理员处理",
+    professional: "compensation_required",
+  },
+  configuration_required: {
+    simple: "还没有完成所需配置",
+    professional: "configuration_required",
+  },
+  provider_outcome_unknown: {
+    simple: "模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+    professional: "provider_outcome_unknown",
+  },
+};
+
+const compensationCopy: ModeAwareCopy = {
+  simple: "自动清理没有完成，需要管理员处理。普通取消不会完成清理，请联系管理员检查暂存对象。",
+  professional: "需要人工补偿：普通取消不会覆盖补偿状态，请由管理员检查暂存对象。",
+};
+
+const deadLetterCopy: ModeAwareCopy = {
+  simple: "多次尝试仍失败，需要管理员处理。请联系管理员检查失败原因后再安全重试。",
+  professional: "死信任务：请检查安全错误码与依赖状态后发起受控重试。",
 };
 
 const dependencyLabels: Record<string, string> = {
@@ -39,6 +71,7 @@ const dependencyLabels: Record<string, string> = {
 };
 
 export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
+  const { copyMode } = useExperiencePreferences();
   const [tasks, setTasks] = useState<OperationalTask[]>([]);
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [taskType, setTaskType] = useState("");
@@ -56,6 +89,9 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
   const role = suppliedRole ?? loadedRole;
   const canRead = role === "admin" || role === "editor";
   const canOperate = role === "admin";
+  const displayState = (value: string) => (
+    statusLabels[value] ? copyForMode(statusLabels[value], copyMode) : value
+  );
 
   useEffect(() => {
     if (suppliedRole) {
@@ -159,30 +195,26 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
 
   if (!canRead) {
     return (
-      <div className="rounded-2xl border border-amber-800 bg-amber-950/30 p-6">
-        <h1 className="text-2xl font-semibold">后台任务运维</h1>
-        <p className="mt-3 text-amber-200">当前角色没有运维任务查看权限。</p>
+      <div className="space-y-6">
+        <GuidedPageHeader pageId="jobs" />
+        <p className="rounded-2xl border border-amber-800 bg-amber-950/30 p-6 text-amber-200">
+          当前角色没有运维任务查看权限。
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <header>
-        <p className="text-sm font-medium text-blue-700">
-          Operations · 安全诊断 · 工作区隔离
-        </p>
-        <h1 className="mt-2 text-3xl font-semibold">后台任务运维</h1>
-        <p className="mt-2 text-[var(--text-secondary)]">
-          只展示状态、阶段和安全错误码，不展示任务正文、截图或模型响应。
-        </p>
-      </header>
+      <GuidedPageHeader pageId="jobs" />
 
       <section
         aria-label="依赖就绪状态"
         className="rounded-xl border bg-white p-4"
       >
-        <h2 className="font-semibold">Readiness</h2>
+        <h2 className="font-semibold">
+          {copyMode === "simple" ? "系统依赖状态" : "Readiness"}
+        </h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
           {readiness?.status === "ready" ? "依赖已就绪" : "依赖未全部就绪"}
         </p>
@@ -194,7 +226,9 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
             >
               {dependencyLabels[component.name.toLowerCase()] ?? component.name}
               ：{component.status === "ready" ? "已就绪" : "未就绪"}
-              {component.error_code ? ` · ${component.error_code}` : ""}
+              {component.error_code && copyMode === "professional"
+                ? ` · ${component.error_code}`
+                : ""}
             </span>
           ))}
         </div>
@@ -294,12 +328,12 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
                 <div>
                   <h2 className="font-semibold">{task.task_type}</h2>
                   <p className="mt-1 text-sm text-slate-400">
-                    阶段：{task.phase ?? "未报告"} · 重试 {task.retry_count}/
+                    阶段：{task.phase ? displayState(task.phase) : "未报告"} · 重试 {task.retry_count}/
                     {task.max_retries}
                   </p>
                 </div>
                 <span className="rounded-full bg-slate-950 px-3 py-1 text-sm">
-                  {statusLabels[task.status] ?? task.status}
+                  {displayState(task.status)}
                 </span>
               </div>
               <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
@@ -312,18 +346,20 @@ export function JobOperations({ workspaceId, role: suppliedRole }: Props) {
                   <dd>{task.updated_at}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">安全错误码</dt>
+                  <dt className="text-slate-500">
+                    {copyMode === "simple" ? "失败原因编号" : "安全错误码"}
+                  </dt>
                   <dd>{task.error_code ?? "无"}</dd>
                 </div>
               </dl>
               {compensation ? (
                 <p className="mt-4 rounded-xl bg-amber-950/50 p-3 text-amber-200">
-                  需要人工补偿：普通取消不会覆盖补偿状态，请由管理员检查暂存对象。
+                  {copyForMode(compensationCopy, copyMode)}
                 </p>
               ) : null}
               {deadLetter ? (
                 <p className="mt-4 rounded-xl bg-rose-950/50 p-3 text-rose-200">
-                  死信任务：请检查安全错误码与依赖状态后发起受控重试。
+                  {copyForMode(deadLetterCopy, copyMode)}
                 </p>
               ) : null}
               {canOperate ? (

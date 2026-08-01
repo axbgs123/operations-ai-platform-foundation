@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   EmptyState,
   ErrorState,
-  PageHeader,
   Panel,
   StatusBadge,
 } from "@/components/workbench/ui";
@@ -52,6 +53,11 @@ const statusLabels: Record<string, string> = {
   restored: "已恢复",
 };
 
+const trashSafetyCopy = {
+  simple: "这里只恢复仍在保留期内的内容。永久删除整个工作区需要到设置中查看影响并再次确认。",
+  professional: "这里只展示支持软删除的内容资源。工作区删除位于设置的危险操作，并使用独立的二次确认。",
+};
+
 export function TrashCenter({
   workspaceId,
   role: suppliedRole,
@@ -64,6 +70,7 @@ export function TrashCenter({
   evaluatedAt?: string;
 }) {
   const context = useWorkbenchShellContext();
+  const { copyMode } = useExperiencePreferences();
   const role = suppliedRole ?? context?.role ?? "viewer";
   const [items, setItems] = useState<TrashViewItem[]>(fixture?.items ?? []);
   const [policy, setPolicy] = useState<TrashFixture["policy"] | null>(
@@ -118,18 +125,24 @@ export function TrashCenter({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        description="这里只展示支持软删除的内容资源。工作区删除位于设置的危险操作，并使用独立的二次确认。"
-        title="内容回收站"
-      />
+      <GuidedPageHeader context={trashSafetyCopy} pageId="trash" />
       <Panel title="保留策略">
         <dl className="grid gap-3 text-sm sm:grid-cols-3">
-          <div><dt>策略</dt><dd>{policy?.strategy ?? "当前记录未提供"}</dd></div>
+          <div>
+            <dt>策略</dt>
+            <dd>
+              {policy?.strategy === "evidence" && copyMode === "simple"
+                ? "因审计或关联资料要求而保留"
+                : policy?.strategy ?? "当前记录未提供"}
+            </dd>
+          </div>
           <div><dt>版本</dt><dd>{policy?.version ?? "当前记录未提供"}</dd></div>
           <div><dt>保留秒数</dt><dd>{policy?.retention_seconds ?? "Evidence 决定"}</dd></div>
         </dl>
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
-          Evidence 保留会阻止普通清理；状态和清理时间完全以服务端为准。
+          {copyMode === "simple"
+            ? "因审计或关联资料要求保留的内容不能普通清理；状态和清理时间以系统记录为准。"
+            : "Evidence 保留会阻止普通清理；状态和清理时间完全以服务端为准。"}
         </p>
       </Panel>
       {error ? <ErrorState description={error} title="回收站请求失败" /> : null}
@@ -164,7 +177,10 @@ export function TrashCenter({
                 </dl>
                 {item.evidence_hold_reason ? (
                   <p className="mt-3 text-sm text-amber-800">
-                    Evidence 保留：{item.evidence_hold_reason}
+                    {copyMode === "simple"
+                      ? "因审计或关联资料要求而保留，暂时不能删除"
+                      : "Evidence 保留"}
+                    ：{item.evidence_hold_reason}
                   </p>
                 ) : null}
                 {canRestore && item.status === "recoverable" && !expired ? (

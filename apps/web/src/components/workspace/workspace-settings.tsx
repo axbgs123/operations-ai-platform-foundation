@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { DesktopOnlyNotice, PageHeader, Panel, StatusBadge } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import { DesktopOnlyNotice, Panel, StatusBadge } from "@/components/workbench/ui";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   confirmWorkspaceDeletion,
@@ -25,6 +27,7 @@ export function WorkspaceSettings({
   role?: Role;
 }) {
   const context = useWorkbenchShellContext();
+  const { copyMode } = useExperiencePreferences();
   const accounts = context?.accounts ?? [];
   const role = suppliedRole ?? context?.role;
   const [impact, setImpact] = useState<WorkspaceDeletionImpact | null>(null);
@@ -88,10 +91,7 @@ export function WorkspaceSettings({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        description="设置入口统一展示工作区边界、权限和安全状态；所有变更仍由服务端权限和版本规则决定。"
-        title="工作区设置"
-      />
+      <GuidedPageHeader pageId="settings" />
       <SettingsNav workspaceId={workspaceId} />
       <Panel title="工作区概览">
         <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -107,7 +107,9 @@ export function WorkspaceSettings({
       <section className="grid gap-4 lg:grid-cols-2">
         <Panel title="成员与邀请码">
           <p className="text-sm text-[var(--text-secondary)]">
-            邀请码只在创建时显示一次，服务端仅保存强哈希；不可找回原邀请码。
+            {copyMode === "simple"
+              ? "邀请码只在创建时显示一次。请立即交给对应成员，不要发到公开群或截图保存到公共位置。"
+              : "邀请码只在创建时显示一次，服务端仅保存强哈希；不可找回原邀请码。"}
           </p>
           <Link className="mt-4 inline-block text-sm font-semibold text-blue-700" href={`/workspaces/${workspaceId}/settings/members`}>
             管理成员与独立邀请码
@@ -135,12 +137,18 @@ export function WorkspaceSettings({
       </Panel>
       <Panel title="模型配置与预算">
         <div className="flex flex-wrap gap-2">
-          <StatusBadge tone="warning">Catalog experimental</StatusBadge>
+          <StatusBadge tone="warning">
+            {copyMode === "simple"
+              ? "试用状态，真实效果和费用尚未完成验收"
+              : "Catalog experimental"}
+          </StatusBadge>
           <StatusBadge tone="neutral">真实验收 not_run</StatusBadge>
           <StatusBadge tone="info">Demo 仅 Mock</StatusBadge>
         </div>
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
-          API Key 不回显，不显示密文、密钥片段或 Provider Workspace ID；未配置预算时真实调用默认拒绝。
+          {copyMode === "simple"
+            ? "密钥保存后不会再次显示；更换密钥需要重新输入。真实调用可能产生费用；没有设置每日上限时，系统不会允许调用。"
+            : "API Key 不回显，不显示密文、密钥片段或 Provider Workspace ID；未配置预算时真实调用默认拒绝。"}
         </p>
         <div className="mt-4 md:hidden">
           <DesktopOnlyNotice action="模型密钥和预算配置" />
@@ -156,7 +164,9 @@ export function WorkspaceSettings({
           <StatusBadge tone="warning">evidence</StatusBadge>
         </div>
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
-          Evidence 会阻止普通清理；策略版本、purge_at、原因和关联资源均以服务端记录为准，仅管理员可修改。
+          {copyMode === "simple"
+            ? "因审计或关联资料要求而保留的内容暂时不能删除；只有管理员能修改保留规则。"
+            : "Evidence 会阻止普通清理；策略版本、purge_at、原因和关联资源均以服务端记录为准，仅管理员可修改。"}
         </p>
         <div className="mt-4 md:hidden">
           <DesktopOnlyNotice action="大型保留策略修改" />
@@ -164,7 +174,9 @@ export function WorkspaceSettings({
       </Panel>
       <Panel title="危险操作">
         <p className="text-sm leading-6 text-[var(--text-secondary)]">
-          工作区删除与普通内容回收站分离。流程固定为：影响预览 → 服务端签发短期一次性确认 → 再次确认 → 残留检查。确认令牌不得进入 URL、本地存储或日志。
+          {copyMode === "simple"
+            ? "永久删除工作区不会在回收站中进行。先查看会删除哪些内容，再申请一次性确认并最终确认；完成残留检查前不会显示删除成功。"
+            : "工作区删除与普通内容回收站分离。流程固定为：影响预览 → 服务端签发短期一次性确认 → 再次确认 → 残留检查。确认令牌不得进入 URL、本地存储或日志。"}
         </p>
         <p className="mt-3 text-sm text-red-800">
           未完成数据、向量、对象、缓存和任务残留检查时，绝不显示删除成功。

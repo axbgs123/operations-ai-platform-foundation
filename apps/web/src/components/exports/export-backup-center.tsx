@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import { copyForMode, type ModeAwareCopy } from "@/components/workbench/operator-copy-catalog";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   DesktopOnlyNotice,
   EmptyState,
   ErrorState,
-  PageHeader,
   Panel,
   StatusBadge,
 } from "@/components/workbench/ui";
@@ -84,6 +86,31 @@ const actionLabels = {
   conflict: "冲突",
 } as const;
 
+const restoreCopy: ModeAwareCopy = {
+  simple: "完整备份恢复前检查",
+  professional: "ZIP 完整恢复",
+};
+
+const exportSafetyCopy: ModeAwareCopy = {
+  simple: "系统会先检查版本、文件和冲突；确认恢复前不会改动正式数据。",
+  professional: "所有文件通过异步任务生成；短期下载地址不写入浏览器存储，恢复必须先预览再确认。",
+};
+
+const internalStateCopy: Record<string, ModeAwareCopy> = {
+  configuration_required: {
+    simple: "还没有完成所需配置",
+    professional: "configuration_required",
+  },
+  compensation_required: {
+    simple: "自动清理没有完成，需要管理员处理",
+    professional: "compensation_required",
+  },
+  provider_outcome_unknown: {
+    simple: "模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+    professional: "provider_outcome_unknown",
+  },
+};
+
 export function ExportBackupCenter({
   workspaceId,
   role: suppliedRole,
@@ -96,6 +123,7 @@ export function ExportBackupCenter({
   evaluatedAt?: string;
 }) {
   const context = useWorkbenchShellContext();
+  const { copyMode } = useExperiencePreferences();
   const role = suppliedRole ?? context?.role ?? "viewer";
   const [tasks, setTasks] = useState<ExportBackupFixture["tasks"]>(
     fixture?.tasks ?? [],
@@ -110,6 +138,11 @@ export function ExportBackupCenter({
   const now = evaluatedAt ? Date.parse(evaluatedAt) : 0;
   const canExport = role === "admin" || role === "editor";
   const canRestore = role === "admin";
+  const displayState = (value: string) => (
+    internalStateCopy[value]
+      ? copyForMode(internalStateCopy[value], copyMode)
+      : value
+  );
 
   useEffect(() => {
     if (fixture) return;
@@ -224,10 +257,7 @@ export function ExportBackupCenter({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        description="所有文件通过异步任务生成；短期下载地址不写入浏览器存储，恢复必须先预览再确认。"
-        title="导出、备份与恢复"
-      />
+      <GuidedPageHeader context={exportSafetyCopy} pageId="exports" />
       <Panel title="数据边界">
         <p className="text-sm leading-6 text-[var(--text-secondary)]">
           {SECRET_EXCLUSIONS}
@@ -306,12 +336,15 @@ export function ExportBackupCenter({
         </Panel>
         <Panel
           description="显示校验和、媒体、知识原件与向量重建状态；失败不会显示为部分成功。"
-          title="ZIP 完整恢复"
+          title={copyForMode(restoreCopy, copyMode)}
         >
-          <DesktopOnlyNotice action="ZIP 完整恢复" />
+          <DesktopOnlyNotice action={copyForMode(restoreCopy, copyMode)} />
           {zipRestore ? (
             <div className="mt-3 space-y-2 text-sm" role="status">
-              <p>阶段：{zipRestore.phase}；状态：{zipRestore.status}</p>
+              <p>
+                阶段：{displayState(zipRestore.phase)}；状态：
+                {displayState(zipRestore.status)}
+              </p>
               <p>预览 ID：{zipRestore.preview_id}</p>
               {canRestore && zipRestore.phase === "preview_ready" ? (
                 <button
@@ -367,7 +400,7 @@ export function ExportBackupCenter({
                   <StatusBadge
                     tone={task.status === "failed" ? "danger" : task.status === "succeeded" ? "success" : "info"}
                   >
-                    {task.status}
+                    {displayState(task.status)}
                   </StatusBadge>
                 </div>
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">

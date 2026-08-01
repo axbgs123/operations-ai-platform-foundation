@@ -1,7 +1,38 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import { JobOperations } from "./job-operations";
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/jobs",
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 2,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 vi.mock("@/lib/operations-api", () => ({
   listOperationalTasks: vi.fn(),
@@ -37,6 +68,15 @@ const base = {
 };
 
 beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
   vi.mocked(readOperationsReadiness).mockResolvedValue({
     status: "not_ready",
     components: [
@@ -94,22 +134,31 @@ afterEach(() => {
 });
 
 test("admin sees safe states and only valid task actions", async () => {
-  render(<JobOperations workspaceId="workspace-1" role="admin" />);
+  renderInWorkspace(<JobOperations workspaceId="workspace-1" role="admin" />);
 
+  expect(screen.getByText(
+    "查看导入、分析、生成和备份等耗时任务有没有完成，失败后该怎么处理。",
+  )).toBeVisible();
   expect(await screen.findByText("依赖未全部就绪")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "系统依赖状态" })).toBeVisible();
   expect(screen.getByText(/PostgreSQL：已就绪/)).toBeInTheDocument();
   expect(screen.getByText(/Redis：未就绪/)).toBeInTheDocument();
   expect(screen.getByText(/S3：已就绪/)).toBeInTheDocument();
-  expect(screen.getByText(/需要人工补偿：普通取消不会覆盖/)).toBeInTheDocument();
-  expect(screen.getByText(/死信任务：请检查安全错误码/)).toBeInTheDocument();
+  expect(screen.getByText(
+    "自动清理没有完成，需要管理员处理",
+  )).toBeInTheDocument();
+  expect(screen.getByText(
+    "多次尝试仍失败，需要管理员处理",
+  )).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "取消任务" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "受控重试" })).toBeInTheDocument();
   expect(screen.getAllByText("已完成")).toHaveLength(1);
 });
 
 test("editor is read-only and viewer receives no operations data", async () => {
-  const { rerender } = render(
+  const { rerender } = renderInWorkspace(
     <JobOperations workspaceId="workspace-1" role="editor" />,
+    "editor",
   );
   expect(await screen.findByText("依赖未全部就绪")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "取消任务" })).not.toBeInTheDocument();
@@ -125,9 +174,19 @@ test("load failure is rendered without sensitive payload", async () => {
   vi.mocked(listOperationalTasks).mockRejectedValueOnce(
     new Error("DEPENDENCY_NOT_READY"),
   );
-  render(<JobOperations workspaceId="workspace-1" role="admin" />);
+  renderInWorkspace(<JobOperations workspaceId="workspace-1" role="admin" />);
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "DEPENDENCY_NOT_READY",
   );
+});
+
+test("professional mode preserves readiness, safe codes, and internal failure terms", async () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(<JobOperations workspaceId="workspace-1" role="admin" />);
+
+  expect(await screen.findByRole("heading", { name: "Readiness" })).toBeVisible();
+  expect(screen.getAllByText("安全错误码")[0]).toBeVisible();
+  expect(screen.getByText(/需要人工补偿：普通取消不会覆盖/)).toBeVisible();
+  expect(screen.getByText(/死信任务：请检查安全错误码/)).toBeVisible();
 });
