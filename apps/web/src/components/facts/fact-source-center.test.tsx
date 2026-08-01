@@ -1,6 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import {
   confirmFactItem,
   createFactSource,
@@ -11,6 +13,11 @@ import {
 
 import { FactSourceCenter } from "./fact-source-center";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/facts",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 const candidate = {
   id: "fact-1",
@@ -64,6 +71,29 @@ const imageSource = {
   },
 };
 
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return rtlRender(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
 vi.mock("@/lib/fact-api", () => ({
   confirmFactItem: vi.fn(),
   createFactSource: vi.fn(),
@@ -74,6 +104,15 @@ vi.mock("@/lib/fact-api", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
   sessionStorage.setItem("workspace_csrf", "csrf-token");
   vi.mocked(listFactSources).mockResolvedValue([textSource, imageSource]);
   vi.mocked(getFactContext).mockResolvedValue({
@@ -94,8 +133,25 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+test("explains the easy fact purpose and visual-fact boundary", async () => {
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
+
+  expect(await screen.findByText(
+    "保存商品、活动或选题中可以确认的事实，生成时用它减少写错和虚假宣传。",
+  )).toBeVisible();
+  expect(screen.getByText(/视觉判断不能证明面料、价格、功效或认证/)).toBeVisible();
+});
+
+test("keeps OCR and L5 terminology in professional fact copy", async () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
+
+  expect(await screen.findByText(/L5 视觉推断不能升级为已验证事实/)).toBeVisible();
+  expect(document.body).toHaveTextContent("OCR");
+});
+
 test("shows source traceability, degradation, and confirms only candidate facts", async () => {
-  render(<FactSourceCenter workspaceId="workspace-1" />);
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
 
   expect(await screen.findByText("当前生成不受已确认事实资料约束")).toBeInTheDocument();
   expect(screen.getByText("商品规格说明")).toBeInTheDocument();
@@ -121,7 +177,7 @@ test("shows source traceability, degradation, and confirms only candidate facts"
 });
 
 test("creates text or network snapshots and uploads a validated file", async () => {
-  render(<FactSourceCenter workspaceId="workspace-1" />);
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
   await screen.findByText("商品规格说明");
 
   fireEvent.change(screen.getByLabelText("来源类型"), { target: { value: "web" } });
@@ -168,7 +224,7 @@ test("creates text or network snapshots and uploads a validated file", async () 
 });
 
 test("presents source and fact lists with all governed levels", async () => {
-  render(<FactSourceCenter workspaceId="workspace-1" />);
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
 
   expect(await screen.findByRole("heading", { name: "来源列表" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "事实清单" })).toBeVisible();
@@ -195,7 +251,7 @@ test("labels L5 visual inference as non-deterministic and blocks confirmation", 
       status: "candidate",
     }],
   }]);
-  render(<FactSourceCenter workspaceId="workspace-1" />);
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
 
   expect(await screen.findByText("禁止仅凭视觉推测写入确定性文案")).toBeVisible();
   expect(screen.getByText("面料、成分、价格、尺码、功效、认证、产地和安全承诺不得仅凭视觉推断。")).toBeVisible();
@@ -204,7 +260,7 @@ test("labels L5 visual inference as non-deterministic and blocks confirmation", 
 });
 
 test("does not pretend that automatic web search is configured", async () => {
-  render(<FactSourceCenter workspaceId="workspace-1" />);
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
   expect(
     await screen.findByText("当前版本支持添加网页来源，自动联网检索尚未配置"),
   ).toBeVisible();
@@ -213,16 +269,22 @@ test("does not pretend that automatic web search is configured", async () => {
 });
 
 test("viewer has read-only fact access", async () => {
-  render(<FactSourceCenter role="viewer" workspaceId="workspace-1" />);
+  renderInWorkspace(
+    <FactSourceCenter role="viewer" workspaceId="workspace-1" />,
+    "viewer",
+  );
   expect(await screen.findByRole("heading", { name: "事实清单" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "添加事实来源" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "上传并解析" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "确认面料" })).not.toBeInTheDocument();
+  expect(screen.getByText("建议先做").closest("p")).not.toHaveTextContent(
+    /确认候选|确认新版本|添加来源|开始生成/,
+  );
   expect(screen.getByText("查看者可查看事实与冲突状态，不能添加来源或确认候选")).toBeVisible();
 });
 
 test("uses readable source and fact cards at 390px", async () => {
-  render(<FactSourceCenter workspaceId="workspace-1" />);
+  renderInWorkspace(<FactSourceCenter workspaceId="workspace-1" />);
   expect(await screen.findByTestId("fact-source-cards")).toHaveClass("grid-cols-1");
   expect(screen.getByTestId("fact-item-cards")).toHaveClass("grid-cols-1");
 });

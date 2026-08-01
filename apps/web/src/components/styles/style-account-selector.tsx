@@ -3,9 +3,15 @@
 import Link from "next/link";
 import type { ReactElement } from "react";
 
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import type { WorkbenchAccount } from "@/components/workbench/scope-query";
-import { EmptyState, PageHeader, StatusBadge } from "@/components/workbench/ui";
+import { EmptyState, StatusBadge } from "@/components/workbench/ui";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
+
+const styleBoundary = {
+  simple: "账号风格用于保持表达稳定；优秀内容结构只是参考，不会自动变成账号风格。",
+  professional: "账号 Style Profile 与已确认 Viral Reference 保持独立版本和引用边界。",
+};
 
 const platformLabel = {
   douyin: "抖音",
@@ -21,10 +27,11 @@ export function StyleAccountSelector({
 }): ReactElement {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <PageHeader
-        description="风格档案始终固定到单个平台账号，不提供全部账号合并视图。"
-        title="账号风格"
-      />
+      <GuidedPageHeader context={styleBoundary} pageId="styles" />
+      <div className="rounded-xl border bg-white p-4 text-sm text-[var(--text-secondary)]">
+        <p>风格档案始终固定到单个平台账号，不提供全部账号合并视图。</p>
+        <p className="mt-1">优秀内容结构不会自动变成账号风格。</p>
+      </div>
       {accounts.length === 0 ? (
         <EmptyState
           description="先在工作区设置中创建抖音或小红书账号，再人工选择已发布内容作为风格样本。"

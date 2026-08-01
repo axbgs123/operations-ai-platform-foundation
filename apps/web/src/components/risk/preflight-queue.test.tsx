@@ -1,6 +1,8 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { cleanup, fireEvent, render as rtlRender, screen } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import type { PreflightQueuePageData } from "@/lib/workbench-api";
 
 import {
@@ -10,6 +12,23 @@ import {
   type PreflightFilters,
 } from "./preflight-queue";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/preflight",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
 
 afterEach(cleanup);
 
@@ -60,6 +79,67 @@ const data = {
   ],
 } satisfies PreflightQueuePageData;
 
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [...accounts],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return rtlRender(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
+test("explains the easy preflight purpose without weakening missing-evidence safety", () => {
+  renderInWorkspace(
+    <PreflightQueue
+      accounts={[...accounts]}
+      data={data}
+      filters={filters}
+      onFiltersChange={vi.fn()}
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  expect(screen.getByText(
+    "集中检查准备发布的内容，处理风险、图片文字识别和资料不足问题。",
+  )).toBeVisible();
+  expect(screen.getByText(/没有查到规则资料不代表内容安全/)).toBeVisible();
+});
+
+test("keeps RAG and OCR terminology in professional preflight copy", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <PreflightQueue
+      accounts={[...accounts]}
+      data={data}
+      filters={filters}
+      onFiltersChange={vi.fn()}
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  expect(screen.getByText(/NO_ACTIVE_RISK_EVIDENCE/)).toBeVisible();
+  expect(document.body).toHaveTextContent("RAG");
+  expect(document.body).toHaveTextContent("OCR");
+});
+
 test("normalizes platform account status sort and pagination safely", () => {
   expect(
     normalizePreflightFilters(
@@ -91,7 +171,7 @@ test("normalizes platform account status sort and pagination safely", () => {
 
 test("shows governed statuses mobile cards and a safe risk drill-down", () => {
   const onFiltersChange = vi.fn();
-  render(
+  renderInWorkspace(
     <PreflightQueue
       accounts={[...accounts]}
       data={data}
@@ -100,6 +180,7 @@ test("shows governed statuses mobile cards and a safe risk drill-down", () => {
       role="viewer"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
   for (const label of [
     "待扫描",
@@ -123,6 +204,9 @@ test("shows governed statuses mobile cards and a safe risk drill-down", () => {
     "returnTo=/workspaces/workspace-1/preflight?platform=douyin&account=dy-1&status=low_confidence_ocr&sort=newest&page=2",
   );
   expect(screen.queryByRole("button", { name: /扫描|复检/ })).not.toBeInTheDocument();
+  expect(screen.getByText("建议先做").closest("p")).not.toHaveTextContent(
+    /确认候选|确认新版本|添加来源|开始生成/,
+  );
   expect(document.body.textContent).not.toContain("PRIVATE_OCR_SOURCE_TEXT");
 
   fireEvent.change(screen.getByLabelText("检查状态"), {

@@ -1,12 +1,15 @@
 import {
   cleanup,
   fireEvent,
-  render,
+  render as rtlRender,
   screen,
   waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, test, vi } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 
 import {
   GenerationWizard,
@@ -16,6 +19,23 @@ import {
   type GenerationWizardFixture,
 } from "./generation-wizard";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/generation",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
 
 afterEach(() => {
   cleanup();
@@ -102,8 +122,57 @@ const fixture: GenerationWizardFixture = {
   riskScan: null,
 };
 
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: fixture.accounts,
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return rtlRender(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
+test("explains the easy generation purpose and all five safe steps", () => {
+  renderInWorkspace(
+    <GenerationWizard
+      fixture={fixture}
+      initialStep="review"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  expect(screen.getByText(
+    "根据已确认的事实、账号风格和参考内容，生成标题、文案和封面。",
+  )).toBeVisible();
+  for (const description of [
+    "先选择平台、账号和栏目，后面的事实、风格和参考只在这个范围内使用。",
+    "选择可以确认的资料；未确认或互相冲突的内容不能直接写进确定性文案。",
+    "决定是否沿用账号风格，并选择最多三条已确认的优秀内容作为参考。",
+    "生成标题、文案和封面后可以修改；参考图片发送范围会在调用前说明。",
+    "再次检查事实、风格和发布风险，通过后再保存。",
+  ]) {
+    expect(screen.getByText(description)).toBeVisible();
+  }
+  expect(screen.getByText("辅助判断，不保证通过平台审核")).toBeVisible();
+});
+
 test("defines the five safe steps and defaults independent style inheritance on", () => {
-  render(
+  renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
       initialStep="references"
@@ -170,7 +239,7 @@ test("blocks confirmed fact conflicts and permits an explicit unconstrained draf
       confirmed_items: [],
     },
   } satisfies GenerationWizardFixture;
-  const { rerender } = render(
+  const { rerender } = renderInWorkspace(
     <GenerationWizard
       fixture={conflicting}
       initialStep="facts"
@@ -198,7 +267,7 @@ test("blocks confirmed fact conflicts and permits an explicit unconstrained draf
 
 test("allows only three confirmed viral references and never offers candidates", async () => {
   const user = userEvent.setup();
-  render(
+  renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
       initialStep="references"
@@ -256,7 +325,7 @@ test("restores only validated member-scoped draft metadata", async () => {
       bearerToken: "PRIVATE_TOKEN_MUST_BE_IGNORED",
     }),
   );
-  render(
+  renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
       initialStep="scope"
@@ -274,16 +343,18 @@ test("restores only validated member-scoped draft metadata", async () => {
 });
 
 test("keeps viewers read-only and exposes mobile cover limitation", () => {
-  render(
+  renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
       initialStep="generate"
       role="viewer"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
   expect(screen.getByText(/查看者只能查看生成状态/)).toBeVisible();
   expect(screen.queryByRole("button", { name: /生成|保存|复检/ })).not.toBeInTheDocument();
+  expect(screen.getByText("建议先做").closest("p")).not.toHaveTextContent("开始生成");
   expect(screen.getByText("请在电脑端继续复杂封面编辑。")).toBeVisible();
   expect(document.body.textContent).not.toContain("Provider Workspace ID");
   expect(document.body.textContent).not.toContain("API Key");
@@ -292,7 +363,7 @@ test("keeps viewers read-only and exposes mobile cover limitation", () => {
 test("clears incompatible dependent scope when platform changes", () => {
   const onStateChange = vi.fn();
   const onPlatformChange = vi.fn();
-  render(
+  renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
       initialStep="scope"
@@ -319,7 +390,7 @@ test("clears incompatible dependent scope when platform changes", () => {
 });
 
 test("restores URL-controlled account scope without retaining prior account assets", async () => {
-  const { rerender } = render(
+  const { rerender } = renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
       initialAccountId="dy-1"

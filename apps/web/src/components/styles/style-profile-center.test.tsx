@@ -1,6 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import {
   confirmStyleProfile,
   extractStyleProfile,
@@ -13,6 +15,11 @@ import {
 
 import { StyleProfileCenter } from "./style-profile-center";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/styles/account-1",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 const candidate = {
   content_id: "content-2",
@@ -79,6 +86,29 @@ const pendingProfile = {
   confirmed_at: null,
 };
 
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return rtlRender(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
 vi.mock("@/lib/style-api", () => ({
   confirmStyleProfile: vi.fn(),
   extractStyleProfile: vi.fn(),
@@ -91,6 +121,15 @@ vi.mock("@/lib/style-api", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
   sessionStorage.setItem("workspace_csrf", "csrf-token");
   vi.mocked(listStyleCandidates).mockResolvedValue([candidate]);
   vi.mocked(listStyleSamples).mockResolvedValue([sample]);
@@ -123,8 +162,29 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+test("explains the easy style-profile purpose and style/reference boundary", async () => {
+  renderInWorkspace(
+    <StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />,
+  );
+
+  expect(await screen.findByText(
+    "用人工确认的样本稳定账号表达；优秀内容结构不会自动变成账号风格。",
+  )).toBeVisible();
+  expect(screen.getAllByText(/优秀内容结构不会自动变成账号风格/).length).toBeGreaterThan(0);
+});
+
+test("retains version-confirmation terminology in professional mode", async () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />,
+  );
+
+  expect(await screen.findByText(/版本确认/)).toBeVisible();
+  expect(screen.getByText(/Style Profile.*Viral Reference/)).toBeVisible();
+});
+
 test("shows sources, extraction result, version diff, and requires confirmation", async () => {
-  render(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
 
   expect(await screen.findByRole("heading", { name: "账号风格中心" })).toBeInTheDocument();
   expect(screen.getByText("三秒看懂 AI 工具")).toBeInTheDocument();
@@ -194,7 +254,7 @@ test("shows sources, extraction result, version diff, and requires confirmation"
 });
 
 test("defaults to all style inheritance and lets each type be disabled", async () => {
-  render(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
   await screen.findByRole("heading", { name: "账号风格中心" });
 
   const title = screen.getByRole("checkbox", { name: "沿用标题风格" });
@@ -240,7 +300,7 @@ test("extracts a column-specific profile when opened for a column", async () => 
       column_campaign_id: null,
     },
   ]);
-  render(
+  renderInWorkspace(
     <StyleProfileCenter
       accountId="account-1"
       columnCampaignId="column-1"
@@ -272,7 +332,7 @@ test("extracts a column-specific profile when opened for a column", async () => 
 });
 
 test("separates title copy and cover style with traceable account scope", async () => {
-  render(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
 
   expect(await screen.findByRole("heading", { name: "标题风格" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "文案风格" })).toBeVisible();
@@ -293,7 +353,7 @@ test("explains temporary column override and restoration", async () => {
     scope_key: "column:column-1",
     column_campaign_id: "column-1",
   }]);
-  render(
+  renderInWorkspace(
     <StyleProfileCenter
       accountId="account-1"
       columnCampaignId="column-1"
@@ -308,22 +368,26 @@ test("explains temporary column override and restoration", async () => {
 });
 
 test("viewer sees historical styles without write controls", async () => {
-  render(
+  renderInWorkspace(
     <StyleProfileCenter
       accountId="account-1"
       role="viewer"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
   expect(await screen.findByRole("heading", { name: "标题风格" })).toBeVisible();
   expect(screen.queryByRole("button", { name: "重新提取风格档案" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "选择为风格样本" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "确认并启用 v2" })).not.toBeInTheDocument();
+  expect(screen.getByText("建议先做").closest("p")).not.toHaveTextContent(
+    /确认候选|确认新版本|添加来源|开始生成/,
+  );
   expect(screen.getByText("查看者可查看历史风格，不能选择样本、提取或确认版本")).toBeVisible();
 });
 
 test("stacks the three style sections before the desktop breakpoint", async () => {
-  render(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<StyleProfileCenter accountId="account-1" workspaceId="workspace-1" />);
   expect(await screen.findByTestId("style-sections")).toHaveClass("grid-cols-1");
   expect(screen.getByTestId("style-sections")).toHaveClass("lg:grid-cols-3");
 });

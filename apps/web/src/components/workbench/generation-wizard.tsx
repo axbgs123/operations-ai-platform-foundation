@@ -12,7 +12,8 @@ import {
 
 import { CoverEditor } from "@/components/generation/cover-editor/cover-editor";
 import { RiskReport } from "@/components/risk/risk-report";
-import { DesktopOnlyNotice, PageHeader, StatusBadge } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { DesktopOnlyNotice, StatusBadge } from "@/components/workbench/ui";
 import {
   TextEditor,
   type TextGenerationDraft,
@@ -92,12 +93,32 @@ export type GenerationWizardFixture = {
   riskScan: RiskScanData | null;
 };
 
-const steps: { id: GenerationStep; label: string }[] = [
-  { id: "scope", label: "范围与目标" },
-  { id: "facts", label: "事实资料" },
-  { id: "references", label: "风格与参考" },
-  { id: "generate", label: "生成与编辑" },
-  { id: "review", label: "复核与保存" },
+const steps: { id: GenerationStep; label: string; description: string }[] = [
+  {
+    id: "scope",
+    label: "范围与目标",
+    description: "先选择平台、账号和栏目，后面的事实、风格和参考只在这个范围内使用。",
+  },
+  {
+    id: "facts",
+    label: "事实资料",
+    description: "选择可以确认的资料；未确认或互相冲突的内容不能直接写进确定性文案。",
+  },
+  {
+    id: "references",
+    label: "风格与参考",
+    description: "决定是否沿用账号风格，并选择最多三条已确认的优秀内容作为参考。",
+  },
+  {
+    id: "generate",
+    label: "生成与编辑",
+    description: "生成标题、文案和封面后可以修改；参考图片发送范围会在调用前说明。",
+  },
+  {
+    id: "review",
+    label: "复核与保存",
+    description: "再次检查事实、风格和发布风险，通过后再保存。",
+  },
 ];
 const stepIds = new Set(steps.map((step) => step.id));
 
@@ -794,11 +815,12 @@ export function GenerationWizard({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="范围、事实、风格与参考、生成编辑和发布前复核依次完成；刷新只恢复不含正文、图片或凭据的安全元数据。"
-        title="生成中心"
-      />
-      <div className="flex flex-wrap gap-2" role="navigation" aria-label="生成步骤">
+      <GuidedPageHeader pageId="generation" />
+      <div
+        className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5"
+        role="navigation"
+        aria-label="生成步骤"
+      >
         {steps.map((step, index) => {
           const activeIndex = steps.findIndex(
             (candidate) => candidate.id === activeStep,
@@ -811,28 +833,33 @@ export function GenerationWizard({
               : index === activeIndex
                 ? "当前"
                 : "";
-          return canWrite ? (
-            <button
-              aria-current={activeStep === step.id ? "step" : undefined}
-              aria-label={step.label}
-              className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold disabled:opacity-60"
-              disabled={blocked}
-              key={step.id}
-              onClick={() => chooseStep(step.id)}
-              type="button"
-            >
-              {step.label}
-              {marker ? <span aria-hidden="true"> · {marker}</span> : null}
-            </button>
-          ) : (
-            <span
-              aria-current={activeStep === step.id ? "step" : undefined}
-              className="rounded-lg border bg-white px-3 py-2 text-sm"
-              key={step.id}
-            >
-              {step.label}
-              {marker ? <span aria-hidden="true"> · {marker}</span> : null}
-            </span>
+          return (
+            <div className="rounded-lg border bg-white p-3" key={step.id}>
+              {canWrite ? (
+                <button
+                  aria-current={activeStep === step.id ? "step" : undefined}
+                  aria-label={step.label}
+                  className="font-semibold disabled:opacity-60"
+                  disabled={blocked}
+                  onClick={() => chooseStep(step.id)}
+                  type="button"
+                >
+                  {step.label}
+                  {marker ? <span aria-hidden="true"> · {marker}</span> : null}
+                </button>
+              ) : (
+                <span
+                  aria-current={activeStep === step.id ? "step" : undefined}
+                  className="font-semibold"
+                >
+                  {step.label}
+                  {marker ? <span aria-hidden="true"> · {marker}</span> : null}
+                </span>
+              )}
+              <p className="mt-2 text-xs leading-5 text-[var(--text-secondary)]">
+                {step.description}
+              </p>
+            </div>
           );
         })}
       </div>

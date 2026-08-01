@@ -15,9 +15,14 @@ import {
   ViralCandidateData,
   ViralLibraryItemData,
 } from "@/lib/viral-api";
-import { EmptyState, PageHeader, StatusBadge } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { EmptyState, StatusBadge } from "@/components/workbench/ui";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 
+const viralCandidateExplanation = {
+  simple: "候选只是这个账号里相对表现较好的内容；人工确认后，生成时才能把它作为参考。",
+  professional: "候选按单账号动态基准产生；未确认候选不得进入生成引用。",
+};
 
 const CATEGORY_LABELS = {
   traffic: "流量爆款",
@@ -232,8 +237,9 @@ export function ViralLibrary({
 
   return (
     <section className="space-y-8">
-      <PageHeader
-        description="抖音与小红书按单账号分别计算和展示。候选只表示账号历史范围内的相对表现，人工确认后才成为可复用资产。"
+      <GuidedPageHeader
+        context={viralCandidateExplanation}
+        pageId="viralLibrary"
         title="爆款候选与素材库"
       />
       <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="note">
@@ -525,9 +531,9 @@ export function ViralLibraryPage({
       : context.accounts;
     return (
       <div className="mx-auto max-w-6xl space-y-6">
-        <PageHeader
-          description="请选择一个平台账号。不同平台与账号的候选、门槛和分位不会混排或合并。"
-          title="爆款素材库"
+        <GuidedPageHeader
+          context={viralCandidateExplanation}
+          pageId="viralLibrary"
         />
         {visibleAccounts.length ? (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -10,12 +10,12 @@ import {
 } from "react";
 
 import type { WorkbenchAccount } from "@/components/workbench/scope-query";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   DataTableFrame,
   EmptyState,
   ErrorState,
-  PageHeader,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
@@ -24,6 +24,10 @@ import {
   type PreflightQueuePageData,
 } from "@/lib/workbench-api";
 
+const preflightNoEvidence = {
+  simple: "暂时没有可用的平台规则资料，这不代表内容安全；请继续人工检查。",
+  professional: "NO_ACTIVE_RISK_EVIDENCE：保留确定性结果，不生成虚假 Citation。",
+};
 
 export type PreflightFilters = {
   platform?: "douyin" | "xiaohongshu";
@@ -199,9 +203,9 @@ export function PreflightQueue({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="标题、正文和封面 OCR 的确定性规则与 RAG 辅助判断分开展示；无证据不代表安全通过。"
-        title="发布前检查"
+      <GuidedPageHeader
+        context={preflightNoEvidence}
+        pageId="preflight"
       />
       <section
         aria-label="发布前检查筛选"

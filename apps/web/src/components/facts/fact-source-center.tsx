@@ -11,9 +11,14 @@ import {
   listFactSources,
   uploadFactSource,
 } from "@/lib/fact-api";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
-import { PageHeader, StatusBadge } from "@/components/workbench/ui";
+import { StatusBadge } from "@/components/workbench/ui";
 
+const visualFactWarning = {
+  simple: "图片只能帮助识别可能出现的文字或外观，不能证明面料、价格、功效、认证等事实。",
+  professional: "L5 视觉推断不能升级为已验证事实，也不能单独支撑确定性生成声明。",
+};
 
 const STATUS_LABELS: Record<string, string> = {
   parsed: "解析完成",
@@ -147,8 +152,9 @@ export function FactSourceCenter({
   );
   return (
     <section className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="系统只约束生成内容与已确认资料一致，不证明资料本身客观真实。"
+      <GuidedPageHeader
+        context={visualFactWarning}
+        pageId="facts"
         title="事实资料中心"
       />
       <section className="grid gap-2 rounded-xl border bg-white p-5 text-sm sm:grid-cols-2 lg:grid-cols-5" aria-label="事实来源等级说明">
@@ -160,6 +166,7 @@ export function FactSourceCenter({
       </section>
       <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="note">
         <p className="font-semibold">当前版本支持添加网页来源，自动联网检索尚未配置</p>
+        <p className="mt-1">视觉判断不能证明面料、价格、功效或认证。</p>
         <p className="mt-1">网页正文始终是不可信数据；localhost、内网和云元数据地址会被服务端拒绝。</p>
         <p className="mt-1">生效范围：工作区通用（当前记录未提供更细范围）</p>
       </aside>

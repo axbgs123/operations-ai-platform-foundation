@@ -1,6 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import {
   configureViralThresholds,
   confirmViralCandidate,
@@ -13,6 +15,11 @@ import {
 
 import { resolveViralAccount, ViralLibrary } from "./viral-library";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/workspaces/workspace-1/viral-library",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 const candidate = {
   id: "candidate-1",
@@ -61,6 +68,29 @@ const libraryItem = {
   revocation_reason: null,
 };
 
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return rtlRender(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
 vi.mock("@/lib/viral-api", () => ({
   configureViralThresholds: vi.fn(),
   confirmViralCandidate: vi.fn(),
@@ -73,6 +103,15 @@ vi.mock("@/lib/viral-api", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
   sessionStorage.setItem("workspace_csrf", "csrf-token");
   vi.mocked(listViralCandidates).mockResolvedValue([candidate]);
   vi.mocked(listViralLibrary).mockResolvedValue([libraryItem]);
@@ -105,8 +144,19 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+test("explains the easy viral-library purpose and confirmation boundary", async () => {
+  renderInWorkspace(
+    <ViralLibrary accountId="account-1" workspaceId="workspace-1" />,
+  );
+
+  expect(await screen.findByText(
+    "保存确认过的优秀内容结构，之后生成内容时可以继续参考。",
+  )).toBeVisible();
+  expect(screen.getByText(/候选.*确认.*才能.*参考/)).toBeVisible();
+});
+
 test("configures an account threshold and runs candidate evaluation", async () => {
-  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
 
   await screen.findByRole("heading", { name: "爆款候选" });
   fireEvent.change(screen.getByLabelText("第 1 条指标键"), {
@@ -140,7 +190,7 @@ test("configures an account threshold and runs candidate evaluation", async () =
 });
 
 test("shows frozen evidence and confirms a candidate with required metadata", async () => {
-  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
 
   expect(await screen.findAllByText("三秒钩子测试内容")).toHaveLength(2);
   expect(screen.getByText("样本 10 · 历史分位 95.0% · 门槛版本 v1")).toBeInTheDocument();
@@ -172,7 +222,7 @@ test("shows frozen evidence and confirms a candidate with required metadata", as
 });
 
 test("lists confirmed material and revokes it without removing history", async () => {
-  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
 
   expect(await screen.findByRole("heading", { name: "已确认素材" })).toBeInTheDocument();
   expect(screen.getByText("痛点开场—方法拆解—行动引导")).toBeInTheDocument();
@@ -192,7 +242,7 @@ test("lists confirmed material and revokes it without removing history", async (
 });
 
 test("keeps candidates visibly separate from confirmed reusable material", async () => {
-  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
 
   expect(await screen.findByText("候选，尚未进入素材库")).toBeVisible();
   expect(screen.getByText("候选不能被生成中心引用")).toBeVisible();
@@ -207,18 +257,22 @@ test("keeps candidates visibly separate from confirmed reusable material", async
 });
 
 test("viewer can read evidence but never sees confirmation or revoke actions", async () => {
-  render(
+  renderInWorkspace(
     <ViralLibrary
       accountId="account-1"
       role="viewer"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
 
   expect(await screen.findByText("候选，尚未进入素材库")).toBeVisible();
   expect(screen.queryByRole("button", { name: "确认进入素材库" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "撤销素材" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "保存门槛并生成候选" })).not.toBeInTheDocument();
+  expect(screen.getByText("建议先做").closest("p")).not.toHaveTextContent(
+    /确认候选|确认新版本|添加来源|开始生成/,
+  );
   expect(screen.getByText("查看者可查看资产，不能确认、撤销或重新评估")).toBeVisible();
 });
 
@@ -238,7 +292,7 @@ test("rejects invalid platform and mismatched account scope", () => {
 });
 
 test("uses a workspace-local return context for content drill-down", async () => {
-  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
   const candidateLink = await screen.findByRole("link", { name: "查看候选内容" });
   const href = candidateLink.getAttribute("href") ?? "";
   expect(href).toContain("/workspaces/workspace-1/contents/content-1?");
@@ -250,7 +304,7 @@ test("uses a workspace-local return context for content drill-down", async () =>
 });
 
 test("uses card sections that stay readable at 390px", async () => {
-  render(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
+  renderInWorkspace(<ViralLibrary accountId="account-1" workspaceId="workspace-1" />);
   expect(await screen.findByRole("region", { name: "已确认素材" })).toHaveAttribute(
     "data-mobile-layout",
     "cards",

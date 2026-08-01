@@ -15,8 +15,13 @@ import {
   StyleSampleData,
   StyleScopeData,
 } from "@/lib/style-api";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 
+const styleBoundary = {
+  simple: "账号风格用于保持表达稳定；优秀内容结构只是参考，不会自动变成账号风格。",
+  professional: "账号 Style Profile 与已确认 Viral Reference 保持独立版本和引用边界。",
+};
 
 const SECTION_LABELS: Record<string, string> = {
   title: "标题",
@@ -199,16 +204,17 @@ export function StyleProfileCenter({
 
   return (
     <section className="space-y-8">
-      <header>
-        <p className="text-sm font-medium text-[var(--brand)]">人工选择 · 版本确认 · 默认继承</p>
-        <h1 className="mt-2 text-3xl font-semibold">账号风格中心</h1>
-        <p className="mt-3 max-w-3xl text-slate-400">
-          最近内容和爆款只作为候选，不会自动进入品牌风格；只有人工选择并确认的版本才会生效。
-        </p>
+      <div>
+        <GuidedPageHeader context={styleBoundary} pageId="styleProfile" />
         {columnCampaignId ? (
-          <p className="mt-2 text-sm text-amber-900">当前正在维护栏目/活动覆盖风格</p>
+          <p className="mt-2 text-sm font-medium text-amber-900">
+            当前正在维护栏目/活动覆盖风格
+          </p>
         ) : null}
-      </header>
+        <p className="mt-2 text-sm font-medium text-[var(--brand)]">
+          人工选择 · 版本确认 · 默认继承
+        </p>
+      </div>
       <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950" role="note">
         账号风格用于稳定表达；爆款结构只是人工确认的策略参考，二者不会自动合并。
       </aside>
