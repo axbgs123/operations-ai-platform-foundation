@@ -23,6 +23,11 @@ const viewerSteps: readonly ModeAwareCopy[] = [
   },
 ];
 
+const viewerBlocker: ModeAwareCopy = {
+  simple: "如果页面提示缺少数据、配置或权限，请联系管理员或编辑者处理。",
+  professional: "Viewer 只读；缺少数据、配置或权限时请联系 Admin 或 Editor。",
+};
+
 function GuideList({ title, items }: { title: string; items: readonly string[] }) {
   return (
     <div>
@@ -46,6 +51,12 @@ export function PageGuide({ pageId }: { pageId: OperatorPageId }) {
   const steps = context.role === "viewer"
     ? [next.label, ...viewerSteps].map(text)
     : guide.steps.map(text);
+  const blockers = context.role === "viewer"
+    ? [
+      viewerBlocker,
+      ...(["preflight", "facts"].includes(pageId) ? guide.blockers : []),
+    ].map(text)
+    : guide.blockers.map(text);
 
   return (
     <section aria-label={`${page.title}页面说明`} className="mt-2 max-w-4xl">
@@ -78,7 +89,7 @@ export function PageGuide({ pageId }: { pageId: OperatorPageId }) {
             >
               <GuideList title="怎么使用" items={steps} />
               <GuideList title="你会看到什么" items={guide.concepts.map(text)} />
-              <GuideList title="常见情况" items={guide.blockers.map(text)} />
+              <GuideList title="常见情况" items={blockers} />
             </div>
           ) : null}
         </div>

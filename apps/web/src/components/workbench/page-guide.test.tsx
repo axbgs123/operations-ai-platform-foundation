@@ -116,3 +116,40 @@ test("keeps viewer model-setting instructions read-only when expanded", async ()
   expect(within(guide).getByText("需要新增、修改或确认时，请联系管理员或编辑者。")).toBeVisible();
   expect(screen.queryByText(/输入密钥/)).toBeNull();
 });
+
+test("replaces viewer overview blockers with contact guidance", async () => {
+  const user = userEvent.setup();
+  renderGuidance("overview", "viewer");
+
+  await user.click(screen.getByRole("button", { name: "查看操作说明" }));
+
+  const guide = screen.getByRole("region", { name: "工作台总览操作说明" });
+  expect(within(guide).getByText("如果页面提示缺少数据、配置或权限，请联系管理员或编辑者处理。")).toBeVisible();
+  expect(within(guide).queryByText(/创建抖音或小红书账号/)).toBeNull();
+});
+
+test("keeps the preflight safety blocker visible to viewers", async () => {
+  const user = userEvent.setup();
+  renderGuidance("preflight", "viewer");
+
+  await user.click(screen.getByRole("button", { name: "查看操作说明" }));
+
+  const guide = screen.getByRole("region", { name: "发布前检查操作说明" });
+  expect(within(guide).getByText("如果页面提示缺少数据、配置或权限，请联系管理员或编辑者处理。")).toBeVisible();
+  expect(within(guide).getByText(
+    "暂时没有可用的平台规则资料不代表内容安全；图片文字识别不准时必须人工检查。",
+  )).toBeVisible();
+});
+
+test("keeps the facts safety blocker visible to viewers", async () => {
+  const user = userEvent.setup();
+  renderGuidance("facts", "viewer");
+
+  await user.click(screen.getByRole("button", { name: "查看操作说明" }));
+
+  const guide = screen.getByRole("region", { name: "事实资料操作说明" });
+  expect(within(guide).getByText("如果页面提示缺少数据、配置或权限，请联系管理员或编辑者处理。")).toBeVisible();
+  expect(within(guide).getByText(
+    "视觉判断不能证明面料、价格、功效或认证；冲突事实不能用于确定性生成。",
+  )).toBeVisible();
+});
