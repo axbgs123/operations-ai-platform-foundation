@@ -49,6 +49,7 @@ export function WorkspaceTopbar({
       <div className="min-w-48 flex-1">
         <Breadcrumbs
           pathname={pathname}
+          role={context.role}
           workspaceId={context.workspace_id}
           workspaceName={context.workspace_name}
         />

@@ -21,6 +21,10 @@ import {
 } from "@/lib/workbench-api";
 
 import { MobileDrawer } from "./mobile-drawer";
+import {
+  activeNavigationCategory,
+  activeNavigationItem,
+} from "./navigation";
 import { SidebarNav } from "./sidebar-nav";
 import {
   buildWorkspaceHref,
@@ -31,6 +35,7 @@ import {
   scopeForWorkspacePath,
   writeSidebarPreference,
 } from "./scope-query";
+import { writeRecentNavigationPath } from "./navigation-preference";
 import { ErrorState, Skeleton } from "./ui";
 import { WorkspaceTopbar } from "./workspace-topbar";
 
@@ -117,6 +122,22 @@ export function WorkspaceShell({
     context.accounts,
   );
   const mobileOpen = drawerPathname === pathname;
+  useEffect(() => {
+    const category = activeNavigationCategory(pathname, context.workspace_id);
+    const item = activeNavigationItem(pathname, context.workspace_id);
+    if (
+      category
+      && item
+      && item.allowedRoles.includes(context.role)
+    ) {
+      writeRecentNavigationPath(
+        window.localStorage,
+        context.member_id,
+        category.id,
+        item,
+      );
+    }
+  }, [context.member_id, context.role, context.workspace_id, pathname]);
 
   function changeScope(nextScope: WorkbenchScope) {
     const accountPrefix = `/workspaces/${context.workspace_id}/accounts/`;
@@ -150,27 +171,16 @@ export function WorkspaceShell({
         </Link>
         {!isMobile ? (
           <aside
-            className={`fixed inset-y-0 left-0 z-30 overflow-y-auto border-r bg-white ${
-              collapsed ? "w-[72px]" : "w-[240px]"
+            className={`fixed inset-y-0 left-0 z-30 overflow-hidden border-r bg-white ${
+              collapsed ? "w-[80px]" : "w-[264px]"
             }`}
-            data-width={collapsed ? "72" : "240"}
+            data-width={collapsed ? "80" : "264"}
           >
-            <div className="flex min-h-14 items-center justify-between border-b px-3">
-              <span className={collapsed ? "sr-only" : "font-semibold"}>
-                运营工作台
-              </span>
-              <button
-                aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
-                className="h-9 w-9 rounded-lg border bg-white"
-                onClick={toggleSidebar}
-                type="button"
-              >
-                {collapsed ? "»" : "«"}
-              </button>
-            </div>
             <SidebarNav
               collapsed={collapsed}
+              memberId={context.member_id}
               onNavigate={() => undefined}
+              onToggleSecondary={toggleSidebar}
               pathname={pathname}
               role={context.role}
               workspaceId={context.workspace_id}
@@ -178,7 +188,7 @@ export function WorkspaceShell({
           </aside>
         ) : null}
         <div
-          className={!isMobile ? (collapsed ? "pl-[72px]" : "pl-[240px]") : ""}
+          className={!isMobile ? (collapsed ? "pl-[80px]" : "pl-[264px]") : ""}
           data-testid="workspace-shell-background"
           inert={mobileOpen ? true : undefined}
         >

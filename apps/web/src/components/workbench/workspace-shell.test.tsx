@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -272,6 +272,35 @@ describe("canonical navigation and roles", () => {
       screen.getByRole("link", { name: "工作区设置" }),
     ).not.toHaveAttribute("aria-current");
   });
+
+  test("shows five primary categories and only the active category children", () => {
+    render(
+      <WorkspaceShell context={context}>
+        <p>页面业务内容</p>
+      </WorkspaceShell>,
+    );
+
+    const categories = screen.getByRole("navigation", { name: "功能大类" });
+    for (const label of ["总览", "运营", "创作", "资产", "管理"]) {
+      expect(
+        within(categories).getByRole("link", { name: label }),
+      ).toBeVisible();
+    }
+    const children = screen.getByRole("navigation", {
+      name: "内容运营功能",
+    });
+    for (const label of [
+      "内容库",
+      "数据导入",
+      "分析中心",
+      "账号仪表盘",
+      "栏目与活动",
+    ]) {
+      expect(within(children).getByRole("link", { name: label })).toBeVisible();
+    }
+    expect(screen.queryByRole("link", { name: "生成中心" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "工作区设置" })).toBeNull();
+  });
 });
 
 describe("workspace scope and safe returns", () => {
@@ -414,6 +443,7 @@ describe("workspace shell behavior", () => {
 
     const breadcrumb = screen.getByRole("navigation", { name: "面包屑" });
     expect(breadcrumb).toHaveTextContent("合成运营工作区");
+    expect(breadcrumb).toHaveTextContent("运营");
     expect(breadcrumb).toHaveTextContent("内容库");
     expect(screen.getByRole("combobox", { name: "平台范围" })).toBeVisible();
     expect(screen.getByRole("combobox", { name: "账号范围" })).toBeVisible();
@@ -456,17 +486,26 @@ describe("workspace shell behavior", () => {
 
     expect(screen.getByRole("complementary")).toHaveAttribute(
       "data-width",
-      "240",
+      "264",
     );
-    await user.click(screen.getByRole("button", { name: "折叠侧边栏" }));
+    await user.click(screen.getByRole("button", { name: "收起功能列表" }));
     expect(screen.getByRole("complementary")).toHaveAttribute(
       "data-width",
-      "72",
+      "80",
     );
+    expect(screen.getByRole("navigation", { name: "功能大类" })).toBeVisible();
+    expect(
+      screen.queryByRole("navigation", { name: "内容运营功能" }),
+    ).toBeNull();
     expect(localStorage.getItem("operations-ai:sidebar:member-admin")).toBe(
       "collapsed",
     );
-    expect(localStorage).toHaveLength(1);
+    expect(
+      localStorage.getItem(
+        "operations-ai:navigation:member-admin:operations",
+      ),
+    ).toBe("/contents");
+    expect(localStorage).toHaveLength(2);
   });
 
   test("opens a focus-managed inert-background drawer at 390px", async () => {
