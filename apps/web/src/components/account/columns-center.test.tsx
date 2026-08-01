@@ -1,13 +1,51 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 
 import {
   buildColumnFieldViews,
   ColumnsCenter,
+  ColumnsCenterPage,
   filterColumnsByScope,
   type ColumnWorkbenchItem,
 } from "./columns-center";
 
+const navigationState = vi.hoisted(() => ({
+  pathname: "/workspaces/workspace-1/columns",
+  search: "",
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationState.pathname,
+  useRouter: () => ({ replace: navigationState.replace }),
+  useSearchParams: () => new URLSearchParams(navigationState.search),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 const items: ColumnWorkbenchItem[] = [
   {
@@ -45,7 +83,38 @@ const items: ColumnWorkbenchItem[] = [
   },
 ];
 
-afterEach(cleanup);
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+test("shows the easy columns purpose and read-only next action to viewers", () => {
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+  renderInWorkspace(
+    <ColumnsCenterPage workspaceId="workspace-1" />,
+    "viewer",
+  );
+
+  expect(screen.getByText(
+    "管理账号平时使用的栏目规则，以及活动期间临时使用的规则。",
+  )).toBeVisible();
+  expect(screen.getByText("查看当前生效规则")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: /保存|新建|恢复/ }),
+  ).not.toBeInTheDocument();
+});
 
 test("visually distinguishes inherited defaults and temporary overrides", () => {
   render(

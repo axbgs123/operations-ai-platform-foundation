@@ -1,10 +1,50 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import type { WorkbenchOverviewData } from "@/lib/workbench-api";
 
-import { AccountList, filterAccountsByScope } from "./account-list";
+import {
+  AccountList,
+  AccountListPage,
+  filterAccountsByScope,
+} from "./account-list";
 
+const navigationState = vi.hoisted(() => ({
+  pathname: "/workspaces/workspace-1/accounts",
+  search: "",
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationState.pathname,
+  useRouter: () => ({ replace: navigationState.replace }),
+  useSearchParams: () => new URLSearchParams(navigationState.search),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 const accounts = [
   {
@@ -41,7 +81,38 @@ const accounts = [
   },
 ] as WorkbenchOverviewData["accounts"];
 
-afterEach(cleanup);
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+test("shows the easy account purpose and read-only next action to viewers", () => {
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+  renderInWorkspace(
+    <AccountListPage workspaceId="workspace-1" />,
+    "viewer",
+  );
+
+  expect(screen.getByText(
+    "分账号查看运营状态；抖音和小红书的数据不会混在一起计算。",
+  )).toBeVisible();
+  expect(screen.getByText("打开一个账号查看表现")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: /新建|配置|保存/ }),
+  ).not.toBeInTheDocument();
+});
 
 test("shows separate platform account cards and stable scoped links", () => {
   render(<AccountList accounts={accounts} workspaceId="workspace-1" />);

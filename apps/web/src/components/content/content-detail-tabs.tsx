@@ -16,11 +16,11 @@ import {
   DetailTabs,
   EmptyState,
   ErrorState,
-  PageHeader,
   Panel,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 
 
 export type ContentTab =
@@ -459,7 +459,10 @@ function RiskPanel({
       ) : null}
       {failed ? (
         <ErrorState
-          description={`安全错误码：${latest.error_code ?? "RISK_SCAN_FAILED"}；失败结果不会保存为成功扫描。`}
+          description={{
+            simple: "本次风险检查没有完成，不能当作安全通过。请重新检查或联系管理员。",
+            professional: `安全错误码：${latest.error_code ?? "RISK_SCAN_FAILED"}；失败结果不会保存为成功扫描。`,
+          }}
           title={latest.status === "cancelled" ? "扫描已取消" : "扫描任务失败"}
         />
       ) : null}
@@ -591,13 +594,14 @@ export function ContentDetailTabs({
           返回内容库
         </Link>
       </nav>
-      <PageHeader
-        description={[
+      <GuidedPageHeader
+        context={[
           platformLabel[content.platform],
           content.account_name,
           content.column_campaign_name ?? "账号默认",
           lifecycleLabel[content.status],
         ].join(" · ")}
+        pageId="contentDetail"
         primaryAction={role === "viewer" ? undefined : (
           <Link
             className="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"

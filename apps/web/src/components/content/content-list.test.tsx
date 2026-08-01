@@ -1,5 +1,14 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 
 import {
   ContentList,
@@ -7,6 +16,59 @@ import {
   updateContentFilters,
 } from "./content-list";
 
+const navigationState = vi.hoisted(() => ({
+  pathname: "/workspaces/workspace-1/contents",
+  search: "",
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationState.pathname,
+  useRouter: () => ({ replace: navigationState.replace }),
+  useSearchParams: () => new URLSearchParams(navigationState.search),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [
+    { account_id: "dy-1", platform: "douyin" as const, name: "抖音账号" },
+    {
+      account_id: "xhs-1",
+      platform: "xiaohongshu" as const,
+      name: "小红书账号",
+    },
+  ],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
 
 afterEach(cleanup);
 
@@ -105,7 +167,7 @@ test("resets page and clears account and column when parent scope changes", () =
 
 test("renders desktop rows, 390px cards, viewer safety, and one primary action", () => {
   const onChange = vi.fn();
-  render(
+  renderInWorkspace(
     <ContentList
       accounts={[...accounts]}
       columns={[...columns]}
@@ -149,8 +211,14 @@ test("renders desktop rows, 390px cards, viewer safety, and one primary action",
       role="viewer"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
 
+  expect(screen.getByText(
+    "集中查看每条作品、发布状态、数据、分析和风险结果。",
+  )).toBeVisible();
+  expect(screen.getByText("筛选并打开一条内容")).toBeVisible();
+  const filters = screen.getByRole("region", { name: "内容筛选" });
   for (const label of [
     "平台",
     "账号",
@@ -161,7 +229,7 @@ test("renders desktop rows, 390px cards, viewer safety, and one primary action",
     "标题搜索",
     "排序",
   ]) {
-    expect(screen.getByLabelText(label)).toBeVisible();
+    expect(within(filters).getByLabelText(label)).toBeVisible();
   }
   expect(screen.getByRole("table", { name: "内容库桌面列表" })).toBeVisible();
   expect(screen.getByRole("list", { name: "内容库移动卡片" })).toHaveClass(
@@ -175,10 +243,41 @@ test("renders desktop rows, 390px cards, viewer safety, and one primary action",
     expect.stringContaining("returnTo="),
   );
 
-  fireEvent.change(screen.getByLabelText("生命周期"), {
+  fireEvent.change(within(filters).getByLabelText("生命周期"), {
     target: { value: "draft" },
   });
   expect(onChange).toHaveBeenCalledWith(
     expect.objectContaining({ status: "draft", page: 1 }),
   );
+});
+
+test("offers clear creation outcomes when the content library is empty", () => {
+  renderInWorkspace(
+    <ContentList
+      accounts={[...accounts]}
+      columns={[...columns]}
+      data={{
+        items: [],
+        total: 0,
+        page: 1,
+        page_size: 20,
+        pages: 0,
+      }}
+      filters={{
+        sort: "newest",
+        page: 1,
+      }}
+      onFiltersChange={vi.fn()}
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  expect(screen.getByRole("link", { name: "新建内容" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "导入作品数据" })).toBeVisible();
+  expect(screen.getByText("还没有作品")).toBeVisible();
+  expect(screen.getByText(
+    "先新建内容或导入作品数据；确认后，这里会显示发布状态、数据、分析和风险。",
+  )).toBeVisible();
 });

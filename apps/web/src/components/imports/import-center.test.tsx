@@ -1,10 +1,65 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import type { ImportHistoryData } from "@/lib/import-api";
 
 import { ImportCenter } from "./import-center";
 
+const navigationState = vi.hoisted(() => ({
+  pathname: "/workspaces/workspace-1/imports",
+  search: "",
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationState.pathname,
+  useRouter: () => ({ replace: navigationState.replace }),
+  useSearchParams: () => new URLSearchParams(navigationState.search),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [
+    { account_id: "dy-1", platform: "douyin" as const, name: "抖音账号" },
+    {
+      account_id: "xhs-1",
+      platform: "xiaohongshu" as const,
+      name: "小红书账号",
+    },
+  ],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
 
 afterEach(cleanup);
 
@@ -45,7 +100,7 @@ const history = {
 
 test("exposes four methods through one staged preview and confirmation flow", () => {
   const onMethodChange = vi.fn();
-  render(
+  renderInWorkspace(
     <ImportCenter
       accountId="dy-1"
       accounts={[...accounts]}
@@ -57,8 +112,12 @@ test("exposes four methods through one staged preview and confirmation flow", ()
       role="editor"
       workspaceId="workspace-1"
     />,
+    "editor",
   );
 
+  expect(screen.getByText(
+    "把作品和发布后的运营数据录入系统；确认前不会写入正式记录。",
+  )).toBeVisible();
   for (const label of [
     "手动录入",
     "Excel / CSV",
@@ -77,7 +136,7 @@ test("exposes four methods through one staged preview and confirmation flow", ()
 });
 
 test("keeps history safe and makes complex mapping desktop-only on mobile", () => {
-  render(
+  renderInWorkspace(
     <ImportCenter
       accountId="dy-1"
       accounts={[...accounts]}
@@ -89,6 +148,7 @@ test("keeps history safe and makes complex mapping desktop-only on mobile", () =
       role="editor"
       workspaceId="workspace-1"
     />,
+    "editor",
   );
 
   expect(screen.getByText("此操作需要电脑端")).toBeVisible();
@@ -103,7 +163,7 @@ test("keeps history safe and makes complex mapping desktop-only on mobile", () =
 });
 
 test("viewer sees history but no upload, edit, or confirmation controls", () => {
-  render(
+  renderInWorkspace(
     <ImportCenter
       accountId="dy-1"
       accounts={[...accounts]}
@@ -115,8 +175,10 @@ test("viewer sees history but no upload, edit, or confirmation controls", () => 
       role="viewer"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
 
+  expect(screen.getByText("查看最近导入记录")).toBeVisible();
   expect(screen.getByText("当前操作不可用")).toBeVisible();
   expect(screen.getByText("导入历史")).toBeVisible();
   expect(screen.queryByRole("button", { name: "手动录入" })).not.toBeInTheDocument();
@@ -126,7 +188,7 @@ test("viewer sees history but no upload, edit, or confirmation controls", () => 
 
 test("clears an account when the selected platform is incompatible", () => {
   const onScopeChange = vi.fn();
-  render(
+  renderInWorkspace(
     <ImportCenter
       accountId="dy-1"
       accounts={[...accounts]}
@@ -138,6 +200,7 @@ test("clears an account when the selected platform is incompatible", () => {
       role="admin"
       workspaceId="workspace-1"
     />,
+    "admin",
   );
 
   fireEvent.change(screen.getByLabelText("导入平台"), {
@@ -147,4 +210,23 @@ test("clears an account when the selected platform is incompatible", () => {
     platform: "xiaohongshu",
     accountId: undefined,
   });
+});
+
+test("explains how to choose a safe import scope in easy mode", () => {
+  renderInWorkspace(
+    <ImportCenter
+      accounts={[...accounts]}
+      history={history}
+      method="manual"
+      onMethodChange={vi.fn()}
+      onScopeChange={vi.fn()}
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  expect(screen.getByText(
+    "先选择抖音或小红书，再选择对应账号；两个平台的数据不会混在一起。",
+  )).toBeVisible();
 });

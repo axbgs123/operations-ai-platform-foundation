@@ -14,12 +14,12 @@ import {
 import {
   EmptyState,
   ErrorState,
-  PageHeader,
   Panel,
   PermissionNotice,
   Skeleton,
   StatusBadge,
 } from "./ui";
+import { GuidedPageHeader } from "./guided-page-header";
 import { useWorkbenchShellContext } from "./workspace-shell";
 
 
@@ -95,10 +95,7 @@ export function WorkbenchOverview({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="按账号分别查看数据完整度、风险和下一步，不混算不同平台的业务指标。"
-        title="工作台总览"
-      />
+      <GuidedPageHeader pageId="overview" />
 
       <Panel title="数据状态">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

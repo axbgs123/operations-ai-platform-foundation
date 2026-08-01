@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import type { ContentDetailData } from "@/lib/content-api";
 
 import {
@@ -10,6 +12,56 @@ import {
   safeContentReturnTo,
 } from "./content-detail-tabs";
 
+const navigationState = vi.hoisted(() => ({
+  pathname: "/workspaces/workspace-1/contents/content-1",
+  search: "",
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationState.pathname,
+  useRouter: () => ({ replace: navigationState.replace }),
+  useSearchParams: () => new URLSearchParams(navigationState.search),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [{
+    account_id: "account-1",
+    platform: "douyin" as const,
+    name: "抖音账号",
+  }],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
+
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
 
 afterEach(cleanup);
 
@@ -123,7 +175,7 @@ test("canonicalizes detail scope from the content record rather than forged URL 
 
 test("renders five accessible tabs, snapshot gates, lifecycle, and viewer safety", () => {
   const onTabChange = vi.fn();
-  render(
+  renderInWorkspace(
     <ContentDetailTabs
       activeTab="overview"
       detail={detail}
@@ -131,8 +183,16 @@ test("renders five accessible tabs, snapshot gates, lifecycle, and viewer safety
       returnTo="/workspaces/workspace-1/contents?page=3"
       role="viewer"
     />,
+    "viewer",
   );
 
+  expect(screen.getByText(
+    "在一处查看这条作品的数据、分析、风险和生成记录。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "抖音 · 抖音账号 · 账号默认 · 已发布",
+  )).toBeVisible();
+  expect(screen.getByText("查看数据、分析和风险标签")).toBeVisible();
   expect(screen.getAllByText("已发布").length).toBeGreaterThan(0);
   expect(screen.getByRole("link", { name: "返回内容库" })).toHaveAttribute(
     "href",
@@ -146,14 +206,56 @@ test("renders five accessible tabs, snapshot gates, lifecycle, and viewer safety
   expect(onTabChange).toHaveBeenCalledWith("snapshots");
 });
 
+test("shows professional content-detail purpose and safe risk error metadata", () => {
+  localStorage.setItem(
+    "operations-ai:copy-mode:member-admin",
+    "professional",
+  );
+  renderInWorkspace(
+    <ContentDetailTabs
+      activeTab="risk"
+      detail={{
+        ...detail,
+        risk_scans: [{
+          id: "scan-failed",
+          previous_scan_id: null,
+          status: "failed",
+          node: "before_publication",
+          result: null,
+          error_code: "RISK_SCAN_FAILED",
+          diagnostics: [],
+          rule_version: "risk-rules-v1",
+          evidence_version: "evidence-v1",
+          embedding_model_id: "mock-embedding",
+          embedding_version: "v1",
+          rag_model_version: "mock-rag-v1",
+          scanner_version: "scanner-v1",
+          ocr_provider: "mock",
+          ocr_model_id: "mock-ocr-v1",
+          created_at: "2026-07-29T15:00:00+08:00",
+        }],
+      }}
+      onTabChange={() => undefined}
+      role="editor"
+    />,
+    "editor",
+  );
+
+  expect(screen.getByText(/同口径快照/)).toBeVisible();
+  expect(screen.getByText(
+    "安全错误码：RISK_SCAN_FAILED；失败结果不会保存为成功扫描。",
+  )).toBeVisible();
+});
+
 test("shows null metrics as missing, one-snapshot explanation, and safe fallbacks", () => {
-  render(
+  renderInWorkspace(
     <ContentDetailTabs
       activeTab="snapshots"
       detail={detail}
       onTabChange={() => undefined}
       role="editor"
     />,
+    "editor",
   );
   expect(screen.getAllByText("缺失", { exact: true })).toHaveLength(2);
   expect(screen.getByText("至少需要两条已确认快照。")).toBeVisible();
@@ -176,7 +278,7 @@ test("requires a shared non-null metric before allowing a snapshot trend", () =>
       },
     ],
   };
-  render(
+  renderInWorkspace(
     <ContentDetailTabs
       activeTab="snapshots"
       detail={{
@@ -192,13 +294,14 @@ test("requires a shared non-null metric before allowing a snapshot trend", () =>
       onTabChange={() => undefined}
       role="editor"
     />,
+    "editor",
   );
   expect(screen.getByText("快照之间缺少共同的有效规范化指标。")).toBeVisible();
   expect(screen.getByText(/未绘制趋势图/)).toBeVisible();
 });
 
 test("renders the server-approved same-unit trend with a data-table alternative", () => {
-  render(
+  renderInWorkspace(
     <ContentDetailTabs
       activeTab="snapshots"
       detail={{
@@ -232,19 +335,21 @@ test("renders the server-approved same-unit trend with a data-table alternative"
       onTabChange={() => undefined}
       role="viewer"
     />,
+    "viewer",
   );
   expect(screen.getByRole("table", { name: "views 单条内容趋势" })).toBeVisible();
   expect(screen.getByText(/共有 2 条有效同口径快照/)).toBeVisible();
 });
 
 test("distinguishes analysis, risk, and generation missing-record states", () => {
-  const { rerender } = render(
+  const { rerender } = renderInWorkspace(
     <ContentDetailTabs
       activeTab="analysis"
       detail={detail}
       onTabChange={() => undefined}
       role="editor"
     />,
+    "editor",
   );
   expect(screen.getByText("当前记录未提供分析结果")).toBeVisible();
   expect(screen.getByRole("button", { name: "开始深度分析" })).toBeVisible();
@@ -274,13 +379,14 @@ test("distinguishes analysis, risk, and generation missing-record states", () =>
 
 test("supports arrow, Home, and End keyboard navigation", () => {
   const onTabChange = vi.fn();
-  render(
+  renderInWorkspace(
     <ContentDetailTabs
       activeTab="overview"
       detail={detail}
       onTabChange={onTabChange}
       role="admin"
     />,
+    "admin",
   );
   const overview = screen.getByRole("tab", { name: "概览" });
   expect(screen.getByRole("button", { name: "保存草稿" })).toBeInTheDocument();
@@ -451,13 +557,14 @@ test("renders governed analysis, cited risk, and safe generation metadata withou
     provider_workspace_id: "must-not-render",
   } as unknown as ContentDetailData;
 
-  const { rerender } = render(
+  const { rerender } = renderInWorkspace(
     <ContentDetailTabs
       activeTab="analysis"
       detail={governed}
       onTabChange={() => undefined}
       role="editor"
     />,
+    "editor",
   );
   expect(screen.getByText("当前表现有可验证数据支持")).toBeVisible();
   expect(screen.getByText(/Evidence：metric:views/)).toBeVisible();
@@ -498,6 +605,10 @@ test("renders governed analysis, cited risk, and safe generation metadata withou
     />,
   );
   expect(screen.getByText("扫描任务失败")).toBeVisible();
+  expect(screen.getByText(
+    "本次风险检查没有完成，不能当作安全通过。请重新检查或联系管理员。",
+  )).toBeVisible();
+  expect(screen.queryByText(/安全错误码：RISK_SCAN_FAILED/)).not.toBeInTheDocument();
   expect(screen.getByText("最近一次成功扫描（历史参考）")).toBeVisible();
   expect(screen.getByText("确定性规则 + RAG")).toBeVisible();
   expect(screen.queryByText("当前扫描没有发现")).not.toBeInTheDocument();

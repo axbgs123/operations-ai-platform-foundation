@@ -1,10 +1,46 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { WorkbenchOverviewData } from "@/lib/workbench-api";
 
 import { WorkbenchOverview } from "./workbench-overview";
+import { WorkspaceShell } from "./workspace-shell";
 
+const navigationState = vi.hoisted(() => ({
+  pathname: "/workspaces/workspace-1",
+  search: "",
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => navigationState.pathname,
+  useRouter: () => ({ replace: navigationState.replace }),
+  useSearchParams: () => new URLSearchParams(navigationState.search),
+}));
+
+const shellContext = {
+  workspace_id: "workspace-1",
+  workspace_name: "运营工作区",
+  member_id: "member-admin",
+  member_display_name: "运营管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
+
+function renderInWorkspace(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <WorkspaceShell context={{ ...shellContext, role }}>
+        {children}
+      </WorkspaceShell>
+    ),
+  });
+}
 
 const overview = {
   data_status: {
@@ -59,11 +95,28 @@ const overview = {
   ],
 } as WorkbenchOverviewData;
 
+beforeEach(() => {
+  localStorage.clear();
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  });
+});
+
 afterEach(cleanup);
 
 test("shows operational status in required order without mixed business metrics", () => {
-  render(<WorkbenchOverview overview={overview} workspaceId="workspace-1" />);
+  renderInWorkspace(
+    <WorkbenchOverview overview={overview} workspaceId="workspace-1" />,
+  );
 
+  expect(screen.getByText(
+    "看清各账号目前缺什么数据、有哪些待处理内容，以及现在最值得先做哪一件事。",
+  )).toBeVisible();
   const headings = screen.getAllByRole("heading", { level: 2 });
   expect(headings.map((heading) => heading.textContent)).toEqual([
     "数据状态",
@@ -79,7 +132,9 @@ test("shows operational status in required order without mixed business metrics"
 });
 
 test("keeps conservative closed-loop status and account scope in dashboard links", () => {
-  render(<WorkbenchOverview overview={overview} workspaceId="workspace-1" />);
+  renderInWorkspace(
+    <WorkbenchOverview overview={overview} workspaceId="workspace-1" />,
+  );
 
   expect(screen.getByText("尚未确认闭环")).toBeVisible();
   expect(screen.queryByText("未完成闭环")).not.toBeInTheDocument();
@@ -90,7 +145,7 @@ test("keeps conservative closed-loop status and account scope in dashboard links
 });
 
 test("renders unified empty, permission, dependency and loading states", () => {
-  const { rerender } = render(
+  const { rerender } = renderInWorkspace(
     <WorkbenchOverview state="loading" workspaceId="workspace-1" />,
   );
   expect(screen.getByRole("status", { name: "正在加载工作台" })).toBeVisible();
@@ -106,12 +161,13 @@ test("renders unified empty, permission, dependency and loading states", () => {
 });
 
 test("does not render fake write shortcuts for a viewer", () => {
-  render(
+  renderInWorkspace(
     <WorkbenchOverview
       overview={overview}
       role="viewer"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
 
   expect(screen.queryByRole("link", { name: "新建内容" })).not.toBeInTheDocument();
@@ -122,15 +178,17 @@ test("does not render fake write shortcuts for a viewer", () => {
     screen.queryByRole("link", { name: "确认等待中的数据导入" }),
   ).not.toBeInTheDocument();
   expect(screen.getByText("该事项需要编辑者或管理员处理")).toBeVisible();
+  expect(screen.getByText("查看账号状态和待分析内容")).toBeVisible();
 });
 
 test("does not offer account configuration to an empty viewer workspace", () => {
-  render(
+  renderInWorkspace(
     <WorkbenchOverview
       role="viewer"
       state="empty"
       workspaceId="workspace-1"
     />,
+    "viewer",
   );
 
   expect(screen.queryByRole("link", { name: "配置平台账号" })).not.toBeInTheDocument();

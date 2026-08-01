@@ -16,11 +16,11 @@ import {
   DesktopOnlyNotice,
   EmptyState,
   ErrorState,
-  PageHeader,
   PermissionNotice,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import {
   loadImportHistory,
   type ImportHistoryData,
@@ -306,10 +306,7 @@ export function ImportCenter({
   const hasScope = Boolean(platform && accountId);
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="四种方式共享暂存、预览、修正和人工确认边界；确认前不会写入正式内容或快照。"
-        title="数据导入"
-      />
+      <GuidedPageHeader pageId="imports" />
       <ol
         aria-label="统一导入流程"
         className="grid grid-cols-2 gap-2 rounded-xl border bg-white p-4 text-center text-sm sm:grid-cols-5"
@@ -402,8 +399,11 @@ export function ImportCenter({
 
       {writable && method && !hasScope ? (
         <EmptyState
-          description="平台和账号共同决定指标、去重、栏目和正式写入范围。"
-          title="请先选择平台和账号"
+          description={{
+            simple: "先选择抖音或小红书，再选择对应账号；两个平台的数据不会混在一起。",
+            professional: "平台和账号共同决定指标、去重、栏目和正式写入范围。",
+          }}
+          title="请选择平台和账号"
         />
       ) : null}
       {writable && hasScope && method === "manual" ? (

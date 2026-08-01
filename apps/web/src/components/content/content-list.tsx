@@ -22,10 +22,10 @@ import {
   DataTableFrame,
   EmptyState,
   ErrorState,
-  PageHeader,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 
 
 export type ContentColumnOption = {
@@ -295,18 +295,17 @@ export function ContentList({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="按平台、账号、栏目和数据状态查找内容；平台数据始终分别展示。"
+      <GuidedPageHeader
+        pageId="contents"
         primaryAction={primaryAction}
         secondaryActions={role === "viewer" ? undefined : (
           <Link
             className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold"
             href={`/workspaces/${workspaceId}/imports`}
           >
-            导入数据
+            导入作品数据
           </Link>
         )}
-        title="内容库"
       />
       <section
         aria-label="内容筛选"
@@ -418,8 +417,11 @@ export function ContentList({
 
       {!data.items.length ? (
         <EmptyState
-          description="调整筛选条件，或创建第一条内容。"
-          title="没有符合条件的内容"
+          description={{
+            simple: "先新建内容或导入作品数据；确认后，这里会显示发布状态、数据、分析和风险。",
+            professional: "当前筛选范围没有正式内容记录；调整筛选条件，或创建第一条内容。",
+          }}
+          title="还没有作品"
         />
       ) : (
         <>

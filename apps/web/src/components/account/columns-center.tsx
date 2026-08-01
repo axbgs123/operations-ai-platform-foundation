@@ -22,10 +22,10 @@ import {
   DataTableFrame,
   EmptyState,
   ErrorState,
-  PageHeader,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 
 
 export type ColumnFieldView = {
@@ -357,10 +357,7 @@ export function ColumnsCenterPage({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="栏目和活动独立展示账号继承、临时覆盖、有效时间及当前版本。"
-        title="栏目与活动"
-      />
+      <GuidedPageHeader pageId="columns" />
       {state.status === "loading" ? <Skeleton label="正在加载栏目与活动" /> : null}
       {state.status === "failed" ? (
         <ErrorState

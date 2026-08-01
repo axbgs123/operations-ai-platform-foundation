@@ -12,12 +12,12 @@ import {
 import {
   EmptyState,
   ErrorState,
-  PageHeader,
   Panel,
   PermissionNotice,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 
 import { ChartPanel } from "./chart-panel";
@@ -210,8 +210,12 @@ export function AccountDashboard({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description={dashboard.explanation}
+      <GuidedPageHeader
+        context={{
+          simple: "数据按当前作品类型和数据采集时间分别计算。",
+          professional: dashboard.explanation,
+        }}
+        pageId="accountDashboard"
         secondaryActions={(
           <button
             className="rounded-lg border bg-white px-3 py-2 text-sm font-semibold"

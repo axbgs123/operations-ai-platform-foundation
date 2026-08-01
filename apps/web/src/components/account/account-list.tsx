@@ -12,10 +12,10 @@ import {
 import {
   EmptyState,
   ErrorState,
-  PageHeader,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 
 
 const platformLabel = {
@@ -160,10 +160,7 @@ export function AccountListPage({
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="抖音与小红书账号分别展示，不进行跨平台指标合计。"
-        title="账号仪表盘"
-      />
+      <GuidedPageHeader pageId="accounts" />
       {state.status === "loading" ? <Skeleton label="正在加载账号列表" /> : null}
       {state.status === "failed" ? (
         <ErrorState

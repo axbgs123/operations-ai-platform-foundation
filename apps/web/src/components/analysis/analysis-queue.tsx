@@ -15,10 +15,10 @@ import {
   DataTableFrame,
   EmptyState,
   ErrorState,
-  PageHeader,
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
+import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import {
   loadAnalysisQueue,
   type AnalysisQueuePageData,
@@ -212,10 +212,7 @@ export function AnalysisQueue({
   };
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      <PageHeader
-        description="队列只展示服务端已经确认的分析状态、样本、Evidence 和置信度；不同平台分别筛选。"
-        title="分析中心"
-      />
+      <GuidedPageHeader pageId="analysis" />
       <section
         aria-label="分析队列筛选"
         className="grid gap-3 rounded-xl border bg-white p-4 sm:grid-cols-2 lg:grid-cols-4"
@@ -292,8 +289,11 @@ export function AnalysisQueue({
         />
       ) : !data.items.length ? (
         <EmptyState
-          description="调整状态或账号范围后重试。"
-          title="当前范围没有分析事项"
+          description={{
+            simple: "先导入并确认一次发布后的数据，再回到这里查看问题和建议。",
+            professional: "当前没有满足分析门槛的已确认同口径快照。",
+          }}
+          title="还没有可分析的数据"
         />
       ) : (
         <>

@@ -1,5 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+
+import { ExperiencePreferencesProvider } from "@/components/workbench/experience-preferences-context";
 
 import {
   AccountDashboard,
@@ -7,6 +10,30 @@ import {
 } from "./account-dashboard";
 import { DrillDownContentList } from "./drill-down-content-list";
 
+const shellState = vi.hoisted(() => ({
+  role: "admin" as "admin" | "editor" | "viewer",
+}));
+
+vi.mock("@/components/workbench/workspace-shell", () => ({
+  useWorkbenchShellContext: () => ({
+    member_id: "member-admin",
+    role: shellState.role,
+  }),
+}));
+
+function renderDashboard(
+  ui: ReactElement,
+  role: "admin" | "editor" | "viewer" = "admin",
+) {
+  shellState.role = role;
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <ExperiencePreferencesProvider memberId="member-admin">
+        {children}
+      </ExperiencePreferencesProvider>
+    ),
+  });
+}
 
 const dashboard = {
   account_id: "account-1",
@@ -218,9 +245,17 @@ afterEach(() => {
 });
 
 test("renders evidence-led sections and links charts into the scoped content library", async () => {
-  render(<AccountDashboard accountId="account-1" workspaceId="workspace-1" />);
+  renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
 
   expect(await screen.findByRole("heading", { name: "合成小红书账号" })).toBeInTheDocument();
+  expect(screen.getByText(
+    "只看这个账号的表现变化、目标完成情况和异常内容。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "数据按当前作品类型和数据采集时间分别计算。",
+  )).toBeVisible();
   expect(screen.getByText("实际样本 10 条")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "值得关注" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "下一步行动" })).toBeInTheDocument();
@@ -241,6 +276,10 @@ test("renders evidence-led sections and links charts into the scoped content lib
 });
 
 test("keeps the actual sample explanation and omits charts when API marks data insufficient", async () => {
+  localStorage.setItem(
+    "operations-ai:copy-mode:member-admin",
+    "professional",
+  );
   vi.mocked(fetch).mockImplementationOnce(async () => ({
     ok: true,
     json: async () => ({
@@ -262,7 +301,9 @@ test("keeps the actual sample explanation and omits charts when API marks data i
     }),
   } as Response));
 
-  render(<AccountDashboard accountId="account-1" workspaceId="workspace-1" />);
+  renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
 
   expect(await screen.findByText("实际样本 1 条")).toBeInTheDocument();
   await waitFor(() => {
@@ -274,7 +315,9 @@ test("keeps the actual sample explanation and omits charts when API marks data i
 });
 
 test("reloads the dashboard when content type or maturity scope changes", async () => {
-  render(<AccountDashboard accountId="account-1" workspaceId="workspace-1" />);
+  renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
   await screen.findByRole("heading", { name: "合成小红书账号" });
 
   fireEvent.change(screen.getByLabelText("内容类型"), {
@@ -320,7 +363,9 @@ test("forwards every paired funnel metric to the drill-down API", async () => {
 });
 
 test("shows benchmark range and API-provided confidence without recomputing gates", async () => {
-  render(<AccountDashboard accountId="account-1" workspaceId="workspace-1" />);
+  renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
 
   expect(await screen.findByText("基准范围：最近 30 条同口径内容")).toBeVisible();
   expect(screen.getByText("中位数 2,450")).toBeVisible();
@@ -330,7 +375,7 @@ test("shows benchmark range and API-provided confidence without recomputing gate
 });
 
 test("isolates optional module preferences by member and account and restores defaults", async () => {
-  render(
+  renderDashboard(
     <AccountDashboard
       accountId="account-1"
       memberId="member-1"
@@ -360,4 +405,16 @@ test("isolates optional module preferences by member and account and restores de
   fireEvent.click(screen.getByRole("button", { name: "恢复默认布局" }));
   expect(await screen.findByRole("heading", { name: "基准区间" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "下一步行动" })).toBeVisible();
+});
+
+test("shows viewers a read-only account-dashboard next action", async () => {
+  renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+    "viewer",
+  );
+
+  expect(await screen.findByText("查看趋势、目标和异常说明")).toBeVisible();
+  expect(
+    screen.queryByRole("link", { name: /新建|导入|处理/ }),
+  ).not.toBeInTheDocument();
 });
