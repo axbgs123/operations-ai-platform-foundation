@@ -13,6 +13,7 @@ import {
   Skeleton,
   StatusBadge,
 } from "./ui";
+import { ExperiencePreferencesProvider } from "./experience-preferences-context";
 
 afterEach(() => {
   cleanup();
@@ -74,6 +75,38 @@ test("gives empty and error states distinct accessible semantics", () => {
   fireEvent.click(screen.getByRole("button", { name: "重新加载" }));
   expect(screen.getByRole("alert")).toHaveTextContent("内容加载失败");
   expect(retry).toHaveBeenCalledOnce();
+});
+
+test("selects simple or professional state descriptions without changing semantics", () => {
+  const state = (
+    <EmptyState
+      title="还没有数据"
+      description={{
+        simple: "先导入并确认一次发布后的数据。",
+        professional: "缺少已确认的同口径快照。",
+      }}
+    />
+  );
+  localStorage.setItem("operations-ai:copy-mode:member-1", "simple");
+  render(
+    <ExperiencePreferencesProvider memberId="member-1">
+      {state}
+    </ExperiencePreferencesProvider>,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "先导入并确认一次发布后的数据。",
+  );
+
+  cleanup();
+  localStorage.setItem("operations-ai:copy-mode:member-1", "professional");
+  render(
+    <ExperiencePreferencesProvider memberId="member-1">
+      {state}
+    </ExperiencePreferencesProvider>,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "缺少已确认的同口径快照。",
+  );
 });
 
 test("explains role and desktop-only restrictions in text", () => {

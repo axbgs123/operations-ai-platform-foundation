@@ -7,6 +7,8 @@ import {
   useId,
 } from "react";
 
+import { useOptionalExperiencePreferences } from "./experience-preferences-context";
+import type { ModeAwareCopy } from "./operator-copy-catalog";
 
 export type StatusTone =
   | "neutral"
@@ -22,6 +24,14 @@ const statusToneClasses: Record<StatusTone, string> = {
   warning: "border-amber-200 bg-amber-50 text-amber-900",
   danger: "border-red-200 bg-red-50 text-red-800",
 };
+
+export type DisplayCopy = string | ModeAwareCopy;
+
+function DisplayText({ copy }: { copy: DisplayCopy }): ReactElement {
+  const preferences = useOptionalExperiencePreferences();
+  const copyMode = preferences?.copyMode ?? "simple";
+  return <>{typeof copy === "string" ? copy : copy[copyMode]}</>;
+}
 
 export function StatusBadge({
   tone,
@@ -47,7 +57,7 @@ export function PageHeader({
   secondaryActions,
 }: {
   title: string;
-  description?: string;
+  description?: DisplayCopy;
   primaryAction?: ReactNode;
   secondaryActions?: ReactNode;
 }): ReactElement {
@@ -61,7 +71,7 @@ export function PageHeader({
         </h1>
         {description ? (
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
-            {description}
+            <DisplayText copy={description} />
           </p>
         ) : null}
       </div>
@@ -85,7 +95,7 @@ export function Panel({
   children,
 }: {
   title: string;
-  description?: string;
+  description?: DisplayCopy;
   children: ReactNode;
 }): ReactElement {
   const headingId = useId();
@@ -103,7 +113,9 @@ export function Panel({
           {title}
         </h2>
         {description ? (
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            <DisplayText copy={description} />
+          </p>
         ) : null}
       </div>
       {children}
@@ -119,7 +131,7 @@ function StateMessage({
   tone,
 }: {
   title: string;
-  description: string;
+  description: DisplayCopy;
   action?: ReactNode;
   role: "alert" | "status";
   tone: "neutral" | "danger";
@@ -135,7 +147,7 @@ function StateMessage({
       role={role}
     >
       <h2 className="text-base font-semibold">{title}</h2>
-      <p className="mt-1 text-sm leading-6">{description}</p>
+      <p className="mt-1 text-sm leading-6"><DisplayText copy={description} /></p>
       {action ? <div className="mt-4">{action}</div> : null}
     </section>
   );
@@ -147,7 +159,7 @@ export function EmptyState({
   action,
 }: {
   title: string;
-  description: string;
+  description: DisplayCopy;
   action?: ReactNode;
 }): ReactElement {
   return (
@@ -167,7 +179,7 @@ export function ErrorState({
   retryAction,
 }: {
   title: string;
-  description: string;
+  description: DisplayCopy;
   retryAction?: ReactNode;
 }): ReactElement {
   return (
@@ -184,9 +196,11 @@ export function ErrorState({
 export function PermissionNotice({
   currentRole,
   requiredRole,
+  description,
 }: {
   currentRole: string;
   requiredRole: string;
+  description?: DisplayCopy;
 }): ReactElement {
   return (
     <aside
@@ -195,7 +209,11 @@ export function PermissionNotice({
     >
       <p className="font-semibold">当前操作不可用</p>
       <p className="mt-1">
-        当前角色：{currentRole}；需要角色：{requiredRole}
+        {description ? (
+          <DisplayText copy={description} />
+        ) : (
+          <>当前角色：{currentRole}；需要角色：{requiredRole}</>
+        )}
       </p>
     </aside>
   );
@@ -203,8 +221,10 @@ export function PermissionNotice({
 
 export function DesktopOnlyNotice({
   action,
+  description,
 }: {
   action: string;
+  description?: DisplayCopy;
 }): ReactElement {
   return (
     <aside
@@ -212,7 +232,9 @@ export function DesktopOnlyNotice({
       role="note"
     >
       <p className="font-semibold">此操作需要电脑端</p>
-      <p className="mt-1">请在电脑端继续{action}。</p>
+      <p className="mt-1">
+        {description ? <DisplayText copy={description} /> : <>请在电脑端继续{action}。</>}
+      </p>
     </aside>
   );
 }
