@@ -211,7 +211,14 @@ test("renders every governed status and preserves return context in drill-down",
   expect(decodeURIComponent(detail.getAttribute("href") ?? "")).toContain(
     "returnTo=/workspaces/workspace-1/analysis?platform=douyin&account=dy-1&status=failed&sort=newest&page=2",
   );
-  expect(screen.getAllByText("无有效 Evidence").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("没有可用的参考资料").length).toBeGreaterThan(0);
+  expect(screen.getByRole("columnheader", { name: "数据采集时间" })).toBeVisible();
+  expect(
+    screen.getByRole("columnheader", { name: "判断把握和参考资料" }),
+  ).toBeVisible();
+  expect(screen.getAllByText("发布 24 小时后").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("当前判断把握不高").length).toBeGreaterThan(0);
+  expect(document.body.textContent).not.toMatch(/Evidence|成熟度|置信度/);
   expect(screen.getByRole("list", { name: "分析队列移动卡片" })).toHaveClass(
     "md:hidden",
   );
@@ -250,6 +257,14 @@ test("shows professional Evidence guidance", () => {
   );
 
   expect(screen.getByText(/Evidence 和置信度/)).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "成熟度" })).toBeVisible();
+  expect(
+    screen.getByRole("columnheader", { name: "置信度/Evidence" }),
+  ).toBeVisible();
+  expect(screen.getAllByText("无有效 Evidence").length).toBeGreaterThan(0);
+  expect(screen.getByText("Evidence", { exact: true })).toBeVisible();
+  expect(screen.getAllByText("成熟度", { exact: true }).length).toBeGreaterThan(0);
+  expect(screen.getAllByText("置信度", { exact: true }).length).toBeGreaterThan(0);
 });
 
 test("explains the prerequisite when no content is ready for analysis", () => {

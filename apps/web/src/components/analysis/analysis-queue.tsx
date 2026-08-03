@@ -11,6 +11,12 @@ import {
 
 import type { WorkbenchAccount } from "@/components/workbench/scope-query";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import {
+  copyForMode,
+  type ModeAwareCopy,
+} from "@/components/workbench/operator-copy-catalog";
+import type { CopyMode } from "@/components/workbench/experience-preferences";
 import {
   DataTableFrame,
   EmptyState,
@@ -181,13 +187,53 @@ function detailHref(
 }
 
 function EvidenceState({
+  copyMode,
   status,
 }: {
+  copyMode: CopyMode;
   status: AnalysisQueuePageData["items"][number]["evidence_status"];
 }): ReactElement {
-  if (status === "available") return <span>Evidence 已记录</span>;
-  if (status === "insufficient_sample") return <span>Evidence 有限，样本不足</span>;
-  return <span>无有效 Evidence</span>;
+  const labels: Record<
+    AnalysisQueuePageData["items"][number]["evidence_status"],
+    ModeAwareCopy
+  > = {
+    available: {
+      simple: "已记录本次判断参考的资料",
+      professional: "Evidence 已记录",
+    },
+    insufficient_sample: {
+      simple: "参考资料有限，数据样本不足",
+      professional: "Evidence 有限，样本不足",
+    },
+    missing: {
+      simple: "没有可用的参考资料",
+      professional: "无有效 Evidence",
+    },
+  };
+  return <span>{copyForMode(labels[status], copyMode)}</span>;
+}
+
+function maturityLabel(value: string | null, copyMode: CopyMode): string {
+  if (!value) return "暂无快照";
+  if (copyMode === "professional") return value;
+  const labels: Record<string, string> = {
+    "1h": "发布 1 小时后",
+    "24h": "发布 24 小时后",
+    "72h": "发布 72 小时后",
+    "7d": "发布 7 天后",
+  };
+  return labels[value] ?? `发布后 ${value}`;
+}
+
+function confidenceLabel(value: string, copyMode: CopyMode): string {
+  if (value === "unknown") return "未提供";
+  if (copyMode === "professional") return value;
+  const labels: Record<string, string> = {
+    low: "当前判断把握不高",
+    medium: "当前判断把握一般",
+    high: "当前判断把握较高",
+  };
+  return labels[value] ?? "当前判断把握未提供";
 }
 
 export function AnalysisQueue({
@@ -204,6 +250,8 @@ export function AnalysisQueue({
   role: "admin" | "editor" | "viewer";
   workspaceId: string;
 }): ReactElement {
+  const { copyMode } = useExperiencePreferences();
+  const text = (value: ModeAwareCopy) => copyForMode(value, copyMode);
   const visibleAccounts = accounts.filter(
     (account) => account.platform === filters.platform,
   );
@@ -306,11 +354,17 @@ export function AnalysisQueue({
                     "范围",
                     "栏目",
                     "类型",
-                    "成熟度",
+                    text({
+                      simple: "数据采集时间",
+                      professional: "成熟度",
+                    }),
                     "样本",
                     "版本",
                     "当前问题",
-                    "置信度/Evidence",
+                    text({
+                      simple: "判断把握和参考资料",
+                      professional: "置信度/Evidence",
+                    }),
                     "建议",
                     "下一步",
                   ].map((label) => (
@@ -336,15 +390,20 @@ export function AnalysisQueue({
                     <td className="px-3 py-3">
                       {item.content_type === "video" ? "视频" : "图文"}
                     </td>
-                    <td className="px-3 py-3">{item.maturity ?? "暂无快照"}</td>
+                    <td className="px-3 py-3">
+                      {maturityLabel(item.maturity, copyMode)}
+                    </td>
                     <td className="px-3 py-3">{item.sample_count}</td>
                     <td className="px-3 py-3">
                       {item.analysis_version ?? "尚未生成"}
                     </td>
                     <td className="max-w-64 px-3 py-3">{item.safe_summary}</td>
                     <td className="px-3 py-3">
-                      <p>{item.confidence === "unknown" ? "未提供" : item.confidence}</p>
-                      <EvidenceState status={item.evidence_status} />
+                      <p>{confidenceLabel(item.confidence, copyMode)}</p>
+                      <EvidenceState
+                        copyMode={copyMode}
+                        status={item.evidence_status}
+                      />
                     </td>
                     <td className="px-3 py-3">
                       {item.suggestion_status === "saved"
@@ -382,10 +441,33 @@ export function AnalysisQueue({
                   {platformLabel[item.platform]} · {item.account_name}
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                  <div><dt>成熟度</dt><dd>{item.maturity ?? "暂无快照"}</dd></div>
+                  <div>
+                    <dt>{text({
+                      simple: "数据采集时间",
+                      professional: "成熟度",
+                    })}</dt>
+                    <dd>{maturityLabel(item.maturity, copyMode)}</dd>
+                  </div>
                   <div><dt>样本数</dt><dd>{item.sample_count}</dd></div>
-                  <div><dt>置信度</dt><dd>{item.confidence}</dd></div>
-                  <div><dt>Evidence</dt><dd><EvidenceState status={item.evidence_status} /></dd></div>
+                  <div>
+                    <dt>{text({
+                      simple: "判断把握",
+                      professional: "置信度",
+                    })}</dt>
+                    <dd>{confidenceLabel(item.confidence, copyMode)}</dd>
+                  </div>
+                  <div>
+                    <dt>{text({
+                      simple: "参考资料",
+                      professional: "Evidence",
+                    })}</dt>
+                    <dd>
+                      <EvidenceState
+                        copyMode={copyMode}
+                        status={item.evidence_status}
+                      />
+                    </dd>
+                  </div>
                 </dl>
                 <Link
                   className="mt-4 inline-flex font-semibold text-[var(--brand)]"

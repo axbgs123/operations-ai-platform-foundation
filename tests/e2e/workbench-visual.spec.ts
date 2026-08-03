@@ -88,6 +88,7 @@ async function seedVisualData(page: Page, workspaceId: string) {
 
 async function prepareScreenshot(page: Page) {
   await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
   await page.locator("nextjs-portal").evaluateAll((portals) => {
     for (const portal of portals) {
       (portal as HTMLElement).style.display = "none";
@@ -210,14 +211,15 @@ test("canonical workbench routes retain stable synthetic visual baselines", asyn
   await page.getByRole("radio", { name: "专业" }).click();
   await capture(page, "guidance-professional.png");
 
+  await page.getByRole("radio", { name: "易懂" }).click();
   await page.getByRole("switch", { name: "页面引导" }).click();
   await capture(page, "guidance-off.png");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${root}/preflight?${scoped}`);
   await page.getByText("界面说明", { exact: true }).click();
-  await page.getByRole("switch", { name: "页面引导" }).click();
-  await page.getByText("界面说明", { exact: true }).click();
-  await page.getByRole("button", { name: "查看操作说明" }).click();
+  await page.getByRole("radio", { name: "专业" }).click();
+  await expect(page.getByRole("switch", { name: "页面引导" })).not.toBeChecked();
+  await expect(page.getByRole("button", { name: "查看操作说明" })).toHaveCount(0);
   await capture(page, "mobile-guidance.png");
 });

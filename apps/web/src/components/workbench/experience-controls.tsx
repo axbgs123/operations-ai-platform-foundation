@@ -61,7 +61,7 @@ export function ExperienceControls({ compact = false }: { compact?: boolean }) {
       <summary className="cursor-pointer rounded-lg border bg-white px-3 py-2 text-sm">
         界面说明
       </summary>
-      <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border bg-white p-3 shadow-lg">
+      <div className="absolute right-0 z-50 mt-2 w-64 rounded-xl border bg-white p-3 shadow-lg max-md:static max-md:w-[calc(100vw-2rem)]">
         <ControlFields />
       </div>
     </details>
