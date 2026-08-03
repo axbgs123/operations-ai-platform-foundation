@@ -1,6 +1,7 @@
 .DS_Store
 .env
 .env.local
+.local-state/
 .next/
 .pnpm-store/
 .pytest_cache/

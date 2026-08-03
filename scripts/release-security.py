@@ -316,6 +316,7 @@ SOURCE_ALLOWED_PATTERNS = tuple(re.compile(pattern) for pattern in (
     r"docs/assets/public-demo-synthetic-v1\.(?:png|provenance\.json)",
     r"infra/docker/(?:api|web|e2e)\.Dockerfile|infra/docker/compose\.yml",
     r"packages/(?:platform-metrics|shared-schemas)/(?:package\.json|openapi\.json|scripts/[A-Za-z0-9_./-]+\.(?:ts|py)|src/[A-Za-z0-9_./-]+\.ts)",
+    r"portable/[A-Za-z0-9._\-\u4e00-\u9fff]+\.(?:bat|command|txt)",
     r"scripts/[A-Za-z0-9._-]+\.(?:py|sh)",
     r"tests/e2e/(?:package\.json|[A-Za-z0-9._-]+\.(?:ts|sh))",
 ))
