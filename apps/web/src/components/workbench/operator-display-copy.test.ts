@@ -4,6 +4,7 @@ import {
   exportBoundaryCopy,
   generationTermCopy,
   internalReferenceCopy,
+  importHistoryActionCopy,
   knowledgeTermCopy,
   riskDocumentStatusCopy,
   riskTypeCopy,
@@ -153,5 +154,30 @@ test("keeps unknown risk document lifecycle values professional-only", () => {
   expect(riskDocumentStatusCopy("internal_transition", 42)).toEqual({
     simple: "当前状态暂时无法识别 · 版本已记录，可在专业模式查看",
     professional: "internal_transition · v42",
+  });
+});
+
+test("keeps Viewer import review guidance read-only and directs confirmation to an Admin or Editor", () => {
+  expect(importHistoryActionCopy("review", "viewer")).toEqual({
+    simple: "查看等待确认的导入记录；需要确认时请联系管理员或编辑者。",
+    professional: "Viewer 只读查看等待确认的导入记录；继续确认需要 Admin 或 Editor。",
+  });
+});
+
+test("keeps Viewer import failure guidance read-only and directs retries to an Admin or Editor", () => {
+  expect(importHistoryActionCopy("retry", "viewer")).toEqual({
+    simple: "查看导入失败原因；需要重试时请联系管理员或编辑者。",
+    professional: "Viewer 只读查看导入失败原因；重试需要 Admin 或 Editor。",
+  });
+});
+
+test("keeps Viewer wait and result history actions as viewing only", () => {
+  expect(importHistoryActionCopy("wait", "viewer")).toEqual({
+    simple: "查看状态",
+    professional: "Viewer 只读查看状态",
+  });
+  expect(importHistoryActionCopy("open_result", "viewer")).toEqual({
+    simple: "查看结果",
+    professional: "Viewer 只读查看结果",
   });
 });

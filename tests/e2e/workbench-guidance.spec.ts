@@ -95,6 +95,42 @@ async function createAccount(page: Page, workspaceId: string): Promise<string> {
   }, { apiUrl: api, targetWorkspaceId: workspaceId });
 }
 
+async function stageManualImport(
+  page: Page,
+  workspaceId: string,
+  accountId: string,
+) {
+  await page.evaluate(async ({ apiUrl, targetWorkspaceId, targetAccountId }) => {
+    const response = await fetch(
+      `${apiUrl}/v1/workspaces/${targetWorkspaceId}/imports/manual/preview`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": sessionStorage.getItem("workspace_csrf") ?? "",
+        },
+        body: JSON.stringify({
+          account_id: targetAccountId,
+          platform: "douyin",
+          content_type: "video",
+          rows: [{
+            platform_content_id: "GUIDANCE-VIEWER-IMPORT",
+            title: "查看者导入引导合成记录",
+            body: "仅用于查看者导入引导验收。",
+            published_at: "2026-08-01T10:00:00+08:00",
+            collected_at: "2026-08-01T11:00:00+08:00",
+            metrics: { views: 100 },
+          }],
+        }),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`import fixture failed (${response.status})`);
+    }
+  }, { apiUrl: api, targetWorkspaceId: workspaceId, targetAccountId: accountId });
+}
+
 test("operator copy and guidance persist without changing business state", async ({
   browser,
   page,
@@ -177,6 +213,7 @@ test("guidance preferences preserve routes, drafts, roles, and Demo isolation", 
   await enterWorkspace(page, workspace, workspace.admin_code, "引导管理员");
   const accountId = await createAccount(page, workspace.workspace_id);
   const editorCode = await issueCode(page, workspace.workspace_id, "editor");
+  await stageManualImport(page, workspace.workspace_id, accountId);
   const root = `/workspaces/${workspace.workspace_id}`;
   const filteredAnalysis = `${root}/analysis?platform=douyin&account=${accountId}&status=failed&sort=oldest&page=2`;
 
@@ -251,4 +288,16 @@ test("guidance preferences preserve routes, drafts, roles, and Demo isolation", 
   ).toBeVisible();
   await expect(editorPage.getByRole("button", { name: "开始生成" })).toHaveCount(0);
   await editor.close();
+
+  const viewerCode = await issueCode(page, workspace.workspace_id, "viewer");
+  const viewer = await browser.newContext();
+  const viewerPage = await viewer.newPage();
+  await enterWorkspace(viewerPage, workspace, viewerCode, "专业查看者");
+  await viewerPage.goto(`${root}/imports?platform=douyin&account=${accountId}`);
+  await viewerPage.getByRole("radio", { name: "专业" }).click();
+  await expect(viewerPage.getByText(
+    "Viewer 只读查看等待确认的导入记录；继续确认需要 Admin 或 Editor。",
+  ).first()).toBeVisible();
+  await expect(viewerPage.getByText("Viewer 只读继续确认")).toHaveCount(0);
+  await viewer.close();
 });

@@ -193,7 +193,32 @@ test("viewer sees history but no upload, edit, or confirmation controls", () => 
   expect(screen.queryByRole("button", { name: /确认/ })).not.toBeInTheDocument();
   expect(screen.queryByLabelText("CSV 或 Excel 文件")).not.toBeInTheDocument();
   expect(screen.queryByText("继续确认")).not.toBeInTheDocument();
-  expect(screen.getAllByText("查看等待确认的导入记录").length).toBeGreaterThan(0);
+  expect(screen.getAllByText(
+    "查看等待确认的导入记录；需要确认时请联系管理员或编辑者。",
+  ).length).toBeGreaterThan(0);
+});
+
+test("shows read/contact-only review guidance to a Viewer in professional mode", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <ImportCenter
+      accountId="dy-1"
+      accounts={[...accounts]}
+      history={history}
+      method={undefined}
+      onMethodChange={vi.fn()}
+      onScopeChange={vi.fn()}
+      platform="douyin"
+      role="viewer"
+      workspaceId="workspace-1"
+    />,
+    "viewer",
+  );
+
+  expect(screen.getAllByText(
+    "Viewer 只读查看等待确认的导入记录；继续确认需要 Admin 或 Editor。",
+  )[0]).toBeVisible();
+  expect(screen.queryByText("Viewer 只读继续确认")).not.toBeInTheDocument();
 });
 
 test("keeps one title, purpose, and guide while import history loads or fails", async () => {

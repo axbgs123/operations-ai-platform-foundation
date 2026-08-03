@@ -395,8 +395,17 @@ export function importHistoryActionCopy(
   if (role !== "viewer") {
     return displayCopy(professionalAction, professionalAction);
   }
-  const simple = value === "review"
-    ? "查看等待确认的导入记录"
-    : professionalAction;
-  return displayCopy(simple, `Viewer 只读${professionalAction}`);
+  if (value === "review") {
+    return displayCopy(
+      "查看等待确认的导入记录；需要确认时请联系管理员或编辑者。",
+      "Viewer 只读查看等待确认的导入记录；继续确认需要 Admin 或 Editor。",
+    );
+  }
+  if (value === "retry") {
+    return displayCopy(
+      "查看导入失败原因；需要重试时请联系管理员或编辑者。",
+      "Viewer 只读查看导入失败原因；重试需要 Admin 或 Editor。",
+    );
+  }
+  return displayCopy(professionalAction, `Viewer 只读${professionalAction}`);
 }

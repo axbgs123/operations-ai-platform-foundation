@@ -4,7 +4,7 @@
 
 | 需求编号 | 需求 | 自动化证据 | 当前状态 |
 | --- | --- | --- | --- |
-| UX-COPY-01 | 运营用户可切换易懂/专业文案并随时开关页面引导；偏好按成员隔离，风险语义不弱化 | 自动化已通过：Web 组件/单元测试、`workbench-guidance.spec.ts`、Viewer/错误状态及模式视觉基线、隔离 fresh-install/restart；限制：独立非开发者 Task 9B 仍为 `independent_non_developer_pending` | partial |
+| UX-COPY-01 | 运营用户可切换易懂/专业文案并随时开关页面引导；偏好按成员隔离，风险语义不弱化 | 自动化已通过：Web 组件/单元测试、`workbench-guidance.spec.ts`（含 Professional Viewer 导入记录的只读/联系文案）、Viewer/错误状态及模式视觉基线、隔离 fresh-install/restart；限制：独立非开发者 Task 9B 仍为 `independent_non_developer_pending` | partial |
 
 ## AC-01
 
