@@ -135,6 +135,9 @@ test("operator copy and guidance persist without changing business state", async
   await enterWorkspace(viewerPage, workspace, viewerCode, "文案查看者");
   await viewerPage.goto(`/workspaces/${workspace.workspace_id}/generation`);
   await expect(viewerPage.getByText("查看已保存的生成结果")).toBeVisible();
+  await expect(
+    viewerPage.getByText("选择平台、账号和栏目后开始生成"),
+  ).toHaveCount(0);
   await expect(viewerPage.getByText(/开始生成/)).toHaveCount(0);
   await viewerPage.getByRole("button", { name: "查看操作说明" }).click();
   await expect(viewerPage.getByText("查看页面中已有的数据、状态和说明。")).toBeVisible();
@@ -240,8 +243,12 @@ test("guidance preferences preserve routes, drafts, roles, and Demo isolation", 
   const editor = await browser.newContext();
   const editorPage = await editor.newPage();
   await enterWorkspace(editorPage, workspace, editorCode, "引导编辑者");
-  await editorPage.goto(`${root}/generation`);
-  await expect(editorPage.getByText("建议先做")).toBeVisible();
+  await editorPage.goto(
+    `${root}/generation?platform=douyin&account=${accountId}&step=scope`,
+  );
+  await expect(
+    editorPage.getByText("选择平台、账号和栏目后开始生成"),
+  ).toBeVisible();
   await expect(editorPage.getByRole("button", { name: "开始生成" })).toHaveCount(0);
   await editor.close();
 });
