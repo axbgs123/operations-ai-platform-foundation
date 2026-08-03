@@ -135,8 +135,79 @@ export function riskSeverityCopy(value: string): ModeAwareCopy {
   }, "风险等级暂时无法识别");
 }
 
+const riskTypeAliases: Readonly<Record<string, string>> = {
+  contact_format: "联系方式格式风险",
+  external_contact: "站外联系方式风险",
+  absolute_claim: "绝对化宣传风险",
+  unverified_claim: "未经确认的宣传风险",
+  price_claim: "价格信息风险",
+  effect_claim: "功效宣传风险",
+  certification_claim: "认证资质风险",
+  material_claim: "材质描述风险",
+};
+
 export function riskTypeCopy(value: string): ModeAwareCopy {
-  return displayCopy("已识别风险类型", value);
+  return displayCopy(
+    riskTypeAliases[value] ?? "其他风险类型，具体原因见下方说明",
+    value,
+  );
+}
+
+export function knowledgeTermCopy(
+  value: "chunk" | "citation" | "bundle" | "mock" | "rag" | "ocr",
+): ModeAwareCopy {
+  return {
+    chunk: displayCopy("规则片段", "Chunk"),
+    citation: displayCopy("引用检查", "Citation"),
+    bundle: displayCopy("本次判断资料", "Evidence Bundle"),
+    mock: displayCopy("固定合成评估", "Mock"),
+    rag: displayCopy("规则资料辅助判断", "RAG"),
+    ocr: displayCopy("图片文字识别", "OCR"),
+  }[value];
+}
+
+export function exportBoundaryCopy(
+  value: "prompt" | "embedding" | "provider_workspace" | "worker_runtime",
+): ModeAwareCopy {
+  return {
+    prompt: displayCopy("生成指令", "Prompt"),
+    embedding: displayCopy("资料检索索引", "Embedding"),
+    provider_workspace: displayCopy("模型服务私有标识", "Provider Workspace ID"),
+    worker_runtime: displayCopy(
+      "后台任务运行状态",
+      "Worker claim、lease 和 heartbeat",
+    ),
+  }[value];
+}
+
+export function generationTermCopy(
+  value: "provider" | "gate" | "ocr" | "experimental",
+): ModeAwareCopy {
+  return {
+    provider: displayCopy("模型服务", "Provider"),
+    gate: displayCopy("检查规则", "门禁"),
+    ocr: displayCopy("图片文字识别", "OCR"),
+    experimental: displayCopy(
+      "试用状态，真实效果和费用尚未完成验收",
+      "Provider experimental",
+    ),
+  }[value];
+}
+
+export function internalReferenceCopy(
+  value: string | null | undefined,
+  easyLabel: string,
+): ModeAwareCopy {
+  if (!value) {
+    return displayCopy(
+      `${easyLabel}：当前记录未提供`,
+      "当前记录未提供",
+    );
+  }
+  return displayCopy(
+    `${easyLabel}：已记录，可在专业模式查看`,
+    value,
+  );
 }
 
 export function versionValueCopy(value: string | null | undefined): ModeAwareCopy {

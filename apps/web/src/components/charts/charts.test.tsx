@@ -393,6 +393,37 @@ test("professional dashboard preserves maturity, confidence, gate, API, and serv
   expect(screen.getByText("该指标有效样本 10 条，置信度为 normal。")).toBeVisible();
 });
 
+test("maps the populated empty-attention gate in both copy modes", async () => {
+  vi.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ ...dashboard, attention_items: [] }),
+  } as Response);
+  const easy = renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
+
+  expect(await screen.findByText(
+    "当前没有满足服务端展示条件的候选或异常内容。",
+  )).toBeVisible();
+  expect(easy.container.textContent).not.toMatch(
+    /\b(?:Chunk|Citation|Evidence Bundle|Mock|RAG|OCR|Embedding|Provider|Prompt|Worker|lease|heartbeat|INSUFFICIENT_SAMPLE)\b/,
+  );
+  expect(easy.container.textContent).not.toMatch(/候选或异常门禁|向量/);
+
+  cleanup();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  vi.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ ...dashboard, attention_items: [] }),
+  } as Response);
+  renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
+  expect(await screen.findByText(
+    "当前没有满足服务端候选或异常门禁的内容。",
+  )).toBeVisible();
+});
+
 test("isolates optional module preferences by member and account and restores defaults", async () => {
   renderDashboard(
     <AccountDashboard

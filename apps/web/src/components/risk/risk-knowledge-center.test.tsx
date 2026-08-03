@@ -97,7 +97,20 @@ beforeEach(() => {
 afterEach(cleanup);
 
 test("admin sees knowledge status, evaluation caveat, and lifecycle actions", async () => {
-  renderInWorkspace(
+  vi.mocked(readRiskEvaluation).mockResolvedValue({
+    platform: "douyin",
+    fixture_version: "2026-07-23.1",
+    sample_count: 2,
+    quality_label: "ENGINEERING_REGRESSION_ONLY",
+    production_quality_claim_allowed: false,
+    metrics: {},
+    gate: {
+      passed: false,
+      code: "INSUFFICIENT_SAMPLE",
+      failures: ["样本不足"],
+    },
+  } as never);
+  const easy = renderInWorkspace(
     <RiskKnowledgeCenter workspaceId="workspace-1" role="admin" />,
   );
 
@@ -109,7 +122,11 @@ test("admin sees knowledge status, evaluation caveat, and lifecycle actions", as
   expect(
     screen.getByText("草稿 → 已解析 → 待审核 → 生效 → 已替代/已失效"),
   ).toBeVisible();
-  expect(screen.getByText("Chunks 与引用检查")).toBeVisible();
+  expect(screen.getByText("规则片段与引用检查")).toBeVisible();
+  expect(screen.getByText(/本次判断资料/)).toBeVisible();
+  expect(screen.getByText("固定合成评估门槛")).toBeVisible();
+  expect(screen.getByText("样本不足")).toBeVisible();
+  expect(screen.getByText(/图片文字识别降级/)).toBeVisible();
   expect(
     screen.getByText("S5 只能作为低置信度提示，不能独立支撑高风险结论"),
   ).toBeVisible();
@@ -126,6 +143,9 @@ test("admin sees knowledge status, evaluation caveat, and lifecycle actions", as
   expect(
     screen.getByText("辅助判断，不保证通过平台审核"),
   ).toBeVisible();
+  expect(easy.container.textContent).not.toMatch(
+    /\b(?:Chunk|Citation|Evidence Bundle|Mock|RAG|OCR|Embedding|Provider|Prompt|Worker|lease|heartbeat|INSUFFICIENT_SAMPLE)\b/,
+  );
 
   fireEvent.change(screen.getByRole("combobox", { name: "风控平台" }), {
     target: { value: "xiaohongshu" },
@@ -164,7 +184,20 @@ test("editor and viewer do not receive governance or mutation controls", async (
 
 test("professional mode preserves the risk governance boundary", async () => {
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
-  renderInWorkspace(
+  vi.mocked(readRiskEvaluation).mockResolvedValue({
+    platform: "douyin",
+    fixture_version: "2026-07-23.1",
+    sample_count: 2,
+    quality_label: "ENGINEERING_REGRESSION_ONLY",
+    production_quality_claim_allowed: false,
+    metrics: {},
+    gate: {
+      passed: false,
+      code: "INSUFFICIENT_SAMPLE",
+      failures: ["样本不足"],
+    },
+  } as never);
+  const professional = renderInWorkspace(
     <RiskKnowledgeCenter workspaceId="workspace-1" role="admin" />,
   );
 
@@ -172,4 +205,10 @@ test("professional mode preserves the risk governance boundary", async () => {
     "文档正文始终是不可信资料；扫描只使用已生效、已到生效日期的对应平台版本。",
   )).toBeVisible();
   expect(await screen.findByText("Chunks 与引用检查")).toBeVisible();
+  expect(professional.container).toHaveTextContent(
+    "Citation 必须引用本次 Evidence Bundle 中同平台、同工作区的有效 Chunk。",
+  );
+  expect(screen.getByText("固定 Mock 评估门槛")).toBeVisible();
+  expect(screen.getByText("样本不足：INSUFFICIENT_SAMPLE")).toBeVisible();
+  expect(screen.getByText(/RAG 引用、OCR 降级/)).toBeVisible();
 });

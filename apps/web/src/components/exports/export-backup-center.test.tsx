@@ -89,7 +89,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 test("distinguishes every backup type, restore action and secret exclusion", () => {
-  renderInWorkspace(
+  const easy = renderInWorkspace(
     <ExportBackupCenter
       evaluatedAt="2026-07-30T00:00:00Z"
       fixture={fixture}
@@ -120,7 +120,10 @@ test("distinguishes every backup type, restore action and secret exclusion", () 
     expect(screen.getByText(label)).toBeVisible();
   }
   expect(screen.getByText(/API Key及密文/)).toBeVisible();
-  expect(screen.getByText(/Embedding和向量/)).toBeVisible();
+  expect(screen.getAllByText(/生成指令/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/资料检索索引/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/模型服务私有标识/)).toBeVisible();
+  expect(screen.getAllByText(/后台任务运行状态/).length).toBeGreaterThan(0);
   expect(screen.getByText(/下载地址已过期/)).toBeVisible();
   expect(screen.getByText("失败原因编号")).toBeVisible();
   expect(screen.queryByText("安全错误码")).not.toBeInTheDocument();
@@ -136,6 +139,10 @@ test("distinguishes every backup type, restore action and secret exclusion", () 
     "accept",
     "application/zip,.zip",
   );
+  expect(easy.container.textContent).not.toMatch(
+    /\b(?:Chunk|Citation|Evidence Bundle|Mock|RAG|OCR|Embedding|Provider|Prompt|Worker|lease|heartbeat|INSUFFICIENT_SAMPLE)\b/,
+  );
+  expect(easy.container.textContent).not.toMatch(/门禁|向量/);
 });
 
 test("easy empty export history uses operator-facing error terminology", () => {
@@ -169,7 +176,7 @@ test("viewer sees task state but no export or restore write actions", () => {
 
 test("professional mode keeps ZIP restore preview and safe error terminology", () => {
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
-  renderInWorkspace(
+  const professional = renderInWorkspace(
     <ExportBackupCenter
       evaluatedAt="2026-07-30T00:00:00Z"
       fixture={fixture}
@@ -180,6 +187,12 @@ test("professional mode keeps ZIP restore preview and safe error terminology", (
 
   expect(screen.getByText("ZIP 完整恢复")).toBeVisible();
   expect(screen.getByText("安全错误码")).toBeVisible();
+  expect(professional.container).toHaveTextContent("完整 Prompt");
+  expect(professional.container).toHaveTextContent("Embedding");
+  expect(professional.container).toHaveTextContent("Provider Workspace ID");
+  expect(professional.container).toHaveTextContent(
+    "Worker claim、lease 和 heartbeat",
+  );
   expect(document.body.textContent).not.toContain("synthetic-secret-value");
 });
 

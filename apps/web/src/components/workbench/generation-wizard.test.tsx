@@ -171,7 +171,55 @@ test("explains the easy generation purpose and all five safe steps", () => {
   expect(screen.getByText("辅助判断，不保证通过平台审核")).toBeVisible();
 });
 
-test("defines the five safe steps and defaults independent style inheritance on", () => {
+test("keeps populated generation review operator-facing in easy mode", () => {
+  const easy = renderInWorkspace(
+    <GenerationWizard
+      fixture={fixture}
+      initialStep="review"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  for (const label of ["范围与目标", "事实资料", "风格与参考", "生成与编辑", "复核与保存"]) {
+    expect(
+      screen.getAllByRole("button", { name: new RegExp(label) }).length,
+    ).toBeGreaterThan(0);
+  }
+  expect(screen.getByText("模型服务")).toBeVisible();
+  expect(screen.getAllByText(/检查规则/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/图片文字识别/).length).toBeGreaterThan(0);
+  expect(screen.getByText(
+    "试用状态，真实效果和费用尚未完成验收",
+  )).toBeVisible();
+  expect(easy.container.textContent).not.toMatch(
+    /\b(?:Chunk|Citation|Evidence Bundle|Mock|RAG|OCR|Embedding|Provider|Prompt|Worker|lease|heartbeat|INSUFFICIENT_SAMPLE)\b/,
+  );
+  expect(easy.container.textContent).not.toMatch(
+    /mock-contract-v1|config-v1|\bexperimental\b|门禁|向量/,
+  );
+});
+
+test("preserves exact professional generation terminology and model versions", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  const professional = renderInWorkspace(
+    <GenerationWizard
+      fixture={fixture}
+      initialStep="review"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  expect(screen.getByText("Provider experimental")).toBeVisible();
+  expect(professional.container).toHaveTextContent("门禁");
+  expect(professional.container).toHaveTextContent("OCR");
+  expect(professional.container).toHaveTextContent("mock-text-v1");
+  expect(professional.container).toHaveTextContent("mock-contract-v1");
+  expect(professional.container).toHaveTextContent("config-v1");
+});
+
+test("defaults independent style inheritance on", () => {
   renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
@@ -181,13 +229,12 @@ test("defines the five safe steps and defaults independent style inheritance on"
     />,
   );
 
-  for (const label of ["范围与目标", "事实资料", "风格与参考", "生成与编辑", "复核与保存"]) {
-    expect(screen.getByRole("button", { name: new RegExp(label) })).toBeVisible();
-  }
   expect(screen.getByRole("checkbox", { name: "沿用标题风格" })).toBeChecked();
   expect(screen.getByRole("checkbox", { name: "沿用文案风格" })).toBeChecked();
   expect(screen.getByRole("checkbox", { name: "沿用封面风格" })).toBeChecked();
-  expect(screen.getByText("Provider experimental")).toBeVisible();
+  expect(screen.getByText(
+    "试用状态，真实效果和费用尚未完成验收",
+  )).toBeVisible();
   expect(screen.getByText("账号风格版本：v3")).toBeVisible();
 });
 

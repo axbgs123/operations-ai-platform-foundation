@@ -429,7 +429,12 @@ export function AccountDashboard({
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-[var(--text-secondary)]">当前没有满足服务端候选或异常门禁的内容。</p>
+            <p className="text-sm text-[var(--text-secondary)]">
+              {displayText({
+                simple: "当前没有满足服务端展示条件的候选或异常内容。",
+                professional: "当前没有满足服务端候选或异常门禁的内容。",
+              }, copyMode)}
+            </p>
           )}
         </Panel>
       ) : null}

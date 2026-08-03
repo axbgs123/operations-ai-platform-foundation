@@ -5,6 +5,11 @@ import { useEffect, useState } from "react";
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import { copyForMode, type ModeAwareCopy } from "@/components/workbench/operator-copy-catalog";
+import {
+  displayCopy,
+  displayText,
+  exportBoundaryCopy,
+} from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   DesktopOnlyNotice,
@@ -54,30 +59,54 @@ const TYPES = [
     kind: "csv",
     title: "CSV 内容与运营数据",
     includes: "内容字段、平台字段、运营指标、原始时区和空值",
-    excludes: "媒体正文、模型配置和知识文档正文",
+    excludes: displayCopy(
+      "媒体正文、模型配置和知识文档正文",
+      "媒体正文、模型配置和知识文档正文",
+    ),
   },
   {
     kind: "markdown",
     title: "Markdown 单条分析报告",
     includes: "内容信息、分析版本、运营证据、有效引用和免责声明",
-    excludes: "完整 Prompt、供应商错误正文和秘密",
+    excludes: displayCopy(
+      `完整${exportBoundaryCopy("prompt").simple}、模型服务错误正文和秘密`,
+      `完整 ${exportBoundaryCopy("prompt").professional}、供应商错误正文和秘密`,
+    ),
   },
   {
     kind: "json",
     title: "JSON 轻量备份",
     includes: "可迁移结构化记录、稳定标识和安全资产元数据",
-    excludes: "媒体正文、Embedding、向量和临时任务租约",
+    excludes: displayCopy(
+      `媒体正文、${exportBoundaryCopy("embedding").simple}和${
+        exportBoundaryCopy("worker_runtime").simple
+      }`,
+      `媒体正文、${exportBoundaryCopy("embedding").professional}、向量和临时任务租约`,
+    ),
   },
   {
     kind: "zip",
     title: "ZIP 完整备份",
     includes: "校验和清单、授权媒体、知识原件和结构化记录",
-    excludes: "秘密、临时签名地址、Worker claim、lease和heartbeat",
+    excludes: displayCopy(
+      `秘密、临时签名地址、${exportBoundaryCopy("worker_runtime").simple}`,
+      `秘密、临时签名地址、${exportBoundaryCopy("worker_runtime").professional}`,
+    ),
   },
 ] as const;
 
-const SECRET_EXCLUSIONS =
-  "始终排除：邀请码、会话、Token及哈希、API Key及密文、Provider Workspace ID、Cookie、临时签名URL、Prompt、Embedding和向量、未授权知识正文、Worker claim、lease和heartbeat。";
+const SECRET_EXCLUSIONS = displayCopy(
+  `始终排除：邀请码、会话、Token及哈希、API Key及密文、${
+    exportBoundaryCopy("provider_workspace").simple
+  }、Cookie、临时签名URL、${exportBoundaryCopy("prompt").simple}、${
+    exportBoundaryCopy("embedding").simple
+  }、未授权知识正文、${exportBoundaryCopy("worker_runtime").simple}。`,
+  `始终排除：邀请码、会话、Token及哈希、API Key及密文、${
+    exportBoundaryCopy("provider_workspace").professional
+  }、Cookie、临时签名URL、${exportBoundaryCopy("prompt").professional}、${
+    exportBoundaryCopy("embedding").professional
+  }和向量、未授权知识正文、${exportBoundaryCopy("worker_runtime").professional}。`,
+);
 
 const actionLabels = {
   create: "新增",
@@ -265,14 +294,14 @@ export function ExportBackupCenter({
       <GuidedPageHeader context={exportSafetyCopy} pageId="exports" />
       <Panel title="数据边界">
         <p className="text-sm leading-6 text-[var(--text-secondary)]">
-          {SECRET_EXCLUSIONS}
+          {displayText(SECRET_EXCLUSIONS, copyMode)}
         </p>
       </Panel>
       <section className="grid gap-4 lg:grid-cols-2" aria-label="导出和备份类型">
         {TYPES.map((type) => (
           <Panel description={`包含：${type.includes}`} key={type.kind} title={type.title}>
             <p className="text-sm text-[var(--text-secondary)]">
-              排除：{type.excludes}
+              排除：{displayText(type.excludes, copyMode)}
             </p>
             <p className="mt-2 text-sm">范围：当前工作区；平台/账号保持各自归属</p>
             {type.kind === "markdown" && canExport ? (
@@ -340,7 +369,10 @@ export function ExportBackupCenter({
           ) : null}
         </Panel>
         <Panel
-          description="显示校验和、媒体、知识原件与向量重建状态；失败不会显示为部分成功。"
+          description={displayText(displayCopy(
+            "显示校验和、媒体、知识原件与资料检索索引重建状态；失败不会显示为部分成功。",
+            "显示校验和、媒体、知识原件与向量重建状态；失败不会显示为部分成功。",
+          ), copyMode)}
           title={copyForMode(restoreCopy, copyMode)}
         >
           <DesktopOnlyNotice action={copyForMode(restoreCopy, copyMode)} />

@@ -12,7 +12,15 @@ import {
 
 import { CoverEditor } from "@/components/generation/cover-editor/cover-editor";
 import { RiskReport } from "@/components/risk/risk-report";
+import { useOptionalExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import {
+  adoptionStatusCopy,
+  displayCopy,
+  displayText,
+  generationTermCopy,
+  taskStatusCopy,
+} from "@/components/workbench/operator-display-copy";
 import { DesktopOnlyNotice, StatusBadge } from "@/components/workbench/ui";
 import {
   TextEditor,
@@ -248,6 +256,8 @@ export function GenerationWizard({
   sourceManager?: ReactNode;
   workspaceId: string;
 }): ReactElement {
+  const copyMode =
+    useOptionalExperiencePreferences()?.copyMode ?? "simple";
   const canWrite = role !== "viewer";
   const initialAccount = fixture.accounts.find(
     (account) => account.account_id === initialAccountId,
@@ -525,13 +535,21 @@ export function GenerationWizard({
           </label>
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950 sm:col-span-2">
             <p>
-              当前生效配置：由服务端按账号与栏目版本确定；当前只读合同未提供完整配置版本时不在前端猜测。
+              {displayText(displayCopy(
+                "当前生效配置由服务端按账号与栏目确定；详细版本可在专业模式查看。",
+                "当前生效配置：由服务端按账号与栏目版本确定；当前只读合同未提供完整配置版本时不在前端猜测。",
+              ), copyMode)}
             </p>
             <p className="mt-1">
-              Provider：{textModel
-                ? `${textModel.provider} / ${textModel.model_id} / ${textModel.contract_version}`
+              {displayText(generationTermCopy("provider"), copyMode)}：
+              {textModel
+                ? copyMode === "simple"
+                  ? "已配置，可在专业模式查看"
+                  : `${textModel.provider} / ${textModel.model_id} / ${textModel.contract_version}`
                 : "文本模型未配置"}
-              {textModel?.experimental ? "（experimental，未完成真实生产兼容承诺）" : ""}
+              {textModel?.experimental
+                ? `（${displayText(generationTermCopy("experimental"), copyMode)}）`
+                : ""}
             </p>
           </div>
         </section>
@@ -705,7 +723,10 @@ export function GenerationWizard({
           <section className="rounded-xl border border-red-300 bg-red-50 p-5 text-red-950">
             <h2 className="font-semibold">请先处理高风险事实冲突</h2>
             <p className="mt-1 text-sm">
-              前端不会绕过服务端事实优先级和同等级冲突门禁。
+              {displayText(displayCopy(
+                "前端不会绕过服务端事实优先级和同等级冲突检查规则。",
+                "前端不会绕过服务端事实优先级和同等级冲突门禁。",
+              ), copyMode)}
             </p>
           </section>
         );
@@ -754,7 +775,14 @@ export function GenerationWizard({
       <section className="space-y-5 rounded-xl border bg-white p-5">
         <h2 className="text-lg font-semibold">发布前复核</h2>
         <p>
-          保存草稿前必须重新执行事实冲突门禁和风险扫描；高风险、OCR 失败、无有效证据或内容修改后均不能伪装为安全通过。
+          {displayText(displayCopy(
+            `保存草稿前必须重新执行事实冲突${
+              generationTermCopy("gate").simple
+            }和风险扫描；高风险、${
+              generationTermCopy("ocr").simple
+            }失败、无有效证据或内容修改后均不能伪装为安全通过。`,
+            "保存草稿前必须重新执行事实冲突门禁和风险扫描；高风险、OCR 失败、无有效证据或内容修改后均不能伪装为安全通过。",
+          ), copyMode)}
         </p>
         {fixture.riskScan ? (
           <RiskReport scan={fixture.riskScan} />
@@ -762,19 +790,31 @@ export function GenerationWizard({
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950">
             <p className="font-semibold">尚未执行发布前检查</p>
             <p className="mt-1 text-sm">
-              请先生成内容并执行标题、正文和封面 OCR 联合复检。
+              {displayText(displayCopy(
+                `请先生成内容并执行标题、正文和封面${
+                  generationTermCopy("ocr").simple
+                }联合复检。`,
+                "请先生成内容并执行标题、正文和封面 OCR 联合复检。",
+              ), copyMode)}
             </p>
           </div>
         )}
         {generationDraft.run ? (
           <div className="rounded-lg border p-4">
             <p className="font-semibold">
-              生成状态：{generationDraft.run.status} · 采用状态：{" "}
-              {generationDraft.run.adoption_status}
+              生成状态：{displayText(
+                taskStatusCopy(generationDraft.run.status),
+                copyMode,
+              )} · 采用状态：{" "}
+              {displayText(
+                adoptionStatusCopy(generationDraft.run.adoption_status),
+                copyMode,
+              )}
             </p>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              合同 {generationDraft.run.context.model.contract_version} ·
-              配置 {generationDraft.run.context.model.configuration_version} ·
+              {copyMode === "simple"
+                ? "详细版本已记录，可在专业模式查看"
+                : `合同 ${generationDraft.run.context.model.contract_version} · 配置 ${generationDraft.run.context.model.configuration_version}`} ·
               修改幅度 {(generationDraft.run.modification_magnitude * 100).toFixed(1)}%
             </p>
             {generationDraft.run.status_detail ? (
@@ -900,17 +940,22 @@ export function GenerationWizard({
             <div><dt>爆款引用</dt><dd>{state.viralReferenceIds.length} 条</dd></div>
             <div><dt>参考图用途</dt><dd>尚未在封面编辑器选择</dd></div>
             <div>
-              <dt>模型</dt>
+              <dt>{displayText(generationTermCopy("provider"), copyMode)}</dt>
               <dd>
                 {textModel ? (
                   <>
-                    {textModel.model_id}{" "}
+                    {copyMode === "simple"
+                      ? "已配置，可在专业模式查看"
+                      : textModel.model_id}{" "}
                     {textModel.experimental ? (
-                      <StatusBadge tone="warning">Provider experimental</StatusBadge>
+                      <StatusBadge tone="warning">
+                        {displayText(generationTermCopy("experimental"), copyMode)}
+                      </StatusBadge>
                     ) : null}
                     <span className="mt-1 block">
-                      合同 {textModel.contract_version} · 配置{" "}
-                      {textModel.configuration_version}
+                      {copyMode === "simple"
+                        ? "详细版本已记录，可在专业模式查看"
+                        : `合同 ${textModel.contract_version} · 配置 ${textModel.configuration_version}`}
                     </span>
                   </>
                 ) : "文本模型未配置"}
@@ -920,7 +965,9 @@ export function GenerationWizard({
               <dt>风险状态</dt>
               <dd>
                 {fixture.riskScan
-                  ? `${fixture.riskScan.status} · ${fixture.riskScan.scanner_version}`
+                  ? copyMode === "simple"
+                    ? displayText(taskStatusCopy(fixture.riskScan.status), copyMode)
+                    : `${fixture.riskScan.status} · ${fixture.riskScan.scanner_version}`
                   : "尚未执行本次发布前检查"}
               </dd>
             </div>

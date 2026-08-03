@@ -211,6 +211,43 @@ test("renders five accessible tabs, snapshot gates, lifecycle, and viewer safety
   expect(onTabChange).toHaveBeenCalledWith("snapshots");
 });
 
+test("keeps populated overview profile references professional-only", () => {
+  const easy = renderInWorkspace(
+    <ContentDetailTabs
+      activeTab="overview"
+      detail={detail}
+      onTabChange={() => undefined}
+      role="editor"
+    />,
+    "editor",
+  );
+
+  expect(screen.getByText(
+    "发布时目标配置：已记录，可在专业模式查看",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "发布时基准配置：已记录，可在专业模式查看",
+  )).toBeVisible();
+  expect(easy.container.textContent).not.toMatch(/objective-1|benchmark-1/);
+  expect(easy.container.textContent).not.toMatch(
+    /\b(?:Chunk|Citation|Evidence Bundle|Mock|RAG|OCR|Embedding|Provider|Prompt|Worker|lease|heartbeat|INSUFFICIENT_SAMPLE)\b/,
+  );
+
+  cleanup();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <ContentDetailTabs
+      activeTab="overview"
+      detail={detail}
+      onTabChange={() => undefined}
+      role="editor"
+    />,
+    "editor",
+  );
+  expect(screen.getByText("objective-1")).toBeVisible();
+  expect(screen.getByText("benchmark-1")).toBeVisible();
+});
+
 test("shows professional content-detail purpose and safe risk error metadata", () => {
   localStorage.setItem(
     "operations-ai:copy-mode:member-admin",
@@ -589,6 +626,9 @@ test("renders governed analysis, cited risk, and safe generation metadata in eas
   expect(screen.getByText("固定规则和已保存资料共同判断")).toBeVisible();
   expect(screen.getByText(/可信度较低，必须人工检查/)).toBeVisible();
   expect(screen.getByText("高风险")).toBeVisible();
+  expect(screen.getByText("联系方式格式风险")).toBeVisible();
+  expect(screen.getByText("原因：确定性格式命中")).toBeVisible();
+  expect(screen.getByText(/位置：封面；命中：合成命中文字/)).toBeVisible();
   expect(screen.getByText(/合成规则说明 2/)).toBeVisible();
   expect(document.body.textContent).not.toMatch(
     /\b(?:RAG|OCR|Embedding)\b|succeeded|before_publication|contact_format|risk-rules-v1|evidence-v1/,

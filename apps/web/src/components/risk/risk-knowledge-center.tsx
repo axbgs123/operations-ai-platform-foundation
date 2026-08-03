@@ -9,7 +9,13 @@ import {
   type RiskDocumentAdminData,
   type RiskEvaluationData,
 } from "@/lib/risk-admin-api";
+import { useOptionalExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import {
+  displayCopy,
+  displayText,
+  knowledgeTermCopy,
+} from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import { DesktopOnlyNotice, Panel, StatusBadge } from "@/components/workbench/ui";
 import { RiskFeedbackPanel } from "./risk-feedback-panel";
@@ -36,6 +42,8 @@ export function RiskKnowledgeCenter({
   role: suppliedRole,
 }: RiskKnowledgeCenterProps) {
   const context = useWorkbenchShellContext();
+  const copyMode =
+    useOptionalExperiencePreferences()?.copyMode ?? "simple";
   const role = suppliedRole ?? context?.role ?? "viewer";
   const [platform, setPlatform] = useState<RiskPlatform>("douyin");
   const [documents, setDocuments] = useState<RiskDocumentAdminData[]>([]);
@@ -233,11 +241,22 @@ export function RiskKnowledgeCenter({
       </section>
 
       <Panel
-        description="只展示 Chunk 标识、位置和引用完整性；完整私有正文不进入列表 DOM。"
-        title="Chunks 与引用检查"
+        description={displayText(displayCopy(
+          "只展示规则片段标识、位置和引用完整性；完整私有正文不进入列表 DOM。",
+          "只展示 Chunk 标识、位置和引用完整性；完整私有正文不进入列表 DOM。",
+        ), copyMode)}
+        title={displayText(displayCopy(
+          `${displayText(knowledgeTermCopy("chunk"), copyMode)}与${
+            displayText(knowledgeTermCopy("citation"), copyMode)
+          }`,
+          "Chunks 与引用检查",
+        ), copyMode)}
       >
         <p className="text-sm text-[var(--text-secondary)]">
-          Citation 必须引用本次 Evidence Bundle 中同平台、同工作区的有效 Chunk。
+          {displayText(displayCopy(
+            "引用检查必须引用本次判断资料中同平台、同工作区的有效规则片段。",
+            "Citation 必须引用本次 Evidence Bundle 中同平台、同工作区的有效 Chunk。",
+          ), copyMode)}
         </p>
         <p className="mt-2 text-sm font-semibold text-amber-800">
           S5 只能作为低置信度提示，不能独立支撑高风险结论
@@ -248,12 +267,17 @@ export function RiskKnowledgeCenter({
       </Panel>
 
       <section className="space-y-4 rounded-xl border border-[var(--border)] bg-white p-5">
-        <h2 className="text-xl font-semibold">固定 Mock 评估门槛</h2>
+        <h2 className="text-xl font-semibold">
+          {displayText(displayCopy(
+            `${knowledgeTermCopy("mock").simple}门槛`,
+            `固定 ${knowledgeTermCopy("mock").professional} 评估门槛`,
+          ), copyMode)}
+        </h2>
         {evaluation ? (
           <>
             <div className="grid gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
               <p>平台：{evaluation.platform === "douyin" ? "抖音" : "小红书"}</p>
-              <p>Fixture：{evaluation.fixture_version}</p>
+              <p>{copyMode === "simple" ? "评估版本" : "Fixture"}：{evaluation.fixture_version}</p>
               <p>样本数：{evaluation.sample_count}</p>
             </div>
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
@@ -263,7 +287,12 @@ export function RiskKnowledgeCenter({
               不能作为生产准确率或平台通过率宣传
             </p>
             {evaluation.gate.code === "INSUFFICIENT_SAMPLE" ? (
-              <p className="text-amber-900">样本不足：INSUFFICIENT_SAMPLE</p>
+              <p className="text-amber-900">
+                {displayText(displayCopy(
+                  "样本不足",
+                  "样本不足：INSUFFICIENT_SAMPLE",
+                ), copyMode)}
+              </p>
             ) : null}
           </>
         ) : (
@@ -282,7 +311,14 @@ export function RiskKnowledgeCenter({
         className="block rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-800"
         href={`/workspaces/${workspaceId}/contents`}
       >
-        打开扫描报告入口（确定性命中、RAG 引用、OCR 降级和历史复检）
+        {displayText(displayCopy(
+          `打开扫描报告入口（确定性命中、${
+            knowledgeTermCopy("rag").simple
+          }引用、${knowledgeTermCopy("ocr").simple}降级和历史复检）`,
+          `打开扫描报告入口（确定性命中、${
+            knowledgeTermCopy("rag").professional
+          } 引用、${knowledgeTermCopy("ocr").professional} 降级和历史复检）`,
+        ), copyMode)}
       </a>
     </div>
   );

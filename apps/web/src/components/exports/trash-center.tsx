@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import {
+  displayCopy,
+  displayText,
+} from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   EmptyState,
@@ -137,7 +141,13 @@ export function TrashCenter({
             </dd>
           </div>
           <div><dt>版本</dt><dd>{policy?.version ?? "当前记录未提供"}</dd></div>
-          <div><dt>保留秒数</dt><dd>{policy?.retention_seconds ?? "Evidence 决定"}</dd></div>
+          <div>
+            <dt>保留秒数</dt>
+            <dd>{policy?.retention_seconds ?? displayText(displayCopy(
+              "关联资料决定",
+              "Evidence 决定",
+            ), copyMode)}</dd>
+          </div>
         </dl>
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
           {copyMode === "simple"

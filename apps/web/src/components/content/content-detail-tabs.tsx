@@ -27,6 +27,7 @@ import {
   adoptionStatusCopy,
   analysisConfidenceCopy,
   displayText,
+  internalReferenceCopy,
   OPERATOR_TERMS,
   preflightOcrCopy,
   providerSummaryCopy,
@@ -135,6 +136,7 @@ function OverviewPanel({
   detail: ContentDetailData;
   role: "admin" | "editor" | "viewer";
 }): ReactElement {
+  const { copyMode } = useExperiencePreferences();
   const content = detail.content;
   const cover = content.assets.find((asset) => asset.category === "cover");
   return (
@@ -170,8 +172,14 @@ function OverviewPanel({
               ? "平台作品记录"
               : "人工录入或导入"],
             ["当前生命周期", lifecycleLabel[content.status]],
-            ["发布时目标配置", content.objective_profile_id],
-            ["发布时基准配置", content.benchmark_profile_id],
+            ["发布时目标配置", displayText(internalReferenceCopy(
+              content.objective_profile_id,
+              "发布时目标配置",
+            ), copyMode)],
+            ["发布时基准配置", displayText(internalReferenceCopy(
+              content.benchmark_profile_id,
+              "发布时基准配置",
+            ), copyMode)],
             ["当前下一步", content.status === "draft"
               ? "继续人工编辑或进入生成中心"
               : "补充快照并查看分析"],

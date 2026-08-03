@@ -91,10 +91,13 @@ beforeEach(() => {
 afterEach(cleanup);
 
 test("shows content lifecycle and separates workspace deletion", () => {
-  renderInWorkspace(
+  const easy = renderInWorkspace(
     <TrashCenter
       evaluatedAt="2026-07-30T00:00:00Z"
-      fixture={fixture}
+      fixture={{
+        ...fixture,
+        policy: { ...fixture.policy, retention_seconds: null },
+      } as unknown as TrashFixture}
       role="admin"
       workspaceId="ws-1"
     />,
@@ -111,6 +114,8 @@ test("shows content lifecycle and separates workspace deletion", () => {
   expect(screen.getByText(
     "因审计或关联资料要求而保留，暂时不能删除：关联风控扫描证据",
   )).toBeVisible();
+  expect(screen.getByText("关联资料决定")).toBeVisible();
+  expect(easy.container.textContent).not.toMatch(/\bEvidence\b|门禁|向量/);
   expect(screen.queryByRole("button", { name: "删除工作区" })).not.toBeInTheDocument();
 });
 
@@ -118,7 +123,10 @@ test("viewer receives no restore or purge operation", () => {
   renderInWorkspace(
     <TrashCenter
       evaluatedAt="2026-07-30T00:00:00Z"
-      fixture={fixture}
+      fixture={{
+        ...fixture,
+        policy: { ...fixture.policy, retention_seconds: null },
+      } as unknown as TrashFixture}
       role="viewer"
       workspaceId="ws-1"
     />,
@@ -134,11 +142,15 @@ test("professional mode preserves retention evidence terminology", () => {
   renderInWorkspace(
     <TrashCenter
       evaluatedAt="2026-07-30T00:00:00Z"
-      fixture={fixture}
+      fixture={{
+        ...fixture,
+        policy: { ...fixture.policy, retention_seconds: null },
+      } as unknown as TrashFixture}
       role="admin"
       workspaceId="ws-1"
     />,
   );
 
   expect(screen.getByText("Evidence 保留：关联风控扫描证据")).toBeVisible();
+  expect(screen.getByText("Evidence 决定")).toBeVisible();
 });
