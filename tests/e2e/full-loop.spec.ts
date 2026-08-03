@@ -885,7 +885,7 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
 
     // Scope is URL-controlled; let router.replace settle before following a nav link.
     await page.getByLabel("平台范围").selectOption("douyin");
-    await expect(page).toHaveURL(/(?:\\?|&)platform=douyin(?:&|$)/);
+    await expect(page).toHaveURL(/(?:\?|&)platform=douyin(?:&|$)/);
     await page.getByLabel("账号范围").selectOption(douyin.id);
     await expect(page).toHaveURL(
       new RegExp(`(?:\\?|&)account=${encodeURIComponent(douyin.id)}(?:&|$)`),
