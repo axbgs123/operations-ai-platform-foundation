@@ -72,7 +72,7 @@
   - `generationTermCopy(value: "provider" | "gate" | "ocr" | "experimental"): ModeAwareCopy`
   - `internalReferenceCopy(value: string | null | undefined, easyLabel: string): ModeAwareCopy`
 
-- [ ] **Step 1: Write failing shared-mapping tests**
+- [x] **Step 1: Write failing shared-mapping tests**
 
 Add tests that assert:
 
@@ -118,7 +118,7 @@ The controlled risk aliases must include at least:
 }
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -128,7 +128,7 @@ pnpm --filter web exec vitest run src/components/workbench/operator-display-copy
 
 Expected: FAIL because the new functions and category-preserving aliases do not exist and the current unknown/category output is generic.
 
-- [ ] **Step 3: Write failing populated-surface tests**
+- [x] **Step 3: Write failing populated-surface tests**
 
 For every listed surface, render both modes with populated data and assert:
 
@@ -156,7 +156,7 @@ Then assert the relevant Easy Mode replacements and exact professional strings. 
 
 For risk findings, assert the severity, mapped category, reason, region, and required human review remain visible.
 
-- [ ] **Step 4: Verify surface RED**
+- [x] **Step 4: Verify surface RED**
 
 Run the exact six focused test files:
 
@@ -172,17 +172,17 @@ pnpm --filter web exec vitest run \
 
 Expected: FAIL on the professional terms and raw identifiers confirmed by the final review.
 
-- [ ] **Step 5: Implement the shared mappings**
+- [x] **Step 5: Implement the shared mappings**
 
 Implement controlled `ModeAwareCopy` functions in `operator-display-copy.ts`. Unknown risk types must not reveal the raw ID in Easy Mode, but must say that the type is outside the controlled alias list and direct the user to the visible reason. Professional Mode returns the exact input.
 
 Do not add new business classification, change API values, or infer platform safety.
 
-- [ ] **Step 6: Migrate each remaining surface**
+- [x] **Step 6: Migrate each remaining surface**
 
 Read `copyMode` from the existing preference context and render all cited labels/values through `displayText(...)`. Keep fixed warnings unchanged in meaning. Do not hide advanced data; Easy Mode may say “已记录，可在专业模式查看” where the raw identifier has no safe operator translation.
 
-- [ ] **Step 7: Verify GREEN and full Web regression**
+- [x] **Step 7: Verify GREEN and full Web regression**
 
 Run:
 
@@ -203,7 +203,7 @@ pnpm --filter web build
 
 Expected: all PASS with exact professional terminology preserved.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/web/src/components
@@ -227,7 +227,7 @@ git commit -m "fix(web): complete easy-mode surface copy"
 - Consumes: `importHistoryActionCopy(value, role)`.
 - Produces: professional Viewer copy that is still read/contact-only.
 
-- [ ] **Step 1: Write the failing Viewer tests**
+- [x] **Step 1: Write the failing Viewer tests**
 
 Add exact assertions:
 
@@ -247,7 +247,7 @@ expect(screen.getByText(
 expect(screen.queryByText("Viewer 只读继续确认")).not.toBeInTheDocument();
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -259,7 +259,7 @@ pnpm --filter web exec vitest run \
 
 Expected: FAIL because current Professional Viewer copy says `Viewer 只读继续确认`.
 
-- [ ] **Step 3: Implement the minimal role-safe mapping**
+- [x] **Step 3: Implement the minimal role-safe mapping**
 
 For Viewer:
 
@@ -269,17 +269,17 @@ For Viewer:
 
 Admin/Editor strings remain unchanged.
 
-- [ ] **Step 4: Verify focused GREEN**
+- [x] **Step 4: Verify focused GREEN**
 
 Run the Step 2 command again. Expected: PASS.
 
-- [ ] **Step 5: Strengthen E2E and visual acceptance**
+- [x] **Step 5: Strengthen E2E and visual acceptance**
 
 Extend the existing guidance E2E to visit imports in Professional Mode as Viewer and assert the exact read/contact copy and absence of `Viewer 只读继续确认`.
 
 Update the visual fixture only if the controlled test data contains a reviewable import record. If it does not, do not fabricate one solely for a screenshot; record unit/E2E evidence instead.
 
-- [ ] **Step 6: Run final verification**
+- [x] **Step 6: Run final verification**
 
 Run:
 
@@ -312,7 +312,7 @@ Expected:
 - No API/schema/metric/secret drift.
 - `UX-COPY-01` remains `partial` with `independent_non_developer_pending`; do not claim Task 9B passed.
 
-- [ ] **Step 7: Review the declared-surface leak scan**
+- [x] **Step 7: Review the declared-surface leak scan**
 
 Run:
 
@@ -331,7 +331,7 @@ Every remaining match must be one of:
 
 Document each allowed category in the task report. Any unconditional primary Easy Mode match is a failure.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add \
