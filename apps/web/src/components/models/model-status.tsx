@@ -1,6 +1,11 @@
 import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import type { CopyMode } from "@/components/workbench/experience-preferences";
 import type { ModelConfig } from "@/lib/model-api";
+import {
+  displayText,
+  modelCapabilityCopy,
+  modelChoiceCopy,
+} from "@/components/workbench/operator-display-copy";
 
 const easyModelStates: Record<string, string> = {
   community: "社区适配状态",
@@ -52,7 +57,9 @@ export function ModelStatus({
   if (configs.length === 0) {
     return (
       <p className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
-        尚未配置真实模型；当前只能使用 Mock 能力。
+        {copyMode === "simple"
+          ? "尚未配置真实模型；当前只能使用不会产生真实调用费用的演示能力。"
+          : "尚未配置真实模型；当前只能使用 Mock 能力。"}
       </p>
     );
   }
@@ -64,7 +71,7 @@ export function ModelStatus({
           key={config.id}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <strong>{config.model_id}</strong>
+            <strong>{displayText(modelChoiceCopy(config.capability, config.model_id), copyMode)}</strong>
             <span className="rounded-full bg-amber-950 px-3 py-1 text-xs text-amber-200">
               {modelStateLabel(
                 config.experimental ? "experimental" : config.status,
@@ -73,7 +80,7 @@ export function ModelStatus({
             </span>
           </div>
           <dl className="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
-            <div>能力：{config.capability}</div>
+            <div>能力：{displayText(modelCapabilityCopy(config.capability), copyMode)}</div>
             <div>地域：{config.region ?? "不适用"}</div>
             <div>
               凭据：{config.credential_configured ? "已加密配置" : "未配置"}

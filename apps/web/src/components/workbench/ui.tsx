@@ -27,7 +27,7 @@ const statusToneClasses: Record<StatusTone, string> = {
 
 export type DisplayCopy = string | ModeAwareCopy;
 
-function DisplayText({ copy }: { copy: DisplayCopy }): ReactElement {
+export function DisplayText({ copy }: { copy: DisplayCopy }): ReactElement {
   const preferences = useOptionalExperiencePreferences();
   const copyMode = preferences?.copyMode ?? "simple";
   return <>{typeof copy === "string" ? copy : copy[copyMode]}</>;

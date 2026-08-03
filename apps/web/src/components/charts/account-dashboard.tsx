@@ -17,8 +17,15 @@ import {
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
-import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { GuidedPageHeader, GuidedPageShell } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import {
+  dashboardActionLabel,
+  dashboardConfidenceCopy,
+  displayText,
+  OPERATOR_TERMS,
+} from "@/components/workbench/operator-display-copy";
 
 import { ChartPanel } from "./chart-panel";
 
@@ -67,16 +74,6 @@ function writeDashboardModulePreferences(
   );
 }
 
-function confidenceLabel(
-  confidence: AccountDashboardData["confidence"],
-): string {
-  return {
-    raw_only: "仅原始值",
-    low_confidence: "低置信度",
-    normal: "正常置信度",
-  }[confidence];
-}
-
 function contentTypeLabel(
   contentType: AccountDashboardData["content_type"],
 ): string {
@@ -103,6 +100,8 @@ export function AccountDashboard({
   initialMaturityBucket?: "1h" | "24h" | "72h" | "7d";
 }): ReactElement {
   const shellContext = useWorkbenchShellContext();
+  const { copyMode } = useExperiencePreferences();
+  const role = shellContext?.role ?? "viewer";
   const preferenceMemberId = memberId ?? shellContext?.member_id;
   const [dashboard, setDashboard] = useState<AccountDashboardData | null>(null);
   const [requestState, setRequestState] = useState<"loading" | "ready" | "failed" | "permission">("loading");
@@ -181,24 +180,38 @@ export function AccountDashboard({
     }
   }
 
-  if (requestState === "loading") return <Skeleton label="正在加载账号仪表盘" />;
+  if (requestState === "loading") return (
+    <GuidedPageShell pageId="accountDashboard">
+      <Skeleton label="正在加载账号仪表盘" />
+    </GuidedPageShell>
+  );
   if (requestState === "permission") {
-    return <PermissionNotice currentRole="当前成员" requiredRole="工作区查看者" />;
+    return (
+      <GuidedPageShell pageId="accountDashboard">
+        <PermissionNotice currentRole="当前成员" requiredRole="工作区查看者" />
+      </GuidedPageShell>
+    );
   }
   if (requestState === "failed" || !dashboard) {
     return (
-      <ErrorState
-        description="无法读取账号指标。筛选范围和已保存数据不会丢失。"
-        title="账号仪表盘加载失败"
-      />
+      <GuidedPageShell pageId="accountDashboard">
+        <ErrorState
+          description="无法读取账号指标。筛选范围和已保存数据不会丢失。"
+          title="账号仪表盘加载失败"
+        />
+      </GuidedPageShell>
     );
   }
   if (!dashboard.goal_cards.length) {
     return (
-      <EmptyState
-        description="请先确认同平台、同账号、同内容类型的运营快照。"
-        title="暂无可展示指标"
-      />
+      <GuidedPageShell pageId="accountDashboard">
+        <EmptyState
+          description={role === "viewer"
+            ? "这里还没有可展示指标；需要补充或确认数据时，请联系管理员或编辑者。"
+            : "请先确认同平台、同账号、同内容类型的运营快照。"}
+          title="暂无可展示指标"
+        />
+      </GuidedPageShell>
     );
   }
 
@@ -234,13 +247,13 @@ export function AccountDashboard({
             {platformLabel(dashboard.platform)}
           </StatusBadge>
           <StatusBadge tone={dashboard.confidence === "normal" ? "success" : "warning"}>
-            {confidenceLabel(dashboard.confidence)}
+            {displayText(dashboardConfidenceCopy(dashboard.confidence), copyMode)}
           </StatusBadge>
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-6">
           <div><dt className="text-[var(--text-secondary)]">账号</dt><dd className="font-semibold">{dashboard.account_name}</dd></div>
           <div><dt className="text-[var(--text-secondary)]">内容类型</dt><dd className="font-semibold">{contentTypeLabel(dashboard.content_type)}</dd></div>
-          <div><dt className="text-[var(--text-secondary)]">数据成熟度</dt><dd className="font-semibold">{dashboard.maturity_bucket}</dd></div>
+          <div><dt className="text-[var(--text-secondary)]">{displayText(OPERATOR_TERMS.maturity, copyMode)}</dt><dd className="font-semibold">{dashboard.maturity_bucket}</dd></div>
           <div><dt className="text-[var(--text-secondary)]">基准范围</dt><dd className="font-semibold">最近 {dashboard.benchmark_sample_size} 条</dd></div>
           <div><dt className="text-[var(--text-secondary)]">实际样本</dt><dd className="font-semibold">实际样本 {dashboard.sample_count} 条</dd></div>
           <div><dt className="text-[var(--text-secondary)]">数据完整度</dt><dd className="font-semibold">{Math.round(dashboard.data_completeness * 100)}%</dd></div>
@@ -264,7 +277,7 @@ export function AccountDashboard({
             </select>
           </label>
           <label>
-            成熟度
+            {displayText({ simple: "数据采集时间", professional: "成熟度" }, copyMode)}
             <select
               className="mt-1 block min-h-10 w-full rounded-lg border bg-white px-3"
               onChange={(event) => updateScope(
@@ -300,7 +313,9 @@ export function AccountDashboard({
                 <span>分位 {card.historical_percentile === null ? "样本不足" : `${formatNumber.format(card.historical_percentile * 100)}%`}</span>
                 <span>完整度 {formatNumber.format(card.data_completeness * 100)}%</span>
               </div>
-              <p className="mt-3 text-xs text-[var(--text-secondary)]">{card.explanation}</p>
+              <p className="mt-3 text-xs text-[var(--text-secondary)]">{copyMode === "simple"
+                ? `这项数据包含 ${card.sample_count} 条可用记录；数据完整度 ${formatNumber.format(card.data_completeness * 100)}%；当前${displayText(dashboardConfidenceCopy(card.confidence), copyMode)}。`
+                : card.explanation}</p>
             </Link>
           ))}
         </div>
@@ -309,7 +324,10 @@ export function AccountDashboard({
       {!hidden.has("trend") && primaryTrend ? (
         <Panel
           title="数据趋势"
-          description="仅展示一个同量纲、满足服务端门禁的主要趋势。"
+          description={displayText({
+            simple: "只展示一个口径一致且满足数据条件的主要趋势。",
+            professional: "仅展示一个同量纲、满足服务端门禁的主要趋势。",
+          }, copyMode)}
         >
           <button
             aria-label="隐藏数据趋势"
@@ -342,7 +360,10 @@ export function AccountDashboard({
       ) : null}
 
       {ineligibleGates.length ? (
-        <Panel title="图表暂不可用" description="以下原因由 API 门禁返回，前端不重新计算。">
+        <Panel title="图表暂不可用" description={displayText({
+          simple: "以下原因由服务端返回，页面不会自行重新判断。",
+          professional: "以下原因由 API 门禁返回，前端不重新计算。",
+        }, copyMode)}>
           <ul className="space-y-2 text-sm">
             {ineligibleGates.map((gate) => (
               <li className="rounded-lg bg-slate-50 p-3" key={gate.kind}>
@@ -402,7 +423,7 @@ export function AccountDashboard({
                   </Link>
                   <p className="mt-1 text-sm">{item.reason}</p>
                   <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                    原因假设 · {confidenceLabel(dashboard.confidence)}，不代表确定因果
+                    原因假设 · {displayText(dashboardConfidenceCopy(dashboard.confidence), copyMode)}，不代表确定因果
                   </p>
                 </li>
               ))}
@@ -415,7 +436,9 @@ export function AccountDashboard({
 
       <Panel title="下一步行动" description="状态、风险和关键行动不会被展示偏好隐藏。">
         <ol className="space-y-2">
-          {dashboard.next_actions.map((action, index) => (
+          {[...new Set(dashboard.next_actions.map(
+            (action) => dashboardActionLabel(action, role, copyMode),
+          ))].map((action, index) => (
             <li className="flex gap-3" key={action}>
               <span className="font-semibold text-[var(--brand)]">{index + 1}.</span>
               <span>{action}</span>

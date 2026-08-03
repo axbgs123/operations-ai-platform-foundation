@@ -32,3 +32,34 @@ export function GuidedPageHeader({
     </div>
   );
 }
+
+export function GuidedPageShell({
+  pageId,
+  title,
+  context,
+  primaryAction,
+  secondaryActions,
+  children,
+  className = "mx-auto max-w-7xl space-y-6",
+}: {
+  pageId: OperatorPageId;
+  title?: string;
+  context?: DisplayCopy;
+  primaryAction?: ReactNode;
+  secondaryActions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <GuidedPageHeader
+        context={context}
+        pageId={pageId}
+        primaryAction={primaryAction}
+        secondaryActions={secondaryActions}
+        title={title}
+      />
+      {children}
+    </div>
+  );
+}

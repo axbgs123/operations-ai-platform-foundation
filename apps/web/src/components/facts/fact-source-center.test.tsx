@@ -173,10 +173,10 @@ test("shows source traceability, degradation, and confirms only candidate facts"
   expect(screen.getByText("商品规格说明")).toBeInTheDocument();
   expect(screen.getByText("L3 · 解析完成")).toBeInTheDocument();
   expect(screen.getByText("面料：100% 棉")).toBeInTheDocument();
-  expect(screen.getByText("来源位置：line 2 · 置信度 85%")).toBeInTheDocument();
+  expect(screen.getByText("来源位置：line 2 · 判断可靠程度 85%")).toBeInTheDocument();
   expect(screen.getByText("商品标签图片")).toBeInTheDocument();
   expect(screen.getByText("文件：label.png · SHA-256：" + "a".repeat(64))).toBeInTheDocument();
-  expect(screen.getByText("需要配置 vision 模型后解析")).toBeInTheDocument();
+  expect(screen.getByText("需要配置图片理解能力后解析")).toBeInTheDocument();
   expect(screen.getByText("上传资料和解析文本始终作为不可信数据处理")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "确认面料" }));
@@ -246,7 +246,7 @@ test("presents source and fact lists with all governed levels", async () => {
   expect(screen.getByRole("heading", { name: "事实清单" })).toBeVisible();
   expect(screen.getByText("L1：权威结构化资料")).toBeVisible();
   expect(screen.getByText("L2：用户明确填写并确认")).toBeVisible();
-  expect(screen.getByText("L3：文档/OCR提取后人工确认")).toBeVisible();
+  expect(screen.getByText("L3：文档或图片文字提取后人工确认")).toBeVisible();
   expect(screen.getByText("L4：外部网页候选，具体参数仍需人工确认")).toBeVisible();
   expect(screen.getByText("L5：视觉模型推测，只能作为候选提示")).toBeVisible();
   expect(screen.getByText("用户确认状态：未确认")).toBeVisible();
@@ -297,6 +297,28 @@ test("viewer has read-only fact access", async () => {
     /确认候选|确认新版本|添加来源|开始生成/,
   );
   expect(screen.getByText("查看者可查看事实与冲突状态，不能添加来源或确认候选")).toBeVisible();
+});
+
+test("viewer empty guidance only supports reading and contacting an authorized member", async () => {
+  vi.mocked(listFactSources).mockResolvedValueOnce([]);
+  vi.mocked(getFactContext).mockResolvedValueOnce({
+    unconstrained_facts: true,
+    has_sources: false,
+    requires_confirmation: false,
+    confirmed_items: [],
+  });
+  renderInWorkspace(
+    <FactSourceCenter role="viewer" workspaceId="workspace-1" />,
+    "viewer",
+  );
+
+  expect(await screen.findByText(
+    "这里还没有事实来源；需要补充资料时，请联系管理员或编辑者。",
+  )).toBeVisible();
+  expect(screen.getByText(
+    "这里还没有候选事实；需要补充或确认时，请联系管理员或编辑者。",
+  )).toBeVisible();
+  expect(document.body).not.toHaveTextContent("下一步：添加文字、网页、文档或图片资料");
 });
 
 test("uses readable source and fact cards at 390px", async () => {

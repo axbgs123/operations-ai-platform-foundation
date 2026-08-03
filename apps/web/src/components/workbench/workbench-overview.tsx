@@ -21,6 +21,8 @@ import {
 } from "./ui";
 import { GuidedPageHeader } from "./guided-page-header";
 import { useWorkbenchShellContext } from "./workspace-shell";
+import { useExperiencePreferences } from "./experience-preferences-context";
+import { displayText, OPERATOR_TERMS, overviewActionLabel } from "./operator-display-copy";
 
 
 type OverviewState =
@@ -63,6 +65,7 @@ export function WorkbenchOverview({
   state?: OverviewState;
 }): ReactElement {
   const shellContext = useWorkbenchShellContext();
+  const { copyMode } = useExperiencePreferences();
   const effectiveRole = role ?? shellContext?.role ?? "viewer";
   const header = <GuidedPageHeader pageId="overview" />;
   if (state === "loading") {
@@ -105,7 +108,9 @@ export function WorkbenchOverview({
               配置平台账号
             </Link>
           ) : undefined}
-          description="创建抖音或小红书账号后，这里会分别展示数据状态和运营待办。"
+          description={effectiveRole === "viewer"
+            ? "这里还没有平台账号；需要添加时，请联系管理员或编辑者。"
+            : "创建抖音或小红书账号后，这里会分别展示数据状态和运营待办。"}
           title="还没有平台账号"
         />
       </div>
@@ -144,10 +149,10 @@ export function WorkbenchOverview({
 
       <Panel title="待处理问题">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <p className="rounded-lg border p-4"><strong>{overview.attention.pending_analysis_count}</strong><span className="ml-2">条待分析内容</span></p>
-          <p className="rounded-lg border p-4"><strong>{overview.attention.high_risk_count}</strong><span className="ml-2">条高风险草稿</span></p>
-          <p className="rounded-lg border p-4"><strong>{overview.attention.low_confidence_ocr_count}</strong><span className="ml-2">条低置信度 OCR</span></p>
-          <p className="rounded-lg border p-4"><strong>{overview.attention.failed_task_count}</strong><span className="ml-2">个失败或待配置任务</span></p>
+          <p className="rounded-lg border p-4">{overview.attention.pending_analysis_count} 条待分析内容</p>
+          <p className="rounded-lg border p-4">{overview.attention.high_risk_count} 条高风险草稿</p>
+          <p className="rounded-lg border p-4">{overview.attention.low_confidence_ocr_count} {copyMode === "simple" ? "条图片文字识别可信度较低" : "条低置信度 OCR"}</p>
+          <p className="rounded-lg border p-4">{overview.attention.failed_task_count} 个失败或待配置任务</p>
         </div>
       </Panel>
 
@@ -155,22 +160,18 @@ export function WorkbenchOverview({
         description="系统只突出当前最高优先级的一项，不把预计时间作为承诺。"
         title="下一步行动"
       >
-        {overview.next_action
-        && !(
-          effectiveRole === "viewer"
-          && overview.next_action.kind === "confirm_import"
-        ) ? (
+        {overview.next_action ? (
           <Link
             className="inline-flex rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
             href={overview.next_action.href}
           >
-            {overview.next_action.label}
+            {overviewActionLabel(
+              overview.next_action.kind,
+              overview.next_action.label,
+              effectiveRole,
+              copyMode,
+            )}
           </Link>
-        ) : overview.next_action?.kind === "confirm_import"
-          && effectiveRole === "viewer" ? (
-            <p className="text-sm text-[var(--text-secondary)]">
-              该事项需要编辑者或管理员处理
-            </p>
         ) : (
           <p className="text-sm text-[var(--text-secondary)]">当前没有必须立即处理的事项。</p>
         )}
@@ -194,7 +195,7 @@ export function WorkbenchOverview({
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div><dt className="text-[var(--text-secondary)]">数据完整度</dt><dd className="font-semibold">{percentage(account.completeness.score)}</dd></div>
                 <div><dt className="text-[var(--text-secondary)]">待分析</dt><dd className="font-semibold">{account.pending_analysis_count} 条</dd></div>
-                <div><dt className="text-[var(--text-secondary)]">快照成熟度</dt><dd className="font-semibold">{account.latest_maturity_bucket ?? "尚无快照"}</dd></div>
+                <div><dt className="text-[var(--text-secondary)]">{displayText(OPERATOR_TERMS.snapshotMaturity, copyMode)}</dt><dd className="font-semibold">{account.latest_maturity_bucket ?? "尚无快照"}</dd></div>
                 <div><dt className="text-[var(--text-secondary)]">本周闭环</dt><dd className="font-semibold">{account.has_current_week_closed_loop ? "已确认闭环" : "尚未确认闭环"}</dd></div>
               </dl>
               <Link

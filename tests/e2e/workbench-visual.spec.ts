@@ -18,14 +18,38 @@ async function createWorkspace(
   return response.json() as Promise<Workspace>;
 }
 
-async function enterWorkspace(page: Page, workspace: Workspace) {
+async function enterWorkspace(
+  page: Page,
+  workspace: Workspace,
+  code = workspace.admin_code,
+  displayName = "视觉验收管理员",
+) {
   await page.goto("/enter");
-  await page.getByLabel("邀请码").fill(workspace.admin_code);
-  await page.getByLabel("显示名称").fill("视觉验收管理员");
+  await page.getByLabel("邀请码").fill(code);
+  await page.getByLabel("显示名称").fill(displayName);
   await page.getByRole("button", { name: "进入工作区" }).click();
   await page.waitForURL(
     new RegExp(`/workspaces/${workspace.workspace_id}/`),
   );
+}
+
+async function issueViewerCode(page: Page, workspaceId: string): Promise<string> {
+  return page.evaluate(async ({ apiUrl, targetWorkspaceId }) => {
+    const response = await fetch(
+      `${apiUrl}/v1/workspaces/${targetWorkspaceId}/members/codes`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": sessionStorage.getItem("workspace_csrf") ?? "",
+        },
+        body: JSON.stringify({ role: "viewer" }),
+      },
+    );
+    if (!response.ok) throw new Error(`viewer fixture failed (${response.status})`);
+    return ((await response.json()) as { code: string }).code;
+  }, { apiUrl: api, targetWorkspaceId: workspaceId });
 }
 
 async function seedVisualData(page: Page, workspaceId: string) {
@@ -120,6 +144,7 @@ async function capture(page: Page, name: string) {
 }
 
 test("canonical workbench routes retain stable synthetic visual baselines", async ({
+  browser,
   page,
   request,
 }) => {
@@ -222,4 +247,26 @@ test("canonical workbench routes retain stable synthetic visual baselines", asyn
   await expect(page.getByRole("switch", { name: "页面引导" })).not.toBeChecked();
   await expect(page.getByRole("button", { name: "查看操作说明" })).toHaveCount(0);
   await capture(page, "mobile-guidance.png");
+
+  const viewerCode = await issueViewerCode(page, workspace.workspace_id);
+  const viewer = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const viewerPage = await viewer.newPage();
+  await enterWorkspace(viewerPage, workspace, viewerCode, "视觉验收查看者");
+  await viewerPage.goto(`${root}/preflight?${scoped}`);
+  await capture(viewerPage, "viewer-preflight.png");
+  await viewer.close();
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.route(
+    (url) => url.href.startsWith(
+      `${api}/v1/workspaces/${workspace.workspace_id}/accounts/${fixture.accountId}/dashboard?`,
+    ),
+    async (route) => route.fulfill({
+      body: JSON.stringify({ detail: "synthetic failed load" }),
+      contentType: "application/json",
+      status: 503,
+    }),
+  );
+  await page.goto(`${root}/accounts/${fixture.accountId}?${scoped}`);
+  await capture(page, "account-dashboard-error.png");
 });

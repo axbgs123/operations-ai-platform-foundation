@@ -119,9 +119,28 @@ test("keeps workspace deletion separate and does not offer it to a viewer", () =
   }
   expect(screen.getByText(/永久删除工作区不会在回收站中进行/)).toBeVisible();
   expect(screen.getByText("只有管理员可以发起工作区删除。")).toBeVisible();
+  expect(screen.queryByRole("link", { name: /管理成员|打开模型/ })).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: /删除工作区/ }),
   ).not.toBeInTheDocument();
+});
+
+test("easy settings translate primary model, retention, and deletion-impact terminology", async () => {
+  renderInWorkspace(<WorkspaceSettings role="admin" workspaceId="ws-1" />);
+
+  expect(screen.getByText("尚未进行真实调用验收")).toBeVisible();
+  expect(screen.getByText("演示环境不会调用真实模型")).toBeVisible();
+  expect(screen.getByText("立即清理")).toBeVisible();
+  expect(screen.getByText("按计划清理")).toBeVisible();
+  expect(screen.getByText("因审计或关联资料保留")).toBeVisible();
+  expect(document.body.textContent).not.toMatch(
+    /\b(?:Provider|Embedding|Mock|API Key|not_run|immediate|scheduled|evidence)\b|向量|workbench-2026\.07/,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "第一步：查看删除影响" }));
+  expect(await screen.findByText("用于资料检索的索引")).toBeVisible();
+  expect(screen.getByText("自动清理未完成的任务")).toBeVisible();
+  expect(document.body.textContent).not.toContain("compensation_required");
 });
 
 test("admin deletion starts with impact preview and cannot skip confirmations", () => {
@@ -202,6 +221,11 @@ test("professional mode preserves experimental, Provider, and impact preview ter
   renderInWorkspace(<WorkspaceSettings role="admin" workspaceId="ws-1" />);
 
   expect(screen.getByText("Catalog experimental")).toBeVisible();
+  expect(screen.getByText("真实验收 not_run")).toBeVisible();
+  expect(screen.getByText("Demo 仅 Mock")).toBeVisible();
+  expect(screen.getByText("immediate")).toBeVisible();
+  expect(screen.getByText("scheduled")).toBeVisible();
+  expect(screen.getByText("evidence")).toBeVisible();
   expect(screen.getByText(/Provider Workspace ID/)).toBeVisible();
   expect(screen.getByText(/影响预览/)).toBeVisible();
   fireEvent.click(screen.getByRole("button", {
@@ -210,4 +234,6 @@ test("professional mode preserves experimental, Provider, and impact preview ter
   expect(await screen.findByText(
     "影响预览已加载；尚未申请或执行删除。",
   )).toBeVisible();
+  expect(screen.getByText("向量")).toBeVisible();
+  expect(screen.getByText("需补偿任务")).toBeVisible();
 });

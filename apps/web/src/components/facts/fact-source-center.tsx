@@ -14,6 +14,14 @@ import {
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import { StatusBadge } from "@/components/workbench/ui";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import {
+  displayText,
+  factConflictCopy,
+  factSourceKindCopy,
+  modelCapabilityCopy,
+  OPERATOR_TERMS,
+} from "@/components/workbench/operator-display-copy";
 
 const visualFactWarning = {
   simple: "图片只能帮助识别可能出现的文字或外观，不能证明面料、价格、功效、认证等事实。",
@@ -56,7 +64,9 @@ export function FactSourceCenter({
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const shellContext = useWorkbenchShellContext();
-  const canWrite = (role ?? shellContext?.role ?? "admin") !== "viewer";
+  const { copyMode } = useExperiencePreferences();
+  const effectiveRole = role ?? shellContext?.role ?? "admin";
+  const canWrite = effectiveRole !== "viewer";
   const csrf = () => sessionStorage.getItem("workspace_csrf") ?? "";
 
   useEffect(() => {
@@ -160,7 +170,7 @@ export function FactSourceCenter({
       <section className="grid gap-2 rounded-xl border bg-white p-5 text-sm sm:grid-cols-2 lg:grid-cols-5" aria-label="事实来源等级说明">
         <p>L1：权威结构化资料</p>
         <p>L2：用户明确填写并确认</p>
-        <p>L3：文档/OCR提取后人工确认</p>
+        <p>{copyMode === "simple" ? "L3：文档或图片文字提取后人工确认" : "L3：文档/OCR提取后人工确认"}</p>
         <p>L4：外部网页候选，具体参数仍需人工确认</p>
         <p>L5：视觉模型推测，只能作为候选提示</p>
       </section>
@@ -241,7 +251,9 @@ export function FactSourceCenter({
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">来源列表</h2>
-        {sources.length === 0 ? <p className="rounded-xl border bg-white p-5">尚无来源。下一步：添加文字、网页、文档或图片资料。</p> : (
+        {sources.length === 0 ? <p className="rounded-xl border bg-white p-5">{effectiveRole === "viewer"
+          ? "这里还没有事实来源；需要补充资料时，请联系管理员或编辑者。"
+          : "尚无来源。下一步：添加文字、网页、文档或图片资料。"}</p> : (
           <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-testid="fact-source-cards">
             {sources.map((source) => {
               const capabilities = detailCapabilities(source);
@@ -255,14 +267,18 @@ export function FactSourceCenter({
                   </StatusBadge>
                 </div>
                 <dl className="mt-4 grid gap-2 text-sm">
-                  <div><dt className="inline text-[var(--text-secondary)]">来源类型：</dt><dd className="inline">{source.kind}</dd></div>
+                  <div><dt className="inline text-[var(--text-secondary)]">来源类型：</dt><dd className="inline">{displayText(factSourceKindCopy(source.kind), copyMode)}</dd></div>
                   <div><dt className="inline text-[var(--text-secondary)]">人工确认状态：</dt><dd className="inline">{confirmedCount ? `${confirmedCount} 项已确认` : "未确认"}</dd></div>
                   <div><dt className="inline text-[var(--text-secondary)]">冲突数量：</dt><dd className="inline">{conflictCount}</dd></div>
                   <div><dt className="inline text-[var(--text-secondary)]">生效范围：</dt><dd className="inline">工作区通用（当前记录未提供更细范围）</dd></div>
                   <div><dt className="inline text-[var(--text-secondary)]">创建时间：</dt><dd className="inline">{source.created_at}</dd></div>
                   <div><dt className="inline text-[var(--text-secondary)]">当前版本：</dt><dd className="inline">当前记录未提供</dd></div>
                 </dl>
-                {source.status === "awaiting_model" ? <p className="mt-3 text-sm text-amber-900">需要配置 {capabilities.join("、")} 模型后解析</p> : null}
+                {source.status === "awaiting_model" ? <p className="mt-3 text-sm text-amber-900">{
+                  `需要配置${capabilities.map(
+                    (capability) => `${displayText(modelCapabilityCopy(capability), copyMode)}${copyMode === "simple" ? "能力" : ""}`,
+                  ).join("、")}后解析`
+                }</p> : null}
                 {source.source_url ? <p className="mt-3 break-all text-sm text-[var(--text-secondary)]">URL：{source.source_url}</p> : null}
                 {source.file_name ? <p className="mt-3 break-all text-sm text-[var(--text-secondary)]">文件：{source.file_name} · SHA-256：{source.content_sha256}</p> : null}
                 {source.published_at ? <p className="mt-1 text-sm">发布时间：{source.published_at}</p> : null}
@@ -275,7 +291,9 @@ export function FactSourceCenter({
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">事实清单</h2>
-        {factRows.length === 0 ? <p className="rounded-xl border bg-white p-5">尚无候选事实。下一步：等待来源解析或补充人工事实。</p> : (
+        {factRows.length === 0 ? <p className="rounded-xl border bg-white p-5">{effectiveRole === "viewer"
+          ? "这里还没有候选事实；需要补充或确认时，请联系管理员或编辑者。"
+          : "尚无候选事实。下一步：等待来源解析或补充人工事实。"}</p> : (
           <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-testid="fact-item-cards">
             {factRows.map(({ source, item }) => {
               const confirmed = item.status === "confirmed";
@@ -285,14 +303,14 @@ export function FactSourceCenter({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="font-semibold">{item.field_name}：{item.value}</h3>
                   <StatusBadge tone={item.conflict_status === "unresolved" ? "danger" : confirmed ? "success" : "warning"}>
-                    {confirmed ? "用户已确认" : "未确认"} · {item.conflict_status === "clear" ? "无冲突" : "存在冲突"}
+                    {confirmed ? "用户已确认" : "未确认"} · {displayText(factConflictCopy(item.conflict_status), copyMode)}
                   </StatusBadge>
                 </div>
-                <p className="mt-3 text-sm">来源位置：{item.source_location} · 置信度 {Math.round(item.confidence * 100)}%</p>
+                <p className="mt-3 text-sm">来源位置：{item.source_location} · {displayText(OPERATOR_TERMS.confidence, copyMode)} {Math.round(item.confidence * 100)}%</p>
                 <p className="mt-1 text-sm">来源等级：{source.level}</p>
                 <p className="mt-1 text-sm">用户确认状态：{confirmed ? "已确认" : "未确认"}</p>
                 <p className="mt-1 text-sm">系统验证状态：未验证</p>
-                <p className="mt-1 text-sm">冲突状态：{item.conflict_status}</p>
+                <p className="mt-1 text-sm">冲突状态：{displayText(factConflictCopy(item.conflict_status), copyMode)}</p>
                 <p className="mt-1 text-sm">当前是否可用于生成：{usable ? "是" : "否"}</p>
                 <p className="mt-1 text-sm">覆盖记录：{override ? `操作者 ${String(override.operator_id ?? "当前记录未提供")} · 理由 ${String(override.reason ?? "当前记录未提供")} · 时间 ${String(override.created_at ?? "当前记录未提供")}` : "无"}</p>
                 {source.level === "L5" ? (

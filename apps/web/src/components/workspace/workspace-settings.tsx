@@ -7,6 +7,7 @@ import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import { DesktopOnlyNotice, Panel, StatusBadge } from "@/components/workbench/ui";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
+import { displayText, taskStatusCopy } from "@/components/workbench/operator-display-copy";
 import {
   confirmWorkspaceDeletion,
   readWorkspaceDeletionImpact,
@@ -89,7 +90,7 @@ export function WorkspaceSettings({
         sessionStorage.getItem("workspace_csrf") ?? "",
       );
       setConfirmation(null);
-      setDeletionNotice(`删除任务已受控提交：${job.status}。残留检查完成前不视为成功。`);
+      setDeletionNotice(`删除任务已受控提交：${displayText(taskStatusCopy(job.status), copyMode)}。残留检查完成前不视为成功。`);
     } catch (error) {
       setDeletionError(error instanceof Error ? error.message : "删除确认失败");
     } finally {
@@ -109,7 +110,7 @@ export function WorkspaceSettings({
           <div><dt>内容数量</dt><dd>当前安全读模型未提供</dd></div>
           <div><dt>任务安全状态</dt><dd>{context?.failed_task_count ? `${context.failed_task_count} 个失败任务` : "无已知失败任务"}</dd></div>
           <div><dt>工作区边界</dt><dd>私有工作区；Demo 数据不会进入此处</dd></div>
-          <div><dt>产品版本</dt><dd>workbench-2026.07</dd></div>
+          <div><dt>产品版本</dt><dd>{copyMode === "simple" ? "当前工作台版本" : "workbench-2026.07"}</dd></div>
         </dl>
       </Panel>
       <section className="grid gap-4 lg:grid-cols-2">
@@ -119,9 +120,13 @@ export function WorkspaceSettings({
               ? "邀请码只在创建时显示一次。请立即交给对应成员，不要发到公开群或截图保存到公共位置。"
               : "邀请码只在创建时显示一次，服务端仅保存强哈希；不可找回原邀请码。"}
           </p>
-          <Link className="mt-4 inline-block text-sm font-semibold text-blue-700" href={`/workspaces/${workspaceId}/settings/members`}>
-            管理成员与独立邀请码
-          </Link>
+          {role === "viewer" ? (
+            <p className="mt-4 text-sm font-semibold text-[var(--text-secondary)]">查看成员与邀请码规则</p>
+          ) : (
+            <Link className="mt-4 inline-block text-sm font-semibold text-blue-700" href={`/workspaces/${workspaceId}/settings/members`}>
+              管理成员与独立邀请码
+            </Link>
+          )}
         </Panel>
         <Panel title="平台账号配置">
           <div className="space-y-2">
@@ -150,8 +155,8 @@ export function WorkspaceSettings({
               ? "试用状态，真实效果和费用尚未完成验收"
               : "Catalog experimental"}
           </StatusBadge>
-          <StatusBadge tone="neutral">真实验收 not_run</StatusBadge>
-          <StatusBadge tone="info">Demo 仅 Mock</StatusBadge>
+          <StatusBadge tone="neutral">{copyMode === "simple" ? "尚未进行真实调用验收" : "真实验收 not_run"}</StatusBadge>
+          <StatusBadge tone="info">{copyMode === "simple" ? "演示环境不会调用真实模型" : "Demo 仅 Mock"}</StatusBadge>
         </div>
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
           {copyMode === "simple"
@@ -161,15 +166,19 @@ export function WorkspaceSettings({
         <div className="mt-4 md:hidden">
           <DesktopOnlyNotice action="模型密钥和预算配置" />
         </div>
-        <Link className="mt-4 hidden text-sm font-semibold text-blue-700 md:inline-block" href={`/workspaces/${workspaceId}/settings/models`}>
-          打开模型与预算配置
-        </Link>
+        {role === "viewer" ? (
+          <p className="mt-4 hidden text-sm font-semibold text-[var(--text-secondary)] md:block">查看模型费用规则</p>
+        ) : (
+          <Link className="mt-4 hidden text-sm font-semibold text-blue-700 md:inline-block" href={`/workspaces/${workspaceId}/settings/models`}>
+            打开模型与预算配置
+          </Link>
+        )}
       </Panel>
       <Panel title="保留策略">
         <div className="flex flex-wrap gap-2">
-          <StatusBadge tone="neutral">immediate</StatusBadge>
-          <StatusBadge tone="info">scheduled</StatusBadge>
-          <StatusBadge tone="warning">evidence</StatusBadge>
+          <StatusBadge tone="neutral">{copyMode === "simple" ? "立即清理" : "immediate"}</StatusBadge>
+          <StatusBadge tone="info">{copyMode === "simple" ? "按计划清理" : "scheduled"}</StatusBadge>
+          <StatusBadge tone="warning">{copyMode === "simple" ? "因审计或关联资料保留" : "evidence"}</StatusBadge>
         </div>
         <p className="mt-3 text-sm text-[var(--text-secondary)]">
           {copyMode === "simple"
@@ -187,7 +196,9 @@ export function WorkspaceSettings({
             : "工作区删除与普通内容回收站分离。流程固定为：影响预览 → 服务端签发短期一次性确认 → 再次确认 → 残留检查。确认令牌不得进入 URL、本地存储或日志。"}
         </p>
         <p className="mt-3 text-sm text-red-800">
-          未完成数据、向量、对象、缓存和任务残留检查时，绝不显示删除成功。
+          {copyMode === "simple"
+            ? "未完成数据、资料检索索引、文件、缓存和任务残留检查时，绝不显示删除成功。"
+            : "未完成数据、向量、对象、缓存和任务残留检查时，绝不显示删除成功。"}
         </p>
         <div className="mt-4 md:hidden">
           <DesktopOnlyNotice action="工作区删除和二次确认" />
@@ -206,10 +217,10 @@ export function WorkspaceSettings({
               <dl className="grid gap-2 rounded-lg bg-red-50 p-4 text-sm sm:grid-cols-3">
                 <div><dt>结构化记录</dt><dd>{impact.structured_records}</dd></div>
                 <div><dt>资产</dt><dd>{impact.assets}</dd></div>
-                <div><dt>向量</dt><dd>{impact.vectors}</dd></div>
+                <div><dt>{copyMode === "simple" ? "用于资料检索的索引" : "向量"}</dt><dd>{impact.vectors}</dd></div>
                 <div><dt>暂存任务</dt><dd>{impact.staging_tasks}</dd></div>
-                <div><dt>证据保留对象</dt><dd>{impact.evidence_retained_objects}</dd></div>
-                <div><dt>需补偿任务</dt><dd>{impact.compensation_required_jobs}</dd></div>
+                <div><dt>{copyMode === "simple" ? "因审计或关联资料保留的对象" : "证据保留对象"}</dt><dd>{impact.evidence_retained_objects}</dd></div>
+                <div><dt>{copyMode === "simple" ? "自动清理未完成的任务" : "需补偿任务"}</dt><dd>{impact.compensation_required_jobs}</dd></div>
               </dl>
             ) : null}
             {impact && !confirmation ? (

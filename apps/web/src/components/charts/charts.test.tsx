@@ -257,6 +257,12 @@ test("renders evidence-led sections and links charts into the scoped content lib
     "数据按当前作品类型和数据采集时间分别计算。",
   )).toBeVisible();
   expect(screen.getByText("实际样本 10 条")).toBeInTheDocument();
+  expect(screen.getByText("判断依据充足")).toBeVisible();
+  expect(screen.getAllByText("数据采集时间").length).toBeGreaterThan(0);
+  expect(screen.getByText(
+    "这项数据包含 10 条可用记录；数据完整度 100%；当前判断依据充足。",
+  )).toBeVisible();
+  expect(document.body.textContent).not.toMatch(/数据成熟度|正常置信度|\bnormal\b|\bAPI\b|门禁/);
   expect(screen.getByRole("heading", { name: "值得关注" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "下一步行动" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "漏斗分析" })).toBeInTheDocument();
@@ -323,7 +329,7 @@ test("reloads the dashboard when content type or maturity scope changes", async 
   fireEvent.change(screen.getByLabelText("内容类型"), {
     target: { value: "video" },
   });
-  fireEvent.change(screen.getByLabelText("成熟度"), {
+  fireEvent.change(screen.getByLabelText("数据采集时间"), {
     target: { value: "72h" },
   });
 
@@ -371,7 +377,20 @@ test("shows benchmark range and API-provided confidence without recomputing gate
   expect(screen.getByText("中位数 2,450")).toBeVisible();
   expect(screen.getByText("前 25% 2,675")).toBeVisible();
   expect(screen.getByText("前 10% 2,810")).toBeVisible();
-  expect(screen.getByText("正常置信度")).toBeVisible();
+  expect(screen.getByText("判断依据充足")).toBeVisible();
+});
+
+test("professional dashboard preserves maturity, confidence, gate, API, and server explanation wording", async () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
+
+  expect(await screen.findByText("正常置信度")).toBeVisible();
+  expect(screen.getByText("数据成熟度")).toBeVisible();
+  expect(screen.getByLabelText("成熟度")).toBeVisible();
+  expect(screen.getByText("仅展示一个同量纲、满足服务端门禁的主要趋势。")).toBeVisible();
+  expect(screen.getByText("该指标有效样本 10 条，置信度为 normal。")).toBeVisible();
 });
 
 test("isolates optional module preferences by member and account and restores defaults", async () => {
@@ -413,8 +432,48 @@ test("shows viewers a read-only account-dashboard next action", async () => {
     "viewer",
   );
 
-  expect(await screen.findByText("查看趋势、目标和异常说明")).toBeVisible();
+  await screen.findByRole("heading", { name: "合成小红书账号" });
+  expect(screen.getByText("查看趋势、目标和异常说明")).toBeVisible();
   expect(
     screen.queryByRole("link", { name: /新建|导入|处理/ }),
   ).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent("记录一个可验证变量");
+  expect(screen.getByText(
+    "查看现有结果；需要继续采集数据或记录实验时，请联系管理员或编辑者。",
+  )).toBeVisible();
+});
+
+test("retains one title, the mode-aware purpose, and guide in loading, permission, error, and empty branches", async () => {
+  vi.mocked(fetch).mockImplementationOnce(() => new Promise(() => undefined));
+  const { unmount } = renderDashboard(
+    <AccountDashboard accountId="account-1" workspaceId="workspace-1" />,
+  );
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1, name: "账号表现" })).toBeVisible();
+  expect(screen.getByText("只看这个账号的表现变化、目标完成情况和异常内容。")).toBeVisible();
+  expect(screen.getByRole("button", { name: "查看操作说明" })).toBeVisible();
+
+  unmount();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  localStorage.setItem("operations-ai:page-guidance:member-admin", "off");
+  vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status: 500 } as Response);
+  renderDashboard(<AccountDashboard accountId="account-1" workspaceId="workspace-1" />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("账号仪表盘加载失败");
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByText(
+    "仅展示单个平台账号、同口径成熟度和满足样本门槛的服务端图表。",
+  )).toBeVisible();
+  expect(screen.queryByText("建议先做")).not.toBeInTheDocument();
+
+  cleanup();
+  localStorage.clear();
+  vi.mocked(fetch).mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ ...dashboard, goal_cards: [] }),
+  } as Response);
+  renderDashboard(<AccountDashboard accountId="account-1" workspaceId="workspace-1" />, "viewer");
+  expect(await screen.findByText(
+    "这里还没有可展示指标；需要补充或确认数据时，请联系管理员或编辑者。",
+  )).toBeVisible();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 });

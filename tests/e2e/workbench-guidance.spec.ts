@@ -182,17 +182,17 @@ test("guidance preferences preserve routes, drafts, roles, and Demo isolation", 
 
   await page.goto(filteredAnalysis);
   await expect(page.getByRole("heading", { level: 1, name: "分析中心" })).toBeVisible();
-  const mutationRequests: string[] = [];
+  const businessRequests: string[] = [];
   page.on("request", (requestToInspect) => {
-    if (["POST", "PUT", "PATCH", "DELETE"].includes(requestToInspect.method())) {
-      mutationRequests.push(`${requestToInspect.method()} ${requestToInspect.url()}`);
+    if (requestToInspect.url().startsWith(api)) {
+      businessRequests.push(`${requestToInspect.method()} ${requestToInspect.url()}`);
     }
   });
   await page.getByRole("radio", { name: "专业" }).click();
   await page.getByRole("switch", { name: "页面引导" }).click();
   await expect(page).toHaveURL(filteredAnalysis);
   await expect(page.getByText("建议先做")).toHaveCount(0);
-  expect(mutationRequests).toEqual([]);
+  expect(businessRequests).toEqual([]);
 
   await page.reload();
   await expect(page.getByRole("radio", { name: "专业" })).toBeChecked();

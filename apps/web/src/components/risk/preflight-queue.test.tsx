@@ -7,19 +7,29 @@ import type { PreflightQueuePageData } from "@/lib/workbench-api";
 
 import {
   PreflightQueue,
+  PreflightQueuePage,
   normalizePreflightFilters,
   preflightFiltersQuery,
   type PreflightFilters,
 } from "./preflight-queue";
 
+const navigationState = vi.hoisted(() => ({
+  search: "",
+}));
+const loadPreflightQueue = vi.hoisted(() => vi.fn());
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/workspaces/workspace-1/preflight",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(navigationState.search),
 }));
+
+vi.mock("@/lib/workbench-api", () => ({ loadPreflightQueue }));
 
 beforeEach(() => {
   localStorage.clear();
+  navigationState.search = "";
+  loadPreflightQueue.mockReset();
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn().mockReturnValue({
@@ -119,6 +129,15 @@ test("explains the easy preflight purpose without weakening missing-evidence saf
     "集中检查准备发布的内容，处理风险、图片文字识别和资料不足问题。",
   )).toBeVisible();
   expect(screen.getByText(/没有查到规则资料不代表内容安全/)).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "图片文字识别" })).toBeVisible();
+  expect(screen.getByRole("columnheader", { name: "判断资料" })).toBeVisible();
+  expect(screen.getAllByText("可信度较低，必须人工检查").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("已找到可用规则资料").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("中风险").length).toBeGreaterThan(0);
+  expect(screen.getByText("规则和检查版本已记录")).toBeVisible();
+  expect(document.body.textContent).not.toMatch(
+    /\b(?:OCR|Evidence|RAG)\b|low_confidence|available|rules-v1|scanner-v1|\bmedium\b/,
+  );
 });
 
 test("keeps RAG and OCR terminology in professional preflight copy", () => {
@@ -138,6 +157,9 @@ test("keeps RAG and OCR terminology in professional preflight copy", () => {
   expect(screen.getByText(/NO_ACTIVE_RISK_EVIDENCE/)).toBeVisible();
   expect(document.body).toHaveTextContent("RAG");
   expect(document.body).toHaveTextContent("OCR");
+  expect(screen.getByRole("columnheader", { name: "Evidence" })).toBeVisible();
+  expect(screen.getAllByText("low_confidence").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("available").length).toBeGreaterThan(0);
 });
 
 test("normalizes platform account status sort and pagination safely", () => {
@@ -169,7 +191,7 @@ test("normalizes platform account status sort and pagination safely", () => {
   });
 });
 
-test("shows governed statuses mobile cards and a safe risk drill-down", () => {
+test("shows governed easy statuses, read-only viewer next steps, mobile cards, and a safe risk drill-down", () => {
   const onFiltersChange = vi.fn();
   renderInWorkspace(
     <PreflightQueue
@@ -185,8 +207,8 @@ test("shows governed statuses mobile cards and a safe risk drill-down", () => {
   for (const label of [
     "待扫描",
     "高风险阻断",
-    "OCR低置信度",
-    "无有效RAG证据",
+    "图片文字识别可信度低",
+    "缺少可用规则资料",
     "已修改待复检",
     "已通过人工确认",
   ]) {
@@ -204,6 +226,10 @@ test("shows governed statuses mobile cards and a safe risk drill-down", () => {
     "returnTo=/workspaces/workspace-1/preflight?platform=douyin&account=dy-1&status=low_confidence_ocr&sort=newest&page=2",
   );
   expect(screen.queryByRole("button", { name: /扫描|复检/ })).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent("人工核对封面并复检");
+  expect(screen.getAllByText(
+    "查看风险原因和当前检查状态；需要处理时请联系管理员或编辑者。",
+  ).length).toBeGreaterThan(0);
   expect(screen.getByText("建议先做").closest("p")).not.toHaveTextContent(
     /确认候选|确认新版本|添加来源|开始生成/,
   );
@@ -215,6 +241,37 @@ test("shows governed statuses mobile cards and a safe risk drill-down", () => {
   expect(onFiltersChange).toHaveBeenCalledWith(
     expect.objectContaining({ status: "high_risk_blocked", page: 1 }),
   );
+});
+
+test("keeps the page title, purpose, and reopenable guide in loading and error states", async () => {
+  navigationState.search = "platform=douyin&sort=newest&page=1";
+  loadPreflightQueue.mockImplementationOnce(() => new Promise(() => undefined));
+  const { unmount } = renderInWorkspace(
+    <PreflightQueuePage workspaceId="workspace-1" />,
+  );
+
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1, name: "发布前检查" })).toBeVisible();
+  expect(screen.getByText(
+    "集中检查准备发布的内容，处理风险、图片文字识别和资料不足问题。",
+  )).toBeVisible();
+  expect(screen.getByRole("button", { name: "查看操作说明" })).toBeVisible();
+
+  unmount();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  localStorage.setItem("operations-ai:page-guidance:member-admin", "off");
+  loadPreflightQueue.mockRejectedValueOnce(new Error("PRIVATE_PROVIDER_ERROR"));
+  renderInWorkspace(<PreflightQueuePage workspaceId="workspace-1" />);
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "发布前检查队列暂时无法读取；已保存内容不会受到影响。",
+  );
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByText(
+    "标题、正文和封面 OCR 的确定性规则与 RAG 辅助判断分开展示；无证据不代表安全通过。",
+  )).toBeVisible();
+  expect(screen.queryByText("建议先做")).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent("PRIVATE_PROVIDER_ERROR");
 });
 
 test("serializes complete return context deterministically", () => {

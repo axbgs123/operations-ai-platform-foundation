@@ -5,7 +5,9 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import type { ImportHistoryData } from "@/lib/import-api";
 
-import { ImportCenter } from "./import-center";
+import { ImportCenter, ImportCenterPage } from "./import-center";
+
+const loadImportHistory = vi.hoisted(() => vi.fn());
 
 const navigationState = vi.hoisted(() => ({
   pathname: "/workspaces/workspace-1/imports",
@@ -17,6 +19,11 @@ vi.mock("next/navigation", () => ({
   usePathname: () => navigationState.pathname,
   useRouter: () => ({ replace: navigationState.replace }),
   useSearchParams: () => new URLSearchParams(navigationState.search),
+}));
+
+vi.mock("@/lib/import-api", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/import-api")>(),
+  loadImportHistory,
 }));
 
 const shellContext = {
@@ -51,6 +58,7 @@ function renderInWorkspace(
 
 beforeEach(() => {
   localStorage.clear();
+  loadImportHistory.mockReset();
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn().mockReturnValue({
@@ -184,6 +192,36 @@ test("viewer sees history but no upload, edit, or confirmation controls", () => 
   expect(screen.queryByRole("button", { name: "手动录入" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /确认/ })).not.toBeInTheDocument();
   expect(screen.queryByLabelText("CSV 或 Excel 文件")).not.toBeInTheDocument();
+  expect(screen.queryByText("继续确认")).not.toBeInTheDocument();
+  expect(screen.getAllByText("查看等待确认的导入记录").length).toBeGreaterThan(0);
+});
+
+test("keeps one title, purpose, and guide while import history loads or fails", async () => {
+  loadImportHistory.mockImplementationOnce(() => new Promise(() => undefined));
+  const { unmount } = renderInWorkspace(
+    <ImportCenterPage workspaceId="workspace-1" />,
+  );
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1, name: "数据导入" })).toBeVisible();
+  expect(screen.getByText(
+    "把作品和发布后的运营数据录入系统；确认前不会写入正式记录。",
+  )).toBeVisible();
+  expect(screen.getByRole("button", { name: "查看操作说明" })).toBeVisible();
+
+  unmount();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  localStorage.setItem("operations-ai:page-guidance:member-admin", "off");
+  loadImportHistory.mockRejectedValueOnce(new Error("PRIVATE_PROVIDER_ERROR"));
+  renderInWorkspace(<ImportCenterPage workspaceId="workspace-1" />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "导入历史暂时无法读取；已保存数据和当前筛选不会受到影响。",
+  );
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByText(
+    "四种方式共享暂存、预览、修正和人工确认边界；确认前不会写入正式内容或快照。",
+  )).toBeVisible();
+  expect(screen.queryByText("建议先做")).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent("PRIVATE_PROVIDER_ERROR");
 });
 
 test("clears an account when the selected platform is incompatible", () => {

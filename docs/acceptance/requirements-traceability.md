@@ -1,10 +1,10 @@
 # 产品验收需求追溯矩阵
 
-验证日期：2026-07-30。状态只使用 `passed`、`partial`、`blocked`、`not_run`。自动化证据来自隔离临时环境、人工合成数据和 Mock Provider，不等同于真实平台、真实千问或独立非开发者验证。
+验证日期：2026-08-03。状态只使用 `passed`、`partial`、`blocked`、`not_run`。自动化证据来自隔离临时环境、人工合成数据和 Mock Provider，不等同于真实平台、真实千问或独立非开发者验证。
 
 | 需求编号 | 需求 | 自动化证据 | 当前状态 |
 | --- | --- | --- | --- |
-| UX-COPY-01 | 运营用户可切换易懂/专业文案并随时开关页面引导；偏好按成员隔离，风险语义不弱化 | `experience-preferences.test.ts`, `operator-copy-catalog.test.ts`, `page-guide.test.tsx`, `workbench-guidance.spec.ts`, four visual baselines | automated_passed; independent_non_developer_pending |
+| UX-COPY-01 | 运营用户可切换易懂/专业文案并随时开关页面引导；偏好按成员隔离，风险语义不弱化 | 自动化已通过：Web 组件/单元测试、`workbench-guidance.spec.ts`、Viewer/错误状态及模式视觉基线、隔离 fresh-install/restart；限制：独立非开发者 Task 9B 仍为 `independent_non_developer_pending` | partial |
 
 ## AC-01
 
@@ -200,7 +200,8 @@
 
 ## 状态汇总与不可越界结论
 
-- `passed`：8；`partial`：7；`blocked`：0；`not_run`：1。
+- AC-01—AC-16：`passed` 8；`partial` 7；`blocked` 0；`not_run` 1。UX-COPY-01：`partial` 1。
+- UX-COPY-01 自动化验收已通过；独立非开发者 Task 9B 仍为 `independent_non_developer_pending`，因此不得标记为生产完成。
 - 独立非开发者测试：`not_run`；原因：`independent_non_developer_session_pending`。
 - 真实千问 API 尚未运行，Catalog 仍为 `experimental`。
 - 真实抖音/小红书页面尚未验证；Windows/Edge 真实运行仍为 `not_run`。

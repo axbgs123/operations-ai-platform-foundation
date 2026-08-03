@@ -7,11 +7,13 @@ import type { ContentDetailData } from "@/lib/content-api";
 
 import {
   canonicalContentDetailQuery,
+  ContentDetailPage,
   ContentDetailTabs,
   normalizeContentTab,
   safeContentReturnTo,
 } from "./content-detail-tabs";
 
+const loadContentDetail = vi.hoisted(() => vi.fn());
 const navigationState = vi.hoisted(() => ({
   pathname: "/workspaces/workspace-1/contents/content-1",
   search: "",
@@ -23,6 +25,8 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: navigationState.replace }),
   useSearchParams: () => new URLSearchParams(navigationState.search),
 }));
+
+vi.mock("@/lib/content-api", () => ({ loadContentDetail }));
 
 const shellContext = {
   workspace_id: "workspace-1",
@@ -53,6 +57,7 @@ function renderInWorkspace(
 
 beforeEach(() => {
   localStorage.clear();
+  loadContentDetail.mockReset();
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn().mockReturnValue({
@@ -260,7 +265,7 @@ test("shows null metrics as missing, one-snapshot explanation, and safe fallback
   expect(screen.getAllByText("缺失", { exact: true })).toHaveLength(2);
   expect(screen.getByText("至少需要两条已确认快照。")).toBeVisible();
   expect(screen.getByText("原始值")).toBeVisible();
-  expect(screen.getByText("规范化值")).toBeVisible();
+  expect(screen.getByText("统一口径数值")).toBeVisible();
 });
 
 test("requires a shared non-null metric before allowing a snapshot trend", () => {
@@ -396,7 +401,7 @@ test("supports arrow, Home, and End keyboard navigation", () => {
   expect(onTabChange).toHaveBeenCalledWith("snapshots");
 });
 
-test("renders governed analysis, cited risk, and safe generation metadata without secrets", () => {
+test("renders governed analysis, cited risk, and safe generation metadata in easy mode without primary technical leaks or secrets", () => {
   const governed = {
     ...detail,
     analysis_runs: [
@@ -567,8 +572,11 @@ test("renders governed analysis, cited risk, and safe generation metadata withou
     "editor",
   );
   expect(screen.getByText("当前表现有可验证数据支持")).toBeVisible();
-  expect(screen.getByText(/Evidence：metric:views/)).toBeVisible();
-  expect(screen.getAllByText(/置信度/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/本次判断参考：metric:views/)).toBeVisible();
+  expect(screen.getAllByText(/判断可靠程度/).length).toBeGreaterThan(0);
+  expect(document.body.textContent).not.toMatch(
+    /\b(?:Evidence|Provider|RAG|Embedding)\b|analysis-prompt-v1|analysis-v1|benchmark-v1/,
+  );
 
   rerender(
     <ContentDetailTabs
@@ -578,9 +586,13 @@ test("renders governed analysis, cited risk, and safe generation metadata withou
       role="editor"
     />,
   );
-  expect(screen.getByText("确定性规则 + RAG")).toBeVisible();
-  expect(screen.getByText(/低置信度，要求人工复核/)).toBeVisible();
+  expect(screen.getByText("固定规则和已保存资料共同判断")).toBeVisible();
+  expect(screen.getByText(/可信度较低，必须人工检查/)).toBeVisible();
+  expect(screen.getByText("高风险")).toBeVisible();
   expect(screen.getByText(/合成规则说明 2/)).toBeVisible();
+  expect(document.body.textContent).not.toMatch(
+    /\b(?:RAG|OCR|Embedding)\b|succeeded|before_publication|contact_format|risk-rules-v1|evidence-v1/,
+  );
 
   rerender(
     <ContentDetailTabs
@@ -610,7 +622,7 @@ test("renders governed analysis, cited risk, and safe generation metadata withou
   )).toBeVisible();
   expect(screen.queryByText(/安全错误码：RISK_SCAN_FAILED/)).not.toBeInTheDocument();
   expect(screen.getByText("最近一次成功扫描（历史参考）")).toBeVisible();
-  expect(screen.getByText("确定性规则 + RAG")).toBeVisible();
+  expect(screen.getByText("固定规则和已保存资料共同判断")).toBeVisible();
   expect(screen.queryByText("当前扫描没有发现")).not.toBeInTheDocument();
 
   rerender(
@@ -621,7 +633,132 @@ test("renders governed analysis, cited risk, and safe generation metadata withou
       role="editor"
     />,
   );
-  expect(screen.getByText("cover-contract-v1")).toBeVisible();
+  expect(screen.getAllByText("已记录，可在专业模式查看").length).toBeGreaterThan(0);
   expect(screen.getAllByText("当前记录未提供").length).toBeGreaterThan(0);
+  expect(screen.getByText(/模拟体验，不调用真实模型，也不会产生模型费用/)).toBeVisible();
+  expect(document.body.textContent).not.toMatch(/\bProvider\b|\bmock\b|succeeded|cover-contract-v1/);
   expect(document.body).not.toHaveTextContent("must-not-render");
+});
+
+test("preserves the exact professional analysis, risk, and generation terminology", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  const governed = {
+    ...detail,
+    analysis_runs: [{
+      id: "analysis-professional",
+      content_id: "content-1",
+      benchmark_run_id: "benchmark-1",
+      snapshot_ids: ["snapshot-1"],
+      status: "succeeded",
+      trigger_kind: "manual",
+      report: {
+        data_performance: { summary: "专业分析", evidence_ids: ["metric:views"], trend_conclusion: null },
+        title_issues: [], copy_issues: [], cover_issues: [],
+        evidence: [{ evidence_id: "metric:views", interpretation: "播放量" }],
+        causal_hypotheses: [{ summary: "专业假设", evidence_ids: ["metric:views"], confidence: "low" }],
+        confidence: "low",
+        recommendations: [], next_experiments: [], degradation_notice: null,
+      },
+      error_code: null, model_config_id: null, model_provider: "mock",
+      model_version: "mock-analysis-v1", provider_contract_version: "mock-structured-v1",
+      model_config_version: "mock-static-v1", prompt_version: "analysis-prompt-v1",
+      algorithm_version: "analysis-v1", benchmark_algorithm_version: "benchmark-v1",
+      created_at: "2026-07-29T13:00:00+08:00", completed_at: "2026-07-29T13:01:00+08:00",
+    }],
+    risk_scans: [{
+      id: "scan-professional", previous_scan_id: null, status: "succeeded",
+      node: "before_publication", error_code: null, diagnostics: [],
+      rule_version: "risk-rules-v1", evidence_version: "evidence-v1",
+      embedding_model_id: "mock-embedding", embedding_version: "v1",
+      rag_model_version: "mock-rag-v1", scanner_version: "scanner-v1",
+      ocr_provider: "mock", ocr_model_id: "mock-ocr-v1",
+      created_at: "2026-07-29T14:00:00+08:00",
+      result: {
+        findings: [{
+          risk_type: "contact_format", severity: "high", matched_content: "合成命中",
+          region: "cover", ocr_bbox: null, ocr_confidence: 0.62,
+          evidence_document_ids: [], citations: [], reason: "确定性格式命中",
+          suggestion: "移除格式", origin: "deterministic_and_rag",
+          requires_human_review: true, deterministic_confirmed: true,
+        }],
+        ocr_status: "succeeded", diagnostics: [], error_code: null,
+        versions: {
+          rule_version: "risk-rules-v1", evidence_version: "evidence-v1",
+          embedding_model_id: "mock-embedding", embedding_version: "v1",
+          embedding_dimension: 4, rag_model_version: "mock-rag-v1",
+          scanner_version: "scanner-v1", ocr_provider: "mock",
+          ocr_model_id: "mock-ocr-v1", ocr_contract_version: "mock-ocr-v1",
+          ocr_config_version: "mock-static-v1",
+        },
+        scanned_at: "2026-07-29T14:00:00+08:00",
+        disclaimer: "辅助判断，不保证通过平台审核",
+      },
+    }],
+    generation_records: [{
+      id: "generation-professional", kind: "cover", status: "succeeded",
+      provider: "mock", model_id: "mock-image-v1", contract_version: "cover-contract-v1",
+      account_style_version: null, column_override_version: null,
+      confirmed_facts_version: null, viral_reference_count: null, preset_version: null,
+      original_result: null, final_result: null, adoption_status: null,
+      modification_magnitude: null, created_at: "2026-07-29T15:00:00+08:00",
+      completed_at: "2026-07-29T15:01:00+08:00",
+    }],
+  } as ContentDetailData;
+
+  const { rerender } = renderInWorkspace(
+    <ContentDetailTabs activeTab="analysis" detail={governed} onTabChange={() => undefined} role="editor" />,
+    "editor",
+  );
+  expect(screen.getByText(/Evidence：metric:views/)).toBeVisible();
+  expect(screen.getAllByText(/置信度/).length).toBeGreaterThan(0);
+  expect(screen.getByText("analysis-prompt-v1")).toBeVisible();
+
+  rerender(<ContentDetailTabs activeTab="risk" detail={governed} onTabChange={() => undefined} role="editor" />);
+  expect(screen.getByText("确定性规则 + RAG")).toBeVisible();
+  expect(screen.getByText(/OCR 置信度：62%/)).toBeVisible();
+  expect(screen.getByText(/Embedding/)).toBeVisible();
+  expect(screen.getByText("risk-rules-v1")).toBeVisible();
+
+  rerender(<ContentDetailTabs activeTab="generation" detail={governed} onTabChange={() => undefined} role="editor" />);
+  expect(screen.getByText("Provider 与模型安全状态")).toBeVisible();
+  expect(screen.getByText("封面生成任务 · succeeded")).toBeVisible();
+  expect(screen.getByText("cover-contract-v1")).toBeVisible();
+});
+
+test("keeps Viewer empty guidance read/contact-only", () => {
+  renderInWorkspace(
+    <ContentDetailTabs activeTab="snapshots" detail={{ ...detail, snapshots: [] }} onTabChange={() => undefined} role="viewer" />,
+    "viewer",
+  );
+
+  expect(screen.getByText(
+    "这里还没有数据快照；需要补充或确认时，请联系管理员或编辑者。",
+  )).toBeVisible();
+  expect(document.body).not.toHaveTextContent("添加并人工确认数据快照");
+});
+
+test("keeps title, purpose, and guide in content-detail loading and safe error states", async () => {
+  loadContentDetail.mockImplementationOnce(() => new Promise(() => undefined));
+  const { unmount } = renderInWorkspace(
+    <ContentDetailPage contentId="content-1" workspaceId="workspace-1" />,
+  );
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByRole("heading", { level: 1, name: "内容详情" })).toBeVisible();
+  expect(screen.getByText("在一处查看这条作品的数据、分析、风险和生成记录。")).toBeVisible();
+  expect(screen.getByRole("button", { name: "查看操作说明" })).toBeVisible();
+
+  unmount();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  localStorage.setItem("operations-ai:page-guidance:member-admin", "off");
+  loadContentDetail.mockRejectedValueOnce(new Error("PRIVATE_PROVIDER_ERROR"));
+  renderInWorkspace(<ContentDetailPage contentId="content-1" workspaceId="workspace-1" />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "内容详情暂时无法读取；已保存内容不会受到影响。",
+  );
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(screen.getByText(
+    "展示服务端可确认的生命周期、同口径快照、分析版本、风险扫描和安全关联生成记录。",
+  )).toBeVisible();
+  expect(screen.queryByText("建议先做")).not.toBeInTheDocument();
+  expect(document.body).not.toHaveTextContent("PRIVATE_PROVIDER_ERROR");
 });

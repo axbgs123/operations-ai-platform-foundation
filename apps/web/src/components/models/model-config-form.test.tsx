@@ -231,7 +231,14 @@ test("easy mode explains secret storage, real provider cost, and trial status", 
   )).toBeVisible();
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   expect(screen.getByLabelText("模型服务")).toHaveValue("qianwen");
+  expect(screen.getByLabelText("模型服务密钥")).toHaveAttribute("type", "password");
   expect(screen.queryByLabelText("Provider")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "文本生成模型" })).toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "资料检索模型" })).toBeInTheDocument();
+  expect(document.body.textContent).not.toMatch(
+    /\b(?:Provider|Embedding|Mock|API Key|not_run)\b|qwen3\.5-plus|text-embedding-v4/,
+  );
 });
 
 test("easy mode translates loaded model and validation states without exposing safe codes", async () => {
@@ -320,7 +327,7 @@ test("easy mode translates provider post-actions and uncertain validation outcom
   });
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
-  const key = await screen.findByLabelText("API Key");
+  const key = await screen.findByLabelText("模型服务密钥");
   fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
   fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
   await screen.findByRole("button", { name: "运行受控合同验证" });

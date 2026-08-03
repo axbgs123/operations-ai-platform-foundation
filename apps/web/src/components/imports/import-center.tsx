@@ -20,7 +20,13 @@ import {
   Skeleton,
   StatusBadge,
 } from "@/components/workbench/ui";
-import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { GuidedPageHeader, GuidedPageShell } from "@/components/workbench/guided-page-header";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import {
+  displayText,
+  importHistoryActionCopy,
+  importMethodDescriptionCopy,
+} from "@/components/workbench/operator-display-copy";
 import {
   loadImportHistory,
   type ImportHistoryData,
@@ -114,12 +120,15 @@ function historyHref(
 function ImportHistory({
   data,
   onPageChange,
+  role,
   workspaceId,
 }: {
   data: ImportHistoryData;
   onPageChange: (page: number) => void;
+  role: "admin" | "editor" | "viewer";
   workspaceId: string;
 }): ReactElement {
+  const { copyMode } = useExperiencePreferences();
   return (
     <section className="space-y-4" aria-labelledby="import-history-heading">
       <div>
@@ -127,7 +136,9 @@ function ImportHistory({
           导入历史
         </h2>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          仅展示安全状态、统计和下一步，不返回文件、截图、OCR正文或令牌。
+          {copyMode === "simple"
+            ? "仅展示安全状态、统计和下一步，不返回文件、截图识别正文或令牌。"
+            : "仅展示安全状态、统计和下一步，不返回文件、截图、OCR正文或令牌。"}
         </p>
       </div>
       {!data.items.length ? (
@@ -193,13 +204,7 @@ function ImportHistory({
                           className="font-semibold text-[var(--brand)]"
                           href={historyHref(workspaceId, item)}
                         >
-                          {item.next_action === "wait"
-                            ? "查看状态"
-                            : item.next_action === "open_result"
-                              ? "查看结果"
-                              : item.next_action === "retry"
-                                ? "查看失败"
-                                : "继续确认"}
+                          {displayText(importHistoryActionCopy(item.next_action, role), copyMode)}
                         </Link>
                       )}
                     </td>
@@ -236,7 +241,7 @@ function ImportHistory({
                     className="mt-3 inline-flex font-semibold text-[var(--brand)]"
                     href={historyHref(workspaceId, item)}
                   >
-                    查看下一步
+                    {displayText(importHistoryActionCopy(item.next_action, role), copyMode)}
                   </Link>
                 ) : null}
               </li>
@@ -299,6 +304,7 @@ export function ImportCenter({
   }) => void;
   onHistoryPageChange?: (page: number) => void;
 }): ReactElement {
+  const { copyMode } = useExperiencePreferences();
   const writable = role !== "viewer";
   const visibleAccounts = accounts.filter(
     (account) => !platform || account.platform === platform,
@@ -390,7 +396,7 @@ export function ImportCenter({
             >
               <span className="font-semibold">{item.label}</span>
               <span className="mt-2 block text-sm text-[var(--text-secondary)]">
-                {item.description}
+                {displayText(importMethodDescriptionCopy(item.id), copyMode)}
               </span>
             </button>
           ))}
@@ -461,6 +467,7 @@ export function ImportCenter({
       <ImportHistory
         data={history}
         onPageChange={onHistoryPageChange}
+        role={role}
         workspaceId={workspaceId}
       />
     </div>
@@ -545,10 +552,21 @@ export function ImportCenterPage({
     || state.status === "loading"
     || state.queryKey !== searchKey
   ) {
-    return <Skeleton label="正在加载数据导入中心" />;
+    return (
+      <GuidedPageShell pageId="imports">
+        <Skeleton label="正在加载数据导入中心" />
+      </GuidedPageShell>
+    );
   }
   if (state.status === "failed") {
-    return <ErrorState description={state.message} title="数据导入加载失败" />;
+    return (
+      <GuidedPageShell pageId="imports">
+        <ErrorState
+          description="导入历史暂时无法读取；已保存数据和当前筛选不会受到影响。"
+          title="数据导入加载失败"
+        />
+      </GuidedPageShell>
+    );
   }
 
   function replaceQuery(change: Record<string, string | undefined>) {

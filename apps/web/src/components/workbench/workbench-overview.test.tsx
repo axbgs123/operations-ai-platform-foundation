@@ -128,6 +128,9 @@ test("shows operational status in required order without mixed business metrics"
   expect(screen.getByText("2 个账号缺少推荐快照")).toBeVisible();
   expect(screen.getByText("抖音合成账号")).toBeVisible();
   expect(screen.getByText("小红书合成账号")).toBeVisible();
+  expect(screen.getByText("2 条图片文字识别可信度较低")).toBeVisible();
+  expect(screen.getAllByText("数据采集时间").length).toBeGreaterThan(0);
+  expect(document.body.textContent).not.toMatch(/\bOCR\b|成熟度/);
   expect(screen.queryByText(/总播放量|总曝光量|CTR|互动率|综合趋势|综合运营分/)).not.toBeInTheDocument();
 });
 
@@ -177,8 +180,43 @@ test("does not render fake write shortcuts for a viewer", () => {
   expect(
     screen.queryByRole("link", { name: "确认等待中的数据导入" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByText("该事项需要编辑者或管理员处理")).toBeVisible();
+  expect(screen.getByRole("link", {
+    name: "查看等待确认的导入记录；需要确认时请联系管理员或编辑者。",
+  })).toBeVisible();
   expect(screen.getByText("查看账号状态和待分析内容")).toBeVisible();
+});
+
+test("maps every server-provided overview action to read/contact-only copy for viewers", () => {
+  renderInWorkspace(
+    <WorkbenchOverview
+      overview={{
+        ...overview,
+        next_action: {
+          kind: "review_analysis",
+          label: "处理待分析内容",
+          href: "/workspaces/workspace-1/analysis",
+        },
+      }}
+      role="viewer"
+      workspaceId="workspace-1"
+    />,
+    "viewer",
+  );
+
+  expect(screen.queryByText("处理待分析内容")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", {
+    name: "查看待分析内容和当前状态；需要处理时请联系管理员或编辑者。",
+  })).toBeVisible();
+});
+
+test("professional overview preserves OCR and maturity wording", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  renderInWorkspace(
+    <WorkbenchOverview overview={overview} workspaceId="workspace-1" />,
+  );
+
+  expect(screen.getByText("2 条低置信度 OCR")).toBeVisible();
+  expect(screen.getAllByText("快照成熟度").length).toBeGreaterThan(0);
 });
 
 test("does not offer account configuration to an empty viewer workspace", () => {
@@ -192,4 +230,8 @@ test("does not offer account configuration to an empty viewer workspace", () => 
   );
 
   expect(screen.queryByRole("link", { name: "配置平台账号" })).not.toBeInTheDocument();
+  expect(screen.getByText(
+    "这里还没有平台账号；需要添加时，请联系管理员或编辑者。",
+  )).toBeVisible();
+  expect(document.body).not.toHaveTextContent("创建抖音或小红书账号后");
 });

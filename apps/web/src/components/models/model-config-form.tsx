@@ -4,6 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import {
+  displayText,
+  modelCapabilityCopy,
+  modelChoiceCopy,
+} from "@/components/workbench/operator-display-copy";
 import { readOperationsAccess } from "@/lib/operations-api";
 import {
   getModelCatalog,
@@ -261,16 +266,16 @@ export function ModelConfigForm({
             />
           </label>
           <label className="text-sm">
-            精确模型
+            {copyMode === "simple" ? "模型能力" : "精确模型"}
             <select
-              aria-label="精确模型"
+              aria-label={copyMode === "simple" ? "模型能力" : "精确模型"}
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
               onChange={(event) => setModelId(event.target.value)}
               value={modelId}
             >
               {(catalog?.models ?? []).map((model) => (
                 <option key={model.model_id} value={model.model_id}>
-                  {model.model_id} · {model.capability}
+                  {displayText(modelChoiceCopy(model.capability, model.model_id), copyMode)}
                 </option>
               ))}
             </select>
@@ -297,9 +302,9 @@ export function ModelConfigForm({
             </select>
           </label>
           <label className="text-sm sm:col-span-2">
-            API Key
+            {copyMode === "simple" ? "模型服务密钥" : "API Key"}
             <input
-              aria-label="API Key"
+              aria-label={copyMode === "simple" ? "模型服务密钥" : "API Key"}
               autoComplete="new-password"
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
               onChange={(event) => setApiKey(event.target.value)}
@@ -342,28 +347,29 @@ export function ModelConfigForm({
                 }
                 value={policyCapability}
               >
-                <option value="text">text</option>
-                <option value="vision">vision</option>
-                <option value="embedding">embedding</option>
-                <option value="image">image</option>
+                {(["text", "vision", "embedding", "image"] as const).map((capability) => (
+                  <option key={capability} value={capability}>
+                    {displayText(modelCapabilityCopy(capability), copyMode)}
+                  </option>
+                ))}
               </select>
             </label>
             {[
               ["max_concurrent_calls", "最大并发", 2],
               ["max_calls_per_minute", "每分钟调用", 20],
               ["daily_request_limit", "每日调用", 100],
-              ["daily_input_token_limit", "每日输入 token", 100000],
-              ["daily_output_token_limit", "每日输出 token", 20000],
+              ["daily_input_token_limit", copyMode === "simple" ? "每日输入文字量" : "每日输入 token", 100000],
+              ["daily_output_token_limit", copyMode === "simple" ? "每日输出文字量" : "每日输出 token", 20000],
               [
                 "daily_embedding_token_limit",
-                "每日 Embedding token",
+                copyMode === "simple" ? "每日资料检索文字量" : "每日 Embedding token",
                 100000,
               ],
-              ["daily_ocr_image_limit", "每日 OCR 图片", 100],
+              ["daily_ocr_image_limit", copyMode === "simple" ? "每日图片文字识别数量" : "每日 OCR 图片", 100],
               ["daily_generated_image_limit", "每日生成图片", 10],
               [
                 "daily_cost_limit_microunits",
-                "每日费用上限（CNY microunits）",
+                copyMode === "simple" ? "每日费用上限（人民币最小计费单位）" : "每日费用上限（CNY microunits）",
                 1000000,
               ],
             ].map(([name, label, value]) => (

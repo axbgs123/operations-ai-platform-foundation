@@ -10,7 +10,18 @@ import {
 } from "react";
 
 import type { WorkbenchAccount } from "@/components/workbench/scope-query";
-import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { GuidedPageHeader, GuidedPageShell } from "@/components/workbench/guided-page-header";
+import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
+import {
+  displayText,
+  OPERATOR_TERMS,
+  preflightEvidenceCopy,
+  preflightOcrCopy,
+  preflightStatusCopy,
+  riskSeverityCopy,
+  versionValueCopy,
+  viewerPreflightActionCopy,
+} from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
   DataTableFrame,
@@ -57,17 +68,6 @@ const STATUSES = new Set([
   "scan_failed",
 ]);
 const SORTS = new Set(["newest", "oldest"]);
-
-const statusLabel = {
-  pending_scan: "待扫描",
-  high_risk_blocked: "高风险阻断",
-  low_confidence_ocr: "OCR低置信度",
-  no_active_rag_evidence: "无有效RAG证据",
-  modified_awaiting_rescan: "已修改待复检",
-  manually_confirmed: "已通过人工确认",
-  review_required: "待人工确认",
-  scan_failed: "检查失败",
-} as const;
 
 const nextAction = {
   pending_scan: "执行或等待发布前检查",
@@ -185,6 +185,7 @@ export function PreflightQueue({
   data,
   filters,
   onFiltersChange,
+  role,
   workspaceId,
 }: {
   accounts: WorkbenchAccount[];
@@ -194,6 +195,7 @@ export function PreflightQueue({
   role: "admin" | "editor" | "viewer";
   workspaceId: string;
 }): ReactElement {
+  const { copyMode } = useExperiencePreferences();
   const visibleAccounts = accounts.filter(
     (account) => account.platform === filters.platform,
   );
@@ -260,8 +262,10 @@ export function PreflightQueue({
             value={filters.status ?? ""}
           >
             <option value="">全部状态</option>
-            {Object.entries(statusLabel).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+            {[...STATUSES].map((value) => (
+              <option key={value} value={value}>
+                {displayText(preflightStatusCopy(value), copyMode)}
+              </option>
             ))}
           </select>
         </label>
@@ -296,7 +300,15 @@ export function PreflightQueue({
             <table className="hidden min-w-[1120px] w-full text-left text-sm md:table">
               <thead className="bg-slate-50 text-[var(--text-secondary)]">
                 <tr>
-                  {["内容", "范围", "状态", "OCR", "Evidence", "版本", "下一步"].map(
+                  {[
+                    "内容",
+                    "范围",
+                    "状态",
+                    displayText(OPERATOR_TERMS.ocr, copyMode),
+                    displayText(OPERATOR_TERMS.evidence, copyMode),
+                    "版本",
+                    "下一步",
+                  ].map(
                     (label) => <th className="px-3 py-3" key={label}>{label}</th>,
                   )}
                 </tr>
@@ -312,17 +324,30 @@ export function PreflightQueue({
                     </td>
                     <td className="px-3 py-3">
                       <StatusBadge tone={tone(item.status)}>
-                        {statusLabel[item.status]}
+                        {displayText(preflightStatusCopy(item.status), copyMode)}
                       </StatusBadge>
                     </td>
-                    <td className="px-3 py-3">{item.ocr_status}</td>
-                    <td className="px-3 py-3">{item.evidence_status}</td>
                     <td className="px-3 py-3">
-                      规则 {item.rule_version ?? "未提供"} · 扫描{" "}
-                      {item.scan_version ?? "未提供"}
+                      {displayText(preflightOcrCopy(item.ocr_status), copyMode)}
                     </td>
                     <td className="px-3 py-3">
-                      <p>{item.next_action ?? nextAction[item.status]}</p>
+                      {displayText(preflightEvidenceCopy(item.evidence_status), copyMode)}
+                    </td>
+                    <td className="px-3 py-3">
+                      {copyMode === "simple"
+                        ? "规则和检查版本已记录"
+                        : `规则 ${displayText(versionValueCopy(item.rule_version), copyMode)} · 扫描 ${displayText(versionValueCopy(item.scan_version), copyMode)}`}
+                    </td>
+                    <td className="px-3 py-3">
+                      <p>{displayText(
+                        role === "viewer"
+                          ? viewerPreflightActionCopy(item.next_action ?? nextAction[item.status])
+                          : {
+                              simple: item.next_action ?? nextAction[item.status],
+                              professional: item.next_action ?? nextAction[item.status],
+                            },
+                        copyMode,
+                      )}</p>
                       <Link
                         className="mt-2 inline-flex font-semibold text-[var(--brand)]"
                         href={detailHref(workspaceId, item.content_id, filters)}
@@ -344,7 +369,7 @@ export function PreflightQueue({
                 <div className="flex items-start justify-between gap-3">
                   <p className="font-semibold">{item.safe_summary}</p>
                   <StatusBadge tone={tone(item.status)}>
-                    {statusLabel[item.status]}
+                    {displayText(preflightStatusCopy(item.status), copyMode)}
                   </StatusBadge>
                 </div>
                 <p className="mt-2 text-sm text-[var(--text-secondary)]">
@@ -352,10 +377,26 @@ export function PreflightQueue({
                   {item.account_name}
                 </p>
                 <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                  <div><dt>OCR</dt><dd>{item.ocr_status}</dd></div>
-                  <div><dt>Evidence</dt><dd>{item.evidence_status}</dd></div>
-                  <div><dt>风险</dt><dd>{item.highest_severity ?? "未提供"}</dd></div>
-                  <div><dt>下一步</dt><dd>{item.next_action ?? nextAction[item.status]}</dd></div>
+                  <div>
+                    <dt>{displayText(OPERATOR_TERMS.ocr, copyMode)}</dt>
+                    <dd>{displayText(preflightOcrCopy(item.ocr_status), copyMode)}</dd>
+                  </div>
+                  <div>
+                    <dt>{displayText(OPERATOR_TERMS.evidence, copyMode)}</dt>
+                    <dd>{displayText(preflightEvidenceCopy(item.evidence_status), copyMode)}</dd>
+                  </div>
+                  <div><dt>风险</dt><dd>{item.highest_severity
+                    ? displayText(riskSeverityCopy(item.highest_severity), copyMode)
+                    : "未提供"}</dd></div>
+                  <div><dt>下一步</dt><dd>{displayText(
+                    role === "viewer"
+                      ? viewerPreflightActionCopy(item.next_action ?? nextAction[item.status])
+                      : {
+                          simple: item.next_action ?? nextAction[item.status],
+                          professional: item.next_action ?? nextAction[item.status],
+                        },
+                    copyMode,
+                  )}</dd></div>
                 </dl>
                 <Link
                   className="mt-4 inline-flex font-semibold text-[var(--brand)]"
@@ -472,10 +513,21 @@ export function PreflightQueuePage({
     filters.platform
     && (state.status === "idle" || state.queryKey !== searchKey)
   ) {
-    return <Skeleton label="正在加载发布前检查队列" />;
+    return (
+      <GuidedPageShell context={preflightNoEvidence} pageId="preflight">
+        <Skeleton label="正在加载发布前检查队列" />
+      </GuidedPageShell>
+    );
   }
   if (state.status === "failed" && state.queryKey === searchKey) {
-    return <ErrorState description={state.message} title="发布前检查加载失败" />;
+    return (
+      <GuidedPageShell context={preflightNoEvidence} pageId="preflight">
+        <ErrorState
+          description="发布前检查队列暂时无法读取；已保存内容不会受到影响。"
+          title="发布前检查加载失败"
+        />
+      </GuidedPageShell>
+    );
   }
   const data = state.status === "ready" && state.queryKey === searchKey
     ? state.data
