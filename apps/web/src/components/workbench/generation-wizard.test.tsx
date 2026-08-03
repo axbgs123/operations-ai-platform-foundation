@@ -115,7 +115,7 @@ const fixture: GenerationWizardFixture = {
       workspace_id: "workspace-1",
       account_id: "dy-1",
       scope_key: "account",
-      column_campaign_id: null,
+      column_campaign_id: "column-1",
       version: 3,
       status: "confirmed",
       style: {},
@@ -325,7 +325,7 @@ test("preserves exact generation runtime detail and review errors in professiona
 });
 
 test("defaults independent style inheritance on", () => {
-  renderInWorkspace(
+  const easy = renderInWorkspace(
     <GenerationWizard
       fixture={fixture}
       initialStep="references"
@@ -340,7 +340,76 @@ test("defaults independent style inheritance on", () => {
   expect(screen.getByText(
     "试用状态，真实效果和费用尚未完成验收",
   )).toBeVisible();
+  expect(screen.getByText(
+    "账号风格版本：已记录，可在专业模式查看",
+  )).toBeVisible();
+  expect(screen.getByText("栏目临时覆盖：AI 栏目")).toBeVisible();
+  expect(easy.container).not.toHaveTextContent("账号风格版本：v3");
+  expect(easy.container).not.toHaveTextContent("column-1");
+});
+
+test("uses the selected column display name instead of its identifier in easy mode", () => {
+  sessionStorage.setItem(
+    generationDraftStorageKey("workspace-1", "member-1"),
+    JSON.stringify({
+      step: "references",
+      accountId: "dy-1",
+      columnId: "column-1",
+      objectiveId: null,
+      inheritTitleStyle: true,
+      inheritCopyStyle: true,
+      inheritCoverStyle: true,
+      viralReferenceIds: [],
+      factSourceIds: [],
+    }),
+  );
+  const easy = renderInWorkspace(
+    <GenerationWizard
+      fixture={fixture}
+      initialStep="references"
+      memberId="member-1"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  expect(screen.getAllByText("AI 栏目").length).toBeGreaterThan(0);
+  expect(screen.getByText("栏目临时覆盖：AI 栏目")).toBeVisible();
+  expect(easy.container).not.toHaveTextContent("column-1");
+  expect(easy.container).not.toHaveTextContent("v3");
+});
+
+test("professional mode retains style version, campaign ID, and selected column ID", () => {
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  sessionStorage.setItem(
+    generationDraftStorageKey("workspace-1", "member-1"),
+    JSON.stringify({
+      step: "references",
+      accountId: "dy-1",
+      columnId: "column-1",
+      objectiveId: null,
+      inheritTitleStyle: true,
+      inheritCopyStyle: true,
+      inheritCoverStyle: true,
+      viralReferenceIds: [],
+      factSourceIds: [],
+    }),
+  );
+  const professional = renderInWorkspace(
+    <GenerationWizard
+      fixture={fixture}
+      initialStep="references"
+      memberId="member-1"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
   expect(screen.getByText("账号风格版本：v3")).toBeVisible();
+  expect(screen.getByText("栏目临时覆盖：生效于 column-1")).toBeVisible();
+  expect(professional.container).toHaveTextContent("column-1");
 });
 
 test("blocks confirmed fact conflicts and permits an explicit unconstrained draft", async () => {

@@ -9,6 +9,12 @@ import {
   displayCopy,
   displayText,
   exportBoundaryCopy,
+  restoreActionCopy,
+  restorePhaseCopy,
+  restoreReasonCopy,
+  restoreRecordTypeCopy,
+  taskStatusCopy,
+  versionValueCopy,
 } from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
@@ -130,21 +136,6 @@ const exportHistoryEmptyCopy: ModeAwareCopy = {
   professional: "创建导出后会在这里显示状态、完成时间和安全错误码。",
 };
 
-const internalStateCopy: Record<string, ModeAwareCopy> = {
-  configuration_required: {
-    simple: "还没有完成所需配置",
-    professional: "configuration_required",
-  },
-  compensation_required: {
-    simple: "自动清理没有完成，需要管理员处理",
-    professional: "compensation_required",
-  },
-  provider_outcome_unknown: {
-    simple: "模型服务是否已经计费暂时无法确认，请勿直接重复提交",
-    professional: "provider_outcome_unknown",
-  },
-};
-
 export function ExportBackupCenter({
   workspaceId,
   role: suppliedRole,
@@ -172,11 +163,6 @@ export function ExportBackupCenter({
   const now = evaluatedAt ? Date.parse(evaluatedAt) : 0;
   const canExport = role === "admin" || role === "editor";
   const canRestore = role === "admin";
-  const displayState = (value: string) => (
-    internalStateCopy[value]
-      ? copyForMode(internalStateCopy[value], copyMode)
-      : value
-  );
 
   useEffect(() => {
     if (fixture) return;
@@ -337,6 +323,7 @@ export function ExportBackupCenter({
           title="JSON 恢复预览"
         >
           <RestoreActions
+            copyMode={copyMode}
             items={
               jsonPreview?.items.map((item) => ({
                 action: item.action,
@@ -379,10 +366,18 @@ export function ExportBackupCenter({
           {zipRestore ? (
             <div className="mt-3 space-y-2 text-sm" role="status">
               <p>
-                阶段：{displayState(zipRestore.phase)}；状态：
-                {displayState(zipRestore.status)}
+                阶段：{displayText(
+                  restorePhaseCopy(zipRestore.phase),
+                  copyMode,
+                )}；状态：
+                {displayText(taskStatusCopy(zipRestore.status), copyMode)}
               </p>
-              <p>预览 ID：{zipRestore.preview_id}</p>
+              <p>
+                {displayText(displayCopy(
+                  `预览标识：${versionValueCopy(zipRestore.preview_id).simple}`,
+                  `预览 ID：${versionValueCopy(zipRestore.preview_id).professional}`,
+                ), copyMode)}
+              </p>
               {canRestore && zipRestore.phase === "preview_ready" ? (
                 <button
                   className="rounded-lg bg-red-700 px-4 py-2 font-semibold text-white"
@@ -437,11 +432,19 @@ export function ExportBackupCenter({
                   <StatusBadge
                     tone={task.status === "failed" ? "danger" : task.status === "succeeded" ? "success" : "info"}
                   >
-                    {displayState(task.status)}
+                    {displayText(taskStatusCopy(task.status), copyMode)}
                   </StatusBadge>
                 </div>
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-                  <div><dt>创建人</dt><dd>{task.requested_by}</dd></div>
+                  <div>
+                    <dt>创建人</dt>
+                    <dd>
+                      {displayText(
+                        versionValueCopy(task.requested_by),
+                        copyMode,
+                      )}
+                    </dd>
+                  </div>
                   <div><dt>创建时间</dt><dd>{task.created_at}</dd></div>
                   <div><dt>完成时间</dt><dd>{task.completed_at ?? "未完成"}</dd></div>
                   <div><dt>下载过期时间</dt><dd>{task.download_expires_at ?? "尚未生成"}</dd></div>
@@ -449,7 +452,14 @@ export function ExportBackupCenter({
                     <dt>
                       {copyMode === "simple" ? "失败原因编号" : "安全错误码"}
                     </dt>
-                    <dd>{task.error_code ?? "无"}</dd>
+                    <dd>
+                      {task.error_code
+                        ? displayText(
+                            versionValueCopy(task.error_code),
+                            copyMode,
+                          )
+                        : "无"}
+                    </dd>
                   </div>
                 </dl>
                 {expired ? (
@@ -477,8 +487,10 @@ export function ExportBackupCenter({
 }
 
 function RestoreActions({
+  copyMode,
   items,
 }: {
+  copyMode: "simple" | "professional";
   items: ExportBackupFixture["restorePreview"];
 }) {
   return (
@@ -491,9 +503,18 @@ function RestoreActions({
       ).map((item) => (
         <article className="rounded-lg bg-slate-50 p-3 text-sm" key={`${item.action}:${item.record_type}`}>
           <StatusBadge tone={item.action === "conflict" ? "danger" : item.action === "overwrite" ? "warning" : "neutral"}>
-            {actionLabels[item.action]}
+            {items.length > 0
+              ? displayText(restoreActionCopy(item.action), copyMode)
+              : actionLabels[item.action]}
           </StatusBadge>
-          <p className="mt-2">{item.record_type} · {item.reason}</p>
+          <p className="mt-2">
+            {items.length > 0
+              ? `${displayText(
+                  restoreRecordTypeCopy(item.record_type),
+                  copyMode,
+                )} · ${displayText(restoreReasonCopy(item.reason), copyMode)}`
+              : `${item.record_type} · ${item.reason}`}
+          </p>
         </article>
       ))}
     </div>

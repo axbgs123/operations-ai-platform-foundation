@@ -7,6 +7,8 @@ import { useExperiencePreferences } from "@/components/workbench/experience-pref
 import {
   displayCopy,
   displayText,
+  trashResourceCopy,
+  versionValueCopy,
 } from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import {
@@ -169,7 +171,16 @@ export function TrashCenter({
               <article className="rounded-lg border p-4" key={item.id}>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <strong>{item.title ?? `${item.resource_type} · ${item.resource_id}`}</strong>
+                    <strong>
+                      {displayText(
+                        trashResourceCopy(
+                          item.resource_type,
+                          item.resource_id,
+                          item.title,
+                        ),
+                        copyMode,
+                      )}
+                    </strong>
                     <p className="mt-1 text-sm text-[var(--text-secondary)]">
                       {item.platform ? (item.platform === "douyin" ? "抖音" : "小红书") : "平台当前记录未提供"}
                       {" · "}
@@ -181,7 +192,17 @@ export function TrashCenter({
                   </StatusBadge>
                 </div>
                 <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-                  <div><dt>删除人</dt><dd>{item.deleted_by ?? "系统"}</dd></div>
+                  <div>
+                    <dt>删除人</dt>
+                    <dd>
+                      {item.deleted_by
+                        ? displayText(
+                            versionValueCopy(item.deleted_by),
+                            copyMode,
+                          )
+                        : "系统"}
+                    </dd>
+                  </div>
                   <div><dt>删除时间</dt><dd>{item.deleted_at}</dd></div>
                   <div><dt>可恢复截止时间</dt><dd>{item.scheduled_purge_at}</dd></div>
                 </dl>

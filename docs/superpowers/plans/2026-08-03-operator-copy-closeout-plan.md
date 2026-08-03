@@ -344,4 +344,3 @@ git add \
   docs/acceptance/requirements-traceability.md
 git commit -m "test: close operator copy acceptance"
 ```
-

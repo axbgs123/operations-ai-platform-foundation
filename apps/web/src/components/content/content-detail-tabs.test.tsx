@@ -663,6 +663,8 @@ test("renders governed analysis, cited risk, and safe generation metadata in eas
   expect(screen.queryByText(/安全错误码：RISK_SCAN_FAILED/)).not.toBeInTheDocument();
   expect(screen.getByText("最近一次成功扫描（历史参考）")).toBeVisible();
   expect(screen.getByText("固定规则和已保存资料共同判断")).toBeVisible();
+  expect(screen.getByText(/复检来源：已记录，可在专业模式查看/)).toBeVisible();
+  expect(document.body).not.toHaveTextContent("scan-1");
   expect(screen.queryByText("当前扫描没有发现")).not.toBeInTheDocument();
 
   rerender(
@@ -706,7 +708,7 @@ test("preserves the exact professional analysis, risk, and generation terminolog
       created_at: "2026-07-29T13:00:00+08:00", completed_at: "2026-07-29T13:01:00+08:00",
     }],
     risk_scans: [{
-      id: "scan-professional", previous_scan_id: null, status: "succeeded",
+      id: "scan-professional", previous_scan_id: "scan-parent-professional", status: "succeeded",
       node: "before_publication", error_code: null, diagnostics: [],
       rule_version: "risk-rules-v1", evidence_version: "evidence-v1",
       embedding_model_id: "mock-embedding", embedding_version: "v1",
@@ -758,6 +760,7 @@ test("preserves the exact professional analysis, risk, and generation terminolog
   expect(screen.getByText(/OCR 置信度：62%/)).toBeVisible();
   expect(screen.getByText(/Embedding/)).toBeVisible();
   expect(screen.getByText("risk-rules-v1")).toBeVisible();
+  expect(screen.getByText(/复检自 scan-parent-professional/)).toBeVisible();
 
   rerender(<ContentDetailTabs activeTab="generation" detail={governed} onTabChange={() => undefined} role="editor" />);
   expect(screen.getByText("Provider 与模型安全状态")).toBeVisible();

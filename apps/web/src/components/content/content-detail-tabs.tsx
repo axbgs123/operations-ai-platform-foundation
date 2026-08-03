@@ -26,6 +26,7 @@ import { useExperiencePreferences } from "@/components/workbench/experience-pref
 import {
   adoptionStatusCopy,
   analysisConfidenceCopy,
+  displayCopy,
   displayText,
   internalReferenceCopy,
   OPERATOR_TERMS,
@@ -562,7 +563,15 @@ function RiskPanel({
           {scans.map((item) => (
             <li key={item.id}>
               {new Date(item.created_at).toLocaleString("zh-CN")} · {displayText(taskStatusCopy(item.status), copyMode)}
-              {item.previous_scan_id ? ` · 复检自 ${item.previous_scan_id}` : " · 首次扫描"}
+              {item.previous_scan_id
+                ? ` · ${displayText(displayCopy(
+                    internalReferenceCopy(
+                      item.previous_scan_id,
+                      "复检来源",
+                    ).simple,
+                    `复检自 ${item.previous_scan_id}`,
+                  ), copyMode)}`
+                : " · 首次扫描"}
             </li>
           ))}
         </ol>

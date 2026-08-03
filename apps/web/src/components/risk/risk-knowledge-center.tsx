@@ -14,8 +14,11 @@ import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import {
   displayCopy,
   displayText,
+  internalReferenceCopy,
   knowledgeTermCopy,
+  riskAuthorizationStatusCopy,
   riskDocumentStatusCopy,
+  riskSourceLevelCopy,
 } from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import { DesktopOnlyNotice, Panel, StatusBadge } from "@/components/workbench/ui";
@@ -168,7 +171,10 @@ export function RiskKnowledgeCenter({
                 <p className="mt-2 text-sm text-blue-700">
                   {document.platform === "douyin" ? "抖音" : "小红书"} ·{" "}
                   {document.scope === "private" ? "私有" : "公共"} ·{" "}
-                  {document.source_level}
+                  {displayText(
+                    riskSourceLevelCopy(document.source_level),
+                    copyMode,
+                  )}
                 </p>
               </div>
               <StatusBadge tone={document.status === "active" ? "success" : "neutral"}>
@@ -182,7 +188,13 @@ export function RiskKnowledgeCenter({
               <div>
                 <dt>来源</dt>
                 <dd className="text-[var(--text-primary)]">
-                  {document.source_url ?? document.private_document_id ?? "当前记录未提供"}
+                  {document.source_url ?? displayText(
+                    internalReferenceCopy(
+                      document.private_document_id,
+                      "私有来源标识",
+                    ),
+                    copyMode,
+                  )}
                 </dd>
               </div>
               <div>
@@ -200,7 +212,10 @@ export function RiskKnowledgeCenter({
               <div>
                 <dt>授权状态</dt>
                 <dd className="text-[var(--text-primary)]">
-                  {document.authorization_status}
+                  {displayText(
+                    riskAuthorizationStatusCopy(document.authorization_status),
+                    copyMode,
+                  )}
                 </dd>
               </div>
               <div>
@@ -263,7 +278,10 @@ export function RiskKnowledgeCenter({
           ), copyMode)}
         </p>
         <p className="mt-2 text-sm font-semibold text-amber-800">
-          S5 只能作为低置信度提示，不能独立支撑高风险结论
+          {displayText(displayCopy(
+            "未经验证的用户经验只能作为低可信提示，不能独立支撑高风险结论",
+            "S5 只能作为低置信度提示，不能独立支撑高风险结论",
+          ), copyMode)}
         </p>
         <div className="mt-4 md:hidden">
           <DesktopOnlyNotice action="复杂知识库审核" />
@@ -281,7 +299,17 @@ export function RiskKnowledgeCenter({
           <>
             <div className="grid gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
               <p>平台：{evaluation.platform === "douyin" ? "抖音" : "小红书"}</p>
-              <p>{copyMode === "simple" ? "评估版本" : "Fixture"}：{evaluation.fixture_version}</p>
+              <p>
+                {copyMode === "simple"
+                  ? displayText(
+                      internalReferenceCopy(
+                        evaluation.fixture_version,
+                        "评估配置",
+                      ),
+                      copyMode,
+                    )
+                  : `Fixture：${evaluation.fixture_version}`}
+              </p>
               <p>样本数：{evaluation.sample_count}</p>
             </div>
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">

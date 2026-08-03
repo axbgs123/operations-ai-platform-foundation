@@ -6,8 +6,15 @@ import {
   internalReferenceCopy,
   importHistoryActionCopy,
   knowledgeTermCopy,
+  restoreActionCopy,
+  restorePhaseCopy,
+  restoreReasonCopy,
+  restoreRecordTypeCopy,
+  riskAuthorizationStatusCopy,
   riskDocumentStatusCopy,
+  riskSourceLevelCopy,
   riskTypeCopy,
+  trashResourceCopy,
 } from "./operator-display-copy";
 
 test("maps controlled risk categories while preserving exact professional IDs", () => {
@@ -154,6 +161,114 @@ test("keeps unknown risk document lifecycle values professional-only", () => {
   expect(riskDocumentStatusCopy("internal_transition", 42)).toEqual({
     simple: "当前状态暂时无法识别 · 版本已记录，可在专业模式查看",
     professional: "internal_transition · v42",
+  });
+});
+
+test("explains every risk source level while preserving exact professional levels", () => {
+  expect(riskSourceLevelCopy("S1")).toEqual({
+    simple: "平台官方规则或公告",
+    professional: "S1",
+  });
+  expect(riskSourceLevelCopy("S2")).toEqual({
+    simple: "法律法规或监管材料",
+    professional: "S2",
+  });
+  expect(riskSourceLevelCopy("S3")).toEqual({
+    simple: "团队真实违规记录（默认私有）",
+    professional: "S3",
+  });
+  expect(riskSourceLevelCopy("S4")).toEqual({
+    simple: "已人工审核的行业案例",
+    professional: "S4",
+  });
+  expect(riskSourceLevelCopy("S5")).toEqual({
+    simple: "未经验证的用户经验（仅用于低可信提示）",
+    professional: "S5",
+  });
+  expect(riskSourceLevelCopy("internal_source")).toEqual({
+    simple: "来源等级已记录，可在专业模式查看",
+    professional: "internal_source",
+  });
+});
+
+test("maps risk authorization meaning without changing the professional state", () => {
+  expect(riskAuthorizationStatusCopy("not_required")).toEqual({
+    simple: "无需额外授权",
+    professional: "not_required",
+  });
+  expect(riskAuthorizationStatusCopy("authorized")).toEqual({
+    simple: "已获得使用授权",
+    professional: "authorized",
+  });
+  expect(riskAuthorizationStatusCopy("unverified")).toEqual({
+    simple: "授权尚未确认",
+    professional: "unverified",
+  });
+  expect(riskAuthorizationStatusCopy("restricted")).toEqual({
+    simple: "使用受到限制",
+    professional: "restricted",
+  });
+  expect(riskAuthorizationStatusCopy("internal_authorization")).toEqual({
+    simple: "授权状态已记录，可在专业模式查看",
+    professional: "internal_authorization",
+  });
+});
+
+test("maps restore phases, actions, record types, and reasons with safe fallbacks", () => {
+  expect(restorePhaseCopy("preview_ready")).toEqual({
+    simple: "恢复预览已准备，尚未修改正式数据",
+    professional: "preview_ready",
+  });
+  expect(restorePhaseCopy("database")).toEqual({
+    simple: "正在恢复结构化记录",
+    professional: "database",
+  });
+  expect(restorePhaseCopy("internal_phase")).toEqual({
+    simple: "恢复阶段已记录，可在专业模式查看",
+    professional: "internal_phase",
+  });
+  expect(restoreActionCopy("overwrite")).toEqual({
+    simple: "覆盖",
+    professional: "overwrite",
+  });
+  expect(restoreActionCopy("internal_action")).toEqual({
+    simple: "恢复动作已记录，可在专业模式查看",
+    professional: "internal_action",
+  });
+  expect(restoreRecordTypeCopy("platform_account")).toEqual({
+    simple: "平台账号",
+    professional: "platform_account",
+  });
+  expect(restoreRecordTypeCopy("risk_document_metadata")).toEqual({
+    simple: "风险规则资料",
+    professional: "risk_document_metadata",
+  });
+  expect(restoreRecordTypeCopy("internal_record")).toEqual({
+    simple: "记录类型已保存，可在专业模式查看",
+    professional: "internal_record",
+  });
+  expect(restoreReasonCopy("safe_mutable_fields_changed")).toEqual({
+    simple: "可安全迁移的字段有变化，将覆盖现有记录",
+    professional: "safe_mutable_fields_changed",
+  });
+  expect(restoreReasonCopy("immutable_record_changed")).toEqual({
+    simple: "不可变历史记录有变化，已阻断恢复",
+    professional: "immutable_record_changed",
+  });
+  expect(restoreReasonCopy("internal_reason")).toEqual({
+    simple: "恢复原因已记录，可在专业模式查看",
+    professional: "internal_reason",
+  });
+});
+
+test("keeps trash identifiers professional-only when no display name exists", () => {
+  expect(trashResourceCopy("content", "content-1")).toEqual({
+    simple: "已记录，可在专业模式查看",
+    professional: "content · content-1",
+  });
+  expect(trashResourceCopy("content", "content-1", "活动复盘")).toEqual({
+    simple: "活动复盘",
+    professional: "content · content-1",
   });
 });
 

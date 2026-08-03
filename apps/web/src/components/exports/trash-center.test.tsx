@@ -47,9 +47,6 @@ const fixture: TrashFixture = {
       id: "trash-1",
       resource_id: "content-1",
       resource_type: "content",
-      title: "合成内容安全摘要",
-      platform: "douyin",
-      account_name: "抖音合成账号",
       deleted_by: "member-1",
       deleted_at: "2026-07-29T08:00:00Z",
       scheduled_purge_at: "2099-07-29T08:00:00Z",
@@ -62,9 +59,6 @@ const fixture: TrashFixture = {
       id: "trash-2",
       resource_id: "content-2",
       resource_type: "content",
-      title: "已恢复内容",
-      platform: "xiaohongshu",
-      account_name: "小红书合成账号",
       deleted_by: "member-1",
       deleted_at: "2026-07-28T08:00:00Z",
       scheduled_purge_at: "2026-07-29T08:00:00Z",
@@ -115,6 +109,12 @@ test("shows content lifecycle and separates workspace deletion", () => {
     "因审计或关联资料要求而保留，暂时不能删除：关联风控扫描证据",
   )).toBeVisible();
   expect(screen.getByText("关联资料决定")).toBeVisible();
+  expect(screen.getAllByText(
+    "已记录，可在专业模式查看",
+  ).length).toBeGreaterThanOrEqual(3);
+  expect(easy.container.textContent).not.toMatch(
+    /\b(?:content|content-1|content-2|member-1)\b/,
+  );
   expect(easy.container.textContent).not.toMatch(/\bEvidence\b|门禁|向量/);
   expect(screen.queryByRole("button", { name: "删除工作区" })).not.toBeInTheDocument();
 });
@@ -137,9 +137,9 @@ test("viewer receives no restore or purge operation", () => {
   expect(screen.queryByRole("button", { name: "最终删除" })).not.toBeInTheDocument();
 });
 
-test("professional mode preserves retention evidence terminology", () => {
+test("professional mode preserves retention evidence terminology and exact trash identifiers", () => {
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
-  renderInWorkspace(
+  const professional = renderInWorkspace(
     <TrashCenter
       evaluatedAt="2026-07-30T00:00:00Z"
       fixture={{
@@ -153,4 +153,7 @@ test("professional mode preserves retention evidence terminology", () => {
 
   expect(screen.getByText("Evidence 保留：关联风控扫描证据")).toBeVisible();
   expect(screen.getByText("Evidence 决定")).toBeVisible();
+  expect(professional.container).toHaveTextContent("content · content-1");
+  expect(professional.container).toHaveTextContent("content · content-2");
+  expect(professional.container).toHaveTextContent("member-1");
 });

@@ -20,6 +20,7 @@ import {
   displayText,
   generationTermCopy,
   taskStatusCopy,
+  versionValueCopy,
 } from "@/components/workbench/operator-display-copy";
 import { DesktopOnlyNotice, StatusBadge } from "@/components/workbench/ui";
 import {
@@ -406,6 +407,12 @@ export function GenerationWizard({
     [controlledAccountId, fixture.styles],
   );
   const textModel = fixture.models.find((model) => model.capability === "text");
+  const selectedColumn = visibleColumns.find(
+    (column) => column.id === state.columnId,
+  );
+  const confirmedStyleColumn = fixture.columns.find(
+    (column) => column.id === confirmedStyle?.column_campaign_id,
+  );
   const factConflict = hasBlockingFactConflict(fixture, state);
   const chosenFacts = selectedFactSources(fixture, state);
   const generationReady = Boolean(
@@ -636,11 +643,22 @@ export function GenerationWizard({
               账号风格控制表达习惯，爆款引用只提供结构灵感，两者不会自动合并。
             </p>
             <p className="mt-2 font-medium">
-              账号风格版本：{confirmedStyle ? `v${confirmedStyle.version}` : "当前记录未提供"}
+              账号风格版本：{confirmedStyle
+                ? displayText(
+                    versionValueCopy(`v${confirmedStyle.version}`),
+                    copyMode,
+                  )
+                : "当前记录未提供"}
             </p>
             <p className="text-sm text-[var(--text-secondary)]">
               栏目临时覆盖：{confirmedStyle?.column_campaign_id
-                ? `生效于 ${confirmedStyle.column_campaign_id}`
+                ? displayText(displayCopy(
+                    confirmedStyleColumn?.name
+                      ?? versionValueCopy(
+                        confirmedStyle.column_campaign_id,
+                      ).simple,
+                    `生效于 ${confirmedStyle.column_campaign_id}`,
+                  ), copyMode)
                 : "未记录栏目覆盖，使用账号默认或当前记录未提供"}
             </p>
           </div>
@@ -931,7 +949,18 @@ export function GenerationWizard({
                     : "未选择"}</dd>
             </div>
             <div><dt>账号</dt><dd>{selectedAccount?.name ?? "未选择"}</dd></div>
-            <div><dt>栏目</dt><dd>{state.columnId ?? "账号默认"}</dd></div>
+            <div>
+              <dt>栏目</dt>
+              <dd>
+                {state.columnId
+                  ? displayText(displayCopy(
+                      selectedColumn?.name
+                        ?? versionValueCopy(state.columnId).simple,
+                      state.columnId,
+                    ), copyMode)
+                  : "账号默认"}
+              </dd>
+            </div>
             <div><dt>目标</dt><dd>{state.objectiveId ?? "未填写"}</dd></div>
             <div>
               <dt>事实来源</dt>

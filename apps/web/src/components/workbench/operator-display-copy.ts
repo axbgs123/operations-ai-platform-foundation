@@ -71,6 +71,7 @@ export function taskStatusCopy(value: string): ModeAwareCopy {
     validating: "正在检查结果",
     provider_outcome_unknown: "模型服务结果暂时无法确认",
     compensation_required: "自动清理没有完成，需要管理员处理",
+    configuration_required: "还没有完成所需配置",
     not_run: "尚未运行",
   }, "当前状态暂时无法识别");
 }
@@ -155,6 +156,25 @@ export function riskDocumentStatusCopy(
   );
 }
 
+export function riskSourceLevelCopy(value: string): ModeAwareCopy {
+  return rawState(value, {
+    S1: "平台官方规则或公告",
+    S2: "法律法规或监管材料",
+    S3: "团队真实违规记录（默认私有）",
+    S4: "已人工审核的行业案例",
+    S5: "未经验证的用户经验（仅用于低可信提示）",
+  }, "来源等级已记录，可在专业模式查看");
+}
+
+export function riskAuthorizationStatusCopy(value: string): ModeAwareCopy {
+  return rawState(value, {
+    not_required: "无需额外授权",
+    authorized: "已获得使用授权",
+    unverified: "授权尚未确认",
+    restricted: "使用受到限制",
+  }, "授权状态已记录，可在专业模式查看");
+}
+
 const riskTypeAliases: Readonly<Record<string, string>> = {
   contact_format: "联系方式格式风险",
   external_contact: "站外联系方式风险",
@@ -200,6 +220,62 @@ export function exportBoundaryCopy(
   }[value];
 }
 
+export function restorePhaseCopy(value: string): ModeAwareCopy {
+  return rawState(value, {
+    uploaded: "已接收备份文件",
+    validating: "正在验证备份内容",
+    preview_ready: "恢复预览已准备，尚未修改正式数据",
+    database: "正在恢复结构化记录",
+    moving_objects: "正在恢复授权媒体和资料文件",
+    rebuilding_index: "正在重建资料检索索引",
+    completed: "恢复已完成",
+    failed: "恢复失败",
+    compensation_required: "自动清理没有完成，需要管理员处理",
+  }, "恢复阶段已记录，可在专业模式查看");
+}
+
+export function restoreActionCopy(value: string): ModeAwareCopy {
+  return rawState(value, {
+    create: "新增",
+    overwrite: "覆盖",
+    skip: "跳过",
+    conflict: "冲突",
+  }, "恢复动作已记录，可在专业模式查看");
+}
+
+export function restoreRecordTypeCopy(value: string): ModeAwareCopy {
+  return rawState(value, {
+    platform_account: "平台账号",
+    objective_profile: "目标配置",
+    benchmark_profile: "对标配置",
+    column_campaign: "栏目或活动",
+    metric_definition: "指标定义",
+    content: "内容",
+    asset_reference: "媒体资料引用",
+    data_snapshot: "数据快照",
+    snapshot_metric_value: "快照指标值",
+    style_profile: "账号风格记录",
+    style_sample: "风格样本",
+    fact_source_metadata: "事实资料来源",
+    fact_item: "事实条目",
+    risk_document_metadata: "风险规则资料",
+  }, "记录类型已保存，可在专业模式查看");
+}
+
+export function restoreReasonCopy(value: string): ModeAwareCopy {
+  return rawState(value, {
+    media_body_omitted_from_lightweight_backup: "轻量备份未包含媒体正文",
+    platform_reference_mismatch: "平台或引用范围不兼容，已阻断恢复",
+    new_workspace_record: "将为新工作区新增记录",
+    record_not_present: "目标中没有对应记录，将新增",
+    workspace_scope_mismatch: "目标标识属于其他工作区，已阻断恢复",
+    platform_mismatch: "目标记录的平台不兼容，已阻断恢复",
+    identical_record: "内容一致，无需修改",
+    safe_mutable_fields_changed: "可安全迁移的字段有变化，将覆盖现有记录",
+    immutable_record_changed: "不可变历史记录有变化，已阻断恢复",
+  }, "恢复原因已记录，可在专业模式查看");
+}
+
 export function generationTermCopy(
   value: "provider" | "gate" | "ocr" | "experimental",
 ): ModeAwareCopy {
@@ -233,6 +309,17 @@ export function internalReferenceCopy(
 export function versionValueCopy(value: string | null | undefined): ModeAwareCopy {
   if (!value) return displayCopy("当前记录未提供", "当前记录未提供");
   return displayCopy("已记录，可在专业模式查看", value);
+}
+
+export function trashResourceCopy(
+  resourceType: string,
+  resourceId: string,
+  displayName?: string,
+): ModeAwareCopy {
+  return displayCopy(
+    displayName?.trim() || "已记录，可在专业模式查看",
+    `${resourceType} · ${resourceId}`,
+  );
 }
 
 export function riskOriginCopy(value: string): ModeAwareCopy {

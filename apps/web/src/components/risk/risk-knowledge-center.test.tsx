@@ -127,13 +127,28 @@ test("admin sees knowledge status, evaluation caveat, and lifecycle actions", as
   expect(screen.getByText("样本不足")).toBeVisible();
   expect(screen.getByText(/图片文字识别降级/)).toBeVisible();
   expect(
-    screen.getByText("S5 只能作为低置信度提示，不能独立支撑高风险结论"),
+    screen.getByText(
+      "未经验证的用户经验只能作为低可信提示，不能独立支撑高风险结论",
+    ),
   ).toBeVisible();
-  expect(screen.getByText("抖音 · 私有 · S3")).toBeInTheDocument();
+  expect(
+    screen.getByText("抖音 · 私有 · 团队真实违规记录（默认私有）"),
+  ).toBeInTheDocument();
+  expect(screen.getByText(
+    "私有来源标识：已记录，可在专业模式查看",
+  )).toBeVisible();
+  expect(screen.getByText("已获得使用授权")).toBeVisible();
+  expect(screen.getByText(
+    "评估配置：已记录，可在专业模式查看",
+  )).toBeVisible();
   expect(
     screen.getByText("当前生效 · 版本已记录，可在专业模式查看"),
   ).toBeInTheDocument();
   expect(easy.container).not.toHaveTextContent("active · v1");
+  expect(easy.container).not.toHaveTextContent("synthetic-doc-1");
+  expect(easy.container).not.toHaveTextContent("authorized");
+  expect(easy.container).not.toHaveTextContent("2026-07-23.1");
+  expect(easy.container.textContent).not.toMatch(/\bS[1-5]\b/);
   expect(screen.getByText("最近检查")).toBeInTheDocument();
   expect(screen.getByText("尚未检查")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "提交审核" })).toBeInTheDocument();
@@ -235,4 +250,11 @@ test("professional mode preserves the risk governance boundary", async () => {
   expect(screen.getByText("样本不足：INSUFFICIENT_SAMPLE")).toBeVisible();
   expect(screen.getByText(/RAG 引用、OCR 降级/)).toBeVisible();
   expect(await screen.findByText("active · v1")).toBeVisible();
+  expect(screen.getByText("抖音 · 私有 · S3")).toBeVisible();
+  expect(screen.getByText("synthetic-doc-1")).toBeVisible();
+  expect(screen.getByText("authorized")).toBeVisible();
+  expect(screen.getByText("Fixture：2026-07-23.1")).toBeVisible();
+  expect(
+    screen.getByText("S5 只能作为低置信度提示，不能独立支撑高风险结论"),
+  ).toBeVisible();
 });
