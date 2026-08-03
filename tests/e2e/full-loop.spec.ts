@@ -883,8 +883,13 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
       await expect(page.getByLabel("账号范围")).toHaveValue(douyin.id);
     };
 
+    // Scope is URL-controlled; let router.replace settle before following a nav link.
     await page.getByLabel("平台范围").selectOption("douyin");
+    await expect(page).toHaveURL(/(?:\\?|&)platform=douyin(?:&|$)/);
     await page.getByLabel("账号范围").selectOption(douyin.id);
+    await expect(page).toHaveURL(
+      new RegExp(`(?:\\?|&)account=${douyin.id}(?:&|$)`),
+    );
     await openModule("工作台总览", "工作台总览");
     await expect(
       page.getByRole("heading", { level: 1, name: "工作台总览" }),

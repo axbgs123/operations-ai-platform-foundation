@@ -100,10 +100,21 @@ async function enterWorkspace(
   await page.goto("/enter");
   await page.getByLabel("邀请码").fill(code);
   await page.getByLabel("显示名称").fill(displayName);
-  await page.getByRole("button", { name: "进入工作区" }).click();
-  await page.waitForURL(
+  const navigation = page.waitForURL(
     new RegExp(`/workspaces/${workspace.workspace_id}/`),
   );
+  const entryResponse = page.waitForResponse((response) => (
+    response.url() === `${api}/v1/sessions/invite`
+    && response.request().method() === "POST"
+  ));
+  await page.getByRole("button", { name: "进入工作区" }).click();
+  const response = await entryResponse;
+  if (!response.ok()) {
+    throw new Error(
+      `workspace entry failed (${response.status()}): ${await response.text()}`,
+    );
+  }
+  await navigation;
 }
 
 async function issueCode(

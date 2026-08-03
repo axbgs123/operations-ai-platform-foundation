@@ -165,6 +165,8 @@ test("operator copy and guidance persist without changing business state", async
     `/workspaces/${workspace.workspace_id}/generation`,
   );
 
+  const accountId = await createAccount(page, workspace.workspace_id);
+  await stageManualImport(page, workspace.workspace_id, accountId);
   const viewerCode = await issueCode(page, workspace.workspace_id, "viewer");
   const viewer = await browser.newContext();
   const viewerPage = await viewer.newPage();
@@ -180,6 +182,14 @@ test("operator copy and guidance persist without changing business state", async
   await expect(
     viewerPage.getByText("需要新增、修改或确认时，请联系管理员或编辑者。"),
   ).toBeVisible();
+  await viewerPage.goto(
+    `/workspaces/${workspace.workspace_id}/imports?platform=douyin&account=${accountId}`,
+  );
+  await viewerPage.getByRole("radio", { name: "专业" }).click();
+  await expect(viewerPage.getByText(
+    "Viewer 只读查看等待确认的导入记录；继续确认需要 Admin 或 Editor。",
+  ).first()).toBeVisible();
+  await expect(viewerPage.getByText("Viewer 只读继续确认")).toHaveCount(0);
   await viewer.close();
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -213,7 +223,6 @@ test("guidance preferences preserve routes, drafts, roles, and Demo isolation", 
   await enterWorkspace(page, workspace, workspace.admin_code, "引导管理员");
   const accountId = await createAccount(page, workspace.workspace_id);
   const editorCode = await issueCode(page, workspace.workspace_id, "editor");
-  await stageManualImport(page, workspace.workspace_id, accountId);
   const root = `/workspaces/${workspace.workspace_id}`;
   const filteredAnalysis = `${root}/analysis?platform=douyin&account=${accountId}&status=failed&sort=oldest&page=2`;
 
@@ -289,15 +298,4 @@ test("guidance preferences preserve routes, drafts, roles, and Demo isolation", 
   await expect(editorPage.getByRole("button", { name: "开始生成" })).toHaveCount(0);
   await editor.close();
 
-  const viewerCode = await issueCode(page, workspace.workspace_id, "viewer");
-  const viewer = await browser.newContext();
-  const viewerPage = await viewer.newPage();
-  await enterWorkspace(viewerPage, workspace, viewerCode, "专业查看者");
-  await viewerPage.goto(`${root}/imports?platform=douyin&account=${accountId}`);
-  await viewerPage.getByRole("radio", { name: "专业" }).click();
-  await expect(viewerPage.getByText(
-    "Viewer 只读查看等待确认的导入记录；继续确认需要 Admin 或 Editor。",
-  ).first()).toBeVisible();
-  await expect(viewerPage.getByText("Viewer 只读继续确认")).toHaveCount(0);
-  await viewer.close();
 });
