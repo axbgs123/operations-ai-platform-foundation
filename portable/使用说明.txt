@@ -54,3 +54,16 @@ http://127.0.0.1:3000/enter
 - API 或 Web 未就绪：按启动器显示的 docker compose 诊断命令查看状态和安全日志。
 - 浏览器未自动打开：手动访问 http://127.0.0.1:3000/enter。
 - 需要彻底删除本地数据：请先完成 ZIP 备份，再由具备 Docker 管理经验的人员按项目文档手动处理。
+
+七、发布包完整性
+
+正式便携包只从干净、已提交的 Git 源码树生成。发布目录同时提供：
+- operations-ai-portable-<版本>.zip
+- release-manifest.json
+- checksums.txt
+
+checksums.txt 中的 SHA-256 用于核对 ZIP 是否被替换或损坏；release-manifest.json 记录源码提交、固定构建时间和包内逐文件哈希。维护者可运行：
+
+apps/api/.venv/bin/python scripts/release-security.py verify-portable-release --path <ZIP路径>
+
+校验失败时不要继续解压或运行。构建器不会读取未跟踪文件，也不会把 .env、.local-state、数据库、备份、日志、密钥、邀请码或 .superpowers/brainstorm 打入发布包。

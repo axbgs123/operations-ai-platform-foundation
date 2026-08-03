@@ -7,13 +7,22 @@ import argparse
 from datetime import date
 from hashlib import sha256
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
+import stat
 import subprocess
 import sys
 import tomllib
+import unicodedata
+import zipfile
 import yaml
 
+from release_policy import (
+    MAX_SOURCE_FILE_BYTES,
+    portable_executable_is_allowed,
+    release_path_forbidden_reason,
+    source_path_is_allowlisted,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -227,9 +236,216 @@ def verify_source_release(args: argparse.Namespace) -> int:
             continue
         if not relative.parts:
             continue
-        if not _source_path_is_allowlisted(relative.as_posix()):
+        if not source_path_is_allowlisted(relative.as_posix()):
             problems.append(f"source release path is not recursively allowlisted: {relative.as_posix()}")
     return fail("source_release", problems) if problems else _clean("source_release")
+
+
+_PORTABLE_ROOT_FILES = {
+    "启动运营工具-macOS.command",
+    "停止运营工具-macOS.command",
+    "启动运营工具-Windows.bat",
+    "停止运营工具-Windows.bat",
+    "使用说明.txt",
+}
+_PORTABLE_REQUIRED_FILES = _PORTABLE_ROOT_FILES | {
+    ".env.example",
+    "infra/docker/compose.yml",
+    "release-manifest.json",
+}
+_PORTABLE_MANIFEST_FIELDS = {
+    "schema_version",
+    "version",
+    "source_commit",
+    "source_date_epoch",
+    "files",
+}
+_PORTABLE_ENTRY_FIELDS = {"path", "size", "mode", "sha256"}
+
+
+def _portable_path_problem(path: str) -> str | None:
+    if (
+        not path
+        or "\0" in path
+        or "\\" in path
+        or path.startswith("/")
+        or path.endswith("/")
+        or re.match(r"^[A-Za-z]:", path)
+        or "//" in path
+    ):
+        return "unsafe archive path"
+    parts = PurePosixPath(path).parts
+    if not parts or any(part in {"", ".", ".."} for part in parts):
+        return "unsafe archive path"
+    reason = release_path_forbidden_reason(path)
+    if reason is not None:
+        return f"forbidden portable path ({reason})"
+    if (
+        path not in _PORTABLE_ROOT_FILES
+        and path != "release-manifest.json"
+        and not source_path_is_allowlisted(path)
+    ):
+        return "portable path is not allowlisted"
+    return None
+
+
+def _portable_checksum_problems(path: Path, digest: str) -> list[str]:
+    checksum_path = path.parent / "checksums.txt"
+    if not checksum_path.is_file():
+        return ["portable checksum contract is missing"]
+    try:
+        checksum = checksum_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return ["portable checksum contract is invalid"]
+    expected = f"{digest}  {path.name}\n"
+    return [] if checksum == expected else ["portable checksum does not match ZIP"]
+
+
+def _portable_manifest_problems(
+    *,
+    archive: zipfile.ZipFile,
+    infos: dict[str, zipfile.ZipInfo],
+    path: Path,
+) -> list[str]:
+    problems: list[str] = []
+    info = infos.get("release-manifest.json")
+    if info is None:
+        return ["portable release manifest is missing"]
+    if info.flag_bits & 1:
+        return ["portable release manifest is encrypted"]
+    try:
+        manifest_payload = archive.read(info)
+        document = json.loads(manifest_payload)
+    except (KeyError, RuntimeError, UnicodeDecodeError, json.JSONDecodeError):
+        return ["portable release manifest is invalid"]
+    external_manifest = path.parent / "release-manifest.json"
+    if not external_manifest.is_file():
+        problems.append("external portable release manifest is missing")
+    else:
+        try:
+            if external_manifest.read_bytes() != manifest_payload:
+                problems.append("external portable release manifest does not match ZIP")
+        except OSError:
+            problems.append("external portable release manifest is unreadable")
+    if not isinstance(document, dict) or set(document) != _PORTABLE_MANIFEST_FIELDS:
+        problems.append("portable release manifest schema is invalid")
+        return problems
+    if document.get("schema_version") != "operations-ai-portable-release/v1":
+        problems.append("portable release manifest schema version is invalid")
+    if not isinstance(document.get("version"), str) or not re.fullmatch(
+        r"[0-9]+\.[0-9]+\.[0-9]+",
+        document["version"],
+    ):
+        problems.append("portable release manifest version is invalid")
+    if not isinstance(document.get("source_commit"), str) or not SHA.fullmatch(
+        document["source_commit"]
+    ):
+        problems.append("portable release manifest commit is invalid")
+    if not isinstance(document.get("source_date_epoch"), int):
+        problems.append("portable release manifest source epoch is invalid")
+    entries = document.get("files")
+    if not isinstance(entries, list):
+        problems.append("portable release manifest files are invalid")
+        return problems
+    declared: dict[str, dict[str, object]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != _PORTABLE_ENTRY_FIELDS:
+            problems.append("portable release manifest entry is invalid")
+            continue
+        entry_path = entry.get("path")
+        if not isinstance(entry_path, str):
+            problems.append("portable release manifest entry path is invalid")
+            continue
+        if entry_path in declared:
+            problems.append(f"portable release manifest repeats path: {entry_path}")
+            continue
+        declared[entry_path] = entry
+    actual_names = set(infos)
+    for name in sorted(actual_names - set(declared)):
+        problems.append(f"manifest does not cover portable file: {name}")
+    for name in sorted(set(declared) - actual_names):
+        problems.append(f"manifest references missing portable file: {name}")
+    for name in sorted(actual_names & set(declared)):
+        current = infos[name]
+        entry = declared[name]
+        raw_mode = (current.external_attr >> 16) & 0xFFFF
+        mode = raw_mode & 0o777
+        if entry.get("size") != current.file_size:
+            problems.append(f"portable manifest size mismatch: {name}")
+        if entry.get("mode") != mode:
+            problems.append(f"portable manifest mode mismatch: {name}")
+        if name == "release-manifest.json":
+            if entry.get("sha256") is not None:
+                problems.append("portable manifest self hash must be null")
+            continue
+        if current.flag_bits & 1:
+            continue
+        try:
+            payload = archive.read(current)
+        except (RuntimeError, zipfile.BadZipFile):
+            problems.append(f"portable file cannot be read safely: {name}")
+            continue
+        if entry.get("sha256") != sha256(payload).hexdigest():
+            problems.append(f"portable manifest hash mismatch: {name}")
+    return problems
+
+
+def verify_portable_release(args: argparse.Namespace) -> int:
+    path = args.path.resolve()
+    if not path.is_file():
+        return fail("portable_release", ["portable ZIP is missing"])
+    digest = sha256(path.read_bytes()).hexdigest()
+    problems = _portable_checksum_problems(path, digest)
+    try:
+        with zipfile.ZipFile(path) as archive:
+            records = archive.infolist()
+            infos: dict[str, zipfile.ZipInfo] = {}
+            normalized: dict[str, str] = {}
+            total_size = 0
+            for info in records:
+                name = info.filename
+                collision_key = unicodedata.normalize("NFC", name).casefold()
+                if name in infos or collision_key in normalized:
+                    previous = infos.get(name)
+                    previous_name = (
+                        previous.filename if previous is not None else normalized[collision_key]
+                    )
+                    problems.append(f"colliding path in portable ZIP: {previous_name} and {name}")
+                else:
+                    infos[name] = info
+                    normalized[collision_key] = name
+                path_problem = _portable_path_problem(name)
+                if path_problem is not None:
+                    problems.append(f"{path_problem}: {name}")
+                if info.flag_bits & 1:
+                    problems.append(f"encrypted portable entry is forbidden: {name}")
+                raw_mode = (info.external_attr >> 16) & 0xFFFF
+                if stat.S_IFMT(raw_mode) == stat.S_IFLNK:
+                    problems.append(f"symlink is forbidden in portable ZIP: {name}")
+                mode = raw_mode & 0o777
+                if mode & 0o111 and not portable_executable_is_allowed(name):
+                    problems.append(f"unexpected executable portable file: {name}")
+                if info.file_size > MAX_SOURCE_FILE_BYTES:
+                    problems.append(f"portable entry exceeds size limit: {name}")
+                total_size += info.file_size
+            if total_size > 512 * 1024 * 1024:
+                problems.append("portable ZIP uncompressed size exceeds limit")
+            for required in sorted(_PORTABLE_REQUIRED_FILES - set(infos)):
+                problems.append(f"missing required portable entry: {required}")
+            if not any(name.startswith("apps/api/app/") for name in infos):
+                problems.append("missing required portable entry: apps/api/app/**")
+            if not any(name.startswith("apps/web/src/") for name in infos):
+                problems.append("missing required portable entry: apps/web/src/**")
+            problems.extend(
+                _portable_manifest_problems(
+                    archive=archive,
+                    infos=infos,
+                    path=path,
+                )
+            )
+    except (OSError, zipfile.BadZipFile):
+        problems.append("portable ZIP is invalid")
+    return fail("portable_release", problems) if problems else _clean("portable_release")
 
 
 def verify_exceptions(args: argparse.Namespace) -> int:
@@ -302,28 +518,6 @@ def verify_demo_screenshot(args: argparse.Namespace) -> int:
             elif not isinstance(provenance["capture"], dict) or provenance["capture"].get("mode") != "isolated-compose-mock" or provenance["capture"].get("route") != "/demo" or provenance["capture"].get("synthetic") is not True:
                 problems.append("demo screenshot capture provenance is not a synthetic /demo capture")
     return fail("demo_screenshot", problems) if problems else _clean("demo_screenshot")
-
-
-SOURCE_ALLOWED_PATTERNS = tuple(re.compile(pattern) for pattern in (
-    r"(?:\.dockerignore|\.env\.example|\.gitignore|\.gitleaksignore|\.node-version|LICENSE|README\.md|CONTRIBUTING\.md|CODE_OF_CONDUCT\.md|SECURITY\.md|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|pytest\.ini)",
-    r"\.github/(?:security-exceptions\.yml|workflows/[A-Za-z0-9._-]+\.ya?ml)",
-    r"\.superpowers/sdd/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+\.md",
-    r"apps/api/(?:\.python-version|README\.md|alembic\.ini|pyproject\.toml|uv\.lock|app/[A-Za-z0-9_./-]+\.(?:py|ya?ml)|migrations/[A-Za-z0-9_./-]+\.(?:py|mako)|tests/[A-Za-z0-9_./-]+\.(?:py|md|csv|json))",
-    r"apps/api/tests/fixtures/(?:golden-covers/template-1080x(?:1080|1440|1920)\.png|imports/(?:mock_screenshot\.png\.b64|xiaohongshu_typed\.xlsx))",
-    r"apps/web/(?:\.gitignore|AGENTS\.md|CLAUDE\.md|README\.md|eslint\.config\.mjs|next\.config\.ts|package\.json|postcss\.config\.mjs|tsconfig\.json|vitest\.config\.mts|vitest\.setup\.ts|src/[A-Za-z0-9_./\[\]-]+\.(?:ts|tsx|css)|src/app/favicon\.ico)",
-    r"apps/extension/(?:\.gitignore|PRIVACY\.md|eslint\.config\.mjs|manifest\.json|package\.json|supported-pages\.json|tsconfig\.json|vite\.config\.ts|vitest\.config\.ts|scripts/[A-Za-z0-9_./-]+\.mjs|src/[A-Za-z0-9_./-]+\.(?:ts|html)|tests/[A-Za-z0-9_./-]+\.(?:ts|html|d\.ts))",
-    r"docs/(?:acceptance|architecture|handoff|open-source|superpowers/(?:plans|specs))/[A-Za-z0-9._/-]+\.md",
-    r"docs/assets/public-demo-synthetic-v1\.(?:png|provenance\.json)",
-    r"infra/docker/(?:api|web|e2e)\.Dockerfile|infra/docker/compose\.yml",
-    r"packages/(?:platform-metrics|shared-schemas)/(?:package\.json|openapi\.json|scripts/[A-Za-z0-9_./-]+\.(?:ts|py)|src/[A-Za-z0-9_./-]+\.ts)",
-    r"portable/[A-Za-z0-9._\-\u4e00-\u9fff]+\.(?:bat|command|txt)",
-    r"scripts/[A-Za-z0-9._-]+\.(?:py|sh)",
-    r"tests/e2e/(?:package\.json|[A-Za-z0-9._-]+\.(?:ts|sh))",
-))
-
-
-def _source_path_is_allowlisted(path: str) -> bool:
-    return any(pattern.fullmatch(path) for pattern in SOURCE_ALLOWED_PATTERNS)
 
 
 def _web_production_closure(lock: dict[object, object]) -> list[dict[str, str]]:
@@ -454,6 +648,9 @@ def main() -> int:
     source_release = commands.add_parser("verify-source-release")
     source_release.add_argument("--path", type=Path, required=True)
     source_release.set_defaults(handler=verify_source_release)
+    portable_release = commands.add_parser("verify-portable-release")
+    portable_release.add_argument("--path", type=Path, required=True)
+    portable_release.set_defaults(handler=verify_portable_release)
     exceptions = commands.add_parser("verify-exceptions")
     exceptions.add_argument("--path", type=Path, required=True)
     exceptions.set_defaults(handler=verify_exceptions)
