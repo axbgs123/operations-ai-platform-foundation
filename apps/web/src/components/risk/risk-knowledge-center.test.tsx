@@ -47,28 +47,27 @@ import {
   readRiskEvaluation,
 } from "@/lib/risk-admin-api";
 
-const documents = [
-  {
-    id: "doc-1",
-    workspace_id: "workspace-1",
-    platform: "douyin",
-    scope: "private",
-    source_level: "S3",
-    title: "人工合成抖音知识",
-    source_url: null,
-    private_document_id: "synthetic-doc-1",
-    published_at: null,
-    effective_at: "2026-07-23T12:00:00Z",
-    accessed_at: null,
-    authorization_status: "authorized",
-    reviewed_by: "member-1",
-    previous_version_id: null,
-    version: 1,
-    status: "active",
-    created_at: "2026-07-23T11:00:00Z",
-    updated_at: "2026-07-23T11:00:00Z",
-  },
-] as never;
+const activeDocument = {
+  id: "doc-1",
+  workspace_id: "workspace-1",
+  platform: "douyin",
+  scope: "private",
+  source_level: "S3",
+  title: "人工合成抖音知识",
+  source_url: null,
+  private_document_id: "synthetic-doc-1",
+  published_at: null,
+  effective_at: "2026-07-23T12:00:00Z",
+  accessed_at: null,
+  authorization_status: "authorized",
+  reviewed_by: "member-1",
+  previous_version_id: null,
+  version: 1,
+  status: "active",
+  created_at: "2026-07-23T11:00:00Z",
+  updated_at: "2026-07-23T11:00:00Z",
+};
+const documents = [activeDocument] as never;
 
 beforeEach(() => {
   localStorage.clear();
@@ -131,7 +130,10 @@ test("admin sees knowledge status, evaluation caveat, and lifecycle actions", as
     screen.getByText("S5 只能作为低置信度提示，不能独立支撑高风险结论"),
   ).toBeVisible();
   expect(screen.getByText("抖音 · 私有 · S3")).toBeInTheDocument();
-  expect(screen.getByText("active · v1")).toBeInTheDocument();
+  expect(
+    screen.getByText("当前生效 · 版本已记录，可在专业模式查看"),
+  ).toBeInTheDocument();
+  expect(easy.container).not.toHaveTextContent("active · v1");
   expect(screen.getByText("最近检查")).toBeInTheDocument();
   expect(screen.getByText("尚未检查")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "提交审核" })).toBeInTheDocument();
@@ -164,6 +166,27 @@ test("admin sees knowledge status, evaluation caveat, and lifecycle actions", as
       "xiaohongshu",
     );
   });
+});
+
+test("keeps unknown knowledge lifecycle metadata out of easy mode", async () => {
+  vi.mocked(listRiskDocuments).mockResolvedValue([
+    {
+      ...activeDocument,
+      status: "internal_transition",
+      version: 42,
+    },
+  ] as never);
+  const easy = renderInWorkspace(
+    <RiskKnowledgeCenter workspaceId="workspace-1" role="admin" />,
+  );
+
+  expect(
+    await screen.findByText(
+      "当前状态暂时无法识别 · 版本已记录，可在专业模式查看",
+    ),
+  ).toBeVisible();
+  expect(easy.container).not.toHaveTextContent("internal_transition");
+  expect(easy.container).not.toHaveTextContent("v42");
 });
 
 test("editor and viewer do not receive governance or mutation controls", async () => {
@@ -211,4 +234,5 @@ test("professional mode preserves the risk governance boundary", async () => {
   expect(screen.getByText("固定 Mock 评估门槛")).toBeVisible();
   expect(screen.getByText("样本不足：INSUFFICIENT_SAMPLE")).toBeVisible();
   expect(screen.getByText(/RAG 引用、OCR 降级/)).toBeVisible();
+  expect(await screen.findByText("active · v1")).toBeVisible();
 });

@@ -5,6 +5,7 @@ import {
   generationTermCopy,
   internalReferenceCopy,
   knowledgeTermCopy,
+  riskDocumentStatusCopy,
   riskTypeCopy,
 } from "./operator-display-copy";
 
@@ -123,5 +124,34 @@ test("keeps internal references out of easy mode while preserving professional v
   expect(internalReferenceCopy(null, "发布时基准配置")).toEqual({
     simple: "发布时基准配置：当前记录未提供",
     professional: "当前记录未提供",
+  });
+});
+
+test("maps risk document lifecycle and version metadata without exposing raw easy values", () => {
+  expect(riskDocumentStatusCopy("active", 1)).toEqual({
+    simple: "当前生效 · 版本已记录，可在专业模式查看",
+    professional: "active · v1",
+  });
+  expect(riskDocumentStatusCopy("pending_review", 2).simple).toBe(
+    "等待审核 · 版本已记录，可在专业模式查看",
+  );
+  expect(riskDocumentStatusCopy("rejected", 3).simple).toBe(
+    "已驳回 · 版本已记录，可在专业模式查看",
+  );
+  expect(riskDocumentStatusCopy("superseded", 4).simple).toBe(
+    "已被新版本替代 · 版本已记录，可在专业模式查看",
+  );
+  expect(riskDocumentStatusCopy("expired", 5).simple).toBe(
+    "已失效 · 版本已记录，可在专业模式查看",
+  );
+  expect(riskDocumentStatusCopy("inactive", 6).simple).toBe(
+    "当前未生效 · 版本已记录，可在专业模式查看",
+  );
+});
+
+test("keeps unknown risk document lifecycle values professional-only", () => {
+  expect(riskDocumentStatusCopy("internal_transition", 42)).toEqual({
+    simple: "当前状态暂时无法识别 · 版本已记录，可在专业模式查看",
+    professional: "internal_transition · v42",
   });
 });

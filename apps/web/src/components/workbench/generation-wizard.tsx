@@ -818,7 +818,12 @@ export function GenerationWizard({
               修改幅度 {(generationDraft.run.modification_magnitude * 100).toFixed(1)}%
             </p>
             {generationDraft.run.status_detail ? (
-              <p className="mt-2 text-sm">{generationDraft.run.status_detail}</p>
+              <p className="mt-2 text-sm">
+                {displayText(displayCopy(
+                  "处理详情已记录，可在专业模式查看",
+                  generationDraft.run.status_detail,
+                ), copyMode)}
+              </p>
             ) : null}
           </div>
         ) : (
@@ -826,7 +831,14 @@ export function GenerationWizard({
             当前会话尚无可复核的生成结果。
           </p>
         )}
-        {reviewError ? <p role="alert">{reviewError}</p> : null}
+        {reviewError ? (
+          <p role="alert">
+            {displayText(displayCopy(
+              "复核暂时无法完成，请稍后重试；如持续失败请联系管理员。",
+              reviewError,
+            ), copyMode)}
+          </p>
+        ) : null}
         {reviewMessage ? <p role="status">{reviewMessage}</p> : null}
         {canWrite && generationDraft.run?.status === "succeeded" ? (
           <div className="flex flex-wrap gap-3">

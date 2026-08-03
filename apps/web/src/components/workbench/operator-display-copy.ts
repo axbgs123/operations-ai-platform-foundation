@@ -135,6 +135,26 @@ export function riskSeverityCopy(value: string): ModeAwareCopy {
   }, "风险等级暂时无法识别");
 }
 
+export function riskDocumentStatusCopy(
+  status: string,
+  version: number,
+): ModeAwareCopy {
+  const simpleStatus = {
+    draft: "草稿",
+    parsed: "已完成解析",
+    pending_review: "等待审核",
+    active: "当前生效",
+    rejected: "已驳回",
+    superseded: "已被新版本替代",
+    expired: "已失效",
+    inactive: "当前未生效",
+  }[status] ?? "当前状态暂时无法识别";
+  return displayCopy(
+    `${simpleStatus} · 版本已记录，可在专业模式查看`,
+    `${status} · v${version}`,
+  );
+}
+
 const riskTypeAliases: Readonly<Record<string, string>> = {
   contact_format: "联系方式格式风险",
   external_contact: "站外联系方式风险",

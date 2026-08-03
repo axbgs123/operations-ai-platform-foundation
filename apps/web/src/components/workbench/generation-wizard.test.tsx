@@ -19,14 +19,38 @@ import {
   type GenerationWizardFixture,
 } from "./generation-wizard";
 
+const textEditorMockState = vi.hoisted(() => ({ draft: null as unknown }));
+const editTextGenerationMock = vi.hoisted(() => vi.fn());
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/workspaces/workspace-1/generation",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
 }));
 
+vi.mock("@/app/workspaces/[workspaceId]/generation/text-editor", () => ({
+  TextEditor: ({
+    onDraftChange,
+  }: {
+    onDraftChange?: (draft: unknown) => void;
+  }) => (
+    <button
+      onClick={() => onDraftChange?.(textEditorMockState.draft)}
+      type="button"
+    >
+      载入合成生成结果
+    </button>
+  ),
+}));
+
+vi.mock("@/lib/generation-api", () => ({
+  editTextGeneration: editTextGenerationMock,
+}));
+
 beforeEach(() => {
   localStorage.clear();
+  textEditorMockState.draft = null;
+  editTextGenerationMock.mockReset();
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     value: vi.fn().mockReturnValue({
@@ -120,6 +144,27 @@ const fixture: GenerationWizardFixture = {
     generation_eligible: true,
   })),
   riskScan: null,
+};
+
+const populatedGenerationDraft = {
+  run: {
+    id: "run-1",
+    workspace_id: "workspace-1",
+    account_id: "dy-1",
+    model_config_id: "model-1",
+    status: "succeeded",
+    status_detail: "provider_calling lease_17",
+    adoption_status: "pending",
+    context: {
+      model: {
+        contract_version: "mock-contract-v1",
+        configuration_version: "config-v1",
+      },
+    },
+    modification_magnitude: 0.125,
+  },
+  finalTitle: "已生成标题",
+  finalCopy: "已生成正文",
 };
 
 const shellContext = {
@@ -217,6 +262,66 @@ test("preserves exact professional generation terminology and model versions", (
   expect(professional.container).toHaveTextContent("mock-text-v1");
   expect(professional.container).toHaveTextContent("mock-contract-v1");
   expect(professional.container).toHaveTextContent("config-v1");
+});
+
+test("hides generation runtime detail and review error codes in easy mode", async () => {
+  const user = userEvent.setup();
+  textEditorMockState.draft = populatedGenerationDraft;
+  editTextGenerationMock.mockRejectedValue(
+    new Error("MODEL_PROVIDER_UNAVAILABLE"),
+  );
+  const easy = renderInWorkspace(
+    <GenerationWizard
+      fixture={fixture}
+      initialAccountId="dy-1"
+      initialStep="generate"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "载入合成生成结果" }));
+  await user.click(screen.getByRole("button", { name: "下一步：复核与保存" }));
+
+  expect(easy.container).toHaveTextContent("已完成");
+  expect(easy.container).toHaveTextContent("等待决定");
+  expect(screen.getByText(
+    "处理详情已记录，可在专业模式查看",
+  )).toBeVisible();
+  expect(easy.container).not.toHaveTextContent("provider_calling lease_17");
+
+  await user.click(screen.getByRole("button", { name: "复检并保存草稿" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "复核暂时无法完成，请稍后重试；如持续失败请联系管理员。",
+  );
+  expect(easy.container).not.toHaveTextContent("MODEL_PROVIDER_UNAVAILABLE");
+});
+
+test("preserves exact generation runtime detail and review errors in professional mode", async () => {
+  const user = userEvent.setup();
+  localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
+  textEditorMockState.draft = populatedGenerationDraft;
+  editTextGenerationMock.mockRejectedValue(
+    new Error("MODEL_PROVIDER_UNAVAILABLE"),
+  );
+  renderInWorkspace(
+    <GenerationWizard
+      fixture={fixture}
+      initialAccountId="dy-1"
+      initialStep="generate"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "载入合成生成结果" }));
+  await user.click(screen.getByRole("button", { name: "下一步：复核与保存" }));
+
+  expect(screen.getByText("provider_calling lease_17")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "复检并保存草稿" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "MODEL_PROVIDER_UNAVAILABLE",
+  );
 });
 
 test("defaults independent style inheritance on", () => {

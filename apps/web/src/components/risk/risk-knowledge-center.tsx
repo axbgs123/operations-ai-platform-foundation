@@ -15,6 +15,7 @@ import {
   displayCopy,
   displayText,
   knowledgeTermCopy,
+  riskDocumentStatusCopy,
 } from "@/components/workbench/operator-display-copy";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 import { DesktopOnlyNotice, Panel, StatusBadge } from "@/components/workbench/ui";
@@ -171,7 +172,10 @@ export function RiskKnowledgeCenter({
                 </p>
               </div>
               <StatusBadge tone={document.status === "active" ? "success" : "neutral"}>
-                {document.status} · v{document.version}
+                {displayText(
+                  riskDocumentStatusCopy(document.status, document.version),
+                  copyMode,
+                )}
               </StatusBadge>
             </div>
             <dl className="mt-4 grid gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
