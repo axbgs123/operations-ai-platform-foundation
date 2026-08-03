@@ -888,7 +888,7 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
     await expect(page).toHaveURL(/(?:\\?|&)platform=douyin(?:&|$)/);
     await page.getByLabel("账号范围").selectOption(douyin.id);
     await expect(page).toHaveURL(
-      new RegExp(`(?:\\?|&)account=${douyin.id}(?:&|$)`),
+      new RegExp(`(?:\\?|&)account=${encodeURIComponent(douyin.id)}(?:&|$)`),
     );
     await openModule("工作台总览", "工作台总览");
     await expect(
