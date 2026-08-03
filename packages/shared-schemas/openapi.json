@@ -12274,6 +12274,28 @@
         },
         "title": "WorkspaceMemberUpdate",
         "type": "object"
+      },
+      "WorkspaceOwnerOnboard": {
+        "properties": {
+          "display_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "workspace_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Workspace Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace_name",
+          "display_name"
+        ],
+        "title": "WorkspaceOwnerOnboard",
+        "type": "object"
       }
     }
   },
@@ -14968,6 +14990,47 @@
           }
         },
         "summary": "Create Workspace",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/v1/workspaces/onboard": {
+      "post": {
+        "operationId": "onboard_workspace_owner_v1_workspaces_onboard_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceOwnerOnboard"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCreated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Onboard Workspace Owner",
         "tags": [
           "workspace"
         ]

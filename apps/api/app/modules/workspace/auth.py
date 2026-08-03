@@ -132,7 +132,9 @@ class InviteAuthService:
             client_key=client_key,
         )
         self._session.flush()
+        return self._create_session(member)
 
+    def _create_session(self, member: WorkspaceMember) -> AuthenticatedSession:
         session_token = secrets.token_urlsafe(32)
         csrf_token = secrets.token_urlsafe(32)
         expires_at = self._now() + self._session_lifetime
@@ -166,6 +168,44 @@ class InviteAuthService:
             expires_at=expires_at,
             context=context,
         )
+
+    def create_owner_session(
+        self,
+        *,
+        workspace_name: str,
+        display_name: str,
+    ) -> AuthenticatedSession:
+        workspace = Workspace(name=workspace_name)
+        self._session.add(workspace)
+        self._session.flush()
+
+        member = WorkspaceMember(
+            workspace_id=workspace.id,
+            display_name=display_name,
+            role=MemberRole.ADMIN,
+        )
+        self._session.add(member)
+        self._session.flush()
+
+        self._session.add_all(
+            [
+                AuditLog(
+                    workspace_id=workspace.id,
+                    member_id=member.id,
+                    action="workspace.created",
+                    resource_type="workspace",
+                    resource_id=workspace.id,
+                ),
+                AuditLog(
+                    workspace_id=workspace.id,
+                    member_id=member.id,
+                    action="member.owner_created",
+                    resource_type="workspace_member",
+                    resource_id=member.id,
+                ),
+            ]
+        )
+        return self._create_session(member)
 
     def redeem_member(
         self,

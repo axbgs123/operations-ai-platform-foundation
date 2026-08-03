@@ -2,11 +2,30 @@ from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 class WorkspaceCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class WorkspaceOwnerOnboard(BaseModel):
+    workspace_name: str = Field(min_length=1, max_length=120)
+    display_name: str = Field(min_length=1, max_length=80)
+
+    @field_validator("workspace_name", "display_name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("name must not be blank")
+        return normalized
 
 
 class WorkspaceRead(BaseModel):

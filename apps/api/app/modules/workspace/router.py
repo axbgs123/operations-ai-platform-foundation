@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.core.database import get_session
 from app.core.security import WorkspaceContext
 from app.modules.workspace.auth import (
+    AuthenticatedSession,
     InviteAuthService,
     InviteRateLimitExceeded,
     InvalidInviteCode,
@@ -34,12 +35,33 @@ from app.modules.workspace.schemas import (
     WorkspaceMemberRead,
     WorkspaceMemberManagementRead,
     WorkspaceMemberUpdate,
+    WorkspaceOwnerOnboard,
 )
 
 
 router = APIRouter(prefix="/v1", tags=["workspace"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
 invite_attempts: dict[str, deque[datetime]] = defaultdict(deque)
+
+
+def _render_session(
+    response: Response,
+    authenticated: AuthenticatedSession,
+) -> SessionCreated:
+    response.set_cookie(
+        key="session",
+        value=authenticated.session_token,
+        max_age=14 * 24 * 60 * 60,
+        httponly=True,
+        secure=get_settings().app_env != "development",
+        samesite="lax",
+        path="/",
+    )
+    return SessionCreated(
+        workspace_id=authenticated.context.workspace_id,
+        member_id=authenticated.member_id,
+        csrf_token=authenticated.csrf_token,
+    )
 
 
 def _authorized_service(
@@ -91,6 +113,24 @@ def create_workspace(data: WorkspaceCreate, session: DatabaseSession) -> Workspa
     )
 
 
+@router.post(
+    "/workspaces/onboard",
+    response_model=SessionCreated,
+    status_code=201,
+)
+def onboard_workspace_owner(
+    data: WorkspaceOwnerOnboard,
+    response: Response,
+    session: DatabaseSession,
+) -> SessionCreated:
+    authenticated = InviteAuthService(session).create_owner_session(
+        workspace_name=data.workspace_name,
+        display_name=data.display_name,
+    )
+    session.commit()
+    return _render_session(response, authenticated)
+
+
 @router.post("/sessions/invite", response_model=SessionCreated, status_code=201)
 def create_invite_session(
     data: InviteLogin,
@@ -110,20 +150,7 @@ def create_invite_session(
         raise HTTPException(status_code=429, detail="too many attempts") from error
 
     session.commit()
-    response.set_cookie(
-        key="session",
-        value=authenticated.session_token,
-        max_age=14 * 24 * 60 * 60,
-        httponly=True,
-        secure=get_settings().app_env != "development",
-        samesite="lax",
-        path="/",
-    )
-    return SessionCreated(
-        workspace_id=authenticated.context.workspace_id,
-        member_id=authenticated.member_id,
-        csrf_token=authenticated.csrf_token,
-    )
+    return _render_session(response, authenticated)
 
 
 @router.delete("/sessions/current", status_code=204)

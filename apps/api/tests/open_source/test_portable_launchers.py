@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -12,6 +14,7 @@ MAC_STOP = PORTABLE / "停止运营工具-macOS.command"
 WINDOWS_START = PORTABLE / "启动运营工具-Windows.bat"
 WINDOWS_STOP = PORTABLE / "停止运营工具-Windows.bat"
 GUIDE = PORTABLE / "使用说明.txt"
+RELEASE_POLICY = ROOT / "scripts/release_policy.py"
 
 pytestmark = pytest.mark.security
 
@@ -23,9 +26,21 @@ def _text(path: Path) -> str:
 def test_portable_local_state_is_ignored_and_release_allowlisted() -> None:
     """Removing either boundary could publish machine-local credentials."""
     assert ".local-state/" in _text(ROOT / ".gitignore").splitlines()
-    security = _text(ROOT / "scripts/release-security.py")
-    assert 'r"portable/' in security
-    assert r"\.(?:bat|command|txt)" in security
+    spec = importlib.util.spec_from_file_location("release_policy", RELEASE_POLICY)
+    assert spec is not None and spec.loader is not None
+    policy = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = policy
+    spec.loader.exec_module(policy)
+
+    assert policy.source_path_is_allowlisted(
+        "portable/启动运营工具-macOS.command"
+    )
+    assert policy.source_path_is_allowlisted(
+        "portable/启动运营工具-Windows.bat"
+    )
+    assert policy.release_path_forbidden_reason(
+        ".local-state/bootstrap.json"
+    )
 
 
 def test_stop_launchers_preserve_volumes_and_use_the_portable_project() -> None:

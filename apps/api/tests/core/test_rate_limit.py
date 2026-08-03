@@ -131,6 +131,7 @@ def test_redis_backend_uses_atomic_lua_script() -> None:
     ("method", "path", "expected"),
     [
         ("POST", "/v1/sessions/invite", RateLimitCategory.AUTH),
+        ("POST", "/v1/workspaces/onboard", RateLimitCategory.AUTH),
         ("POST", "/v1/contents/abc/analysis-runs", RateLimitCategory.AI),
         ("POST", "/v1/workspaces/a/risk-scans", RateLimitCategory.AI),
         ("POST", "/v1/imports/screenshot/recognitions", RateLimitCategory.UPLOAD),

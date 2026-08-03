@@ -639,6 +639,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/onboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Onboard Workspace Owner */
+        post: operations["onboard_workspace_owner_v1_workspaces_onboard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/accounts": {
         parameters: {
             query?: never;
@@ -7060,6 +7077,13 @@ export interface components {
             /** Role */
             role?: ("admin" | "editor" | "viewer") | null;
         };
+        /** WorkspaceOwnerOnboard */
+        WorkspaceOwnerOnboard: {
+            /** Display Name */
+            display_name: string;
+            /** Workspace Name */
+            workspace_name: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -8470,6 +8494,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    onboard_workspace_owner_v1_workspaces_onboard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceOwnerOnboard"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCreated"];
                 };
             };
             /** @description Validation Error */

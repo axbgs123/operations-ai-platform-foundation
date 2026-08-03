@@ -209,7 +209,10 @@ def build_subject_key(
 
 def category_for_request(method: str, path: str) -> RateLimitCategory | None:
     normalized = path.lower()
-    if normalized in {"/v1/sessions/invite"} or "/extension/bind" in normalized:
+    if normalized in {
+        "/v1/sessions/invite",
+        "/v1/workspaces/onboard",
+    } or "/extension/bind" in normalized:
         return RateLimitCategory.AUTH
     if (
         any(
