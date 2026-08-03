@@ -1,69 +1,155 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 
-import { enterWorkspace } from "@/lib/workspace-api";
+import {
+  enterWorkspace,
+  onboardWorkspaceOwner,
+} from "@/lib/workspace-api";
 
+type EntryMode = "create" | "join";
 
 export default function EnterPage() {
+  const [mode, setMode] = useState<EntryMode>("create");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pendingRef.current) {
+      return;
+    }
     const form = new FormData(event.currentTarget);
+    pendingRef.current = true;
     setPending(true);
     setError("");
     try {
-      const session = await enterWorkspace(
-        String(form.get("code") ?? ""),
-        String(form.get("displayName") ?? ""),
-      );
+      const displayName = String(form.get("displayName") ?? "");
+      const session =
+        mode === "create"
+          ? await onboardWorkspaceOwner(
+              String(form.get("workspaceName") ?? ""),
+              displayName,
+            )
+          : await enterWorkspace(String(form.get("code") ?? ""), displayName);
       sessionStorage.setItem("workspace_csrf", session.csrf_token);
-      window.location.assign(
-        `/workspaces/${session.workspace_id}/settings/members`,
+      window.location.assign(`/workspaces/${session.workspace_id}`);
+    } catch {
+      setError(
+        mode === "create"
+          ? "创建失败，请稍后重试"
+          : "加入失败，请稍后重试",
       );
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "进入失败");
     } finally {
+      pendingRef.current = false;
       setPending(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
-      <section className="mx-auto max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+    <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-6 sm:py-16">
+      <section className="mx-auto max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl sm:p-8">
         <p className="mb-3 text-sm font-medium text-cyan-400">安全工作区入口</p>
-        <h1 className="text-3xl font-semibold">使用邀请码进入工作区</h1>
+        <h1 className="text-3xl font-semibold">进入你的运营工作区</h1>
         <p className="mt-3 text-sm leading-6 text-slate-400">
-          邀请码与成员身份一一绑定，管理员可随时撤销。
+          创建新团队，或使用管理员提供的独立邀请码加入已有团队。
         </p>
-        <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
+        <div
+          aria-label="进入方式"
+          className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2"
+          role="group"
+        >
+          {(["create", "join"] as const).map((entryMode) => {
+            const active = mode === entryMode;
+            const label = entryMode === "create" ? "创建团队" : "加入团队";
+            return (
+              <button
+                aria-pressed={active}
+                className={`rounded-xl border px-4 py-3 text-left font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${
+                  active
+                    ? "border-cyan-300 bg-cyan-300 text-slate-950"
+                    : "border-slate-700 bg-slate-950 text-slate-200"
+                }`}
+                key={entryMode}
+                onClick={() => {
+                  setMode(entryMode);
+                  setError("");
+                }}
+                type="button"
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <form
+          aria-label={mode === "create" ? "创建团队表单" : "加入团队表单"}
+          className="mt-8 space-y-5"
+          onSubmit={handleSubmit}
+        >
+          {mode === "create" ? (
+            <label className="block text-sm font-medium">
+              团队名称
+              <input
+                autoComplete="organization"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
+                name="workspaceName"
+                required
+              />
+            </label>
+          ) : (
+            <label className="block text-sm font-medium">
+              邀请码
+              <input
+                autoComplete="off"
+                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
+                name="code"
+                required
+              />
+            </label>
+          )}
           <label className="block text-sm font-medium">
-            邀请码
+            我的名称
             <input
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
-              name="code"
-              required
-            />
-          </label>
-          <label className="block text-sm font-medium">
-            显示名称
-            <input
+              autoComplete="name"
               className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
               name="displayName"
               required
             />
           </label>
-          {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+          {error ? (
+            <p
+              aria-label={error}
+              className="text-sm text-rose-300"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
           <button
             className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 disabled:opacity-50"
             disabled={pending}
             type="submit"
           >
-            {pending ? "正在验证…" : "进入工作区"}
+            {pending
+              ? mode === "create"
+                ? "正在创建…"
+                : "正在加入…"
+              : mode === "create"
+                ? "创建团队并进入"
+                : "加入团队"}
           </button>
         </form>
+        <div className="mt-6 space-y-2 border-t border-slate-800 pt-5 text-sm leading-6 text-slate-400">
+          <p>创建团队不需要邀请码，创建者将成为首位管理员。</p>
+          <p>
+            团队名称和我的名称只是工作区中的显示信息，不是账号或密码。
+          </p>
+          <p>
+            当前会话只保存在这台浏览器中；换浏览器或换电脑后，需要另一个管理员邀请码重新加入。
+          </p>
+        </div>
       </section>
     </main>
   );

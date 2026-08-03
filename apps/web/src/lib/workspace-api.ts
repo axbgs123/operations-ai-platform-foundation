@@ -3,6 +3,7 @@ import type { components } from "@operations-ai/shared-schemas";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 type SessionCreated = components["schemas"]["SessionCreated"];
+type WorkspaceOwnerOnboard = components["schemas"]["WorkspaceOwnerOnboard"];
 type MemberCodeCreated = components["schemas"]["MemberCodeCreated"];
 type MemberCodeCreate = components["schemas"]["MemberCodeCreate"];
 export type WorkspaceMemberManagement =
@@ -29,6 +30,20 @@ export function enterWorkspace(code: string, displayName: string) {
   return request<SessionCreated>("/v1/sessions/invite", {
     method: "POST",
     body: JSON.stringify({ code, display_name: displayName }),
+  });
+}
+
+export function onboardWorkspaceOwner(
+  workspaceName: string,
+  displayName: string,
+) {
+  const payload: WorkspaceOwnerOnboard = {
+    workspace_name: workspaceName,
+    display_name: displayName,
+  };
+  return request<SessionCreated>("/v1/workspaces/onboard", {
+    method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 

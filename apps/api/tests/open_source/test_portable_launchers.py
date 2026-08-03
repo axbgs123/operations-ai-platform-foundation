@@ -54,16 +54,13 @@ def test_stop_launchers_preserve_volumes_and_use_the_portable_project() -> None:
         assert "PORTABLE_COMPOSE_PROJECT" in text
 
 
-def test_start_launchers_preserve_existing_environment_and_bootstrap() -> None:
-    """A repeat start must not overwrite configuration or recreate a workspace."""
+def test_start_launchers_preserve_existing_environment() -> None:
+    """A repeat start must not overwrite the install's existing configuration."""
     mac = _text(MAC_START)
     windows = _text(WINDOWS_START)
     assert "cp -n .env.example .env" in mac
     assert "if not exist .env copy /Y .env.example .env" in windows
     for text in (mac, windows):
-        assert ".local-state" in text
-        assert "bootstrap.json" in text
-        assert "/v1/workspaces" in text
         assert "PORTABLE_NO_OPEN" in text
 
 
@@ -126,20 +123,17 @@ def test_start_launchers_wait_boundedly_and_fail_when_services_never_ready() -> 
     assert "exit /b 1" in windows.lower()
 
 
-def test_bootstrap_is_validated_and_atomically_published_without_log_echo() -> None:
-    """A partial response must never become initialized state or leak an invite code."""
-    mac = _text(MAC_START)
-    windows = _text(WINDOWS_START)
-    assert "bootstrap.json.tmp" in mac
-    assert "plutil -extract workspace_id" in mac
-    assert "plutil -extract admin_code" in mac
-    assert 'mv "$bootstrap_tmp" "$bootstrap_file"' in mac
-    assert 'echo "$admin_code"' not in mac
-    assert "bootstrap.json.tmp" in windows
-    assert ".workspace_id" in windows
-    assert ".admin_code" in windows
-    assert "Move-Item" in windows
-    assert "ECHO %ADMIN_CODE%" not in windows.upper()
+def test_launchers_leave_team_creation_to_the_enter_page() -> None:
+    """A launcher-side bootstrap would bypass atomic owner onboarding."""
+    for path in (MAC_START, WINDOWS_START):
+        text = _text(path)
+        assert "/v1/workspaces" not in text
+        assert "admin_code" not in text
+        assert "bootstrap.json" not in text
+        assert "首次登录信息.txt" not in text
+        assert "pbcopy" not in text
+        assert "Set-Clipboard" not in text
+        assert "/enter" in text
 
 
 def test_launchers_open_private_entry_and_support_headless_acceptance() -> None:
@@ -170,8 +164,11 @@ def test_usage_guide_states_prerequisites_security_and_validation_limits() -> No
         "Mock",
         "Windows",
         "not_run",
-        ".local-state/首次登录信息.txt",
         "ZIP",
+        "创建团队",
+        "团队名称",
+        "管理者名称",
+        "独立邀请码",
     ):
         assert required in guide
     assert "首次启动" in guide
@@ -179,3 +176,4 @@ def test_usage_guide_states_prerequisites_security_and_validation_limits() -> No
     assert "正常停止" in guide
     assert "不会删除" in guide
     assert "千问" in guide
+    assert "换浏览器或换电脑" in guide
