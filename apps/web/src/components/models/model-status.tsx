@@ -56,7 +56,7 @@ export function ModelStatus({
   const { copyMode } = useExperiencePreferences();
   if (configs.length === 0) {
     return (
-      <p className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-400">
+      <p className="rounded-xl border border-[var(--border)] bg-slate-50 p-4 text-sm text-[var(--text-secondary)]">
         {copyMode === "simple"
           ? "尚未配置真实模型；当前只能使用不会产生真实调用费用的演示能力。"
           : "尚未配置真实模型；当前只能使用 Mock 能力。"}
@@ -67,19 +67,19 @@ export function ModelStatus({
     <ul className="space-y-3">
       {configs.map((config) => (
         <li
-          className="rounded-xl border border-slate-800 bg-slate-950 p-4"
+          className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-[var(--text-primary)]"
           key={config.id}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <strong>{displayText(modelChoiceCopy(config.capability, config.model_id), copyMode)}</strong>
-            <span className="rounded-full bg-amber-950 px-3 py-1 text-xs text-amber-200">
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
               {modelStateLabel(
                 config.experimental ? "experimental" : config.status,
                 copyMode,
               )}
             </span>
           </div>
-          <dl className="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
+          <dl className="mt-3 grid gap-2 text-sm text-[var(--text-secondary)] sm:grid-cols-2">
             <div>能力：{displayText(modelCapabilityCopy(config.capability), copyMode)}</div>
             <div>地域：{config.region ?? "不适用"}</div>
             <div>
@@ -90,7 +90,7 @@ export function ModelStatus({
             </div>
           </dl>
           {config.safe_error_code ? (
-            <p className="mt-3 text-xs text-slate-500">
+            <p className="mt-3 text-xs text-[var(--text-secondary)]">
               {copyMode === "simple" ? "验收提示" : "状态码"}：
               {modelSafeErrorLabel(config.safe_error_code, copyMode)}
             </p>
@@ -98,7 +98,7 @@ export function ModelStatus({
           {onValidate ? (
             <div className="mt-3 flex flex-wrap gap-2">
               <button
-                className="rounded-lg border border-slate-700 px-3 py-2 text-sm"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"
                 onClick={() => onValidate(config)}
                 type="button"
               >
@@ -106,7 +106,7 @@ export function ModelStatus({
               </button>
               {onStatusChange ? (
                 <button
-                  className="rounded-lg border border-slate-700 px-3 py-2 text-sm"
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"
                   onClick={() => onStatusChange(config)}
                   type="button"
                 >

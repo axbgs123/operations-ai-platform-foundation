@@ -69,6 +69,24 @@ test("always shows the easy purpose and expands persistent guidance", async () =
   expect(screen.getByText("常见情况")).toBeVisible();
 });
 
+test("explains the visible column rules instead of leaving an empty guide column", async () => {
+  const user = userEvent.setup();
+  renderGuidance("columns", "editor");
+
+  await user.click(screen.getByRole("button", { name: "查看操作说明" }));
+
+  const guide = screen.getByRole("region", { name: "栏目与活动操作说明" });
+  expect(within(guide).getByText(
+    "账号默认规则：栏目没有临时设置时使用的规则。",
+  )).toBeVisible();
+  expect(within(guide).getByText(
+    "活动临时规则：只在设定的有效时间内覆盖账号默认。",
+  )).toBeVisible();
+  expect(within(guide).getByText(
+    "恢复关系：临时规则结束后自动恢复账号默认。",
+  )).toBeVisible();
+});
+
 test("keeps the purpose when guidance is off", () => {
   localStorage.setItem("operations-ai:page-guidance:member-1", "off");
   renderGuidance("contents", "viewer");

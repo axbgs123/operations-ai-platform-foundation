@@ -110,6 +110,11 @@ export const PAGE_GUIDANCE_CATALOG: Record<OperatorPageId, PageGuidanceEntry> = 
     action("write", "新建或调整栏目规则"), action("write", "新建或调整栏目规则"), action("read", "查看当前生效规则"),
     ["选择一个平台账号。", "查看账号默认规则和活动期间的临时规则。", "修改后确认生效时间，并检查何时恢复默认。"],
     "当前账号没有栏目时，可以继续使用账号默认规则。",
+    steps(
+      "账号默认规则：栏目没有临时设置时使用的规则。",
+      "活动临时规则：只在设定的有效时间内覆盖账号默认。",
+      "恢复关系：临时规则结束后自动恢复账号默认。",
+    ),
   ),
   generation: guidance(
     action("write", "选择平台、账号和栏目后开始生成"), action("write", "选择平台、账号和栏目后开始生成"), action("read", "查看已保存的生成结果"),

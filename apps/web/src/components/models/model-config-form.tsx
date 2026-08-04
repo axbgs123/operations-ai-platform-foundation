@@ -30,6 +30,21 @@ import {
 
 type WorkspaceRole = "admin" | "editor" | "viewer" | "demo";
 
+const formControlClasses = (
+  "mt-2 w-full rounded-xl border border-[var(--border)] "
+  + "bg-[var(--surface)] px-4 py-3 text-[var(--text-primary)] "
+  + "placeholder:text-[var(--text-secondary)] "
+  + "disabled:cursor-not-allowed disabled:bg-slate-100 "
+  + "disabled:text-[var(--text-secondary)]"
+);
+
+const policyControlClasses = (
+  "mt-1 w-full rounded-lg border border-[var(--border)] "
+  + "bg-[var(--surface)] p-2 text-[var(--text-primary)] "
+  + "disabled:cursor-not-allowed disabled:bg-slate-100 "
+  + "disabled:text-[var(--text-secondary)]"
+);
+
 export function ModelConfigForm({
   workspaceId,
   role: suppliedRole,
@@ -226,7 +241,7 @@ export function ModelConfigForm({
   }
 
   return (
-    <section className="rounded-xl border bg-white p-6 sm:p-8">
+    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] sm:p-8">
       <GuidedPageHeader
         context={{
           simple: "真实调用可能产生费用；没有设置每日上限时，系统不会允许调用。",
@@ -234,7 +249,7 @@ export function ModelConfigForm({
         }}
         pageId="settingsModels"
         secondaryActions={(
-          <span className="rounded-full bg-amber-950 px-3 py-1 text-xs text-amber-200">
+          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
             {displayInternalState("experimental")}
           </span>
         )}
@@ -249,7 +264,7 @@ export function ModelConfigForm({
       </div>
 
       {!canManage ? (
-        <p className="mt-5 rounded-xl bg-slate-950 p-4 text-sm text-slate-300">
+        <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           {role === "demo"
             ? "演示工作区只使用 Mock，不允许保存真实配置。"
             : "只读状态：只有管理员可以管理凭据和预算。"}
@@ -260,7 +275,7 @@ export function ModelConfigForm({
             {copyMode === "simple" ? "模型服务" : "Provider"}
             <input
               aria-label={copyMode === "simple" ? "模型服务" : "Provider"}
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className={formControlClasses}
               disabled
               value="qianwen"
             />
@@ -269,7 +284,7 @@ export function ModelConfigForm({
             {copyMode === "simple" ? "模型能力" : "精确模型"}
             <select
               aria-label={copyMode === "simple" ? "模型能力" : "精确模型"}
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className={formControlClasses}
               onChange={(event) => setModelId(event.target.value)}
               value={modelId}
             >
@@ -284,7 +299,7 @@ export function ModelConfigForm({
             地域
             <select
               aria-label="地域"
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className={formControlClasses}
               onChange={(event) =>
                 setRegion(
                   event.target.value as
@@ -306,7 +321,7 @@ export function ModelConfigForm({
             <input
               aria-label={copyMode === "simple" ? "模型服务密钥" : "API Key"}
               autoComplete="new-password"
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className={formControlClasses}
               onChange={(event) => setApiKey(event.target.value)}
               placeholder="留空保留现有密钥；输入新值即替换"
               type="password"
@@ -319,7 +334,7 @@ export function ModelConfigForm({
             </span>
           </label>
           <button
-            className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50 sm:col-span-2"
+            className="rounded-xl bg-[var(--brand)] px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2"
             disabled={pending || !selected}
             type="submit"
           >
@@ -329,7 +344,7 @@ export function ModelConfigForm({
       )}
       {canManage ? (
         <form
-          className="mt-8 rounded-2xl border border-slate-800 bg-slate-950 p-5"
+          className="mt-8 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-[var(--text-primary)]"
           onSubmit={savePolicy}
         >
           <h2 className="text-lg font-semibold">
@@ -339,7 +354,7 @@ export function ModelConfigForm({
             <label className="text-sm">
               能力
               <select
-                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                className={policyControlClasses}
                 onChange={(event) =>
                   setPolicyCapability(
                     event.target.value as typeof policyCapability,
@@ -376,7 +391,7 @@ export function ModelConfigForm({
               <label className="text-sm" key={String(name)}>
                 {label}
                 <input
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 p-2"
+                  className={policyControlClasses}
                   defaultValue={value}
                   min="0"
                   name={String(name)}
@@ -386,7 +401,7 @@ export function ModelConfigForm({
             ))}
           </div>
           <button
-            className="mt-4 rounded-xl border border-cyan-600 px-4 py-2 text-cyan-200"
+            className="mt-4 rounded-xl bg-[var(--brand)] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             disabled={pending}
             type="submit"
           >
@@ -395,7 +410,7 @@ export function ModelConfigForm({
         </form>
       ) : null}
       {message ? (
-        <p className="mt-4 text-sm text-cyan-300" role="status">
+        <p className="mt-4 text-sm text-[var(--info)]" role="status">
           {message}
         </p>
       ) : null}

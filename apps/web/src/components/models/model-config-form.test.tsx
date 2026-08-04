@@ -241,6 +241,41 @@ test("easy mode explains secret storage, real provider cost, and trial status", 
   );
 });
 
+test("uses the shared light form tokens for model credentials and usage policy", async () => {
+  const { container } = renderInWorkspace(
+    <ModelConfigForm role="admin" workspaceId="workspace-1" />,
+  );
+
+  const provider = await screen.findByLabelText("模型服务");
+  expect(provider).toHaveClass(
+    "border-[var(--border)]",
+    "bg-[var(--surface)]",
+    "text-[var(--text-primary)]",
+    "disabled:bg-slate-100",
+    "disabled:text-[var(--text-secondary)]",
+  );
+
+  const key = screen.getByLabelText("模型服务密钥");
+  expect(key).toHaveClass(
+    "border-[var(--border)]",
+    "bg-[var(--surface)]",
+    "text-[var(--text-primary)]",
+    "placeholder:text-[var(--text-secondary)]",
+  );
+
+  const policy = screen.getByRole("heading", {
+    name: "工作区用量政策（UTC 日界线）",
+  }).closest("form");
+  expect(policy).toHaveClass(
+    "border-[var(--border)]",
+    "bg-[var(--surface)]",
+    "text-[var(--text-primary)]",
+  );
+  expect(container.querySelectorAll(
+    '[class*="bg-slate-950"], [class*="bg-slate-900"]',
+  )).toHaveLength(0);
+});
+
 test("easy mode translates loaded model and validation states without exposing safe codes", async () => {
   listModelConfigs.mockResolvedValueOnce([
     {
