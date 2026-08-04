@@ -74,3 +74,10 @@ checksums.txt 中的 SHA-256 用于核对 ZIP 是否被替换或损坏；release
 apps/api/.venv/bin/python scripts/release-security.py verify-portable-release --path <ZIP路径>
 
 校验失败时不要继续解压或运行。构建器不会读取未跟踪文件，也不会把 .env、.local-state、数据库、备份、日志、密钥、邀请码或 .superpowers/brainstorm 打入发布包。
+
+八、当前本地验收范围
+
+- 当前已执行 macOS 本地解压包验收：从已校验 ZIP 解压后启动，使用页面对应的原子团队创建接口建立首位管理员，再以独立邀请码加入 Editor，并验证正常停止、重启和二次启动后的数据保留。
+- 验收只使用固定合成数据、Mock Provider 和本机隔离 Docker 项目；不会访问真实平台，也不会调用真实模型或产生模型费用。
+- Windows + Docker Desktop 真实运行仍为 not_run，不能由 macOS 结果推断。
+- GitHub Release、浏览器下载分发和正式公开发布暂未执行；当前包仅用于 macOS 本地测试。

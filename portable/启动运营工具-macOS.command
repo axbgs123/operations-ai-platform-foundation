@@ -2,10 +2,18 @@
 set -Eeuo pipefail
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-root_dir="$(cd -- "$script_dir/.." && pwd)"
+root_dir="$script_dir"
+if [[ ! -f "$root_dir/infra/docker/compose.yml" ]]; then
+  root_dir="$(cd -- "$script_dir/.." && pwd)"
+fi
 project_name="${PORTABLE_COMPOSE_PROJECT:-operations-ai-local}"
 api_port="${API_PORT:-8000}"
 web_port="${WEB_PORT:-3000}"
+postgres_port="${POSTGRES_PORT:-55432}"
+s3_port="${S3_PORT:-9000}"
+s3_console_port="${S3_CONSOLE_PORT:-9001}"
+next_public_api_url="${NEXT_PUBLIC_API_URL:-http://127.0.0.1:${api_port}}"
+web_origin="${WEB_ORIGIN:-http://127.0.0.1:${web_port}}"
 entry_url="http://127.0.0.1:${web_port}/enter"
 
 compose() {
@@ -42,9 +50,16 @@ docker compose version >/dev/null 2>&1 || fail "需要 Docker Compose v2。"
 command -v curl >/dev/null 2>&1 || fail "系统缺少 curl，无法执行健康检查。"
 
 cd "$root_dir"
-cp -n .env.example .env
+if [[ ! -f .env ]]; then
+  cp -n .env.example .env
+fi
 export API_PORT="$api_port"
 export WEB_PORT="$web_port"
+export POSTGRES_PORT="$postgres_port"
+export S3_PORT="$s3_port"
+export S3_CONSOLE_PORT="$s3_console_port"
+export NEXT_PUBLIC_API_URL="$next_public_api_url"
+export WEB_ORIGIN="$web_origin"
 
 printf '正在启动服务，首次构建可能需要 5–15 分钟……\n'
 if ! compose --profile demo up -d --build; then
