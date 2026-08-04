@@ -401,38 +401,42 @@ Do not commit `dist/portable/**`. Stop and report the commit SHA, file count, ZI
 
 ---
 
-### Task 3: Unpacked artifact fresh-install and writable-workspace acceptance
+### Task 3: Unpacked macOS artifact and local-team acceptance
 
 **Files:**
 - Create: `scripts/verify-portable-release.sh`
 - Create: `apps/api/tests/open_source/test_portable_acceptance_contract.py`
 - Modify: `portable/启动运营工具-macOS.command`
-- Modify: `portable/启动运营工具-Windows.bat`
 - Modify: `portable/使用说明.txt`
 
 **Interfaces:**
-- Consumes: Task 2 ZIP, launcher environment overrides, existing Compose health checks, and `POST /v1/sessions/invite`.
+- Consumes: the deterministic ZIP, macOS launcher environment overrides, existing Compose health checks, `POST /v1/workspaces/onboard`, member-code creation, and `POST /v1/sessions/invite`.
 - Produces: repeatable macOS artifact acceptance and a machine-readable `portable-acceptance.json`.
+
+**Current-scope override:** This local-test milestone covers macOS only. Windows runtime acceptance, GitHub Release automation and Tasks 4–5 are deferred until the user explicitly resumes release work.
 
 - [ ] **Step 1: Write failing acceptance-contract tests**
 
 Tests must assert that `scripts/verify-portable-release.sh`:
 
-- requires an explicit ZIP path;
+- requires an explicit ZIP path unless `--build` is supplied;
 - creates a random `operations_ai_portable_test_` Compose project;
 - selects random loopback ports;
 - sets `PORTABLE_NO_OPEN=1`;
 - unpacks to `mktemp -d`;
 - invokes the unpacked macOS launcher, never the repository launcher;
 - verifies API readiness and Web `/enter`;
-- reads `.local-state/bootstrap.json` without printing the invite code;
-- redeems the generated invite through `/v1/sessions/invite`;
+- confirms the launcher does not create `.local-state/bootstrap.json` or `.local-state/首次登录信息.txt`;
+- creates the team and initial Admin session through `POST /v1/workspaces/onboard`;
+- stores Cookie and CSRF material only in permission-restricted temporary files and never prints them;
+- issues one independent Editor invite through the authenticated member-code API;
+- redeems that invite with a second cookie jar and verifies the resulting role is Editor;
 - creates one account/content fixture through official APIs;
 - stops without volumes, restarts, and verifies the same workspace and fixture;
-- runs the start launcher a second time and proves the workspace count did not increase;
-- records Windows runtime as `not_run`, macOS runtime as `passed`, exact source commit, ZIP SHA-256, run time, and Docker versions;
+- runs the start launcher a second time and proves the original Admin session, member count and fixture remain unchanged;
+- records macOS runtime as `passed`, exact source commit, ZIP SHA-256, run time and Docker versions;
 - cleanup accepts only project names beginning `operations_ai_portable_test_`;
-- always removes the test project's containers, networks, volumes, temporary unpack directory, and temporary state after evidence capture.
+- always removes the test project's containers, networks, volumes, temporary unpack directory and temporary credentials after evidence capture.
 
 - [ ] **Step 2: Run RED**
 
@@ -443,9 +447,9 @@ cd apps/api
 
 Expected: FAIL because the acceptance runner does not exist.
 
-- [ ] **Step 3: Add explicit test overrides to both start launchers**
+- [ ] **Step 3: Confirm explicit test overrides in the macOS launcher**
 
-Launchers may consume but must never persist these optional variables:
+The macOS launcher may consume but must never persist these optional variables:
 
 ```text
 PORTABLE_COMPOSE_PROJECT
@@ -459,7 +463,7 @@ WEB_ORIGIN
 PORTABLE_NO_OPEN
 ```
 
-User defaults remain unchanged. Test overrides are passed through Compose environment only. The launchers must not read arbitrary environment names into `.env`.
+User defaults remain unchanged. Test overrides are passed through Compose environment only. The launcher must not read arbitrary environment names into `.env`.
 
 - [ ] **Step 4: Implement the isolated artifact verifier**
 
@@ -468,18 +472,20 @@ Follow the proven cleanup and readiness patterns in `scripts/verify-fresh-instal
 The verifier must:
 
 1. check Docker before creating resources;
-2. build Task 2 artifact when `--build` is supplied, otherwise require the exact ZIP;
+2. build the artifact when `--build` is supplied, otherwise require the exact ZIP;
 3. calculate ZIP SHA-256 before extraction;
 4. extract with Python `zipfile` only after `verify-portable-release` succeeds;
 5. execute the unpacked Mac launcher with random ports and `PORTABLE_NO_OPEN=1`;
-6. validate one-shot `migrate`, `bucket-init`, and `demo-seed` exit codes;
-7. redeem the local admin code without printing it;
-8. create a minimal official account and content fixture;
-9. record IDs only in the temporary evidence file;
-10. stop, restart, and verify persistence;
-11. rerun the start launcher and verify no duplicate local workspace;
-12. write `portable-acceptance.json` with no code, cookie, CSRF token, title, body, prompt, or user data;
-13. clean only test resources in the EXIT trap.
+6. validate one-shot `migrate`, `bucket-init` and `demo-seed` exit codes;
+7. POST fixed synthetic team and manager display names to `/v1/workspaces/onboard`, capturing the HttpOnly Cookie with a restricted cookie jar and the CSRF value in a restricted temporary JSON file;
+8. use the Admin session to create one independent Editor invite, redeem it with a second cookie jar and verify the Editor workbench context;
+9. create a minimal official account and content fixture with synthetic values;
+10. record only workspace/member/account/content IDs in the temporary evidence file;
+11. stop, restart and verify the Admin session, workspace, member list and fixture persist;
+12. rerun the start launcher and verify the same IDs and member count remain;
+13. assert neither bootstrap nor first-login local files exist;
+14. write `portable-acceptance.json` with no invite code, cookie, CSRF token, display name, title, body, prompt or user data;
+15. clean only test resources in the EXIT trap.
 
 - [ ] **Step 5: Run contract GREEN**
 
@@ -504,9 +510,8 @@ bash scripts/verify-portable-release.sh \
 Expected:
 
 - macOS `passed`;
-- Windows `not_run`;
-- local workspace created once;
-- official invite login succeeds;
+- owner onboarding creates one local team and its initial Admin;
+- independent Editor invite login succeeds;
 - fixture survives normal stop/restart;
 - test Compose resources and temporary directories are absent afterward;
 - no real provider call or real platform access.
@@ -527,13 +532,14 @@ git diff --check
 
 ```bash
 git add \
-  portable \
+  portable/启动运营工具-macOS.command \
+  portable/使用说明.txt \
   scripts/verify-portable-release.sh \
   apps/api/tests/open_source/test_portable_acceptance_contract.py
 git commit -m "test: verify unpacked portable deployment"
 ```
 
-Stop and report the commit SHA, artifact SHA-256, macOS acceptance result, persistence evidence, cleanup evidence, and honest Windows status.
+Do not push, create a GitHub Release or begin Tasks 4–5. Stop and report the commit SHA, artifact SHA-256, macOS acceptance result, owner/invite/persistence evidence, cleanup evidence, and that Windows/release work is deferred by current scope.
 
 ---
 
