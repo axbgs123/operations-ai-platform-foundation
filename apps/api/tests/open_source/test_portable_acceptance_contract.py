@@ -169,10 +169,9 @@ def test_mac_launcher_passes_only_explicit_acceptance_overrides() -> None:
     assert "env >>" not in launcher
 
 
-def test_mac_launcher_restarts_with_an_existing_environment(tmp_path: Path) -> None:
-    """macOS cp -n returns one for an existing target and must not abort restart."""
-    install = tmp_path / "portable"
-    install.mkdir()
+def _fake_mac_install(tmp_path: Path) -> tuple[Path, Path, Path]:
+    install = tmp_path / "中文安装目录" / "portable"
+    install.mkdir(parents=True)
     shutil.copy2(MAC_START, install / MAC_START.name)
     (install / "infra/docker").mkdir(parents=True)
     (install / "infra/docker/compose.yml").write_text(
@@ -189,8 +188,28 @@ def test_mac_launcher_restarts_with_an_existing_environment(tmp_path: Path) -> N
     )
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
-    _executable(bin_dir / "docker", "#!/usr/bin/env bash\nexit 0\n")
+    call_log = tmp_path / "docker-calls.log"
+    _executable(
+        bin_dir / "docker",
+        """#!/usr/bin/env bash
+set -eu
+printf '%s\n' "$*" >> "$DOCKER_CALL_LOG"
+if [[ -n "${FAIL_BUILD_SERVICE:-}" ]] \
+  && [[ "$*" == *" build ${FAIL_BUILD_SERVICE}" ]]; then
+  exit 31
+fi
+exit 0
+""",
+    )
     _executable(bin_dir / "curl", "#!/usr/bin/env bash\nexit 0\n")
+    return install, bin_dir, call_log
+
+
+def test_mac_launcher_builds_images_sequentially_before_starting(
+    tmp_path: Path,
+) -> None:
+    """Compose v5 Bake must never receive a multi-target build in a Unicode path."""
+    install, bin_dir, call_log = _fake_mac_install(tmp_path)
 
     result = subprocess.run(
         ["bash", str(install / MAC_START.name)],
@@ -198,6 +217,7 @@ def test_mac_launcher_restarts_with_an_existing_environment(tmp_path: Path) -> N
         env={
             **os.environ,
             "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "DOCKER_CALL_LOG": str(call_log),
             "PORTABLE_NO_OPEN": "1",
         },
         check=False,
@@ -210,6 +230,65 @@ def test_mac_launcher_restarts_with_an_existing_environment(tmp_path: Path) -> N
         "PRESERVE=existing\n"
     )
     assert "运营工具已就绪" in result.stdout
+    compose_calls = [
+        line
+        for line in call_log.read_text(encoding="utf-8").splitlines()
+        if line.startswith("compose --project-name")
+    ]
+    assert compose_calls[-3:] == [
+        (
+            "compose --project-name operations-ai-local --env-file "
+            f"{install}/.env -f {install}/infra/docker/compose.yml build api"
+        ),
+        (
+            "compose --project-name operations-ai-local --env-file "
+            f"{install}/.env -f {install}/infra/docker/compose.yml build web"
+        ),
+        (
+            "compose --project-name operations-ai-local --env-file "
+            f"{install}/.env -f {install}/infra/docker/compose.yml "
+            "--profile demo up -d --no-build"
+        ),
+    ]
+    assert not any(" up " in call and "--build" in call for call in compose_calls)
+    assert not any("build api web" in call for call in compose_calls)
+
+
+@pytest.mark.parametrize(
+    ("failed_service", "expected_error"),
+    [
+        ("api", "API 镜像构建失败。未启动任何服务"),
+        ("web", "Web 镜像构建失败。未启动任何服务"),
+    ],
+)
+def test_mac_launcher_does_not_start_services_after_an_image_build_failure(
+    tmp_path: Path,
+    failed_service: str,
+    expected_error: str,
+) -> None:
+    install, bin_dir, call_log = _fake_mac_install(tmp_path)
+
+    result = subprocess.run(
+        ["bash", str(install / MAC_START.name)],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "DOCKER_CALL_LOG": str(call_log),
+            "FAIL_BUILD_SERVICE": failed_service,
+            "PORTABLE_NO_OPEN": "1",
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert expected_error in result.stderr
+    compose_calls = call_log.read_text(encoding="utf-8").splitlines()
+    assert not any(" up " in call for call in compose_calls)
+    if failed_service == "api":
+        assert not any("build web" in call for call in compose_calls)
 
 
 def test_mac_acceptance_documentation_is_honest_about_current_scope() -> None:

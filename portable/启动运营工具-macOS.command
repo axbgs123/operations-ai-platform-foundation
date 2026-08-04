@@ -61,8 +61,16 @@ export S3_CONSOLE_PORT="$s3_console_port"
 export NEXT_PUBLIC_API_URL="$next_public_api_url"
 export WEB_ORIGIN="$web_origin"
 
-printf '正在启动服务，首次构建可能需要 5–15 分钟……\n'
-if ! compose --profile demo up -d --build; then
+printf '正在构建 API 镜像，首次构建可能需要几分钟……\n'
+if ! compose build api; then
+  fail "API 镜像构建失败。未启动任何服务，请检查 Docker 输出后重试。"
+fi
+printf '正在构建 Web 镜像，首次构建可能需要几分钟……\n'
+if ! compose build web; then
+  fail "Web 镜像构建失败。未启动任何服务，请检查 Docker 输出后重试。"
+fi
+printf '正在启动服务……\n'
+if ! compose --profile demo up -d --no-build; then
   fail "Docker Compose 启动失败。已有数据卷已保留，可重试本启动脚本。"
 fi
 
