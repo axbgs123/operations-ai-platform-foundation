@@ -59,6 +59,30 @@ test("offers persistent, accessible create-team and join-team paths", () => {
   ).toBeInTheDocument();
 });
 
+test("uses the approved light workbench tokens for the entry surface and text", () => {
+  render(<EnterPage />);
+
+  const main = screen.getByRole("main");
+  const entryCard = screen.getByRole("region", {
+    name: "进入你的运营工作区",
+  });
+  expect(main).toHaveClass(
+    "bg-[var(--canvas)]",
+    "text-[var(--text-primary)]",
+  );
+  expect(main).not.toHaveClass("bg-slate-950", "bg-slate-900");
+  expect(entryCard).toHaveClass(
+    "border-[var(--border)]",
+    "bg-[var(--surface)]",
+  );
+  expect(entryCard).not.toHaveClass("bg-slate-950", "bg-slate-900");
+  expect(
+    screen.getByText(
+      "创建新团队，或使用管理员提供的独立邀请码加入已有团队。",
+    ),
+  ).toHaveClass("text-[var(--text-secondary)]");
+});
+
 test("creates the first owner without sending an invite code", async () => {
   const user = userEvent.setup();
   onboardWorkspaceOwnerMock.mockResolvedValue({
@@ -121,7 +145,7 @@ test("keeps invite joining independent from owner onboarding", async () => {
   );
 });
 
-test("blocks duplicate owner submissions and allows a safe retry after failure", async () => {
+test("locks the create mode while pending and restores it after a safe failure", async () => {
   const user = userEvent.setup();
   let rejectOnboarding: (reason?: unknown) => void = () => undefined;
   onboardWorkspaceOwnerMock.mockImplementation(
@@ -135,10 +159,23 @@ test("blocks duplicate owner submissions and allows a safe retry after failure",
   await user.type(screen.getByLabelText("团队名称"), "合成测试团队");
   await user.type(screen.getByLabelText("我的名称"), "测试管理员");
   const submit = screen.getByRole("button", { name: "创建团队并进入" });
+  const createMode = screen.getByRole("button", {
+    name: "创建团队",
+    pressed: true,
+  });
+  const joinMode = screen.getByRole("button", {
+    name: "加入团队",
+    pressed: false,
+  });
   await user.click(submit);
 
   expect(submit).toBeDisabled();
-  await user.click(submit);
+  expect(createMode).toBeDisabled();
+  expect(joinMode).toBeDisabled();
+  await user.click(joinMode);
+  expect(createMode).toHaveAttribute("aria-pressed", "true");
+  expect(joinMode).toHaveAttribute("aria-pressed", "false");
+  expect(screen.queryByLabelText("邀请码")).not.toBeInTheDocument();
   expect(onboardWorkspaceOwnerMock).toHaveBeenCalledTimes(1);
 
   rejectOnboarding(new Error("provider detail must stay hidden"));
@@ -149,4 +186,6 @@ test("blocks duplicate owner submissions and allows a safe retry after failure",
     }),
   ).toBeInTheDocument();
   expect(submit).toBeEnabled();
+  expect(createMode).toBeEnabled();
+  expect(joinMode).toBeEnabled();
 });

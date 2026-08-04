@@ -20,6 +20,7 @@ export default function EnterPage() {
     if (pendingRef.current) {
       return;
     }
+    const submittingMode = mode;
     const form = new FormData(event.currentTarget);
     pendingRef.current = true;
     setPending(true);
@@ -27,7 +28,7 @@ export default function EnterPage() {
     try {
       const displayName = String(form.get("displayName") ?? "");
       const session =
-        mode === "create"
+        submittingMode === "create"
           ? await onboardWorkspaceOwner(
               String(form.get("workspaceName") ?? ""),
               displayName,
@@ -37,7 +38,7 @@ export default function EnterPage() {
       window.location.assign(`/workspaces/${session.workspace_id}`);
     } catch {
       setError(
-        mode === "create"
+        submittingMode === "create"
           ? "创建失败，请稍后重试"
           : "加入失败，请稍后重试",
       );
@@ -48,11 +49,21 @@ export default function EnterPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-slate-100 sm:px-6 sm:py-16">
-      <section className="mx-auto max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl sm:p-8">
-        <p className="mb-3 text-sm font-medium text-cyan-400">安全工作区入口</p>
-        <h1 className="text-3xl font-semibold">进入你的运营工作区</h1>
-        <p className="mt-3 text-sm leading-6 text-slate-400">
+    <main className="min-h-screen bg-[var(--canvas)] px-4 py-10 text-[var(--text-primary)] sm:px-6 sm:py-16">
+      <section
+        aria-labelledby="workspace-entry-title"
+        className="mx-auto max-w-lg rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8"
+      >
+        <p className="mb-3 text-sm font-medium text-[var(--brand)]">
+          安全工作区入口
+        </p>
+        <h1
+          className="text-3xl font-semibold"
+          id="workspace-entry-title"
+        >
+          进入你的运营工作区
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
           创建新团队，或使用管理员提供的独立邀请码加入已有团队。
         </p>
         <div
@@ -66,11 +77,12 @@ export default function EnterPage() {
             return (
               <button
                 aria-pressed={active}
-                className={`rounded-xl border px-4 py-3 text-left font-semibold outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${
+                className={`rounded-xl border px-4 py-3 text-left font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
-                    ? "border-cyan-300 bg-cyan-300 text-slate-950"
-                    : "border-slate-700 bg-slate-950 text-slate-200"
+                    ? "border-[var(--brand)] bg-[var(--brand)] text-white"
+                    : "border-[var(--border)] bg-[var(--surface)] text-[var(--text-primary)]"
                 }`}
+                disabled={pending}
                 key={entryMode}
                 onClick={() => {
                   setMode(entryMode);
@@ -93,7 +105,7 @@ export default function EnterPage() {
               团队名称
               <input
                 autoComplete="organization"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
+                className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[var(--text-primary)] focus:border-[var(--brand)]"
                 name="workspaceName"
                 required
               />
@@ -103,7 +115,7 @@ export default function EnterPage() {
               邀请码
               <input
                 autoComplete="off"
-                className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
+                className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[var(--text-primary)] focus:border-[var(--brand)]"
                 name="code"
                 required
               />
@@ -113,7 +125,7 @@ export default function EnterPage() {
             我的名称
             <input
               autoComplete="name"
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
+              className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[var(--text-primary)] focus:border-[var(--brand)]"
               name="displayName"
               required
             />
@@ -121,14 +133,14 @@ export default function EnterPage() {
           {error ? (
             <p
               aria-label={error}
-              className="text-sm text-rose-300"
+              className="text-sm text-[var(--danger)]"
               role="alert"
             >
               {error}
             </p>
           ) : null}
           <button
-            className="w-full rounded-xl bg-cyan-400 px-4 py-3 font-semibold text-slate-950 disabled:opacity-50"
+            className="w-full rounded-xl bg-[var(--brand)] px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             disabled={pending}
             type="submit"
           >
@@ -141,7 +153,7 @@ export default function EnterPage() {
                 : "加入团队"}
           </button>
         </form>
-        <div className="mt-6 space-y-2 border-t border-slate-800 pt-5 text-sm leading-6 text-slate-400">
+        <div className="mt-6 space-y-2 border-t border-[var(--border)] pt-5 text-sm leading-6 text-[var(--text-secondary)]">
           <p>创建团队不需要邀请码，创建者将成为首位管理员。</p>
           <p>
             团队名称和我的名称只是工作区中的显示信息，不是账号或密码。
