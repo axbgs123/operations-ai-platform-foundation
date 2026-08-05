@@ -369,6 +369,7 @@ def _task_adapters() -> tuple[_TaskAdapter, ...]:
     from app.modules.generation.models import TextGenerationRun, TextGenerationRunStatus
     from app.modules.imports.capture_models import CaptureTask, CaptureTaskStatus
     from app.modules.imports.models import ImportBatch
+    from app.modules.operations_agent.models import AgentRun
     from app.modules.risk_rag.models import RiskScan, RiskScanStatus
 
     return (
@@ -452,6 +453,21 @@ def _task_adapters() -> tuple[_TaskAdapter, ...]:
             retry_attr="attempt_count",
             completed_attr="processed_at",
             cancelable_statuses=frozenset(),
+        ),
+        _TaskAdapter(
+            "operations_agent",
+            AgentRun,
+            error_attr="safe_error_code",
+            cancelable_statuses=frozenset(),
+            retryable_statuses=frozenset(),
+            include_statuses=frozenset(
+                {
+                    "failed",
+                    "configuration_required",
+                    "compensation_required",
+                    "provider_outcome_unknown",
+                }
+            ),
         ),
     )
 

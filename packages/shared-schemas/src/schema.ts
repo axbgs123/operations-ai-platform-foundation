@@ -1071,6 +1071,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/agent/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_v1_workspaces__workspace_id__agent_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Run */
+        get: operations["read_run_v1_workspaces__workspace_id__agent_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/runs/{run_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Run */
+        post: operations["cancel_run_v1_workspaces__workspace_id__agent_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/runs/{run_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry Run */
+        post: operations["retry_run_v1_workspaces__workspace_id__agent_runs__run_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/analytics/completeness": {
         parameters: {
             query?: never;
@@ -2778,6 +2846,98 @@ export interface components {
             /** Tool Version */
             tool_version: string;
         };
+        /** AgentRunListRead */
+        AgentRunListRead: {
+            /** Items */
+            items: components["schemas"]["AgentRunRead"][];
+        };
+        /** AgentRunRead */
+        AgentRunRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Current Step Index */
+            current_step_index: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Plan Id
+             * Format: uuid
+             */
+            plan_id: string;
+            platform: components["schemas"]["Platform"];
+            /** Safe Error Code */
+            safe_error_code?: string | null;
+            status: components["schemas"]["AgentRunStatus"];
+            /**
+             * Steps
+             * @default []
+             */
+            steps: components["schemas"]["AgentRunStepRead"][];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /**
+         * AgentRunStatus
+         * @enum {string}
+         */
+        AgentRunStatus: "draft" | "awaiting_plan_approval" | "queued" | "running" | "awaiting_action_confirmation" | "succeeded" | "rejected" | "cancelled" | "failed" | "configuration_required" | "compensation_required" | "provider_outcome_unknown";
+        /** AgentRunStepRead */
+        AgentRunStepRead: {
+            /** Attempt Count */
+            attempt_count: number;
+            /** Completed At */
+            completed_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Safe Error Code */
+            safe_error_code?: string | null;
+            /** Safe Summary */
+            safe_summary?: string | null;
+            /** Started At */
+            started_at: string | null;
+            status: components["schemas"]["AgentStepStatus"];
+            /** Step Index */
+            step_index: number;
+            /** Tool Name */
+            tool_name: string;
+            tool_risk: components["schemas"]["AgentToolRisk"];
+            /** Tool Version */
+            tool_version: string;
+        };
+        /**
+         * AgentStepStatus
+         * @enum {string}
+         */
+        AgentStepStatus: "pending" | "running" | "awaiting_action_confirmation" | "succeeded" | "rejected" | "cancelled" | "failed" | "compensation_required" | "provider_outcome_unknown";
+        /**
+         * AgentToolRisk
+         * @enum {string}
+         */
+        AgentToolRisk: "read_only" | "draft_write" | "protected_write";
         /** AnalysisFeedbackInput */
         AnalysisFeedbackInput: {
             /**
@@ -9992,6 +10152,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentPlanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_v1_workspaces__workspace_id__agent_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_run_v1_workspaces__workspace_id__agent_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_run_v1_workspaces__workspace_id__agent_runs__run_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_run_v1_workspaces__workspace_id__agent_runs__run_id__retry_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunRead"];
                 };
             };
             /** @description Validation Error */

@@ -63,7 +63,7 @@ _RUN_TRANSITIONS: Mapping[AgentRunStatus, frozenset[AgentRunStatus]] = {
     AgentRunStatus.SUCCEEDED: frozenset(),
     AgentRunStatus.REJECTED: frozenset(),
     AgentRunStatus.CANCELLED: frozenset(),
-    AgentRunStatus.FAILED: frozenset(),
+    AgentRunStatus.FAILED: frozenset({AgentRunStatus.QUEUED}),
     AgentRunStatus.PROVIDER_OUTCOME_UNKNOWN: frozenset(),
 }
 
@@ -73,6 +73,7 @@ _STEP_TRANSITIONS: Mapping[AgentStepStatus, frozenset[AgentStepStatus]] = {
         {
             AgentStepStatus.RUNNING,
             AgentStepStatus.CANCELLED,
+            AgentStepStatus.FAILED,
         }
     ),
     AgentStepStatus.RUNNING: frozenset(
@@ -101,7 +102,7 @@ _STEP_TRANSITIONS: Mapping[AgentStepStatus, frozenset[AgentStepStatus]] = {
     AgentStepStatus.SUCCEEDED: frozenset(),
     AgentStepStatus.REJECTED: frozenset(),
     AgentStepStatus.CANCELLED: frozenset(),
-    AgentStepStatus.FAILED: frozenset(),
+    AgentStepStatus.FAILED: frozenset({AgentStepStatus.PENDING}),
     AgentStepStatus.PROVIDER_OUTCOME_UNKNOWN: frozenset(),
 }
 

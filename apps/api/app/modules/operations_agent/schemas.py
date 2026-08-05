@@ -13,6 +13,8 @@ from pydantic import (
 
 from app.modules.content.account_models import Platform
 from app.modules.operations_agent.models import (
+    AgentRunStatus,
+    AgentStepStatus,
     AgentPlanStatus,
     AgentToolRisk,
 )
@@ -181,3 +183,42 @@ class AgentPlanRead(BaseModel):
     approved_by: UUID | None
     approved_at: datetime | None
     created_at: datetime
+
+
+class AgentRunStepRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: UUID
+    step_index: int
+    tool_name: str
+    tool_version: str
+    tool_risk: AgentToolRisk
+    status: AgentStepStatus
+    attempt_count: int = Field(ge=0)
+    safe_summary: str | None = Field(default=None, max_length=500)
+    safe_error_code: str | None = Field(default=None, max_length=100)
+    started_at: datetime | None
+    completed_at: datetime | None
+
+
+class AgentRunRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: UUID
+    workspace_id: UUID
+    plan_id: UUID
+    account_id: UUID
+    platform: Platform
+    status: AgentRunStatus
+    current_step_index: int = Field(ge=0)
+    safe_error_code: str | None = Field(default=None, max_length=100)
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None
+    steps: tuple[AgentRunStepRead, ...] = ()
+
+
+class AgentRunListRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[AgentRunRead, ...]
