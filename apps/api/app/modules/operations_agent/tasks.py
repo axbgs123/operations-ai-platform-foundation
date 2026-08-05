@@ -2,6 +2,7 @@ from uuid import UUID
 
 from celery import shared_task  # type: ignore[import-untyped]
 
+from app.core.config import get_settings
 from app.core.database import SessionFactory
 from app.modules.operations_agent.executor import (
     AgentClaimLost,
@@ -54,6 +55,8 @@ def execute_run(run_id: str) -> dict[str, str]:
     except AgentClaimLost:
         return {"run_id": run_id, "status": "claim_lost"}
     if result.run_status is AgentRunStatus.RUNNING:
+        if get_settings().app_mock_mode:
+            return execute_run(run_id)
         execute_run.delay(run_id)
     return {
         "run_id": run_id,

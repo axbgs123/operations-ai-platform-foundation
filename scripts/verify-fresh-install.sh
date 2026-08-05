@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-readonly project_prefix="operations_ai_task7_"
+readonly project_prefix="operations_ai_task8_"
 readonly project_name="${project_prefix}${$}_${RANDOM}"
 readonly root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly compose_file="$root_dir/infra/docker/compose.yml"
-env_file="$(mktemp "${TMPDIR:-/tmp}/operations-ai-task7.env.XXXXXX")"
-diagnostics_dir="$(mktemp -d "${TMPDIR:-/tmp}/operations-ai-task7-diagnostics.XXXXXX")"
+env_file="$(mktemp "${TMPDIR:-/tmp}/operations-ai-task8.env.XXXXXX")"
+diagnostics_dir="$(mktemp -d "${TMPDIR:-/tmp}/operations-ai-task8-diagnostics.XXXXXX")"
 api_port="$((38000 + RANDOM % 1000))"
 web_port="$((39000 + RANDOM % 1000))"
 s3_port="$((40000 + RANDOM % 1000))"
@@ -58,6 +58,48 @@ wait_for_one_shots() {
   done
 }
 
+agent_identity() {
+  compose exec -T postgres psql -U operations_ai_task8 -d operations_ai_task8 -Atc "
+    WITH target AS (
+      SELECT id
+      FROM workspaces
+      WHERE name = 'Task 8 智能体验收工作区'
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    ), selected_run AS (
+      SELECT agent_runs.id
+      FROM agent_runs, target
+      WHERE agent_runs.workspace_id = target.id
+      ORDER BY agent_runs.created_at DESC, agent_runs.id DESC
+      LIMIT 1
+    )
+    SELECT target.id::text
+      || '|' || COALESCE(selected_run.id::text, '')
+      || '|' || COALESCE((
+        SELECT string_agg(id::text, ',' ORDER BY id::text)
+        FROM agent_run_steps
+        WHERE run_id = selected_run.id
+      ), '')
+      || '|' || COALESCE((
+        SELECT string_agg(id::text, ',' ORDER BY id::text)
+        FROM agent_confirmations
+        WHERE run_id = selected_run.id
+      ), '')
+      || '|' || COALESCE((
+        SELECT string_agg(id::text, ',' ORDER BY id::text)
+        FROM agent_artifacts
+        WHERE run_id = selected_run.id
+      ), '')
+      || '|' || COALESCE((
+        SELECT string_agg(id::text, ',' ORDER BY id::text)
+        FROM contents
+        WHERE workspace_id = target.id
+      ), '')
+    FROM target
+    LEFT JOIN selected_run ON true;
+  "
+}
+
 cleanup() {
   status=$?
   if [[ "$project_name" != ${project_prefix}* ]]; then
@@ -105,14 +147,14 @@ cp "$root_dir/.env.example" "$env_file"
 printf '%s\n' \
   'APP_ENV=development' \
   'APP_MOCK_MODE=true' \
-  'POSTGRES_DB=operations_ai_task7' \
-  'POSTGRES_USER=operations_ai_task7' \
-  'POSTGRES_PASSWORD=task7-local-password-only' \
-  'S3_ACCESS_KEY=task7-access' \
-  'S3_SECRET_KEY=task7-local-secret-only' \
-  'STORAGE_SIGNING_SECRET=task7-local-signing-secret-only-000000000000' \
-  'MODEL_SECRET_ENCRYPTION_KEY=task7-local-model-secret-only-00000000000000' \
-  'SESSION_SIGNING_SECRET=task7-local-session-signing-secret-only-0000000000' \
+  'POSTGRES_DB=operations_ai_task8' \
+  'POSTGRES_USER=operations_ai_task8' \
+  'POSTGRES_PASSWORD=task8-local-password-only' \
+  'S3_ACCESS_KEY=task8-access' \
+  'S3_SECRET_KEY=task8-local-secret-only' \
+  'STORAGE_SIGNING_SECRET=task8-local-signing-secret-only-000000000000' \
+  'MODEL_SECRET_ENCRYPTION_KEY=task8-local-model-secret-only-00000000000000' \
+  'SESSION_SIGNING_SECRET=task8-local-session-signing-secret-only-0000000000' \
   "API_PORT=$api_port" \
   "WEB_PORT=$web_port" \
   "S3_PORT=$s3_port" \
@@ -129,13 +171,18 @@ compose --profile demo up --build -d
 wait_for_one_shots
 wait_healthy api http://localhost:8000/health/ready
 wait_healthy web http://localhost:3000/demo
-compose exec -T postgres psql -U operations_ai_task7 -d operations_ai_task7 -Atc \
+compose exec -T postgres psql -U operations_ai_task8 -d operations_ai_task8 -Atc \
   "SELECT count(*) || '|' || (SELECT count(*) FROM contents WHERE workspace_id = (SELECT id FROM workspaces WHERE status = 'demo:synthetic-ai-tech-v1'));" | grep -qx '1|5'
 compose exec -T api /app/.venv/bin/python -c \
   "from app.core.storage import get_storage; assert get_storage().inspect_object('demo/synthetic-ai-tech-v1/synthetic-cover.txt')"
 compose --profile e2e build e2e
 compose --profile e2e run --rm e2e
-compose exec -T redis redis-cli SET task7:persistence ok >/dev/null
+agent_identity_before_restart="$(agent_identity)"
+if [[ -z "$agent_identity_before_restart" ]]; then
+  printf 'operations agent persistence identity was not created\n' >&2
+  exit 1
+fi
+compose exec -T redis redis-cli SET task8:persistence ok >/dev/null
 
 printf 'Stopping without deleting volumes and restarting %s\n' "$project_name"
 compose --profile demo down
@@ -143,10 +190,15 @@ compose --profile demo up -d
 wait_for_one_shots
 wait_healthy api http://localhost:8000/health/ready
 wait_healthy web http://localhost:3000/demo
-compose exec -T postgres psql -U operations_ai_task7 -d operations_ai_task7 -Atc \
+compose exec -T postgres psql -U operations_ai_task8 -d operations_ai_task8 -Atc \
   "SELECT count(*) || '|' || (SELECT count(*) FROM contents WHERE workspace_id = (SELECT id FROM workspaces WHERE status = 'demo:synthetic-ai-tech-v1'));" | grep -qx '1|5'
 compose exec -T api /app/.venv/bin/python -c \
   "from app.core.storage import get_storage; assert get_storage().inspect_object('demo/synthetic-ai-tech-v1/synthetic-cover.txt')"
-compose exec -T redis redis-cli GET task7:persistence | grep -qx 'ok'
+compose exec -T redis redis-cli GET task8:persistence | grep -qx 'ok'
+agent_identity_after_restart="$(agent_identity)"
+if [[ "$agent_identity_after_restart" != "$agent_identity_before_restart" ]]; then
+  printf 'operations agent workspace/run/step/confirmation/artifact/content IDs changed after restart\n' >&2
+  exit 1
+fi
 compose --profile e2e run --rm e2e
 printf 'Fresh install verification complete; isolated project will now be removed.\n'

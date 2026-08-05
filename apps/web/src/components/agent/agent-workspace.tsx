@@ -365,6 +365,9 @@ export function AgentWorkspace({
         description="只展示安全摘要；正文、提示词、密钥和供应商原始响应不会出现在这里。"
         title="优化结果"
       >
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          辅助判断，不保证通过平台审核
+        </p>
         {completedSummaries.length ? (
           <ul className="space-y-2">
             {completedSummaries.map((step) => (

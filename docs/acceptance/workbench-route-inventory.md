@@ -1,6 +1,6 @@
 # 工作台正式路由清单
 
-验证日期：2026-08-01。桌面导航先显示五个大类，再只显示当前大类的小功能；移动端使用“大类 → 小功能”的两步抽屉。这里的“可见”指当前角色能从这一层级到达；页面按钮仍受服务端 WorkspaceContext、角色、CSRF 和资源归属校验约束。自动化只使用合成数据和 Mock Provider。
+验证日期：2026-08-05。桌面导航先显示五个大类，再只显示当前大类的小功能；移动端使用“大类 → 小功能”的两步抽屉。这里的“可见”指当前角色能从这一层级到达；页面按钮仍受服务端 WorkspaceContext、角色、CSRF 和资源归属校验约束。自动化只使用合成数据和 Mock Provider。
 
 | 页面 | 规范路由（位于 `/workspaces/{workspace_id}` 下） | 大类 / 小功能 | Admin | Editor | Viewer | 页面主操作 | 深链接 | 自动化证据 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -13,6 +13,7 @@
 | 爆款素材库 | `/viral-library` | 资产 / 爆款素材库 | 是 | 是 | 是 | 人工确认候选（Viewer 不显示） | returnTo 恢复平台、账号和状态 | `full-loop.spec.ts`、`viral-library.test.tsx` |
 | 账号风格 | `/styles`；详情 `/styles/{account_id}` | 资产 / 账号风格 | 是 | 是 | 是 | 选择账号或维护样本（Viewer 只读） | 单账号 Scope，禁止全账号合并 | `full-loop.spec.ts`、`style-profile-center.test.tsx` |
 | 事实资料 | `/facts` | 资产 / 事实资料 | 是 | 是 | 是 | 添加/确认来源（Viewer 不显示） | 合法平台、账号范围可恢复 | `full-loop.spec.ts`、`fact-source-center.test.tsx` |
+| 运营智能体 | `/agent` | 创作 / 运营智能体 | 是 | 是 | 是 | 生成计划；Admin/Editor 可批准执行，Viewer 只读 | 服务器恢复 Plan/Run/Confirmation；浏览器只保存 ID | `operations-agent.spec.ts`、`agent-workspace.test.tsx` |
 | 生成中心 | `/generation` | 创作 / 生成中心 | 是 | 是 | 是 | 五步生成（Viewer 只读结果） | step/platform/account 可恢复 | `generation-workbench.spec.ts`、`generation-wizard.test.tsx` |
 | 发布前检查 | `/preflight` | 创作 / 发布前检查 | 是 | 是 | 是 | 打开内容风控详情 | returnTo 恢复队列状态与分页 | `risk-rag.spec.ts`、`preflight-queue.test.tsx` |
 | 风控知识库 | `/risk-knowledge` | 管理 / 风控知识库 | 是 | 否 | 否 | 上传、审核或生效知识 | Admin 深链接；其他角色由服务端拒绝 | `risk-rag.spec.ts`、`workbench-navigation.spec.ts` |
@@ -21,7 +22,7 @@
 | 后台任务 | `/settings/jobs` | 管理 / 后台任务 | 是 | 是 | 否 | 查看任务状态；Editor 无重试/取消/补偿 | 完整 Shell，唯一 main landmark | `workbench-navigation.spec.ts`、`job-operations.test.tsx` |
 | 工作区设置 | `/settings` | 管理 / 工作区设置 | 是 | 否 | 否 | 管理成员、模型、安全与删除 | Admin 深链接；其他角色由服务端拒绝 | `workbench-navigation.spec.ts`、`workbench-mobile.spec.ts` |
 
-角色矩阵固定为 Admin 16 项、Editor 13 项、Viewer 9 项。Demo 位于 `/demo`，没有私有 WorkspaceShell、主导航或写操作，只能通过明确链接进入 `/enter`。
+角色矩阵固定为 Admin 17 项、Editor 14 项、Viewer 10 项。Demo 位于 `/demo`，没有私有 WorkspaceShell、主导航或写操作，只能通过明确链接进入 `/enter`。
 
 ## 两级导航行为
 

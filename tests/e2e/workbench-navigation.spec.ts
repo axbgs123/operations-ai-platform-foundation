@@ -13,6 +13,7 @@ const routes = [
   ["爆款素材库", "/viral-library"],
   ["账号风格", "/styles"],
   ["事实资料", "/facts"],
+  ["运营智能体", "/agent"],
   ["生成中心", "/generation"],
   ["发布前检查", "/preflight"],
   ["风控知识库", "/risk-knowledge"],
@@ -38,6 +39,7 @@ const viewerLabels = [
   "爆款素材库",
   "账号风格",
   "事实资料",
+  "运营智能体",
   "生成中心",
   "发布前检查",
 ] as const;
@@ -59,7 +61,7 @@ const categories = [
     label: "创作",
     navigationLabel: "AI 创作功能",
     defaultSuffix: "/generation",
-    itemLabels: ["生成中心", "发布前检查"],
+    itemLabels: ["运营智能体", "生成中心", "发布前检查"],
   },
   {
     label: "资产",
@@ -184,7 +186,7 @@ async function assertNavigationLabels(
   expect(visibleChildren).toBe(expected.length);
 }
 
-test("admin reaches all 16 formal modules through visible primary navigation", async ({
+test("admin reaches all 17 formal modules through visible primary navigation", async ({
   page,
   request,
 }) => {

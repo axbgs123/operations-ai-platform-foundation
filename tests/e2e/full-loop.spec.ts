@@ -842,11 +842,17 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
       ),
     );
     await page.goto("/enter");
+    await page.getByRole("button", { name: "加入团队" }).click();
     await page.getByLabel("邀请码").fill(editorCode.code);
-    await page.getByLabel("显示名称").fill("full-loop-editor");
-    await page.getByRole("button", { name: "进入工作区" }).click();
+    await page.getByLabel("我的名称").fill("full-loop-editor");
+    await page
+      .getByRole("form", { name: "加入团队表单" })
+      .getByRole("button", { name: "加入团队" })
+      .click();
     await page.waitForURL(
-      new RegExp(`/workspaces/${sourceWorkspace.workspace_id}/`),
+      new RegExp(
+        `/workspaces/${sourceWorkspace.workspace_id}(?:/|$)`,
+      ),
     );
 
     const categoryForModule: Record<string, {

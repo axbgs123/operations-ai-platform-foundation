@@ -3,6 +3,8 @@ import {
   type components,
 } from "@operations-ai/shared-schemas";
 
+import { createIdempotencyKey } from "./idempotency-key";
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -30,10 +32,6 @@ export class AgentApiError extends Error {
     super("运营智能体请求失败");
     this.name = "AgentApiError";
   }
-}
-
-function idempotencyKey(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
 }
 
 function csrfHeaders(csrfToken: string): { "X-CSRF-Token": string } {
@@ -64,7 +62,7 @@ export async function createAgentPlan(
         path: { workspace_id: workspaceId },
         header: {
           "X-CSRF-Token": csrfToken,
-          "Idempotency-Key": idempotencyKey("agent-plan"),
+          "Idempotency-Key": createIdempotencyKey("agent-plan"),
         },
       },
       body,
@@ -228,7 +226,7 @@ export async function recordBriefingDecision(
         },
         header: {
           "X-CSRF-Token": csrfToken,
-          "Idempotency-Key": idempotencyKey("agent-briefing"),
+          "Idempotency-Key": createIdempotencyKey("agent-briefing"),
         },
       },
       body: {

@@ -13,11 +13,11 @@ FULL_LOOP = REPO_ROOT / "tests/e2e/full-loop.spec.ts"
 BACKUP_RESTORE = REPO_ROOT / "tests/e2e/backup-restore.spec.ts"
 
 
-def test_traceability_maps_all_sixteen_acceptance_requirements_exactly() -> None:
+def test_traceability_maps_all_seventeen_acceptance_requirements_exactly() -> None:
     text = TRACEABILITY.read_text(encoding="utf-8")
     requirement_ids = re.findall(r"^## (AC-\d{2})\b", text, re.MULTILINE)
 
-    assert requirement_ids == [f"AC-{number:02d}" for number in range(1, 17)]
+    assert requirement_ids == [f"AC-{number:02d}" for number in range(1, 18)]
     for section in re.split(r"^## AC-\d{2}\b", text, flags=re.MULTILINE)[1:]:
         for label in (
             "原始需求文字",
@@ -36,6 +36,7 @@ def test_traceability_maps_all_sixteen_acceptance_requirements_exactly() -> None
     assert "真实千问 API 尚未运行" in text
     assert "真实抖音/小红书页面尚未验证" in text
     assert "text-embedding-v4 没有确认的日期快照" in text
+    assert "independent_non_developer_agent_session_pending" in text
 
 
 def test_non_developer_materials_are_templates_not_fabricated_evidence() -> None:

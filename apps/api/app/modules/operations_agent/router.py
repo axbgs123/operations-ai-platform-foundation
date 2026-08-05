@@ -46,6 +46,7 @@ from app.modules.workspace.permissions import (
     PermissionDenied,
     require_permission,
 )
+from app.core.config import get_settings
 
 
 router = APIRouter(
@@ -62,7 +63,10 @@ IdempotencyKey = Annotated[
 def _enqueue_run(run_id: UUID) -> None:
     from app.modules.operations_agent.tasks import execute_run
 
-    execute_run.delay(str(run_id))
+    if get_settings().app_mock_mode:
+        execute_run(str(run_id))
+    else:
+        execute_run.delay(str(run_id))
 
 
 def _authorized_context(

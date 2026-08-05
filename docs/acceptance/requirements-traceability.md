@@ -1,6 +1,6 @@
 # 产品验收需求追溯矩阵
 
-验证日期：2026-08-03。状态只使用 `passed`、`partial`、`blocked`、`not_run`。自动化证据来自隔离临时环境、人工合成数据和 Mock Provider，不等同于真实平台、真实千问或独立非开发者验证。
+验证日期：2026-08-05。状态只使用 `passed`、`partial`、`blocked`、`not_run`。自动化证据来自隔离临时环境、人工合成数据和 Mock Provider，不等同于真实平台、真实千问或独立非开发者验证。
 
 | 需求编号 | 需求 | 自动化证据 | 当前状态 |
 | --- | --- | --- | --- |
@@ -198,13 +198,27 @@
 - 最后验证日期：2026-07-30。
 - 验证环境：自动合同为隔离 Compose；真实参与者环境未运行。
 
+## AC-17
+
+- 原始需求文字：运营智能体每天提出一项可解释建议，锁定单个平台账号，先展示计划再执行，并在权限、事实、风控和 Provider 边界内生成可人工复核的结果。
+- 对应模块：规范路由 `/agent`；Daily Briefing、固定工具目录、Plan approval、持久化 Run/Step/Confirmation/Artifact、Worker fencing。
+- 精确自动测试：`apps/api/tests/operations_agent/`；`tests/e2e/operations-agent.spec.ts`；32 条双平台固定评估用例。
+- 人工验收步骤：Editor 查看每日建议，选择账号与目标，核对并批准计划，观察九步进度、风险免责声明和无发布/支付入口。
+- 证据路径：`docs/acceptance/operations-agent-evaluation.md`；`scripts/verify-fresh-install.sh` 的重启前后 ID 对比。
+- 当前结果：`partial`。
+- 已知限制：真实千问、真实平台页面和独立非开发者智能体测试均 `not_run`；自动发布、支付和外部趋势检索未实现。
+- 最后验证日期：2026-08-05。
+- 验证环境：隔离 PostgreSQL/Redis/MinIO、Mock Provider、Chromium、人工合成数据。
+
 ## 状态汇总与不可越界结论
 
-- AC-01—AC-16：`passed` 8；`partial` 7；`blocked` 0；`not_run` 1。UX-COPY-01：`partial` 1。
+- AC-01—AC-17：`passed` 8；`partial` 8；`blocked` 0；`not_run` 1。UX-COPY-01：`partial` 1。
 - UX-COPY-01 自动化验收已通过；独立非开发者 Task 9B 仍为 `independent_non_developer_pending`，因此不得标记为生产完成。
 - 独立非开发者测试：`not_run`；原因：`independent_non_developer_session_pending`。
 - 真实千问 API 尚未运行，Catalog 仍为 `experimental`。
 - 真实抖音/小红书页面尚未验证；Windows/Edge 真实运行仍为 `not_run`。
+- 运营智能体独立非开发者测试为 `not_run`；原因：`independent_non_developer_agent_session_pending`。
+- 自动发布、支付调用和外部热点/趋势自动搜索均未实现。
 - `text-embedding-v4 没有确认的日期快照`，不得声称固定日期模型可重复。
 - 自动联网检索、Facts 细粒度账号/栏目范围、完整八阶段生命周期、文本生成与正式 `content_id` 关联均为 `partial`。
 - 自动化结果不代表生产平台过审率、真实模型质量或正式发布结论。

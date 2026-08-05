@@ -25,6 +25,7 @@ SOURCE_ALLOWED_PATTERNS = tuple(
         r"portable/[A-Za-z0-9._\-\u4e00-\u9fff]+\.(?:bat|command|txt)",
         r"scripts/[A-Za-z0-9._-]+\.(?:py|sh)",
         r"tests/e2e/(?:package\.json|[A-Za-z0-9._-]+\.(?:ts|sh))",
+        r"tests/fixtures/operations_agent/cases\.json",
     )
 )
 

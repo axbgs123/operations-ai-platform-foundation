@@ -150,6 +150,24 @@ def test_release_source_requires_file_level_review_for_binary_test_assets(
     assert "customer-export.xlsx" in result.stderr
 
 
+def test_release_source_accepts_only_the_reviewed_operations_agent_fixture(
+    tmp_path: Path,
+) -> None:
+    release = tmp_path / "release"
+    reviewed = release / "tests/fixtures/operations_agent/cases.json"
+    reviewed.parent.mkdir(parents=True)
+    reviewed.write_text('{"fixture_version":"synthetic"}', encoding="utf-8")
+
+    accepted = run_tool("verify-source-release", "--path", str(release))
+
+    assert accepted.returncode == 0, accepted.stderr
+    sibling = reviewed.with_name("private-export.json")
+    sibling.write_text('{"private":"synthetic"}', encoding="utf-8")
+    rejected = run_tool("verify-source-release", "--path", str(release))
+    assert rejected.returncode == 1
+    assert "private-export.json" in rejected.stderr
+
+
 def test_release_source_allowlist_accepts_exact_gitleaks_fingerprint_baseline(
     tmp_path: Path,
 ) -> None:

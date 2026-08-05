@@ -317,3 +317,20 @@ test("topbar shows only the server-backed pending count without action details",
     expect.any(AbortSignal),
   );
 });
+
+test("keeps the result review-only and states the fixed platform disclaimer", () => {
+  render(
+    <AgentWorkspace
+      actions={{}}
+      fixture={fixture}
+      role="editor"
+      workspaceId={plan.workspace_id}
+    />,
+  );
+
+  expect(
+    screen.getByText("辅助判断，不保证通过平台审核"),
+  ).toBeVisible();
+  expect(screen.queryByRole("button", { name: "发布" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /支付/ })).not.toBeInTheDocument();
+});
