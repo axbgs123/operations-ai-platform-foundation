@@ -1216,6 +1216,161 @@
         "title": "Body_upload_risk_document_v1_workspaces__workspace_id__risk_documents__document_id__upload_post",
         "type": "object"
       },
+      "BriefingCandidateRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "blocking_rank": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Blocking Rank",
+            "type": "integer"
+          },
+          "candidate_id": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "content_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Id"
+          },
+          "evidence_rank": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Evidence Rank",
+            "type": "integer"
+          },
+          "evidence_refs": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Evidence Refs",
+            "type": "array"
+          },
+          "executable_rank": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Executable Rank",
+            "type": "integer"
+          },
+          "is_primary": {
+            "title": "Is Primary",
+            "type": "boolean"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CandidateKind"
+          },
+          "objective_rank": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Objective Rank",
+            "type": "integer"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "repeat_penalty": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Repeat Penalty",
+            "type": "integer"
+          },
+          "safe_reason": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Safe Reason",
+            "type": "string"
+          },
+          "safe_title": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Safe Title",
+            "type": "string"
+          },
+          "severity_rank": {
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Severity Rank",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "kind",
+          "platform",
+          "account_id",
+          "is_primary",
+          "safe_title",
+          "safe_reason",
+          "blocking_rank",
+          "severity_rank",
+          "evidence_rank",
+          "objective_rank",
+          "executable_rank",
+          "repeat_penalty",
+          "evidence_refs"
+        ],
+        "title": "BriefingCandidateRead",
+        "type": "object"
+      },
+      "BriefingDecisionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CandidateKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "decision": {
+            "enum": [
+              "defer",
+              "suppress_kind"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "BriefingDecisionCreate",
+        "type": "object"
+      },
+      "CandidateKind": {
+        "enum": [
+          "high_risk_blocked",
+          "low_confidence_ocr",
+          "no_active_rag_evidence",
+          "preflight_review_required",
+          "configuration_required",
+          "permission_security_failure",
+          "failed_task",
+          "import_waiting_confirmation",
+          "pending_analysis",
+          "incomplete_data"
+        ],
+        "title": "CandidateKind",
+        "type": "string"
+      },
       "Capability": {
         "enum": [
           "text",
@@ -3246,6 +3401,78 @@
           "height"
         ],
         "title": "CoverSize",
+        "type": "object"
+      },
+      "DailyBriefingRead": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm_version": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Algorithm Version",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/BriefingCandidateRead"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "data_cutoff_at": {
+            "format": "date-time",
+            "title": "Data Cutoff At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Fingerprint",
+            "type": "string"
+          },
+          "primary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BriefingCandidateRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool_catalog_version": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Tool Catalog Version",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "input_fingerprint",
+          "algorithm_version",
+          "tool_catalog_version",
+          "data_cutoff_at",
+          "primary",
+          "candidates",
+          "created_at"
+        ],
+        "title": "DailyBriefingRead",
         "type": "object"
       },
       "DashboardAttentionItem": {
@@ -17208,6 +17435,257 @@
         "summary": "Configure Viral Thresholds",
         "tags": [
           "viral-library"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/briefing": {
+      "get": {
+        "operationId": "read_briefing_v1_workspaces__workspace_id__agent_briefing_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBriefingRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Briefing",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/briefing/refresh": {
+      "post": {
+        "operationId": "refresh_briefing_v1_workspaces__workspace_id__agent_briefing_refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBriefingRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Briefing",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/briefings/{briefing_id}/decisions": {
+      "post": {
+        "operationId": "record_briefing_decision_v1_workspaces__workspace_id__agent_briefings__briefing_id__decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "briefing_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Briefing Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BriefingDecisionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBriefingRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Briefing Decision",
+        "tags": [
+          "operations-agent"
         ]
       }
     },

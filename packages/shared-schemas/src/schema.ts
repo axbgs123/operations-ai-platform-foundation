@@ -952,6 +952,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/agent/briefing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Briefing */
+        get: operations["read_briefing_v1_workspaces__workspace_id__agent_briefing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/briefing/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh Briefing */
+        post: operations["refresh_briefing_v1_workspaces__workspace_id__agent_briefing_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/briefings/{briefing_id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Briefing Decision */
+        post: operations["record_briefing_decision_v1_workspaces__workspace_id__agent_briefings__briefing_id__decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/analytics/completeness": {
         parameters: {
             query?: never;
@@ -2902,6 +2953,54 @@ export interface components {
             /** Redistribution Authorized */
             redistribution_authorized: boolean;
         };
+        /** BriefingCandidateRead */
+        BriefingCandidateRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Blocking Rank */
+            blocking_rank: number;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Content Id */
+            content_id?: string | null;
+            /** Evidence Rank */
+            evidence_rank: number;
+            /** Evidence Refs */
+            evidence_refs: string[];
+            /** Executable Rank */
+            executable_rank: number;
+            /** Is Primary */
+            is_primary: boolean;
+            kind: components["schemas"]["CandidateKind"];
+            /** Objective Rank */
+            objective_rank: number;
+            platform: components["schemas"]["Platform"];
+            /** Repeat Penalty */
+            repeat_penalty: number;
+            /** Safe Reason */
+            safe_reason: string;
+            /** Safe Title */
+            safe_title: string;
+            /** Severity Rank */
+            severity_rank: number;
+        };
+        /** BriefingDecisionCreate */
+        BriefingDecisionCreate: {
+            candidate_kind?: components["schemas"]["CandidateKind"] | null;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "defer" | "suppress_kind";
+        };
+        /**
+         * CandidateKind
+         * @enum {string}
+         */
+        CandidateKind: "high_risk_blocked" | "low_confidence_ocr" | "no_active_rag_evidence" | "preflight_review_required" | "configuration_required" | "permission_security_failure" | "failed_task" | "import_waiting_confirmation" | "pending_analysis" | "incomplete_data";
         /**
          * Capability
          * @enum {string}
@@ -3594,6 +3693,38 @@ export interface components {
             height: number;
             /** Width */
             width: number;
+        };
+        /** DailyBriefingRead */
+        DailyBriefingRead: {
+            /** Algorithm Version */
+            algorithm_version: string;
+            /** Candidates */
+            candidates: components["schemas"]["BriefingCandidateRead"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Data Cutoff At
+             * Format: date-time
+             */
+            data_cutoff_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Input Fingerprint */
+            input_fingerprint: string;
+            primary: components["schemas"]["BriefingCandidateRead"] | null;
+            /** Tool Catalog Version */
+            tool_catalog_version: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** DashboardAttentionItem */
         DashboardAttentionItem: {
@@ -9425,6 +9556,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ViralThresholdRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_briefing_v1_workspaces__workspace_id__agent_briefing_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyBriefingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_briefing_v1_workspaces__workspace_id__agent_briefing_refresh_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyBriefingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_briefing_decision_v1_workspaces__workspace_id__agent_briefings__briefing_id__decisions_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                briefing_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BriefingDecisionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyBriefingRead"];
                 };
             };
             /** @description Validation Error */

@@ -29,6 +29,7 @@ from app.modules.models.router import (
     router as model_configs_router,
     usage_router as model_usage_router,
 )
+from app.modules.operations_agent.router import router as operations_agent_router
 from app.modules.risk_rag.router import (
     router as risk_documents_router,
     scan_router as risk_scans_router,
@@ -62,6 +63,7 @@ app.add_middleware(
 )
 app.include_router(workspace_router)
 app.include_router(workbench_router)
+app.include_router(operations_agent_router)
 app.include_router(demo_router)
 app.include_router(exports_router)
 app.include_router(restore_router)
