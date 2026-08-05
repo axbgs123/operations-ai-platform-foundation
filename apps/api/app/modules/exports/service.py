@@ -16,7 +16,10 @@ from app.modules.content.models import Content
 from app.modules.exports.models import ExportKind, ExportStatus, ExportTask
 from app.modules.exports.models import ManagedObjectState
 from app.modules.exports.json_backup import render_lightweight_json
-from app.modules.exports.report import render_analysis_markdown
+from app.modules.exports.report import (
+    render_agent_execution_markdown,
+    render_analysis_markdown,
+)
 from app.modules.exports.tabular import render_workspace_csv, safe_export_filename
 from app.modules.exports.zip_backup import build_full_backup_zip
 from app.modules.workspace.models import WorkspaceMember
@@ -198,10 +201,33 @@ def process_export_task(
         elif kind is ExportKind.MARKDOWN:
             if content_id is None:
                 raise ValueError("markdown export is missing content")
-            markdown = render_analysis_markdown(session, context, content_id)
+            raw_agent_run_id = (
+                task.idempotency_key.removeprefix("agent-export:")
+                if task.idempotency_key.startswith("agent-export:")
+                else None
+            )
+            markdown = (
+                render_agent_execution_markdown(
+                    session,
+                    context,
+                    content_id,
+                    UUID(raw_agent_run_id),
+                )
+                if raw_agent_run_id is not None
+                else render_analysis_markdown(
+                    session,
+                    context,
+                    content_id,
+                )
+            )
             content = markdown.encode("utf-8")
             file_name = safe_export_filename(
-                f"content-{content_id}-analysis", "md"
+                (
+                    f"content-{content_id}-agent-execution"
+                    if raw_agent_run_id is not None
+                    else f"content-{content_id}-analysis"
+                ),
+                "md",
             )
             mime_type = "text/markdown"
         elif kind is ExportKind.JSON:

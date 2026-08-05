@@ -54,7 +54,7 @@ def _plan_payload(request: PlannerRequest, *, tool_name: str) -> dict:
         "account_id": str(request.account_id),
         "candidate_id": request.candidate_id,
         "input_fingerprint": request.briefing_input_fingerprint,
-        "tool_catalog_version": "agent-tools-v1",
+        "tool_catalog_version": "operations-agent-tools-v1",
         "steps": [
             {
                 "step_index": 0,

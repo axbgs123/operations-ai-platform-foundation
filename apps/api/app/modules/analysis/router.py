@@ -51,7 +51,7 @@ def request_analysis(
 ):
     service = _service(session, session_token, csrf_token, mutation=True)
     try:
-        run, should_enqueue = service.request(content_id)
+        run, should_enqueue, _ = service.request(content_id)
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
     except ModelConfigurationRequired as error:

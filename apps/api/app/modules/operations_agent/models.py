@@ -76,8 +76,10 @@ class AgentToolRisk(StrEnum):
 class AgentArtifactKind(StrEnum):
     ANALYSIS = "analysis"
     DRAFT = "draft"
+    TEXT_DRAFT = "text_draft"
     COVER_RECOMMENDATION = "cover_recommendation"
     RISK_SCAN = "risk_scan"
+    EXECUTION_SUMMARY = "execution_summary"
     EXPORT = "export"
 
 

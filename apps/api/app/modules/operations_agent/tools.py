@@ -61,6 +61,13 @@ class AgentToolRegistry:
             for name, versions in versions_by_name.items()
         }
 
+    def contracts(self) -> tuple[AgentToolContract, ...]:
+        """Return the immutable public catalog in deterministic order."""
+        return tuple(
+            self._contracts[key]
+            for key in sorted(self._contracts)
+        )
+
     def get(
         self,
         name: str,

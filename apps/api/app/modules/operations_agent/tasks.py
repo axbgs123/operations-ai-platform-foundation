@@ -10,14 +10,20 @@ from app.modules.operations_agent.executor import (
     AgentExecutor,
     AgentRecovery,
 )
+from app.modules.operations_agent.domain_tools import DomainToolRunner
 from app.modules.operations_agent.models import AgentRunStatus
 from app.modules.operations_agent.planning import build_planning_registry
 
 
 def _executor() -> AgentExecutor:
+    registry = build_planning_registry()
     return AgentExecutor(
         SessionFactory,
-        registry=build_planning_registry(),
+        registry=registry,
+        tool_runner=DomainToolRunner(
+            SessionFactory,
+            registry=registry,
+        ),
     )
 
 

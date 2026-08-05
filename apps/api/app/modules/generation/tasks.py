@@ -24,7 +24,6 @@ from app.modules.generation.models import (
     CoverGenerationStatus,
     CoverGenerationRun,
     TextGenerationRun,
-    TextGenerationRunStatus,
 )
 from app.modules.imports.vision_binding import (
     create_bound_vision_adapter,
@@ -32,6 +31,7 @@ from app.modules.imports.vision_binding import (
 )
 from app.modules.generation.schemas import GenerationContext
 from app.modules.generation.text_service import (
+    begin_text_generation_attempt,
     UnsafeGenerationOutput,
     TextGenerationAdapter,
     generate_text,
@@ -370,10 +370,12 @@ def generate_text_task(run_id: str, request_id: str | None = None) -> None:
                     task_type="generation",
                     request_id=safe_request_id,
                 )
-                if run.status == TextGenerationRunStatus.QUEUED:
-                    run.status = TextGenerationRunStatus.RUNNING
+                should_process = begin_text_generation_attempt(
+                    session,
+                    parsed_id,
+                )
                 session.commit()
-            if run is None:
+            if run is None or not should_process:
                 return
             try:
                 adapter = build_text_adapter_for_run(

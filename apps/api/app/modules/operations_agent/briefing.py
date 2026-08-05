@@ -7,12 +7,16 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.core.observability import OperationalTask, SQLAlchemyOperationsStore
 from app.core.security import WorkspaceContext
-from app.modules.analysis.models import AnalysisRun
+from app.modules.analysis.models import (
+    AnalysisRun,
+    ProductEvent,
+    ProductEventOutbox,
+)
 from app.modules.content.account_models import (
     BenchmarkProfile,
     ColumnCampaign,
@@ -37,7 +41,7 @@ from app.modules.workspace.models import Workspace
 
 
 BRIEFING_ALGORITHM_VERSION = "operations-briefing-v1"
-TOOL_CATALOG_VERSION = "agent-tools-v1"
+TOOL_CATALOG_VERSION = "operations-agent-tools-v1"
 _FAILED_TASK_STATUSES = frozenset(
     {"failed", "dead_letter", "compensation_required"}
 )
@@ -141,17 +145,10 @@ class BriefingService:
         del force
         state, data_cutoff_at, tasks, import_batches = self._input_state()
         suppressed_kinds, deferred_candidate_ids = self._preferences()
-        fingerprint = self._fingerprint(
-            {
-                "state": state,
-                "member_id": str(self._context.member_id),
-                "suppressed_kinds": sorted(
-                    kind.value for kind in suppressed_kinds
-                ),
-                "deferred_candidate_ids": sorted(deferred_candidate_ids),
-                "algorithm_version": BRIEFING_ALGORITHM_VERSION,
-                "tool_catalog_version": TOOL_CATALOG_VERSION,
-            }
+        fingerprint = self._state_fingerprint(
+            state=state,
+            suppressed_kinds=suppressed_kinds,
+            deferred_candidate_ids=deferred_candidate_ids,
         )
         existing = self._session.scalar(
             select(AgentBriefing).where(
@@ -208,6 +205,47 @@ class BriefingService:
         self._session.add(briefing)
         self._session.flush()
         return self._read(briefing)
+
+    def current_input_fingerprint(
+        self,
+        *,
+        excluded_analysis_ids: frozenset[UUID] = frozenset(),
+        excluded_generation_ids: frozenset[UUID] = frozenset(),
+        excluded_scan_ids: frozenset[UUID] = frozenset(),
+        excluded_export_ids: frozenset[UUID] = frozenset(),
+    ) -> str:
+        state, _, _, _ = self._input_state(
+            excluded_analysis_ids=excluded_analysis_ids,
+            excluded_generation_ids=excluded_generation_ids,
+            excluded_scan_ids=excluded_scan_ids,
+            excluded_export_ids=excluded_export_ids,
+        )
+        suppressed_kinds, deferred_candidate_ids = self._preferences()
+        return self._state_fingerprint(
+            state=state,
+            suppressed_kinds=suppressed_kinds,
+            deferred_candidate_ids=deferred_candidate_ids,
+        )
+
+    def _state_fingerprint(
+        self,
+        *,
+        state: dict[str, object],
+        suppressed_kinds: set[CandidateKind],
+        deferred_candidate_ids: set[str],
+    ) -> str:
+        return self._fingerprint(
+            {
+                "state": state,
+                "member_id": str(self._context.member_id),
+                "suppressed_kinds": sorted(
+                    kind.value for kind in suppressed_kinds
+                ),
+                "deferred_candidate_ids": sorted(deferred_candidate_ids),
+                "algorithm_version": BRIEFING_ALGORITHM_VERSION,
+                "tool_catalog_version": TOOL_CATALOG_VERSION,
+            }
+        )
 
     def record_refresh(self, *, idempotency_key: str) -> DailyBriefingRead:
         self._append_idempotent_event(
@@ -636,6 +674,11 @@ class BriefingService:
 
     def _input_state(
         self,
+        *,
+        excluded_analysis_ids: frozenset[UUID] = frozenset(),
+        excluded_generation_ids: frozenset[UUID] = frozenset(),
+        excluded_scan_ids: frozenset[UUID] = frozenset(),
+        excluded_export_ids: frozenset[UUID] = frozenset(),
     ) -> tuple[
         dict[str, object],
         datetime,
@@ -682,19 +725,25 @@ class BriefingService:
                 .order_by(ImportBatch.id)
             )
         )
-        analyses = list(
-            self._session.scalars(
-                select(AnalysisRun)
-                .where(AnalysisRun.workspace_id == workspace_id)
-                .order_by(AnalysisRun.id)
-            )
+        analysis_query = select(AnalysisRun).where(
+            AnalysisRun.workspace_id == workspace_id
         )
-        scans = list(
-            self._session.scalars(
-                select(RiskScan)
-                .where(RiskScan.workspace_id == workspace_id)
-                .order_by(RiskScan.id)
+        if excluded_analysis_ids:
+            analysis_query = analysis_query.where(
+                AnalysisRun.id.not_in(excluded_analysis_ids)
             )
+        analyses = list(
+            self._session.scalars(analysis_query.order_by(AnalysisRun.id))
+        )
+        scan_query = select(RiskScan).where(
+            RiskScan.workspace_id == workspace_id
+        )
+        if excluded_scan_ids:
+            scan_query = scan_query.where(
+                RiskScan.id.not_in(excluded_scan_ids)
+            )
+        scans = list(
+            self._session.scalars(scan_query.order_by(RiskScan.id))
         )
         objectives = list(
             self._session.scalars(
@@ -729,6 +778,56 @@ class BriefingService:
             request_id="agent-briefing-read",
             actor_id=self._context.member_id,
         ).list(workspace_id)
+        if (
+            excluded_analysis_ids
+            or excluded_generation_ids
+            or excluded_scan_ids
+            or excluded_export_ids
+        ):
+            excluded_task_ids = (
+                excluded_analysis_ids
+                | excluded_generation_ids
+                | excluded_scan_ids
+                | excluded_export_ids
+            )
+            event_conditions = []
+            if excluded_analysis_ids:
+                event_conditions.append(
+                    ProductEvent.analysis_run_id.in_(
+                        excluded_analysis_ids
+                    )
+                )
+            if excluded_generation_ids:
+                event_conditions.append(
+                    ProductEvent.generation_run_id.in_(
+                        excluded_generation_ids
+                    )
+                )
+            excluded_outbox_ids = (
+                set(
+                    self._session.scalars(
+                        select(ProductEventOutbox.id)
+                        .join(
+                            ProductEvent,
+                            ProductEvent.id == ProductEventOutbox.event_id,
+                        )
+                        .where(or_(*event_conditions))
+                    )
+                )
+                if event_conditions
+                else set()
+            )
+            tasks = [
+                task
+                for task in tasks
+                if (
+                    task.task_id not in excluded_task_ids
+                    and not (
+                        task.task_type == "product_event_outbox"
+                        and task.task_id in excluded_outbox_ids
+                    )
+                )
+            ]
         cutoff_candidates = [workspace.updated_at]
         cutoff_candidates.extend(item.updated_at for item in accounts)
         cutoff_candidates.extend(item.updated_at for item in contents)

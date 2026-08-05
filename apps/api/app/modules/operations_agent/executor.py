@@ -17,6 +17,8 @@ from app.core.database import utc_now
 from app.core.security import WorkspaceContext, WorkspaceRole
 from app.modules.content.account_models import PlatformAccount
 from app.modules.operations_agent.models import (
+    AgentArtifact,
+    AgentArtifactKind,
     AgentConfirmation,
     AgentConfirmationStatus,
     AgentEvent,
@@ -74,6 +76,9 @@ class ToolObservation(BaseModel):
     status: Literal["success", "denied", "error", "cancelled", "unknown"]
     safe_summary: str = Field(min_length=1, max_length=500)
     artifact_refs: tuple[str, ...] = Field(default=(), max_length=32)
+    approval_exclusion_refs: tuple[str, ...] = Field(
+        default=(), max_length=32
+    )
     evidence_refs: tuple[str, ...] = Field(default=(), max_length=32)
     error_code: str | None = Field(default=None, max_length=100)
     next_valid_actions: tuple[str, ...] = Field(default=(), max_length=16)
@@ -345,13 +350,26 @@ class AgentExecutor:
         observation: ToolObservation,
     ) -> ExecutionResult:
         with self._factory.begin() as session:
-            run, step, _, _ = self._validated_claim(session, claim)
+            run, step, _, _ = self._validated_claim(
+                session,
+                claim,
+                additional_artifact_refs=observation.approval_exclusion_refs,
+            )
             if observation.status == "success":
                 step.status = transition_step(
                     step.status,
                     AgentStepStatus.SUCCEEDED,
                 )
                 step.result_envelope = observation.model_dump(mode="json")
+                self._persist_artifacts(
+                    session,
+                    run=run,
+                    step=step,
+                    artifact_refs=observation.artifact_refs,
+                    approval_exclusion_refs=(
+                        observation.approval_exclusion_refs
+                    ),
+                )
                 step.completed_at = self._now()
                 next_step = session.scalar(
                     select(AgentRunStep).where(
@@ -431,6 +449,61 @@ class AgentExecutor:
                 run_status=run.status,
                 step_status=step.status,
                 observation=observation,
+            )
+
+    @staticmethod
+    def _persist_artifacts(
+        session: Session,
+        *,
+        run: AgentRun,
+        step: AgentRunStep,
+        artifact_refs: tuple[str, ...],
+        approval_exclusion_refs: tuple[str, ...],
+    ) -> None:
+        approval_owned = set(approval_exclusion_refs)
+        for reference in artifact_refs:
+            resource_type, separator, raw_id = reference.partition(":")
+            if not separator:
+                raise ValueError("invalid agent artifact reference")
+            try:
+                kind = AgentArtifactKind(resource_type)
+                resource_id = UUID(raw_id)
+            except (ValueError, TypeError) as error:
+                raise ValueError("invalid agent artifact reference") from error
+            existing = session.scalar(
+                select(AgentArtifact.id).where(
+                    AgentArtifact.workspace_id == run.workspace_id,
+                    AgentArtifact.run_id == run.id,
+                    AgentArtifact.kind == kind,
+                    AgentArtifact.resource_type == resource_type,
+                    AgentArtifact.resource_id == resource_id,
+                )
+            )
+            if existing is not None:
+                continue
+            metadata: dict[str, object] = {
+                "tool_name": step.tool_name,
+                "tool_version": step.tool_version,
+                "publication_performed": False,
+                "approval_exclusion": reference in approval_owned,
+            }
+            if kind is AgentArtifactKind.COVER_RECOMMENDATION:
+                metadata["recommendation"] = {
+                    "source": "programmatic",
+                    "layout": "title_first_safe_area",
+                    "preserve_account_style": True,
+                    "requires_human_review": True,
+                }
+            session.add(
+                AgentArtifact(
+                    workspace_id=run.workspace_id,
+                    run_id=run.id,
+                    kind=kind,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    step_id=step.id,
+                    safe_metadata=metadata,
+                )
             )
 
     def publish_provider_unknown(self, claim: StepClaim) -> ExecutionResult:
@@ -626,6 +699,8 @@ class AgentExecutor:
         self,
         session: Session,
         claim: StepClaim,
+        *,
+        additional_artifact_refs: tuple[str, ...] = (),
     ) -> tuple[
         AgentRun,
         AgentRunStep,
@@ -659,7 +734,12 @@ class AgentExecutor:
             run=run,
             step=step,
         )
-        self._assert_approval_current(session, context, run)
+        self._assert_approval_current(
+            session,
+            context,
+            run,
+            additional_artifact_refs=additional_artifact_refs,
+        )
         self._assert_tool_permission(context, contract)
         return run, step, context, contract
 
@@ -713,13 +793,19 @@ class AgentExecutor:
         session: Session,
         context: WorkspaceContext,
         run: AgentRun,
+        *,
+        additional_artifact_refs: tuple[str, ...] = (),
     ) -> None:
         try:
             PlanService(
                 session,
                 context,
                 registry=self._registry,
-            ).assert_approval_current(run.plan_id)
+            ).assert_execution_current(
+                run.plan_id,
+                run_id=run.id,
+                additional_artifact_refs=additional_artifact_refs,
+            )
         except AgentApprovalStale as error:
             raise AgentExecutionInvalidated(
                 "plan approval changed"
@@ -982,7 +1068,66 @@ class AgentRecovery:
                     step_id=step.id,
                 )
                 recovered.append(run.id)
+        self._mark_expired_manual_claims_unknown()
         return tuple(recovered)
+
+    def _mark_expired_manual_claims_unknown(self) -> None:
+        with self._factory.begin() as session:
+            runs = list(
+                session.scalars(
+                    select(AgentRun)
+                    .where(
+                        AgentRun.status == AgentRunStatus.RUNNING,
+                        AgentRun.claim_token.is_not(None),
+                        AgentRun.lease_expires_at < self._now(),
+                    )
+                    .with_for_update()
+                )
+            )
+            for run in runs:
+                step = session.scalar(
+                    select(AgentRunStep)
+                    .where(
+                        AgentRunStep.run_id == run.id,
+                        AgentRunStep.step_index == run.current_step_index,
+                    )
+                    .with_for_update()
+                )
+                if (
+                    step is None
+                    or step.status is not AgentStepStatus.RUNNING
+                ):
+                    continue
+                contract = self._registry.get(
+                    step.tool_name,
+                    version=step.tool_version,
+                )
+                if contract.retry_policy != "manual":
+                    continue
+                step.status = transition_step(
+                    step.status,
+                    AgentStepStatus.PROVIDER_OUTCOME_UNKNOWN,
+                )
+                step.safe_error_code = "PROVIDER_OUTCOME_UNKNOWN"
+                step.completed_at = self._now()
+                run.status = transition_run(
+                    run.status,
+                    AgentRunStatus.PROVIDER_OUTCOME_UNKNOWN,
+                )
+                run.safe_error_code = "PROVIDER_OUTCOME_UNKNOWN"
+                run.claim_token = None
+                run.lease_expires_at = None
+                run.completed_at = self._now()
+                AgentExecutor._append_event(
+                    session,
+                    run,
+                    event_type="expired_manual_claim_marked_unknown",
+                    idempotency_key=(
+                        f"manual-claim-unknown:{step.id}:"
+                        f"{step.attempt_count}"
+                    ),
+                    step_id=step.id,
+                )
 
     def _now(self) -> datetime:
         value = self._clock()

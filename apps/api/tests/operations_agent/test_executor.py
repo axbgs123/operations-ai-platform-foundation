@@ -115,7 +115,7 @@ def _executor_fixture(
                     output_model=SyntheticToolOutput,
                 )
             ],
-            catalog_version="agent-tools-v1",
+            catalog_version="operations-agent-tools-v1",
         )
         runner = RecordingToolRunner(
             ToolObservation(
@@ -246,6 +246,29 @@ def test_expired_safe_claim_is_recovered_for_another_worker() -> None:
                 claim,
                 ToolObservation(status="success", safe_summary="陈旧结果"),
             )
+
+
+def test_expired_manual_claim_requires_review_instead_of_stranding() -> None:
+    with _executor_fixture(retry_policy="manual") as fixture:
+        claim = fixture.executor.claim_next_step(fixture.run_id)
+        with fixture.factory.begin() as session:
+            run = session.get(AgentRun, fixture.run_id)
+            assert run is not None
+            run.lease_expires_at = claim.lease_expires_at - timedelta(
+                minutes=2
+            )
+
+        assert fixture.recovery.recover_expired() == ()
+
+        with fixture.factory() as session:
+            run = session.get(AgentRun, fixture.run_id)
+            assert run is not None
+            assert run.status is AgentRunStatus.PROVIDER_OUTCOME_UNKNOWN
+            step = session.query(AgentRunStep).filter_by(
+                run_id=fixture.run_id,
+            ).one()
+            assert step.status is AgentStepStatus.PROVIDER_OUTCOME_UNKNOWN
+            assert run.claim_token is None
 
 
 def test_manual_retry_is_limited_to_manual_policy() -> None:

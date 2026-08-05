@@ -6,7 +6,7 @@ import json
 from typing import Protocol, cast
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import JsonValue, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,11 +21,12 @@ from app.modules.content.account_models import (
 from app.modules.models.models import ModelConfig
 from app.modules.operations_agent.briefing import BriefingService
 from app.modules.operations_agent.models import (
+    AgentArtifact,
+    AgentArtifactKind,
     AgentBriefing,
     AgentEvent,
     AgentPlan,
     AgentPlanStatus,
-    AgentToolRisk,
 )
 from app.modules.operations_agent.schemas import (
     AgentPlanApprovalSnapshot,
@@ -40,7 +41,6 @@ from app.modules.operations_agent.schemas import (
     StoredAgentPlanDocument,
 )
 from app.modules.operations_agent.tools import (
-    AgentToolContract,
     AgentToolInputError,
     AgentToolRegistry,
 )
@@ -57,40 +57,30 @@ class AgentApprovalStale(RuntimeError):
     pass
 
 
-class ReadAccountStateInput(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    account_id: UUID
-
-
-class ReadAccountStateOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    account_id: UUID
-    safe_summary: str
-
-
 _PLANNING_PREREQUISITES: Mapping[str, tuple[str, ...]] = {
     "read_account_state": (),
+    "run_content_analysis": ("read_account_state",),
+    "read_confirmed_facts": ("read_account_state",),
+    "read_account_style": ("read_account_state",),
+    "read_confirmed_viral_assets": ("read_account_state",),
+    "generate_optimization_draft": (
+        "run_content_analysis",
+        "read_confirmed_facts",
+        "read_account_style",
+        "read_confirmed_viral_assets",
+    ),
+    "scan_optimization_draft": ("generate_optimization_draft",),
+    "save_agent_summary": ("scan_optimization_draft",),
+    "create_agent_export": ("save_agent_summary",),
 }
 
 
 def build_planning_registry() -> AgentToolRegistry:
-    return AgentToolRegistry(
-        [
-            AgentToolContract(
-                name="read_account_state",
-                version="1.0.0",
-                risk=AgentToolRisk.READ_ONLY,
-                permission=Permission.READ_CONTENT,
-                uses_external_api=False,
-                retry_policy="safe",
-                input_model=ReadAccountStateInput,
-                output_model=ReadAccountStateOutput,
-            )
-        ],
-        catalog_version="agent-tools-v1",
+    from app.modules.operations_agent.domain_tools import (
+        build_domain_tool_registry,
     )
+
+    return build_domain_tool_registry()
 
 
 class AgentPlanner(Protocol):
@@ -102,7 +92,60 @@ class DeterministicPlanner:
         self._tool_catalog_version = tool_catalog_version
 
     def create_plan(self, request: PlannerRequest) -> AgentPlanDocument:
-        tool = request.allowed_tools[0]
+        content_id = self._content_id(request.evidence_refs)
+        tool_by_name = {tool.name: tool for tool in request.allowed_tools}
+        step_specs: list[tuple[str, dict[str, JsonValue], str]] = [
+            (
+                "read_account_state",
+                {"account_id": str(request.account_id)},
+                "读取账号安全状态，确认本次执行范围。",
+            )
+        ]
+        if content_id is not None:
+            common: dict[str, JsonValue] = {
+                "account_id": str(request.account_id),
+                "content_id": str(content_id),
+            }
+            step_specs.extend(
+                [
+                    ("run_content_analysis", common, "基于已确认数据完成内容分析。"),
+                    (
+                        "read_confirmed_facts",
+                        {"account_id": str(request.account_id)},
+                        "读取工作区内可用于生成的已确认事实。",
+                    ),
+                    (
+                        "read_account_style",
+                        {"account_id": str(request.account_id)},
+                        "读取该账号当前生效的已确认风格。",
+                    ),
+                    (
+                        "read_confirmed_viral_assets",
+                        {"account_id": str(request.account_id)},
+                        "读取该账号最多三条可复用爆款结构。",
+                    ),
+                    (
+                        "generate_optimization_draft",
+                        common,
+                        "生成标题、文案及程序化封面建议，不执行发布。",
+                    ),
+                    (
+                        "scan_optimization_draft",
+                        common,
+                        "对优化草稿执行发布前风控扫描。",
+                    ),
+                    (
+                        "save_agent_summary",
+                        common,
+                        "保存不含敏感正文的执行摘要。",
+                    ),
+                    (
+                        "create_agent_export",
+                        common,
+                        "创建 Markdown 执行包，不返回长期下载地址。",
+                    ),
+                ]
+            )
         return AgentPlanDocument(
             goal=request.objective,
             platform=request.platform,
@@ -110,16 +153,29 @@ class DeterministicPlanner:
             candidate_id=request.candidate_id,
             input_fingerprint=request.briefing_input_fingerprint,
             tool_catalog_version=self._tool_catalog_version,
-            steps=(
+            steps=tuple(
                 AgentPlanStep(
-                    step_index=0,
-                    tool_name=tool.name,
-                    tool_version=tool.version,
-                    arguments={"account_id": str(request.account_id)},
-                    rationale="读取账号的安全状态摘要，确认下一步所需依据。",
-                ),
+                    step_index=index,
+                    tool_name=name,
+                    tool_version=tool_by_name[name].version,
+                    arguments=arguments,
+                    rationale=rationale,
+                )
+                for index, (name, arguments, rationale) in enumerate(step_specs)
             ),
         )
+
+    @staticmethod
+    def _content_id(evidence_refs: tuple[str, ...]) -> UUID | None:
+        for reference in evidence_refs:
+            kind, separator, raw_id = reference.partition(":")
+            if kind != "content" or not separator:
+                continue
+            try:
+                return UUID(raw_id)
+            except ValueError:
+                continue
+        return None
 
 
 class PlanValidator:
@@ -359,6 +415,110 @@ class PlanService:
         self._ensure_current(plan)
         return self._read(plan)
 
+    def assert_execution_current(
+        self,
+        plan_id: UUID,
+        *,
+        run_id: UUID,
+        additional_artifact_refs: tuple[str, ...] = (),
+    ) -> AgentPlanRead:
+        require_permission(self._context.role, Permission.READ_CONTENT)
+        plan = self._plan(plan_id)
+        if plan.status is not AgentPlanStatus.APPROVED:
+            raise ValueError("plan is not approved")
+        artifacts = list(
+            self._session.scalars(
+                select(AgentArtifact).where(
+                    AgentArtifact.workspace_id
+                    == self._context.workspace_id,
+                    AgentArtifact.run_id == run_id,
+                )
+            )
+        )
+        additional = self._artifact_ref_ids(additional_artifact_refs)
+        analysis_ids = frozenset(
+            artifact.resource_id
+            for artifact in artifacts
+            if artifact.kind is AgentArtifactKind.ANALYSIS
+            and artifact.safe_metadata.get("approval_exclusion") is True
+        ) | additional[AgentArtifactKind.ANALYSIS]
+        scan_ids = frozenset(
+            artifact.resource_id
+            for artifact in artifacts
+            if artifact.kind is AgentArtifactKind.RISK_SCAN
+            and artifact.safe_metadata.get("approval_exclusion") is True
+        ) | additional[AgentArtifactKind.RISK_SCAN]
+        generation_ids = frozenset(
+            artifact.resource_id
+            for artifact in artifacts
+            if artifact.kind is AgentArtifactKind.TEXT_DRAFT
+            and artifact.safe_metadata.get("approval_exclusion") is True
+        ) | additional[AgentArtifactKind.TEXT_DRAFT]
+        export_ids = frozenset(
+            artifact.resource_id
+            for artifact in artifacts
+            if artifact.kind is AgentArtifactKind.EXPORT
+            and artifact.safe_metadata.get("approval_exclusion") is True
+        ) | additional[AgentArtifactKind.EXPORT]
+        stored = StoredAgentPlanDocument.model_validate(plan.document)
+        creator_context = self._creator_context(plan)
+        current_briefing_fingerprint = BriefingService(
+            self._session,
+            creator_context,
+        ).current_input_fingerprint(
+            excluded_analysis_ids=analysis_ids,
+            excluded_generation_ids=generation_ids,
+            excluded_scan_ids=scan_ids,
+            excluded_export_ids=export_ids,
+        )
+        current = StoredAgentPlanDocument(
+            plan=stored.plan,
+            approval_snapshot=self._approval_snapshot(
+                briefing_input_fingerprint=current_briefing_fingerprint,
+                account_id=plan.account_id,
+                excluded_scan_ids=scan_ids,
+            ),
+        )
+        if (
+            _fingerprint(current.model_dump(mode="json"))
+            != plan.plan_fingerprint
+            or plan.tool_catalog_version != self._registry.catalog_version
+        ):
+            raise AgentApprovalStale(
+                "plan approval is stale: "
+                f"briefing={current.approval_snapshot.briefing_input_fingerprint == stored.approval_snapshot.briefing_input_fingerprint},"
+                f"account={current.approval_snapshot.account_configuration_version == stored.approval_snapshot.account_configuration_version},"
+                f"model={current.approval_snapshot.model_configuration_version == stored.approval_snapshot.model_configuration_version},"
+                f"risk={current.approval_snapshot.risk_rule_version == stored.approval_snapshot.risk_rule_version}"
+            )
+        return self._read(plan)
+
+    @staticmethod
+    def _artifact_ref_ids(
+        references: tuple[str, ...],
+    ) -> dict[AgentArtifactKind, frozenset[UUID]]:
+        collected: dict[AgentArtifactKind, set[UUID]] = {
+            AgentArtifactKind.ANALYSIS: set(),
+            AgentArtifactKind.TEXT_DRAFT: set(),
+            AgentArtifactKind.RISK_SCAN: set(),
+            AgentArtifactKind.EXPORT: set(),
+        }
+        for reference in references:
+            raw_kind, separator, raw_id = reference.partition(":")
+            if not separator:
+                continue
+            try:
+                kind = AgentArtifactKind(raw_kind)
+                resource_id = UUID(raw_id)
+            except ValueError:
+                continue
+            if kind in collected:
+                collected[kind].add(resource_id)
+        return {
+            kind: frozenset(resource_ids)
+            for kind, resource_ids in collected.items()
+        }
+
     def _ensure_current(self, plan: AgentPlan) -> None:
         stored = StoredAgentPlanDocument.model_validate(plan.document)
         latest_briefing = self._latest_creator_briefing(plan)
@@ -384,40 +544,49 @@ class PlanService:
         self,
         plan: AgentPlan,
     ) -> AgentBriefing | DailyBriefingRead:
-        if plan.created_by is None:
-            raise AgentApprovalStale("plan creator is no longer available")
-        creator = self._session.scalar(
-            select(WorkspaceMember).where(
-                WorkspaceMember.id == plan.created_by,
-                WorkspaceMember.workspace_id == self._context.workspace_id,
-            )
-        )
-        if creator is None:
-            raise AgentApprovalStale("plan creator is no longer available")
+        creator_context = self._creator_context(plan)
         briefing = BriefingService(
             self._session,
-            WorkspaceContext(
-                workspace_id=self._context.workspace_id,
-                member_id=creator.id,
-                role=cast(WorkspaceRole, creator.role.value),
-            ),
+            creator_context,
         ).generate()
         source = self._briefing(plan.briefing_id)
         if briefing.input_fingerprint != source.input_fingerprint:
             return briefing
         return source
 
+    def _creator_context(self, plan: AgentPlan) -> WorkspaceContext:
+        if plan.created_by is None:
+            raise AgentApprovalStale("plan creator is no longer available")
+        creator = self._session.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.id == plan.created_by,
+                WorkspaceMember.workspace_id == self._context.workspace_id,
+                WorkspaceMember.revoked_at.is_(None),
+            )
+        )
+        if creator is None:
+            raise AgentApprovalStale("plan creator is no longer available")
+        return WorkspaceContext(
+            workspace_id=self._context.workspace_id,
+            member_id=creator.id,
+            role=cast(WorkspaceRole, creator.role.value),
+        )
+
     def _approval_snapshot(
         self,
         *,
         briefing_input_fingerprint: str,
         account_id: UUID,
+        excluded_scan_ids: frozenset[UUID] = frozenset(),
     ) -> AgentPlanApprovalSnapshot:
         return AgentPlanApprovalSnapshot(
             briefing_input_fingerprint=briefing_input_fingerprint,
             account_configuration_version=self._account_version(account_id),
             model_configuration_version=self._model_version(),
-            risk_rule_version=self._risk_version(account_id),
+            risk_rule_version=self._risk_version(
+                account_id,
+                excluded_scan_ids=excluded_scan_ids,
+            ),
         )
 
     def _account_version(self, account_id: UUID) -> str:
@@ -521,15 +690,21 @@ class PlanService:
             ]
         )
 
-    def _risk_version(self, account_id: UUID) -> str:
+    def _risk_version(
+        self,
+        account_id: UUID,
+        *,
+        excluded_scan_ids: frozenset[UUID] = frozenset(),
+    ) -> str:
+        query = select(RiskScan).where(
+            RiskScan.workspace_id == self._context.workspace_id,
+            RiskScan.account_id == account_id,
+        )
+        if excluded_scan_ids:
+            query = query.where(RiskScan.id.not_in(excluded_scan_ids))
         scans = list(
             self._session.scalars(
-                select(RiskScan)
-                .where(
-                    RiskScan.workspace_id == self._context.workspace_id,
-                    RiskScan.account_id == account_id,
-                )
-                .order_by(RiskScan.id)
+                query.order_by(RiskScan.id)
             )
         )
         return _fingerprint(
@@ -546,17 +721,14 @@ class PlanService:
         )
 
     def _allowed_tools(self) -> tuple[AllowedToolSummary, ...]:
-        contract = self._registry.get(
-            "read_account_state",
-            version="1.0.0",
-        )
-        return (
+        return tuple(
             AllowedToolSummary(
                 name=contract.name,
                 version=contract.version,
                 risk=contract.risk,
                 prerequisites=_PLANNING_PREREQUISITES[contract.name],
-            ),
+            )
+            for contract in self._registry.contracts()
         )
 
     def _briefing(self, briefing_id: UUID) -> AgentBriefing:

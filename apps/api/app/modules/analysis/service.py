@@ -443,6 +443,33 @@ def record_analysis_provider_failure(session: Session, run_id: UUID) -> None:
     session.flush()
 
 
+def persist_analysis_terminal_failure(
+    session: Session,
+    run_id: UUID,
+    *,
+    error_code: str,
+    error_message: str,
+) -> AnalysisRun:
+    run = session.scalar(
+        select(AnalysisRun).where(AnalysisRun.id == run_id).with_for_update()
+    )
+    if run is None:
+        raise LookupError("analysis run not found")
+    if run.status in {
+        AnalysisRunStatus.SUCCEEDED,
+        AnalysisRunStatus.FAILED,
+    }:
+        return run
+    run.status = AnalysisRunStatus.FAILED
+    run.error_code = error_code
+    run.error_message = error_message
+    run.completed_at = utc_now()
+    run.next_attempt_at = None
+    run.lease_expires_at = None
+    session.flush()
+    return run
+
+
 class AnalysisService:
     def __init__(self, session: Session, context: WorkspaceContext) -> None:
         self.session = session
@@ -656,7 +683,12 @@ class AnalysisService:
             comparisons,
         )
 
-    def request(self, content_id: UUID, *, trigger_kind: Literal["manual", "auto"] = "manual") -> tuple[AnalysisRun, bool]:
+    def request(
+        self,
+        content_id: UUID,
+        *,
+        trigger_kind: Literal["manual", "auto"] = "manual",
+    ) -> tuple[AnalysisRun, bool, bool]:
         content = self._content(content_id, mutation=True)
         bundle = self._bundle(content)
         settings = get_settings()
@@ -706,7 +738,7 @@ class AnalysisService:
                 if unused_benchmark is not None:
                     self.session.delete(unused_benchmark)
                     self.session.flush()
-            return existing, analysis_run_is_dispatchable(existing)
+            return existing, analysis_run_is_dispatchable(existing), False
         run = AnalysisRun(
             workspace_id=content.workspace_id,
             account_id=content.account_id,
@@ -749,7 +781,7 @@ class AnalysisService:
             if unused_benchmark is not None:
                 self.session.delete(unused_benchmark)
                 self.session.flush()
-            return existing, analysis_run_is_dispatchable(existing)
+            return existing, analysis_run_is_dispatchable(existing), False
         EventService(self.session, self.context).record(
             ProductEventInput(
                 event_name=EventName.ANALYSIS_STARTED,
@@ -761,7 +793,7 @@ class AnalysisService:
                 ),
             )
         )
-        return run, True
+        return run, True, True
 
     def read(self, content_id: UUID, run_id: UUID) -> AnalysisRun:
         self._content(content_id, mutation=False)

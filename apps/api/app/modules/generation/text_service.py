@@ -260,6 +260,41 @@ def create_text_generation(
     use_cache: bool = True,
     retry_of_run_id: UUID | None = None,
 ) -> tuple[TextGenerationRun, bool]:
+    run, should_enqueue, _ = _create_text_generation(
+        session,
+        context,
+        requested_by=requested_by,
+        use_cache=use_cache,
+        retry_of_run_id=retry_of_run_id,
+    )
+    return run, should_enqueue
+
+
+def create_text_generation_with_provenance(
+    session: Session,
+    context: GenerationContext,
+    *,
+    requested_by: UUID | None = None,
+    use_cache: bool = True,
+    retry_of_run_id: UUID | None = None,
+) -> tuple[TextGenerationRun, bool, bool]:
+    return _create_text_generation(
+        session,
+        context,
+        requested_by=requested_by,
+        use_cache=use_cache,
+        retry_of_run_id=retry_of_run_id,
+    )
+
+
+def _create_text_generation(
+    session: Session,
+    context: GenerationContext,
+    *,
+    requested_by: UUID | None,
+    use_cache: bool,
+    retry_of_run_id: UUID | None,
+) -> tuple[TextGenerationRun, bool, bool]:
     key = text_generation_cache_key(context)
     if use_cache:
         existing = session.scalar(
@@ -278,7 +313,11 @@ def create_text_generation(
             .order_by(TextGenerationRun.created_at.desc())
         )
         if existing is not None:
-            return existing, existing.status is TextGenerationRunStatus.QUEUED
+            return (
+                existing,
+                existing.status is TextGenerationRunStatus.QUEUED,
+                False,
+            )
     run = TextGenerationRun(
         workspace_id=context.workspace_id,
         account_id=context.account_id,
@@ -309,8 +348,12 @@ def create_text_generation(
         )
         if existing is None:
             raise
-        return existing, existing.status is TextGenerationRunStatus.QUEUED
-    return run, True
+        return (
+            existing,
+            existing.status is TextGenerationRunStatus.QUEUED,
+            False,
+        )
+    return run, True, True
 
 
 def _run(
@@ -325,6 +368,24 @@ def _run(
     if run is None:
         raise LookupError("text generation run not found")
     return run
+
+
+def begin_text_generation_attempt(
+    session: Session,
+    run_id: UUID,
+) -> bool:
+    run = session.scalar(
+        select(TextGenerationRun)
+        .where(TextGenerationRun.id == run_id)
+        .with_for_update()
+    )
+    if run is None:
+        raise LookupError("text generation run not found")
+    if run.status is not TextGenerationRunStatus.QUEUED:
+        return False
+    run.status = TextGenerationRunStatus.RUNNING
+    session.flush()
+    return True
 
 
 def _analytics_account_exists(session: Session, run: TextGenerationRun) -> bool:

@@ -129,7 +129,9 @@ def confirm_snapshot(
         assert session_token is not None
         context = InviteAuthService(session).authenticate(session_token)
         assert context is not None
-        analysis_run, should_enqueue = AnalysisService(session, context).request(
+        analysis_run, should_enqueue, _ = AnalysisService(
+            session, context
+        ).request(
             content_id,
             trigger_kind="auto",
         )
