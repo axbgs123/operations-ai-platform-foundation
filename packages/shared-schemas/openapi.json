@@ -281,6 +281,278 @@
         "title": "AdapterStatus",
         "type": "string"
       },
+      "AgentPlanApprovalSnapshot": {
+        "additionalProperties": false,
+        "properties": {
+          "account_configuration_version": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Account Configuration Version",
+            "type": "string"
+          },
+          "briefing_input_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Briefing Input Fingerprint",
+            "type": "string"
+          },
+          "model_configuration_version": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Model Configuration Version",
+            "type": "string"
+          },
+          "risk_rule_version": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Risk Rule Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "briefing_input_fingerprint",
+          "account_configuration_version",
+          "model_configuration_version",
+          "risk_rule_version"
+        ],
+        "title": "AgentPlanApprovalSnapshot",
+        "type": "object"
+      },
+      "AgentPlanCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "briefing_id": {
+            "format": "uuid",
+            "title": "Briefing Id",
+            "type": "string"
+          },
+          "objective": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Objective",
+            "type": "string"
+          },
+          "planner": {
+            "const": "deterministic",
+            "default": "deterministic",
+            "title": "Planner",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          }
+        },
+        "required": [
+          "objective",
+          "briefing_id",
+          "platform",
+          "account_id"
+        ],
+        "title": "AgentPlanCreate",
+        "type": "object"
+      },
+      "AgentPlanDocument": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "goal": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Goal",
+            "type": "string"
+          },
+          "input_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Input Fingerprint",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/AgentPlanStep"
+            },
+            "maxItems": 32,
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          },
+          "tool_catalog_version": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Tool Catalog Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "goal",
+          "platform",
+          "account_id",
+          "candidate_id",
+          "input_fingerprint",
+          "tool_catalog_version",
+          "steps"
+        ],
+        "title": "AgentPlanDocument",
+        "type": "object"
+      },
+      "AgentPlanRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "approval_snapshot": {
+            "$ref": "#/components/schemas/AgentPlanApprovalSnapshot"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "briefing_id": {
+            "format": "uuid",
+            "title": "Briefing Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document": {
+            "$ref": "#/components/schemas/AgentPlanDocument"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "plan_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Plan Fingerprint",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentPlanStatus"
+          },
+          "tool_catalog_version": {
+            "title": "Tool Catalog Version",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "briefing_id",
+          "account_id",
+          "platform",
+          "status",
+          "document",
+          "approval_snapshot",
+          "plan_fingerprint",
+          "tool_catalog_version",
+          "approved_by",
+          "approved_at",
+          "created_at"
+        ],
+        "title": "AgentPlanRead",
+        "type": "object"
+      },
+      "AgentPlanStatus": {
+        "enum": [
+          "draft",
+          "approved",
+          "rejected",
+          "invalidated"
+        ],
+        "title": "AgentPlanStatus",
+        "type": "string"
+      },
+      "AgentPlanStep": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Arguments",
+            "type": "object"
+          },
+          "rationale": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "step_index": {
+            "minimum": 0.0,
+            "title": "Step Index",
+            "type": "integer"
+          },
+          "tool_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "tool_version": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Tool Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step_index",
+          "tool_name",
+          "tool_version",
+          "rationale"
+        ],
+        "title": "AgentPlanStep",
+        "type": "object"
+      },
       "AnalysisFeedbackInput": {
         "additionalProperties": false,
         "properties": {
@@ -17684,6 +17956,341 @@
           }
         },
         "summary": "Record Briefing Decision",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/plans": {
+      "post": {
+        "operationId": "create_plan_v1_workspaces__workspace_id__agent_plans_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentPlanCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlanRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Plan",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/plans/{plan_id}": {
+      "get": {
+        "operationId": "read_plan_v1_workspaces__workspace_id__agent_plans__plan_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlanRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Plan",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/plans/{plan_id}/approve": {
+      "post": {
+        "operationId": "approve_plan_v1_workspaces__workspace_id__agent_plans__plan_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlanRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Approve Plan",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/plans/{plan_id}/reject": {
+      "post": {
+        "operationId": "reject_plan_v1_workspaces__workspace_id__agent_plans__plan_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentPlanRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reject Plan",
         "tags": [
           "operations-agent"
         ]

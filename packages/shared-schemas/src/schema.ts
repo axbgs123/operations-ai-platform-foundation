@@ -1003,6 +1003,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/agent/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Plan */
+        post: operations["create_plan_v1_workspaces__workspace_id__agent_plans_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/plans/{plan_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Plan */
+        get: operations["read_plan_v1_workspaces__workspace_id__agent_plans__plan_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/plans/{plan_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Plan */
+        post: operations["approve_plan_v1_workspaces__workspace_id__agent_plans__plan_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/plans/{plan_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject Plan */
+        post: operations["reject_plan_v1_workspaces__workspace_id__agent_plans__plan_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/analytics/completeness": {
         parameters: {
             query?: never;
@@ -2598,6 +2666,118 @@ export interface components {
          * @enum {string}
          */
         AdapterStatus: "verified" | "experimental" | "community" | "incompatible";
+        /** AgentPlanApprovalSnapshot */
+        AgentPlanApprovalSnapshot: {
+            /** Account Configuration Version */
+            account_configuration_version: string;
+            /** Briefing Input Fingerprint */
+            briefing_input_fingerprint: string;
+            /** Model Configuration Version */
+            model_configuration_version: string;
+            /** Risk Rule Version */
+            risk_rule_version: string;
+        };
+        /** AgentPlanCreate */
+        AgentPlanCreate: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /**
+             * Briefing Id
+             * Format: uuid
+             */
+            briefing_id: string;
+            /** Objective */
+            objective: string;
+            /**
+             * Planner
+             * @default deterministic
+             * @constant
+             */
+            planner: "deterministic";
+            platform: components["schemas"]["Platform"];
+        };
+        /** AgentPlanDocument */
+        AgentPlanDocument: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Candidate Id */
+            candidate_id: string;
+            /** Goal */
+            goal: string;
+            /** Input Fingerprint */
+            input_fingerprint: string;
+            platform: components["schemas"]["Platform"];
+            /** Steps */
+            steps: components["schemas"]["AgentPlanStep"][];
+            /** Tool Catalog Version */
+            tool_catalog_version: string;
+        };
+        /** AgentPlanRead */
+        AgentPlanRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            approval_snapshot: components["schemas"]["AgentPlanApprovalSnapshot"];
+            /** Approved At */
+            approved_at: string | null;
+            /** Approved By */
+            approved_by: string | null;
+            /**
+             * Briefing Id
+             * Format: uuid
+             */
+            briefing_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            document: components["schemas"]["AgentPlanDocument"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Plan Fingerprint */
+            plan_fingerprint: string;
+            platform: components["schemas"]["Platform"];
+            status: components["schemas"]["AgentPlanStatus"];
+            /** Tool Catalog Version */
+            tool_catalog_version: string;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /**
+         * AgentPlanStatus
+         * @enum {string}
+         */
+        AgentPlanStatus: "draft" | "approved" | "rejected" | "invalidated";
+        /** AgentPlanStep */
+        AgentPlanStep: {
+            /** Arguments */
+            arguments?: {
+                [key: string]: components["schemas"]["JsonValue"];
+            };
+            /** Rationale */
+            rationale: string;
+            /** Step Index */
+            step_index: number;
+            /** Tool Name */
+            tool_name: string;
+            /** Tool Version */
+            tool_version: string;
+        };
         /** AnalysisFeedbackInput */
         AnalysisFeedbackInput: {
             /**
@@ -9666,6 +9846,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyBriefingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_plan_v1_workspaces__workspace_id__agent_plans_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentPlanCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPlanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_plan_v1_workspaces__workspace_id__agent_plans__plan_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                plan_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPlanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_plan_v1_workspaces__workspace_id__agent_plans__plan_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                plan_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPlanRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_plan_v1_workspaces__workspace_id__agent_plans__plan_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                plan_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentPlanRead"];
                 };
             };
             /** @description Validation Error */

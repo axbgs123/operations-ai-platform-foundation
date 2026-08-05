@@ -12,6 +12,10 @@ from pydantic import (
 )
 
 from app.modules.content.account_models import Platform
+from app.modules.operations_agent.models import (
+    AgentPlanStatus,
+    AgentToolRisk,
+)
 
 
 Fingerprint = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -108,3 +112,72 @@ class AgentPlanDocument(BaseModel):
         if indexes != list(range(len(indexes))):
             raise ValueError("step indexes must be contiguous and start at zero")
         return self
+
+
+class AllowedToolSummary(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1, max_length=80)
+    version: str = Field(min_length=1, max_length=40)
+    risk: AgentToolRisk
+    prerequisites: tuple[str, ...] = Field(default=(), max_length=16)
+
+
+class PlannerRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    objective: str = Field(min_length=1, max_length=500)
+    briefing_id: UUID
+    platform: Platform
+    account_id: UUID
+    candidate_id: str = Field(min_length=1, max_length=120)
+    briefing_input_fingerprint: Fingerprint
+    allowed_tools: tuple[AllowedToolSummary, ...] = Field(
+        min_length=1,
+        max_length=32,
+    )
+    evidence_refs: tuple[str, ...] = Field(default=(), max_length=20)
+
+
+class AgentPlanCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    objective: str = Field(min_length=1, max_length=500)
+    briefing_id: UUID
+    platform: Platform
+    account_id: UUID
+    planner: Literal["deterministic"] = "deterministic"
+
+
+class AgentPlanApprovalSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    briefing_input_fingerprint: Fingerprint
+    account_configuration_version: Fingerprint
+    model_configuration_version: Fingerprint
+    risk_rule_version: Fingerprint
+
+
+class StoredAgentPlanDocument(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    plan: AgentPlanDocument
+    approval_snapshot: AgentPlanApprovalSnapshot
+
+
+class AgentPlanRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: UUID
+    workspace_id: UUID
+    briefing_id: UUID
+    account_id: UUID
+    platform: Platform
+    status: AgentPlanStatus
+    document: AgentPlanDocument
+    approval_snapshot: AgentPlanApprovalSnapshot
+    plan_fingerprint: Fingerprint
+    tool_catalog_version: str
+    approved_by: UUID | None
+    approved_at: datetime | None
+    created_at: datetime
