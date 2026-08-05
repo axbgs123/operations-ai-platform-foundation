@@ -1003,6 +1003,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/agent/confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Confirmations */
+        get: operations["list_confirmations_v1_workspaces__workspace_id__agent_confirmations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/agent/plans": {
         parameters: {
             query?: never;
@@ -1116,6 +1133,23 @@ export interface paths {
         put?: never;
         /** Cancel Run */
         post: operations["cancel_run_v1_workspaces__workspace_id__agent_runs__run_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/agent/runs/{run_id}/confirmations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Confirmation */
+        post: operations["decide_confirmation_v1_workspaces__workspace_id__agent_runs__run_id__confirmations_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2734,6 +2768,71 @@ export interface components {
          * @enum {string}
          */
         AdapterStatus: "verified" | "experimental" | "community" | "incompatible";
+        /** AgentConfirmationDecision */
+        AgentConfirmationDecision: {
+            /** Action Fingerprint */
+            action_fingerprint: string;
+            /**
+             * Confirmation Id
+             * Format: uuid
+             */
+            confirmation_id: string;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "reject";
+        };
+        /** AgentConfirmationListRead */
+        AgentConfirmationListRead: {
+            /** Items */
+            items: components["schemas"]["AgentConfirmationRead"][];
+        };
+        /** AgentConfirmationRead */
+        AgentConfirmationRead: {
+            /** Action Fingerprint */
+            action_fingerprint: string;
+            /**
+             * Argument Keys
+             * @default []
+             */
+            argument_keys: string[];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Expires At */
+            expires_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            risk: components["schemas"]["AgentToolRisk"];
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            status: components["schemas"]["AgentConfirmationStatus"];
+            /**
+             * Step Id
+             * Format: uuid
+             */
+            step_id: string;
+            /** Tool Name */
+            tool_name: string;
+            /** Tool Version */
+            tool_version: string;
+        };
+        /**
+         * AgentConfirmationStatus
+         * @enum {string}
+         */
+        AgentConfirmationStatus: "pending" | "approved" | "rejected" | "expired" | "invalidated";
         /** AgentPlanApprovalSnapshot */
         AgentPlanApprovalSnapshot: {
             /** Account Configuration Version */
@@ -2820,6 +2919,7 @@ export interface components {
             status: components["schemas"]["AgentPlanStatus"];
             /** Tool Catalog Version */
             tool_catalog_version: string;
+            usage: components["schemas"]["AgentUsageRead"];
             /**
              * Workspace Id
              * Format: uuid
@@ -2891,6 +2991,7 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            usage: components["schemas"]["AgentUsageRead"];
             /**
              * Workspace Id
              * Format: uuid
@@ -2938,6 +3039,50 @@ export interface components {
          * @enum {string}
          */
         AgentToolRisk: "read_only" | "draft_write" | "protected_write";
+        /** AgentUsageRead */
+        AgentUsageRead: {
+            /**
+             * Attempt Count
+             * @default 0
+             */
+            attempt_count: number;
+            /**
+             * Embedding Tokens
+             * @default 0
+             */
+            embedding_tokens: number;
+            /**
+             * Generated Images
+             * @default 0
+             */
+            generated_images: number;
+            /**
+             * Input Tokens
+             * @default 0
+             */
+            input_tokens: number;
+            /** Model Id */
+            model_id?: string | null;
+            /**
+             * Ocr Images
+             * @default 0
+             */
+            ocr_images: number;
+            /**
+             * Output Tokens
+             * @default 0
+             */
+            output_tokens: number;
+            /** Provider */
+            provider?: string | null;
+            /**
+             * Usage Status
+             * @default not_used
+             */
+            usage_status: string;
+            /** Uses External Api */
+            uses_external_api: boolean;
+        };
         /** AnalysisFeedbackInput */
         AnalysisFeedbackInput: {
             /**
@@ -6042,7 +6187,7 @@ export interface components {
          * RecordType
          * @enum {string}
          */
-        RecordType: "platform_account" | "objective_profile" | "benchmark_profile" | "column_campaign" | "metric_definition" | "content" | "asset_reference" | "data_snapshot" | "snapshot_metric_value" | "style_profile" | "style_sample" | "fact_source_metadata" | "fact_item" | "risk_document_metadata";
+        RecordType: "platform_account" | "objective_profile" | "benchmark_profile" | "column_campaign" | "metric_definition" | "content" | "asset_reference" | "data_snapshot" | "snapshot_metric_value" | "style_profile" | "style_sample" | "fact_source_metadata" | "fact_item" | "risk_document_metadata" | "agent_briefing" | "agent_plan" | "agent_run" | "agent_step" | "agent_artifact" | "agent_event";
         /**
          * ReferencePurpose
          * @enum {string}
@@ -10019,6 +10164,39 @@ export interface operations {
             };
         };
     };
+    list_confirmations_v1_workspaces__workspace_id__agent_confirmations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConfirmationListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_plan_v1_workspaces__workspace_id__agent_plans_post: {
         parameters: {
             query?: never;
@@ -10256,6 +10434,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AgentRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_confirmation_v1_workspaces__workspace_id__agent_runs__run_id__confirmations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                run_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentConfirmationDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentConfirmationRead"];
                 };
             };
             /** @description Validation Error */

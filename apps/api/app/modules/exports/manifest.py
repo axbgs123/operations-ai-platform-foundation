@@ -46,6 +46,12 @@ class RecordType(StrEnum):
     FACT_SOURCE_METADATA = "fact_source_metadata"
     FACT_ITEM = "fact_item"
     RISK_DOCUMENT_METADATA = "risk_document_metadata"
+    AGENT_BRIEFING = "agent_briefing"
+    AGENT_PLAN = "agent_plan"
+    AGENT_RUN = "agent_run"
+    AGENT_STEP = "agent_step"
+    AGENT_ARTIFACT = "agent_artifact"
+    AGENT_EVENT = "agent_event"
 
 
 RECORD_FIELDS: dict[RecordType, tuple[frozenset[str], frozenset[str]]] = {
@@ -316,6 +322,116 @@ RECORD_FIELDS: dict[RecordType, tuple[frozenset[str], frozenset[str]]] = {
             }
         ),
     ),
+    RecordType.AGENT_BRIEFING: (
+        frozenset(
+            {
+                "algorithm_version",
+                "tool_catalog_version",
+                "data_cutoff_at",
+            }
+        ),
+        frozenset(
+            {
+                "algorithm_version",
+                "tool_catalog_version",
+                "data_cutoff_at",
+            }
+        ),
+    ),
+    RecordType.AGENT_PLAN: (
+        frozenset(
+            {
+                "briefing_id",
+                "account_id",
+                "original_status",
+                "tool_catalog_version",
+                "created_at",
+            }
+        ),
+        frozenset(
+            {
+                "briefing_id",
+                "account_id",
+                "original_status",
+                "tool_catalog_version",
+                "created_at",
+            }
+        ),
+    ),
+    RecordType.AGENT_RUN: (
+        frozenset(
+            {
+                "plan_id",
+                "account_id",
+                "original_status",
+                "safe_error_code",
+                "completed_at",
+                "created_at",
+            }
+        ),
+        frozenset(
+            {"plan_id", "account_id", "original_status", "created_at"}
+        ),
+    ),
+    RecordType.AGENT_STEP: (
+        frozenset(
+            {
+                "run_id",
+                "step_index",
+                "tool_name",
+                "tool_version",
+                "tool_risk",
+                "original_status",
+                "attempt_count",
+                "safe_error_code",
+                "completed_at",
+            }
+        ),
+        frozenset(
+            {
+                "run_id",
+                "step_index",
+                "tool_name",
+                "tool_version",
+                "tool_risk",
+                "original_status",
+                "attempt_count",
+            }
+        ),
+    ),
+    RecordType.AGENT_ARTIFACT: (
+        frozenset(
+            {
+                "run_id",
+                "step_id",
+                "kind",
+                "resource_type",
+                "resource_id",
+                "safe_metadata",
+            }
+        ),
+        frozenset(
+            {
+                "run_id",
+                "kind",
+                "resource_type",
+                "resource_id",
+                "safe_metadata",
+            }
+        ),
+    ),
+    RecordType.AGENT_EVENT: (
+        frozenset(
+            {
+                "run_id",
+                "step_id",
+                "event_type",
+                "safe_payload",
+                "created_at",
+            }
+        ),
+        frozenset({"event_type", "safe_payload", "created_at"}),
+    ),
 }
 
 REFERENCE_FIELDS: dict[
@@ -365,6 +481,25 @@ REFERENCE_FIELDS: dict[
     },
     RecordType.RISK_DOCUMENT_METADATA: {
         "previous_version_id": (RecordType.RISK_DOCUMENT_METADATA, True),
+    },
+    RecordType.AGENT_PLAN: {
+        "briefing_id": (RecordType.AGENT_BRIEFING, False),
+        "account_id": (RecordType.PLATFORM_ACCOUNT, False),
+    },
+    RecordType.AGENT_RUN: {
+        "plan_id": (RecordType.AGENT_PLAN, False),
+        "account_id": (RecordType.PLATFORM_ACCOUNT, False),
+    },
+    RecordType.AGENT_STEP: {
+        "run_id": (RecordType.AGENT_RUN, False),
+    },
+    RecordType.AGENT_ARTIFACT: {
+        "run_id": (RecordType.AGENT_RUN, False),
+        "step_id": (RecordType.AGENT_STEP, True),
+    },
+    RecordType.AGENT_EVENT: {
+        "run_id": (RecordType.AGENT_RUN, True),
+        "step_id": (RecordType.AGENT_STEP, True),
     },
 }
 
@@ -593,6 +728,58 @@ class RiskDocumentMetadataData(StrictRecordData):
         return self
 
 
+class AgentBriefingData(StrictRecordData):
+    algorithm_version: StrictStr = Field(min_length=1, max_length=80)
+    tool_catalog_version: StrictStr = Field(min_length=1, max_length=80)
+    data_cutoff_at: AwareDatetime
+
+
+class AgentPlanData(StrictRecordData):
+    briefing_id: UUID
+    account_id: UUID
+    original_status: Literal["draft", "approved", "rejected", "invalidated"]
+    tool_catalog_version: StrictStr = Field(min_length=1, max_length=80)
+    created_at: AwareDatetime
+
+
+class AgentRunData(StrictRecordData):
+    plan_id: UUID
+    account_id: UUID
+    original_status: StrictStr = Field(min_length=1, max_length=60)
+    safe_error_code: StrictStr | None = Field(default=None, max_length=100)
+    completed_at: AwareDatetime | None = None
+    created_at: AwareDatetime
+
+
+class AgentStepData(StrictRecordData):
+    run_id: UUID
+    step_index: StrictInt = Field(ge=0)
+    tool_name: StrictStr = Field(min_length=1, max_length=80)
+    tool_version: StrictStr = Field(min_length=1, max_length=40)
+    tool_risk: Literal["read_only", "draft_write", "protected_write"]
+    original_status: StrictStr = Field(min_length=1, max_length=60)
+    attempt_count: StrictInt = Field(ge=0)
+    safe_error_code: StrictStr | None = Field(default=None, max_length=100)
+    completed_at: AwareDatetime | None = None
+
+
+class AgentArtifactData(StrictRecordData):
+    run_id: UUID
+    step_id: UUID | None = None
+    kind: StrictStr = Field(min_length=1, max_length=80)
+    resource_type: StrictStr = Field(min_length=1, max_length=80)
+    resource_id: UUID
+    safe_metadata: dict[StrictStr, Any]
+
+
+class AgentEventData(StrictRecordData):
+    run_id: UUID | None = None
+    step_id: UUID | None = None
+    event_type: StrictStr = Field(min_length=1, max_length=80)
+    safe_payload: dict[StrictStr, Any]
+    created_at: AwareDatetime
+
+
 DATA_MODEL_BY_TYPE: dict[RecordType, type[StrictRecordData]] = {
     RecordType.PLATFORM_ACCOUNT: PlatformAccountData,
     RecordType.OBJECTIVE_PROFILE: ObjectiveProfileData,
@@ -608,6 +795,12 @@ DATA_MODEL_BY_TYPE: dict[RecordType, type[StrictRecordData]] = {
     RecordType.FACT_SOURCE_METADATA: FactSourceMetadataData,
     RecordType.FACT_ITEM: FactItemData,
     RecordType.RISK_DOCUMENT_METADATA: RiskDocumentMetadataData,
+    RecordType.AGENT_BRIEFING: AgentBriefingData,
+    RecordType.AGENT_PLAN: AgentPlanData,
+    RecordType.AGENT_RUN: AgentRunData,
+    RecordType.AGENT_STEP: AgentStepData,
+    RecordType.AGENT_ARTIFACT: AgentArtifactData,
+    RecordType.AGENT_EVENT: AgentEventData,
 }
 
 
@@ -637,6 +830,8 @@ class PortableRecord(BaseModel):
             RecordType.STYLE_PROFILE,
             RecordType.STYLE_SAMPLE,
             RecordType.RISK_DOCUMENT_METADATA,
+            RecordType.AGENT_PLAN,
+            RecordType.AGENT_RUN,
         } and self.platform is None:
             raise ValueError("platform-scoped record requires platform")
         _validate_safe_value(self.data)

@@ -39,6 +39,15 @@ from app.modules.exports.models import (
 from app.modules.imports.capture_models import CaptureTask, CaptureTaskStatus
 from app.modules.imports.capture_service import clear_task_object
 from app.modules.imports.models import ExtensionToken, ImportBatch
+from app.modules.operations_agent.models import (
+    AgentArtifact,
+    AgentBriefing,
+    AgentConfirmation,
+    AgentEvent,
+    AgentPlan,
+    AgentRun,
+    AgentRunStep,
+)
 from app.modules.risk_rag.models import RiskChunkEmbedding, RiskDocument
 from app.modules.workspace.models import (
     AuditLog,
@@ -137,6 +146,13 @@ PRIVATE_WORKSPACE_TABLES = (
     "knowledge_index_rebuilds",
     "retention_policies",
     "managed_objects",
+    "agent_briefings",
+    "agent_plans",
+    "agent_runs",
+    "agent_run_steps",
+    "agent_confirmations",
+    "agent_artifacts",
+    "agent_events",
 )
 
 
@@ -211,6 +227,13 @@ class WorkspaceDeletionService:
                 RiskChunkEmbedding,
                 CoverGenerationRun,
                 CoverArtifactAttempt,
+                AgentBriefing,
+                AgentPlan,
+                AgentRun,
+                AgentRunStep,
+                AgentConfirmation,
+                AgentArtifact,
+                AgentEvent,
             )
         )
         return WorkspaceDeletionImpact(

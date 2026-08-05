@@ -40,7 +40,7 @@ from app.modules.operations_agent.tools import (
     AgentToolInputError,
     AgentToolRegistry,
 )
-from app.modules.workspace.models import WorkspaceMember
+from app.modules.workspace.models import Workspace, WorkspaceMember
 from app.modules.workspace.permissions import (
     Permission,
     PermissionDenied,
@@ -57,6 +57,10 @@ class AgentClaimUnavailable(RuntimeError):
 
 
 class AgentExecutionInvalidated(AgentClaimLost):
+    pass
+
+
+class AgentConfirmationStale(ValueError):
     pass
 
 
@@ -291,37 +295,38 @@ class AgentExecutor:
                     step,
                     contract,
                 )
-                step.status = transition_step(
-                    step.status,
-                    AgentStepStatus.AWAITING_ACTION_CONFIRMATION,
-                )
-                run.status = transition_run(
-                    run.status,
-                    AgentRunStatus.AWAITING_ACTION_CONFIRMATION,
-                )
-                run.claim_token = None
-                run.lease_expires_at = None
-                self._append_event(
-                    session,
-                    run,
-                    event_type="action_confirmation_requested",
-                    idempotency_key=(
-                        f"confirmation-requested:{confirmation.id}"
-                    ),
-                    step_id=step.id,
-                    safe_payload={
-                        "confirmation_id": str(confirmation.id),
-                        "tool_name": contract.name,
-                        "tool_version": contract.version,
-                    },
-                )
-                session.flush()
-                return ExecutionResult(
-                    run_id=run.id,
-                    step_id=step.id,
-                    run_status=run.status,
-                    step_status=step.status,
-                )
+                if confirmation.status is not AgentConfirmationStatus.APPROVED:
+                    step.status = transition_step(
+                        step.status,
+                        AgentStepStatus.AWAITING_ACTION_CONFIRMATION,
+                    )
+                    run.status = transition_run(
+                        run.status,
+                        AgentRunStatus.AWAITING_ACTION_CONFIRMATION,
+                    )
+                    run.claim_token = None
+                    run.lease_expires_at = None
+                    self._append_event(
+                        session,
+                        run,
+                        event_type="action_confirmation_requested",
+                        idempotency_key=(
+                            f"confirmation-requested:{confirmation.id}"
+                        ),
+                        step_id=step.id,
+                        safe_payload={
+                            "confirmation_id": str(confirmation.id),
+                            "tool_name": contract.name,
+                            "tool_version": contract.version,
+                        },
+                    )
+                    session.flush()
+                    return ExecutionResult(
+                        run_id=run.id,
+                        step_id=step.id,
+                        run_status=run.status,
+                        step_status=step.status,
+                    )
             invocation = ToolInvocation(
                 workspace_id=run.workspace_id,
                 run_id=run.id,
@@ -571,6 +576,152 @@ class AgentExecutor:
             )
             session.flush()
             return run
+
+    def decide_confirmation(
+        self,
+        run_id: UUID,
+        *,
+        confirmation_id: UUID,
+        decision: Literal["approve", "reject"],
+        action_fingerprint: str,
+        context: WorkspaceContext,
+    ) -> AgentConfirmation:
+        require_permission(context.role, Permission.WRITE_CONTENT)
+        stale = False
+        with self._factory.begin() as session:
+            run = self._run_for_update(
+                session,
+                run_id,
+                workspace_id=context.workspace_id,
+            )
+            confirmation = session.scalar(
+                select(AgentConfirmation)
+                .where(
+                    AgentConfirmation.id == confirmation_id,
+                    AgentConfirmation.workspace_id == context.workspace_id,
+                    AgentConfirmation.run_id == run.id,
+                )
+                .with_for_update()
+            )
+            if confirmation is None:
+                raise LookupError("confirmation not found")
+            if confirmation.status is not AgentConfirmationStatus.PENDING:
+                raise ValueError("confirmation is already resolved")
+            step = self._current_step_for_update(session, run)
+            if (
+                step.id != confirmation.step_id
+                or step.status
+                is not AgentStepStatus.AWAITING_ACTION_CONFIRMATION
+            ):
+                stale = True
+            if (
+                confirmation.expires_at is None
+                or confirmation.expires_at <= self._now()
+            ):
+                confirmation.status = AgentConfirmationStatus.EXPIRED
+                confirmation.resolved_at = self._now()
+                confirmation.resolved_by = context.member_id
+                stale = True
+            if (
+                action_fingerprint != confirmation.action_fingerprint
+                or self._action_fingerprint(run, step)
+                != confirmation.action_fingerprint
+            ):
+                stale = True
+            summary = confirmation.action_summary
+            workspace = session.get(Workspace, run.workspace_id)
+            plan = session.get(AgentPlan, run.plan_id)
+            member = session.scalar(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.id == context.member_id,
+                    WorkspaceMember.workspace_id == run.workspace_id,
+                    WorkspaceMember.revoked_at.is_(None),
+                )
+            )
+            if (
+                workspace is None
+                or plan is None
+                or member is None
+                or summary.get("member_id") != str(context.member_id)
+                or summary.get("member_role") != context.role
+                or summary.get("workspace_deletion_version")
+                != workspace.deletion_version
+                or summary.get("tool_version") != step.tool_version
+            ):
+                stale = True
+            if plan is not None:
+                stored = StoredAgentPlanDocument.model_validate(plan.document)
+                if (
+                    summary.get("account_configuration_version")
+                    != stored.approval_snapshot.account_configuration_version
+                ):
+                    stale = True
+            try:
+                PlanService(
+                    session,
+                    context,
+                    registry=self._registry,
+                ).assert_execution_current(
+                    run.plan_id,
+                    run_id=run.id,
+                )
+            except (
+                AgentApprovalStale,
+                LookupError,
+                PermissionDenied,
+                ValueError,
+            ):
+                stale = True
+            if stale:
+                if confirmation.status is AgentConfirmationStatus.PENDING:
+                    confirmation.status = AgentConfirmationStatus.INVALIDATED
+                    confirmation.resolved_at = self._now()
+                    confirmation.resolved_by = context.member_id
+            elif decision == "reject":
+                confirmation.status = AgentConfirmationStatus.REJECTED
+                confirmation.resolved_at = self._now()
+                confirmation.resolved_by = context.member_id
+                step.status = transition_step(
+                    step.status,
+                    AgentStepStatus.REJECTED,
+                )
+                step.completed_at = self._now()
+                run.status = transition_run(
+                    run.status,
+                    AgentRunStatus.REJECTED,
+                )
+                run.completed_at = self._now()
+            else:
+                confirmation.status = AgentConfirmationStatus.APPROVED
+                confirmation.resolved_at = self._now()
+                confirmation.resolved_by = context.member_id
+                step.status = transition_step(
+                    step.status,
+                    AgentStepStatus.PENDING,
+                )
+                run.status = transition_run(
+                    run.status,
+                    AgentRunStatus.QUEUED,
+                )
+            run.claim_token = None
+            run.lease_expires_at = None
+            self._append_event(
+                session,
+                run,
+                event_type=f"action_confirmation_{decision}",
+                idempotency_key=(
+                    f"confirmation-{decision}:{confirmation.id}"
+                ),
+                step_id=step.id,
+                safe_payload={
+                    "confirmation_id": str(confirmation.id),
+                    "decision": decision,
+                },
+            )
+            session.flush()
+        if stale:
+            raise AgentConfirmationStale("confirmation action changed")
+        return confirmation
 
     def retry(
         self,
@@ -857,15 +1008,7 @@ class AgentExecutor:
         contract: AgentToolContract,
     ) -> AgentConfirmation:
         arguments = self._arguments(step)
-        action_fingerprint = _fingerprint(
-            {
-                "run_id": str(run.id),
-                "step_id": str(step.id),
-                "tool_name": step.tool_name,
-                "tool_version": step.tool_version,
-                "arguments": arguments,
-            }
-        )
+        action_fingerprint = self._action_fingerprint(run, step)
         existing = session.scalar(
             select(AgentConfirmation).where(
                 AgentConfirmation.run_id == run.id,
@@ -876,6 +1019,14 @@ class AgentExecutor:
         )
         if existing is not None:
             return existing
+        workspace = session.get(Workspace, run.workspace_id)
+        plan = session.get(AgentPlan, run.plan_id)
+        member = session.get(WorkspaceMember, run.created_by)
+        if workspace is None or plan is None or member is None:
+            raise AgentExecutionInvalidated(
+                "confirmation context is unavailable"
+            )
+        stored = StoredAgentPlanDocument.model_validate(plan.document)
         confirmation = AgentConfirmation(
             workspace_id=run.workspace_id,
             run_id=run.id,
@@ -886,12 +1037,34 @@ class AgentExecutor:
                 "tool_version": contract.version,
                 "risk": contract.risk.value,
                 "argument_keys": sorted(arguments),
+                "member_id": str(member.id),
+                "member_role": member.role.value,
+                "workspace_deletion_version": workspace.deletion_version,
+                "account_configuration_version": (
+                    stored.approval_snapshot.account_configuration_version
+                ),
             },
             status=AgentConfirmationStatus.PENDING,
             requested_by=run.created_by,
+            expires_at=self._now() + timedelta(minutes=10),
         )
         session.add(confirmation)
         return confirmation
+
+    @staticmethod
+    def _action_fingerprint(
+        run: AgentRun,
+        step: AgentRunStep,
+    ) -> str:
+        return _fingerprint(
+            {
+                "run_id": str(run.id),
+                "step_id": str(step.id),
+                "tool_name": step.tool_name,
+                "tool_version": step.tool_version,
+                "arguments": AgentExecutor._arguments(step),
+            }
+        )
 
     def _run_for_update(
         self,

@@ -281,6 +281,160 @@
         "title": "AdapterStatus",
         "type": "string"
       },
+      "AgentConfirmationDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "action_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Action Fingerprint",
+            "type": "string"
+          },
+          "confirmation_id": {
+            "format": "uuid",
+            "title": "Confirmation Id",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "confirmation_id",
+          "decision",
+          "action_fingerprint"
+        ],
+        "title": "AgentConfirmationDecision",
+        "type": "object"
+      },
+      "AgentConfirmationListRead": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AgentConfirmationRead"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "AgentConfirmationListRead",
+        "type": "object"
+      },
+      "AgentConfirmationRead": {
+        "additionalProperties": false,
+        "properties": {
+          "action_fingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Action Fingerprint",
+            "type": "string"
+          },
+          "argument_keys": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 32,
+            "title": "Argument Keys",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "risk": {
+            "$ref": "#/components/schemas/AgentToolRisk"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentConfirmationStatus"
+          },
+          "step_id": {
+            "format": "uuid",
+            "title": "Step Id",
+            "type": "string"
+          },
+          "tool_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Tool Name",
+            "type": "string"
+          },
+          "tool_version": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Tool Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "run_id",
+          "step_id",
+          "status",
+          "action_fingerprint",
+          "tool_name",
+          "tool_version",
+          "risk",
+          "expires_at",
+          "resolved_at",
+          "created_at"
+        ],
+        "title": "AgentConfirmationRead",
+        "type": "object"
+      },
+      "AgentConfirmationStatus": {
+        "enum": [
+          "pending",
+          "approved",
+          "rejected",
+          "expired",
+          "invalidated"
+        ],
+        "title": "AgentConfirmationStatus",
+        "type": "string"
+      },
       "AgentPlanApprovalSnapshot": {
         "additionalProperties": false,
         "properties": {
@@ -476,6 +630,9 @@
             "title": "Tool Catalog Version",
             "type": "string"
           },
+          "usage": {
+            "$ref": "#/components/schemas/AgentUsageRead"
+          },
           "workspace_id": {
             "format": "uuid",
             "title": "Workspace Id",
@@ -495,7 +652,8 @@
           "tool_catalog_version",
           "approved_by",
           "approved_at",
-          "created_at"
+          "created_at",
+          "usage"
         ],
         "title": "AgentPlanRead",
         "type": "object"
@@ -641,6 +799,9 @@
             "title": "Updated At",
             "type": "string"
           },
+          "usage": {
+            "$ref": "#/components/schemas/AgentUsageRead"
+          },
           "workspace_id": {
             "format": "uuid",
             "title": "Workspace Id",
@@ -657,7 +818,8 @@
           "current_step_index",
           "created_at",
           "updated_at",
-          "completed_at"
+          "completed_at",
+          "usage"
         ],
         "title": "AgentRunRead",
         "type": "object"
@@ -797,6 +959,87 @@
         ],
         "title": "AgentToolRisk",
         "type": "string"
+      },
+      "AgentUsageRead": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "embedding_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Embedding Tokens",
+            "type": "integer"
+          },
+          "generated_images": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Generated Images",
+            "type": "integer"
+          },
+          "input_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "ocr_images": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Ocr Images",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "usage_status": {
+            "default": "not_used",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Usage Status",
+            "type": "string"
+          },
+          "uses_external_api": {
+            "title": "Uses External Api",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "uses_external_api"
+        ],
+        "title": "AgentUsageRead",
+        "type": "object"
       },
       "AnalysisFeedbackInput": {
         "additionalProperties": false,
@@ -9200,7 +9443,13 @@
           "style_sample",
           "fact_source_metadata",
           "fact_item",
-          "risk_document_metadata"
+          "risk_document_metadata",
+          "agent_briefing",
+          "agent_plan",
+          "agent_run",
+          "agent_step",
+          "agent_artifact",
+          "agent_event"
         ],
         "title": "RecordType",
         "type": "string"
@@ -18206,6 +18455,65 @@
         ]
       }
     },
+    "/v1/workspaces/{workspace_id}/agent/confirmations": {
+      "get": {
+        "operationId": "list_confirmations_v1_workspaces__workspace_id__agent_confirmations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmationListRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Confirmations",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
     "/v1/workspaces/{workspace_id}/agent/plans": {
       "post": {
         "operationId": "create_plan_v1_workspaces__workspace_id__agent_plans_post",
@@ -18760,6 +19068,101 @@
           }
         },
         "summary": "Cancel Run",
+        "tags": [
+          "operations-agent"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/agent/runs/{run_id}/confirmations": {
+      "post": {
+        "operationId": "decide_confirmation_v1_workspaces__workspace_id__agent_runs__run_id__confirmations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentConfirmationDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentConfirmationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide Confirmation",
         "tags": [
           "operations-agent"
         ]

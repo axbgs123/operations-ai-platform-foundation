@@ -1,6 +1,6 @@
 import hashlib
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any, cast
@@ -34,6 +34,25 @@ from app.modules.metrics.models import (
     MetricUnit,
     SnapshotMetricValue,
     SnapshotSource,
+)
+from app.modules.operations_agent.models import (
+    AgentArtifact,
+    AgentArtifactKind,
+    AgentBriefing,
+    AgentEvent,
+    AgentPlan,
+    AgentPlanStatus,
+    AgentRun,
+    AgentRunStatus,
+    AgentRunStep,
+    AgentStepStatus,
+    AgentToolRisk,
+)
+from app.modules.operations_agent.schemas import (
+    AgentPlanApprovalSnapshot,
+    AgentPlanDocument,
+    AgentPlanStep,
+    StoredAgentPlanDocument,
 )
 from app.modules.risk_rag.models import (
     RiskAuthorizationStatus,
@@ -108,6 +127,12 @@ MODEL_BY_TYPE = {
     RecordType.FACT_SOURCE_METADATA: FactSource,
     RecordType.FACT_ITEM: FactItem,
     RecordType.RISK_DOCUMENT_METADATA: RiskDocument,
+    RecordType.AGENT_BRIEFING: AgentBriefing,
+    RecordType.AGENT_PLAN: AgentPlan,
+    RecordType.AGENT_RUN: AgentRun,
+    RecordType.AGENT_STEP: AgentRunStep,
+    RecordType.AGENT_ARTIFACT: AgentArtifact,
+    RecordType.AGENT_EVENT: AgentEvent,
 }
 OVERWRITABLE_TYPES = {
     RecordType.PLATFORM_ACCOUNT,
@@ -132,6 +157,20 @@ APPLY_ORDER = {
     RecordType.FACT_SOURCE_METADATA: 0,
     RecordType.FACT_ITEM: 8,
     RecordType.RISK_DOCUMENT_METADATA: 1,
+    RecordType.AGENT_BRIEFING: 9,
+    RecordType.AGENT_PLAN: 10,
+    RecordType.AGENT_RUN: 11,
+    RecordType.AGENT_STEP: 12,
+    RecordType.AGENT_ARTIFACT: 13,
+    RecordType.AGENT_EVENT: 14,
+}
+AGENT_HISTORY_TYPES = {
+    RecordType.AGENT_BRIEFING,
+    RecordType.AGENT_PLAN,
+    RecordType.AGENT_RUN,
+    RecordType.AGENT_STEP,
+    RecordType.AGENT_ARTIFACT,
+    RecordType.AGENT_EVENT,
 }
 
 
@@ -387,6 +426,25 @@ def _mapped_data(
         RecordType.RISK_DOCUMENT_METADATA: {
             "previous_version_id": RecordType.RISK_DOCUMENT_METADATA,
         },
+        RecordType.AGENT_PLAN: {
+            "briefing_id": RecordType.AGENT_BRIEFING,
+            "account_id": RecordType.PLATFORM_ACCOUNT,
+        },
+        RecordType.AGENT_RUN: {
+            "plan_id": RecordType.AGENT_PLAN,
+            "account_id": RecordType.PLATFORM_ACCOUNT,
+        },
+        RecordType.AGENT_STEP: {
+            "run_id": RecordType.AGENT_RUN,
+        },
+        RecordType.AGENT_ARTIFACT: {
+            "run_id": RecordType.AGENT_RUN,
+            "step_id": RecordType.AGENT_STEP,
+        },
+        RecordType.AGENT_EVENT: {
+            "run_id": RecordType.AGENT_RUN,
+            "step_id": RecordType.AGENT_STEP,
+        },
     }
     for field, target_type in reference_types.get(record.record_type, {}).items():
         raw = mapped.get(field)
@@ -430,8 +488,24 @@ def _platform_mismatch(
         RecordType.FACT_SOURCE_METADATA,
         RecordType.FACT_ITEM,
         RecordType.RISK_DOCUMENT_METADATA,
+        RecordType.AGENT_BRIEFING,
+        RecordType.AGENT_STEP,
+        RecordType.AGENT_ARTIFACT,
+        RecordType.AGENT_EVENT,
     }:
         return False
+    if record.record_type is RecordType.AGENT_PLAN:
+        account = referenced(RecordType.PLATFORM_ACCOUNT, "account_id")
+        return account is None or record.platform != account.platform
+    if record.record_type is RecordType.AGENT_RUN:
+        account = referenced(RecordType.PLATFORM_ACCOUNT, "account_id")
+        plan = referenced(RecordType.AGENT_PLAN, "plan_id")
+        return (
+            account is None
+            or plan is None
+            or record.platform != account.platform
+            or record.platform != plan.platform
+        )
     if record.record_type in {
         RecordType.STYLE_PROFILE,
         RecordType.STYLE_SAMPLE,
@@ -575,6 +649,11 @@ def build_restore_preview(
             reason = "workspace_scope_mismatch"
             blocking = True
             summary = "目标标识属于其他工作区"
+        elif record.record_type in AGENT_HISTORY_TYPES:
+            action = RestoreAction.SKIP
+            reason = "read_only_history_already_imported"
+            blocking = False
+            summary = None
         else:
             expected = _portable(
                 _mapped_data(record, manifest, target_workspace_id)
@@ -649,6 +728,16 @@ def _required_datetime(value: Any) -> datetime:
     if parsed is None:
         raise ValueError("restore datetime is required")
     return parsed
+
+
+def _restored_fingerprint(
+    workspace_id: UUID,
+    record_type: RecordType,
+    source_id: UUID,
+) -> str:
+    return hashlib.sha256(
+        f"{workspace_id}:{record_type.value}:{source_id}:read-only".encode()
+    ).hexdigest()
 
 
 def _new_instance(
@@ -885,6 +974,155 @@ def _new_instance(
                 data["redistribution_authorized"]
             ),
         )
+    if record.record_type is RecordType.AGENT_BRIEFING:
+        return AgentBriefing(
+            workspace_id=workspace_id,
+            input_fingerprint=_restored_fingerprint(
+                workspace_id,
+                record.record_type,
+                record.source_id,
+            ),
+            algorithm_version=str(data["algorithm_version"]),
+            tool_catalog_version=str(data["tool_catalog_version"]),
+            candidates=[],
+            priority_candidate=None,
+            data_cutoff_at=_required_datetime(data["data_cutoff_at"]),
+        )
+    if record.record_type is RecordType.AGENT_PLAN:
+        fingerprint = _restored_fingerprint(
+            workspace_id,
+            record.record_type,
+            record.source_id,
+        )
+        approval_snapshot = AgentPlanApprovalSnapshot(
+            briefing_input_fingerprint=fingerprint,
+            account_configuration_version=fingerprint,
+            model_configuration_version=fingerprint,
+            risk_rule_version=fingerprint,
+        )
+        document = StoredAgentPlanDocument(
+            plan=AgentPlanDocument(
+                goal="已恢复的历史智能体记录（只读，不可执行）",
+                platform=_required_platform(record),
+                account_id=UUID(str(data["account_id"])),
+                candidate_id=f"restored-{record.source_id}",
+                input_fingerprint=fingerprint,
+                tool_catalog_version=str(data["tool_catalog_version"]),
+                steps=(
+                    AgentPlanStep(
+                        step_index=0,
+                        tool_name="restored_history",
+                        tool_version="1.0.0",
+                        arguments={},
+                        rationale="轻量备份不包含原始参数，恢复后仅供审计查看。",
+                    ),
+                ),
+            ),
+            approval_snapshot=approval_snapshot,
+        )
+        plan = AgentPlan(
+            workspace_id=workspace_id,
+            briefing_id=UUID(str(data["briefing_id"])),
+            account_id=UUID(str(data["account_id"])),
+            platform=_required_platform(record),
+            idempotency_key=f"restored-history:{record.source_id}",
+            input_fingerprint=fingerprint,
+            tool_catalog_version=str(data["tool_catalog_version"]),
+            document=document.model_dump(mode="json"),
+            plan_fingerprint=fingerprint,
+            status=AgentPlanStatus.INVALIDATED,
+            created_by=None,
+            approved_by=None,
+            approved_at=None,
+        )
+        plan.created_at = _required_datetime(data["created_at"])
+        return plan
+    if record.record_type is RecordType.AGENT_RUN:
+        run = AgentRun(
+            workspace_id=workspace_id,
+            plan_id=UUID(str(data["plan_id"])),
+            account_id=UUID(str(data["account_id"])),
+            platform=_required_platform(record),
+            status=AgentRunStatus.CANCELLED,
+            current_step_index=0,
+            operation_version=1,
+            created_by=None,
+            claim_token=None,
+            lease_expires_at=None,
+            safe_error_code="AGENT_HISTORY_RESTORED_READ_ONLY",
+            completed_at=(
+                _parse_datetime(data.get("completed_at"))
+                or _required_datetime(data["created_at"])
+            ),
+        )
+        run.created_at = _required_datetime(data["created_at"])
+        return run
+    if record.record_type is RecordType.AGENT_STEP:
+        completed_at = (
+            _parse_datetime(data.get("completed_at"))
+            or datetime(1970, 1, 1, tzinfo=UTC)
+        )
+        return AgentRunStep(
+            workspace_id=workspace_id,
+            run_id=UUID(str(data["run_id"])),
+            step_index=int(data["step_index"]),
+            tool_name=str(data["tool_name"]),
+            tool_version=str(data["tool_version"]),
+            tool_risk=AgentToolRisk(data["tool_risk"]),
+            input_fingerprint=_restored_fingerprint(
+                workspace_id,
+                record.record_type,
+                record.source_id,
+            ),
+            input_envelope={"restored_history": True, "arguments": {}},
+            status=AgentStepStatus.CANCELLED,
+            operation_version=1,
+            attempt_count=int(data["attempt_count"]),
+            result_envelope={"restored_history": True},
+            safe_error_code="AGENT_HISTORY_RESTORED_READ_ONLY",
+            started_at=None,
+            completed_at=completed_at,
+        )
+    if record.record_type is RecordType.AGENT_ARTIFACT:
+        return AgentArtifact(
+            workspace_id=workspace_id,
+            run_id=UUID(str(data["run_id"])),
+            kind=AgentArtifactKind(data["kind"]),
+            resource_type=str(data["resource_type"]),
+            resource_id=uuid5(
+                workspace_id,
+                (
+                    "restored-agent-resource:"
+                    f"{data['resource_type']}:{data['resource_id']}"
+                ),
+            ),
+            step_id=(
+                UUID(str(data["step_id"])) if data.get("step_id") else None
+            ),
+            safe_metadata={
+                **dict(data["safe_metadata"]),
+                "restored_read_only": True,
+            },
+        )
+    if record.record_type is RecordType.AGENT_EVENT:
+        event = AgentEvent(
+            workspace_id=workspace_id,
+            event_type=str(data["event_type"]),
+            idempotency_key=f"restored-agent-event:{record.source_id}",
+            safe_payload={
+                **dict(data["safe_payload"]),
+                "restored_read_only": True,
+            },
+            run_id=(
+                UUID(str(data["run_id"])) if data.get("run_id") else None
+            ),
+            step_id=(
+                UUID(str(data["step_id"])) if data.get("step_id") else None
+            ),
+            actor_id=None,
+        )
+        event.created_at = _required_datetime(data["created_at"])
+        return event
     raise ValueError("unsupported restore record")
 
 

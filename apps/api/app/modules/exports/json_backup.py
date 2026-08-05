@@ -28,6 +28,14 @@ from app.modules.metrics.models import (
     MetricDefinition,
     SnapshotMetricValue,
 )
+from app.modules.operations_agent.models import (
+    AgentArtifact,
+    AgentBriefing,
+    AgentEvent,
+    AgentPlan,
+    AgentRun,
+    AgentRunStep,
+)
 from app.modules.risk_rag.models import RiskDocument, RiskDocumentScope
 from app.modules.style_facts.fact_models import FactItem, FactSource
 from app.modules.style_facts.style_models import AccountStyleProfile, StyleSample
@@ -72,6 +80,55 @@ def _record(
         platform=_portable(platform) if platform is not None else None,
         data=_data(**data),
     )
+
+
+def _safe_agent_artifact_metadata(
+    value: dict[str, object],
+) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key in ("publication_performed", "approval_exclusion"):
+        item = value.get(key)
+        if isinstance(item, bool):
+            result[key] = item
+    recommendation = value.get("recommendation")
+    if isinstance(recommendation, dict):
+        allowed = {
+            "source",
+            "layout",
+            "preserve_account_style",
+            "requires_human_review",
+        }
+        result["recommendation"] = {
+            str(key): item
+            for key, item in recommendation.items()
+            if key in allowed and isinstance(item, (str, bool))
+        }
+    return result
+
+
+def _safe_agent_event_payload(
+    value: dict[str, object],
+) -> dict[str, object]:
+    allowed = {
+        "run_id",
+        "confirmation_id",
+        "tool_name",
+        "tool_version",
+        "status",
+        "error_code",
+        "decision",
+        "publication_performed",
+        "scope",
+    }
+    return {
+        str(key): item
+        for key, item in value.items()
+        if key in allowed
+        and (
+            item is None
+            or isinstance(item, (str, int, float, bool))
+        )
+    }
 
 
 def build_lightweight_manifest(
@@ -377,6 +434,110 @@ def build_lightweight_manifest(
                 mime_type=document.mime_type,
                 untrusted_data=document.untrusted_data,
                 redistribution_authorized=document.redistribution_authorized,
+            )
+        )
+    for briefing in session.scalars(
+        select(AgentBriefing)
+        .where(AgentBriefing.workspace_id == context.workspace_id)
+        .order_by(AgentBriefing.created_at, AgentBriefing.id)
+    ):
+        records.append(
+            _record(
+                RecordType.AGENT_BRIEFING,
+                briefing.id,
+                algorithm_version=briefing.algorithm_version,
+                tool_catalog_version=briefing.tool_catalog_version,
+                data_cutoff_at=briefing.data_cutoff_at,
+            )
+        )
+    for plan in session.scalars(
+        select(AgentPlan)
+        .where(AgentPlan.workspace_id == context.workspace_id)
+        .order_by(AgentPlan.created_at, AgentPlan.id)
+    ):
+        records.append(
+            _record(
+                RecordType.AGENT_PLAN,
+                plan.id,
+                platform=plan.platform,
+                briefing_id=plan.briefing_id,
+                account_id=plan.account_id,
+                original_status=plan.status,
+                tool_catalog_version=plan.tool_catalog_version,
+                created_at=plan.created_at,
+            )
+        )
+    for run in session.scalars(
+        select(AgentRun)
+        .where(AgentRun.workspace_id == context.workspace_id)
+        .order_by(AgentRun.created_at, AgentRun.id)
+    ):
+        records.append(
+            _record(
+                RecordType.AGENT_RUN,
+                run.id,
+                platform=run.platform,
+                plan_id=run.plan_id,
+                account_id=run.account_id,
+                original_status=run.status,
+                safe_error_code=run.safe_error_code,
+                completed_at=run.completed_at,
+                created_at=run.created_at,
+            )
+        )
+    for step in session.scalars(
+        select(AgentRunStep)
+        .where(AgentRunStep.workspace_id == context.workspace_id)
+        .order_by(AgentRunStep.run_id, AgentRunStep.step_index)
+    ):
+        records.append(
+            _record(
+                RecordType.AGENT_STEP,
+                step.id,
+                run_id=step.run_id,
+                step_index=step.step_index,
+                tool_name=step.tool_name,
+                tool_version=step.tool_version,
+                tool_risk=step.tool_risk,
+                original_status=step.status,
+                attempt_count=step.attempt_count,
+                safe_error_code=step.safe_error_code,
+                completed_at=step.completed_at,
+            )
+        )
+    for artifact in session.scalars(
+        select(AgentArtifact)
+        .where(AgentArtifact.workspace_id == context.workspace_id)
+        .order_by(AgentArtifact.created_at, AgentArtifact.id)
+    ):
+        records.append(
+            _record(
+                RecordType.AGENT_ARTIFACT,
+                artifact.id,
+                run_id=artifact.run_id,
+                step_id=artifact.step_id,
+                kind=artifact.kind,
+                resource_type=artifact.resource_type,
+                resource_id=artifact.resource_id,
+                safe_metadata=_safe_agent_artifact_metadata(
+                    artifact.safe_metadata
+                ),
+            )
+        )
+    for event in session.scalars(
+        select(AgentEvent)
+        .where(AgentEvent.workspace_id == context.workspace_id)
+        .order_by(AgentEvent.created_at, AgentEvent.id)
+    ):
+        records.append(
+            _record(
+                RecordType.AGENT_EVENT,
+                event.id,
+                run_id=event.run_id,
+                step_id=event.step_id,
+                event_type=event.event_type,
+                safe_payload=_safe_agent_event_payload(event.safe_payload),
+                created_at=event.created_at,
             )
         )
     records.sort(key=lambda item: (item.record_type.value, str(item.source_id)))

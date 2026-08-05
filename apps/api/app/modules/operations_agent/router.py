@@ -9,8 +9,18 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import get_session
 from app.core.security import WorkspaceContext
 from app.modules.operations_agent.briefing import BriefingService
-from app.modules.operations_agent.executor import AgentExecutor
-from app.modules.operations_agent.models import AgentRun, AgentRunStep
+from app.modules.models.models import ModelConfig, ModelUsageAttempt
+from app.modules.operations_agent.executor import (
+    AgentConfirmationStale,
+    AgentExecutor,
+)
+from app.modules.operations_agent.models import (
+    AgentArtifact,
+    AgentConfirmation,
+    AgentRun,
+    AgentRunStep,
+    AgentToolRisk,
+)
 from app.modules.operations_agent.planning import (
     AgentApprovalStale,
     InvalidAgentPlan,
@@ -20,9 +30,13 @@ from app.modules.operations_agent.planning import (
 from app.modules.operations_agent.schemas import (
     AgentPlanCreate,
     AgentPlanRead,
+    AgentConfirmationDecision,
+    AgentConfirmationListRead,
+    AgentConfirmationRead,
     AgentRunListRead,
     AgentRunRead,
     AgentRunStepRead,
+    AgentUsageRead,
     BriefingDecisionCreate,
     DailyBriefingRead,
 )
@@ -347,16 +361,12 @@ def _run_read(
     *,
     include_steps: bool,
 ) -> AgentRunRead:
-    step_records = (
-        tuple(
-            session.scalars(
-                select(AgentRunStep)
-                .where(AgentRunStep.run_id == run.id)
-                .order_by(AgentRunStep.step_index)
-            )
+    step_records = tuple(
+        session.scalars(
+            select(AgentRunStep)
+            .where(AgentRunStep.run_id == run.id)
+            .order_by(AgentRunStep.step_index)
         )
-        if include_steps
-        else ()
     )
     steps = tuple(
         AgentRunStepRead(
@@ -377,7 +387,7 @@ def _run_read(
             started_at=step.started_at,
             completed_at=step.completed_at,
         )
-        for step in step_records
+        for step in (step_records if include_steps else ())
     )
     return AgentRunRead(
         id=run.id,
@@ -392,6 +402,105 @@ def _run_read(
         updated_at=run.updated_at,
         completed_at=run.completed_at,
         steps=steps,
+        usage=_run_usage(session, run, step_records),
+    )
+
+
+def _run_usage(
+    session: Session,
+    run: AgentRun,
+    steps: tuple[AgentRunStep, ...],
+) -> AgentUsageRead:
+    registry = build_planning_registry()
+    uses_external_api = any(
+        registry.get(
+            step.tool_name,
+            version=step.tool_version,
+        ).uses_external_api
+        for step in steps
+    )
+    resource_ids = tuple(
+        session.scalars(
+            select(AgentArtifact.resource_id).where(
+                AgentArtifact.workspace_id == run.workspace_id,
+                AgentArtifact.run_id == run.id,
+            )
+        )
+    )
+    attempts = (
+        list(
+            session.scalars(
+                select(ModelUsageAttempt)
+                .where(
+                    ModelUsageAttempt.workspace_id == run.workspace_id,
+                    ModelUsageAttempt.task_id.in_(resource_ids),
+                )
+                .order_by(ModelUsageAttempt.created_at, ModelUsageAttempt.id)
+            )
+        )
+        if resource_ids
+        else []
+    )
+    provider = attempts[-1].provider if attempts else None
+    model_id = attempts[-1].model_id if attempts else None
+    if uses_external_api and provider is None:
+        configs = list(
+            session.scalars(
+                select(ModelConfig)
+                .where(ModelConfig.workspace_id == run.workspace_id)
+                .order_by(ModelConfig.updated_at.desc(), ModelConfig.id)
+            )
+        )
+        config = next(
+            (item for item in configs if "text" in item.capabilities),
+            None,
+        )
+        if config is not None:
+            provider = config.provider
+            model_id = config.model_id
+    return AgentUsageRead(
+        uses_external_api=uses_external_api,
+        provider=provider,
+        model_id=model_id,
+        attempt_count=len(attempts),
+        input_tokens=sum(item.input_tokens for item in attempts),
+        output_tokens=sum(item.output_tokens for item in attempts),
+        embedding_tokens=sum(item.embedding_inputs for item in attempts),
+        ocr_images=sum(
+            item.image_inputs
+            for item in attempts
+            if item.capability in {"vision", "ocr"}
+        ),
+        generated_images=sum(item.image_outputs for item in attempts),
+        usage_status=(
+            attempts[-1].status.value if attempts else "not_used"
+        ),
+    )
+
+
+def _confirmation_read(
+    confirmation: AgentConfirmation,
+) -> AgentConfirmationRead:
+    summary = confirmation.action_summary
+    raw_argument_keys = summary.get("argument_keys", [])
+    argument_keys = (
+        tuple(str(item) for item in raw_argument_keys)
+        if isinstance(raw_argument_keys, list)
+        else ()
+    )
+    return AgentConfirmationRead(
+        id=confirmation.id,
+        run_id=confirmation.run_id,
+        step_id=confirmation.step_id,
+        status=confirmation.status,
+        action_fingerprint=confirmation.action_fingerprint,
+        tool_name=str(summary["tool_name"]),
+        tool_version=str(summary["tool_version"]),
+        risk=AgentToolRisk(str(summary["risk"])),
+        argument_keys=argument_keys,
+        expires_at=confirmation.expires_at,
+        resolved_at=confirmation.resolved_at,
+        created_at=confirmation.created_at,
     )
 
 
@@ -400,6 +509,85 @@ def _run_executor(session: Session) -> AgentExecutor:
         sessionmaker(bind=session.get_bind(), expire_on_commit=False),
         registry=build_planning_registry(),
     )
+
+
+@router.get(
+    "/confirmations",
+    response_model=AgentConfirmationListRead,
+)
+def list_confirmations(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[
+        str | None,
+        Cookie(alias="session"),
+    ] = None,
+) -> AgentConfirmationListRead:
+    _authorized_context(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=None,
+        mutation=False,
+    )
+    confirmations = tuple(
+        session.scalars(
+            select(AgentConfirmation)
+            .where(AgentConfirmation.workspace_id == workspace_id)
+            .order_by(
+                AgentConfirmation.created_at.desc(),
+                AgentConfirmation.id.desc(),
+            )
+        )
+    )
+    return AgentConfirmationListRead(
+        items=tuple(_confirmation_read(item) for item in confirmations)
+    )
+
+
+@router.post(
+    "/runs/{run_id}/confirmations",
+    response_model=AgentConfirmationRead,
+)
+def decide_confirmation(
+    workspace_id: UUID,
+    run_id: UUID,
+    data: AgentConfirmationDecision,
+    session: DatabaseSession,
+    session_token: Annotated[
+        str | None,
+        Cookie(alias="session"),
+    ] = None,
+    csrf_token: Annotated[
+        str | None,
+        Header(alias="X-CSRF-Token"),
+    ] = None,
+) -> AgentConfirmationRead:
+    context = _authorized_context(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+        mutation=True,
+    )
+    try:
+        confirmation = _run_executor(session).decide_confirmation(
+            run_id,
+            confirmation_id=data.confirmation_id,
+            decision=data.decision,
+            action_fingerprint=data.action_fingerprint,
+            context=context,
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=404,
+            detail="confirmation not found",
+        ) from error
+    except AgentConfirmationStale as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return _confirmation_read(confirmation)
 
 
 @router.get("/runs", response_model=AgentRunListRead)

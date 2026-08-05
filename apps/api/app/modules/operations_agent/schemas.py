@@ -13,6 +13,7 @@ from pydantic import (
 
 from app.modules.content.account_models import Platform
 from app.modules.operations_agent.models import (
+    AgentConfirmationStatus,
     AgentRunStatus,
     AgentStepStatus,
     AgentPlanStatus,
@@ -183,6 +184,22 @@ class AgentPlanRead(BaseModel):
     approved_by: UUID | None
     approved_at: datetime | None
     created_at: datetime
+    usage: "AgentUsageRead"
+
+
+class AgentUsageRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    uses_external_api: bool
+    provider: str | None = Field(default=None, max_length=80)
+    model_id: str | None = Field(default=None, max_length=160)
+    attempt_count: int = Field(default=0, ge=0)
+    input_tokens: int = Field(default=0, ge=0)
+    output_tokens: int = Field(default=0, ge=0)
+    embedding_tokens: int = Field(default=0, ge=0)
+    ocr_images: int = Field(default=0, ge=0)
+    generated_images: int = Field(default=0, ge=0)
+    usage_status: str = Field(default="not_used", min_length=1, max_length=40)
 
 
 class AgentRunStepRead(BaseModel):
@@ -216,9 +233,41 @@ class AgentRunRead(BaseModel):
     updated_at: datetime
     completed_at: datetime | None
     steps: tuple[AgentRunStepRead, ...] = ()
+    usage: AgentUsageRead
 
 
 class AgentRunListRead(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     items: tuple[AgentRunRead, ...]
+
+
+class AgentConfirmationRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: UUID
+    run_id: UUID
+    step_id: UUID
+    status: AgentConfirmationStatus
+    action_fingerprint: Fingerprint
+    tool_name: str = Field(min_length=1, max_length=80)
+    tool_version: str = Field(min_length=1, max_length=40)
+    risk: AgentToolRisk
+    argument_keys: tuple[str, ...] = Field(default=(), max_length=32)
+    expires_at: datetime | None
+    resolved_at: datetime | None
+    created_at: datetime
+
+
+class AgentConfirmationListRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[AgentConfirmationRead, ...]
+
+
+class AgentConfirmationDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    confirmation_id: UUID
+    decision: Literal["approve", "reject"]
+    action_fingerprint: Fingerprint

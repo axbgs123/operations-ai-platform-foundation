@@ -34,6 +34,7 @@ from app.modules.operations_agent.schemas import (
     AgentPlanDocument,
     AgentPlanRead,
     AgentPlanStep,
+    AgentUsageRead,
     AllowedToolSummary,
     BriefingCandidateRead,
     DailyBriefingRead,
@@ -786,9 +787,37 @@ class PlanService:
             )
         )
 
-    @staticmethod
-    def _read(plan: AgentPlan) -> AgentPlanRead:
+    def _read(self, plan: AgentPlan) -> AgentPlanRead:
         stored = StoredAgentPlanDocument.model_validate(plan.document)
+        external_steps = [
+            step
+            for step in stored.plan.steps
+            if self._registry.get(
+                step.tool_name,
+                version=step.tool_version,
+            ).uses_external_api
+        ]
+        provider = None
+        model_id = None
+        if external_steps:
+            configs = list(
+                self._session.scalars(
+                    select(ModelConfig)
+                    .where(ModelConfig.workspace_id == plan.workspace_id)
+                    .order_by(ModelConfig.updated_at.desc(), ModelConfig.id)
+                )
+            )
+            config = next(
+                (
+                    item
+                    for item in configs
+                    if "text" in item.capabilities
+                ),
+                None,
+            )
+            if config is not None:
+                provider = config.provider
+                model_id = config.model_id
         return AgentPlanRead(
             id=plan.id,
             workspace_id=plan.workspace_id,
@@ -803,6 +832,11 @@ class PlanService:
             approved_by=plan.approved_by,
             approved_at=plan.approved_at,
             created_at=plan.created_at,
+            usage=AgentUsageRead(
+                uses_external_api=bool(external_steps),
+                provider=provider,
+                model_id=model_id,
+            ),
         )
 
 
