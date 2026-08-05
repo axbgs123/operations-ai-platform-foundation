@@ -38,6 +38,13 @@ RUNTIME_REQUIRED_TABLES = {
     "model_usage_reservations",
     "model_usage_attempts",
     "model_contract_validation_runs",
+    "agent_briefings",
+    "agent_plans",
+    "agent_runs",
+    "agent_run_steps",
+    "agent_confirmations",
+    "agent_artifacts",
+    "agent_events",
 }
 
 

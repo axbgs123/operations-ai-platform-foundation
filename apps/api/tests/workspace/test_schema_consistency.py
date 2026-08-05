@@ -8,7 +8,17 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260729_0033"
+HEAD = "20260805_0034"
+
+AGENT_TABLES = {
+    "agent_briefings",
+    "agent_plans",
+    "agent_runs",
+    "agent_run_steps",
+    "agent_confirmations",
+    "agent_artifacts",
+    "agent_events",
+}
 
 
 def _database_with_version(*, include_required_tables: bool):
@@ -82,6 +92,10 @@ def _database_with_version(*, include_required_tables: bool):
             connection.execute(
                 text("CREATE TABLE model_contract_validation_runs (id VARCHAR)")
             )
+            for table_name in AGENT_TABLES:
+                connection.execute(
+                    text(f'CREATE TABLE "{table_name}" (id VARCHAR)')
+                )
     return engine
 
 
@@ -117,6 +131,7 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "model_usage_reservations",
                     "model_usage_attempts",
                     "model_contract_validation_runs",
+                    *AGENT_TABLES,
                 },
             )
 
@@ -149,5 +164,6 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                     "model_usage_reservations",
                     "model_usage_attempts",
                     "model_contract_validation_runs",
+                    *AGENT_TABLES,
                 },
         )

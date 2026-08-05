@@ -81,7 +81,31 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "model_usage_reservations",
                 "model_usage_attempts",
                 "model_contract_validation_runs",
+                "agent_briefings",
+                "agent_plans",
+                "agent_runs",
+                "agent_run_steps",
+                "agent_confirmations",
+                "agent_artifacts",
+                "agent_events",
             } <= tables
+
+        agent_run_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns("agent_runs")
+        }
+        assert {
+            "workspace_id",
+            "plan_id",
+            "platform",
+            "account_id",
+            "status",
+            "current_step_index",
+            "operation_version",
+            "claim_token",
+            "lease_expires_at",
+            "safe_error_code",
+        } <= agent_run_columns
 
         cover_attempt_columns = {
             column["name"]
@@ -393,7 +417,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                    expected_head="20260729_0033",
+                expected_head="20260805_0034",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -411,15 +435,22 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "workspace_deletion_confirmations",
                     "workspace_deletion_jobs",
                     "deletion_audits",
-                        "product_event_outbox",
-                        "task_operation_events",
-                        "cover_generation_runs",
-                        "cover_artifact_attempts",
-                        "model_usage_policies",
-                        "model_usage_reservations",
-                        "model_usage_attempts",
-                        "model_contract_validation_runs",
-                    },
+                    "product_event_outbox",
+                    "task_operation_events",
+                    "cover_generation_runs",
+                    "cover_artifact_attempts",
+                    "model_usage_policies",
+                    "model_usage_reservations",
+                    "model_usage_attempts",
+                    "model_contract_validation_runs",
+                    "agent_briefings",
+                    "agent_plans",
+                    "agent_runs",
+                    "agent_run_steps",
+                    "agent_confirmations",
+                    "agent_artifacts",
+                    "agent_events",
+                },
             )
             extensions = set(
                 connection.execute(
