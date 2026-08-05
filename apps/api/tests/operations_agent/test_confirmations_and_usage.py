@@ -2,8 +2,10 @@ from collections.abc import Mapping, Sequence
 from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.main import app
 from app.modules.exports.deletion import PRIVATE_WORKSPACE_TABLES
 from app.modules.exports.json_backup import build_lightweight_manifest
 from app.modules.exports.restore_preview import (
@@ -176,6 +178,35 @@ def test_confirmation_inbox_and_run_usage_have_no_product_billing_fields() -> No
         assert not forbidden.intersection(
             _recursive_keys([inbox.json(), run.json()])
         )
+
+
+def test_confirmation_inbox_only_returns_current_members_actions() -> None:
+    with _executor_fixture(risk=AgentToolRisk.PROTECTED_WRITE) as fixture:
+        _pending_confirmation(fixture)
+        workspace_id = str(fixture.context.workspace_id)
+        invite = fixture.client.post(
+            f"/v1/workspaces/{workspace_id}/members/codes",
+            headers={"X-CSRF-Token": fixture.csrf},
+            json={"role": "viewer"},
+        )
+        assert invite.status_code == 201, invite.text
+        viewer = TestClient(app)
+        login = viewer.post(
+            "/v1/sessions/invite",
+            json={
+                "code": invite.json()["code"],
+                "display_name": "其他只读成员",
+            },
+        )
+        assert login.status_code == 201, login.text
+
+        inbox = viewer.get(
+            f"/v1/workspaces/{workspace_id}/agent/confirmations"
+        )
+
+        assert inbox.status_code == 200, inbox.text
+        assert inbox.json()["items"] == []
+        viewer.close()
 
 
 def test_lightweight_backup_contains_only_safe_agent_metadata() -> None:

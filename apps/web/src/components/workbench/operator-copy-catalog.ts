@@ -2,7 +2,7 @@ import type { CopyMode } from "./experience-preferences";
 
 export const OPERATOR_PAGE_IDS = [
   "overview", "contents", "contentDetail", "imports", "analysis",
-  "accounts", "accountDashboard", "columns", "generation", "preflight",
+  "accounts", "accountDashboard", "columns", "agent", "generation", "preflight",
   "viralLibrary", "styles", "styleProfile", "facts", "exports", "jobs",
   "riskKnowledge", "trash", "settings", "settingsMembers",
   "settingsModels",
@@ -59,6 +59,17 @@ export const OPERATOR_COPY_CATALOG: Record<OperatorPageId, OperatorPageCopy> = {
   columns: {
     title: "栏目与活动",
     purpose: copy("管理账号平时使用的栏目规则，以及活动期间临时使用的规则。", "栏目和活动独立展示账号继承、临时覆盖、有效时间及当前版本。"),
+  },
+  agent: {
+    title: "运营智能体",
+    purpose: copy(
+      "告诉系统你想解决的运营问题；先看计划，批准后执行，遇到重要写入会再次请你确认。",
+      "使用版本化白名单工具、持久化计划与运行状态、成员级确认和用量治理完成受控工作流。",
+    ),
+    safety: copy(
+      "智能体不会替你发布内容或付款，也不会跳过事实和风险检查。",
+      "当前工具目录不包含发布、支付或任意网页操作；受保护写入要求发起成员确认。",
+    ),
   },
   generation: {
     title: "生成中心",

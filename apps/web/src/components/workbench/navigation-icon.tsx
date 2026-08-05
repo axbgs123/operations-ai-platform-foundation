@@ -8,6 +8,7 @@ export function NavigationIcon({ name }: { name: string }): ReactElement {
     creation: "m12 6 .9 3.1L16 10l-3.1.9L12 14l-.9-3.1L8 10l3.1-.9L12 6Z",
     assets: "M8 9.5 12 7l4 2.5v5L12 17l-4-2.5v-5Z",
     management: "M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z",
+    agent: "M9 9h6M8 13h8M10 17h4M12 4v2",
   };
   return (
     <svg

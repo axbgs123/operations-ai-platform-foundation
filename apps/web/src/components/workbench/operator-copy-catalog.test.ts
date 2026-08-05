@@ -10,15 +10,15 @@ import {
   nextActionForRole,
 } from "./page-guidance-catalog";
 
-test("covers all 16 formal modules and approved detail surfaces", () => {
+test("covers all 17 formal modules and approved detail surfaces", () => {
   expect(OPERATOR_PAGE_IDS).toEqual([
     "overview", "contents", "contentDetail", "imports", "analysis",
-    "accounts", "accountDashboard", "columns", "generation", "preflight",
+    "accounts", "accountDashboard", "columns", "agent", "generation", "preflight",
     "viralLibrary", "styles", "styleProfile", "facts", "exports", "jobs",
     "riskKnowledge", "trash", "settings", "settingsMembers",
     "settingsModels",
   ]);
-  expect(new Set(ALL_WORKBENCH_MODULE_LABELS)).toHaveLength(16);
+  expect(new Set(ALL_WORKBENCH_MODULE_LABELS)).toHaveLength(17);
   for (const id of OPERATOR_PAGE_IDS) {
     expect(OPERATOR_COPY_CATALOG[id].purpose.simple.length).toBeGreaterThan(12);
     expect(OPERATOR_COPY_CATALOG[id].purpose.professional.length).toBeGreaterThan(12);

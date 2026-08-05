@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 
+import { loadAgentConfirmations } from "@/lib/agent-api";
 import type { WorkbenchContext } from "@/lib/workbench-api";
 
 import { Breadcrumbs } from "./breadcrumbs";
@@ -25,6 +26,7 @@ export function WorkspaceTopbar({
   isMobile,
   onOpenNavigation,
   navigationTriggerRef,
+  loadConfirmations = loadAgentConfirmations,
 }: {
   context: WorkbenchContext;
   pathname: string;
@@ -33,7 +35,20 @@ export function WorkspaceTopbar({
   isMobile: boolean;
   onOpenNavigation: () => void;
   navigationTriggerRef: React.RefObject<HTMLButtonElement | null>;
+  loadConfirmations?: typeof loadAgentConfirmations;
 }): ReactElement {
+  const [pendingConfirmationCount, setPendingConfirmationCount] = useState(0);
+  useEffect(() => {
+    const controller = new AbortController();
+    loadConfirmations(context.workspace_id, controller.signal)
+      .then(({ items }) => setPendingConfirmationCount(
+        items.filter((item) => item.status === "pending").length,
+      ))
+      .catch(() => {
+        if (!controller.signal.aborted) setPendingConfirmationCount(0);
+      });
+    return () => controller.abort();
+  }, [context.member_id, context.workspace_id, loadConfirmations]);
   return (
     <header className="flex min-h-14 flex-wrap items-center gap-3 border-b bg-white px-4 py-2 sm:px-5">
       {isMobile ? (
@@ -68,6 +83,16 @@ export function WorkspaceTopbar({
             href={`/workspaces/${context.workspace_id}/settings/jobs`}
           >
             {context.failed_task_count} 个失败任务
+          </Link>
+        </span>
+      ) : null}
+      {pendingConfirmationCount > 0 ? (
+        <span aria-live="polite" role="status">
+          <Link
+            className="block rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900"
+            href={`/workspaces/${context.workspace_id}/agent?view=confirmations`}
+          >
+            {pendingConfirmationCount} 个操作待确认
           </Link>
         </span>
       ) : null}

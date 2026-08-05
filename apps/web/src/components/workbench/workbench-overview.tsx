@@ -211,8 +211,9 @@ export function WorkbenchOverview({
       </Panel>
 
       <Panel title="快捷操作">
-        <nav aria-label="工作台快捷操作" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <nav aria-label="工作台快捷操作" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {[
+            ["运营智能体", `/workspaces/${workspaceId}/agent`],
             ["新建内容", `/workspaces/${workspaceId}/contents/new`],
             ["导入数据", `/workspaces/${workspaceId}/imports`],
             ["分析中心", `/workspaces/${workspaceId}/analysis`],

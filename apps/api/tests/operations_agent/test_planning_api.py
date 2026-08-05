@@ -13,7 +13,7 @@ from app.modules.operations_agent.planning import (
     PlanValidator,
     build_planning_registry,
 )
-from app.modules.operations_agent.models import AgentEvent
+from app.modules.operations_agent.models import AgentEvent, AgentRun
 from app.modules.operations_agent.schemas import (
     AllowedToolSummary,
     PlannerRequest,
@@ -362,6 +362,58 @@ def test_plan_creation_is_idempotent_and_conflicting_reuse_is_rejected() -> None
 
         assert repeated["id"] == first["id"]
         assert conflict.status_code == 409
+
+
+def test_approved_plan_can_start_one_durable_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    enqueued: list[str] = []
+    with configured_client() as (client, engine):
+        from app.modules.operations_agent import router as agent_router
+
+        monkeypatch.setattr(
+            agent_router,
+            "_enqueue_run",
+            lambda run_id: enqueued.append(run_id),
+        )
+        workspace_id, csrf, account = create_workspace_account(client)
+        plan = _create_plan(
+            client,
+            workspace_id=workspace_id,
+            csrf=csrf,
+            account=account,
+        )
+        approved = client.post(
+            (
+                f"/v1/workspaces/{workspace_id}/agent/plans/"
+                f"{plan['id']}/approve"
+            ),
+            headers={"X-CSRF-Token": csrf},
+        )
+        assert approved.status_code == 200, approved.text
+
+        path = (
+            f"/v1/workspaces/{workspace_id}/agent/plans/"
+            f"{plan['id']}/runs"
+        )
+        first = client.post(path, headers={"X-CSRF-Token": csrf})
+        repeated = client.post(path, headers={"X-CSRF-Token": csrf})
+
+        assert first.status_code == 201, first.text
+        assert repeated.status_code == 201, repeated.text
+        assert repeated.json()["id"] == first.json()["id"]
+        assert repeated.json()["status"] == "queued"
+        with Session(engine) as session:
+            assert (
+                session.query(AgentRun)
+                .filter_by(
+                    workspace_id=UUID(workspace_id),
+                    plan_id=UUID(plan["id"]),
+                )
+                .count()
+                == 1
+            )
+        assert enqueued == [UUID(first.json()["id"])]
 
 
 def test_rejection_is_terminal_idempotent_and_append_only() -> None:

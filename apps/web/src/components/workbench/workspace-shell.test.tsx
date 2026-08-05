@@ -120,6 +120,7 @@ describe("canonical navigation and roles", () => {
       "分析中心",
       "账号仪表盘",
       "栏目与活动",
+      "运营智能体",
       "生成中心",
       "发布前检查",
       "爆款素材库",
@@ -131,7 +132,7 @@ describe("canonical navigation and roles", () => {
       "回收站",
       "工作区设置",
     ]);
-    expect(new Set(ALL_WORKBENCH_MODULE_LABELS)).toHaveLength(16);
+    expect(new Set(ALL_WORKBENCH_MODULE_LABELS)).toHaveLength(17);
   });
 
   test("applies the approved admin editor and viewer navigation matrix", () => {
@@ -165,6 +166,7 @@ describe("canonical navigation and roles", () => {
       "分析中心",
       "账号仪表盘",
       "栏目与活动",
+      "运营智能体",
       "生成中心",
       "发布前检查",
       "爆款素材库",
@@ -178,6 +180,7 @@ describe("canonical navigation and roles", () => {
       "内容库",
       "分析中心",
       "账号仪表盘",
+      "运营智能体",
       "生成中心",
       "发布前检查",
       "爆款素材库",

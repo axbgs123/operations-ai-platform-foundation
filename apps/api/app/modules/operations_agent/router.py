@@ -59,6 +59,12 @@ IdempotencyKey = Annotated[
 ]
 
 
+def _enqueue_run(run_id: UUID) -> None:
+    from app.modules.operations_agent.tasks import execute_run
+
+    execute_run.delay(str(run_id))
+
+
 def _authorized_context(
     session: Session,
     *,
@@ -355,6 +361,54 @@ def reject_plan(
     return plan
 
 
+@router.post(
+    "/plans/{plan_id}/runs",
+    response_model=AgentRunRead,
+    status_code=201,
+)
+def start_plan_run(
+    workspace_id: UUID,
+    plan_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[
+        str | None,
+        Cookie(alias="session"),
+    ] = None,
+    csrf_token: Annotated[
+        str | None,
+        Header(alias="X-CSRF-Token"),
+    ] = None,
+) -> AgentRunRead:
+    context = _authorized_context(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+        mutation=True,
+    )
+    existing = session.scalar(
+        select(AgentRun).where(
+            AgentRun.workspace_id == workspace_id,
+            AgentRun.plan_id == plan_id,
+        )
+    )
+    if existing is not None:
+        return _run_read(session, existing, include_steps=True)
+    try:
+        run = _run_executor(session).create_run(
+            plan_id,
+            context=context,
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail="plan not found") from error
+    except AgentApprovalStale as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    _enqueue_run(run.id)
+    return _run_read(session, run, include_steps=True)
+
+
 def _run_read(
     session: Session,
     run: AgentRun,
@@ -523,7 +577,7 @@ def list_confirmations(
         Cookie(alias="session"),
     ] = None,
 ) -> AgentConfirmationListRead:
-    _authorized_context(
+    context = _authorized_context(
         session,
         workspace_id=workspace_id,
         session_token=session_token,
@@ -533,7 +587,10 @@ def list_confirmations(
     confirmations = tuple(
         session.scalars(
             select(AgentConfirmation)
-            .where(AgentConfirmation.workspace_id == workspace_id)
+            .where(
+                AgentConfirmation.workspace_id == workspace_id,
+                AgentConfirmation.requested_by == context.member_id,
+            )
             .order_by(
                 AgentConfirmation.created_at.desc(),
                 AgentConfirmation.id.desc(),

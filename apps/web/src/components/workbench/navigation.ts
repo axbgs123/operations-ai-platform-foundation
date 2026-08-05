@@ -93,6 +93,12 @@ export const WORKBENCH_NAV_CATEGORIES: readonly WorkbenchNavigationCategory[] = 
     defaultHref: "/generation",
     items: [
       {
+        label: "运营智能体",
+        href: "/agent",
+        icon: "agent",
+        allowedRoles: ALL_ROLES,
+      },
+      {
         label: "生成中心",
         href: "/generation",
         icon: "generation",
