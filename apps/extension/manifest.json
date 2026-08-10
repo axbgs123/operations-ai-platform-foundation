@@ -3,6 +3,7 @@
   "name": "运营数据采集助手",
   "description": "仅在受支持的抖音和小红书运营详情页协助用户发起安全采集。",
   "version": "0.2.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0I0nf5mB1Wj8DjajgGhRDXI4bZzQP+rmL0LbBbDbIvVdbCUTSNONaBqJGn1VxPa/mpMmNIU1I16gjM1D4Wrjkdw1bTkEKfpvFDpfcc/2NMWVGBLn/EZZNDugcemTkS7S/t0UGSj74LfEj1+Drkit4zB80AAw2R+jENk5U53bpXb2+HYIBJ/JjqQMhaNs0h21MEFiCNV0Ts9xM/U0uNOogRAGp++LwpX651vQdd6IvITPZVPl70GMjj1+uADn+NTrQYF9zspZzTQpz/TQvra9u/FtWoanSvIpTe/XFvs6lktizN2/yjqh9AR/+PvfkPvH+sWAG7uJDPslsJosbEyjgQIDAQAB",
   "action": {
     "default_popup": "popup.html"
   },

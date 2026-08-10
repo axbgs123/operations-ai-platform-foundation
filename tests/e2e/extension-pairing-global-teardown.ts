@@ -3,19 +3,25 @@ import { readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 export default async function globalTeardown() {
-  spawnSync("docker", ["rm", "-f", "operations_ai_extension_e2e_redis"], {
+  const runId = process.env.EXTENSION_E2E_RUN_ID ?? "";
+  const redisName = process.env.EXTENSION_E2E_REDIS_NAME ?? "";
+  if (!/^[a-f0-9]{12}$/.test(runId)) throw new Error("invalid extension E2E run id");
+  if (redisName !== `operations_ai_extension_e2e_${runId}`) {
+    throw new Error("refusing to clean an invalid extension E2E Redis container");
+  }
+  spawnSync("docker", ["rm", "-f", redisName], {
     stdio: "ignore",
   });
   const repository = resolve(process.cwd(), "../..");
   const python = resolve(repository, "apps/api/.venv/bin/python");
-  const marker = resolve(process.env.TMPDIR ?? "/tmp", "operations_ai_extension_pairing_e2e_schema");
+  const marker = resolve(process.env.TMPDIR ?? "/tmp", `operations_ai_extension_pairing_e2e_schema_${runId}`);
   let schema = "";
   try {
     schema = readFileSync(marker, "utf8").trim();
   } catch {
     return;
   }
-  if (!/^extension_pairing_e2e_[0-9]+_[0-9]+$/.test(schema)) {
+  if (schema !== `extension_pairing_e2e_${runId}`) {
     throw new Error("refusing to clean an invalid extension E2E schema");
   }
   const cleanup = spawnSync(

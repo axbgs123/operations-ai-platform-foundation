@@ -231,3 +231,29 @@ def test_local_web_origin_can_use_cookie_authenticated_api() -> None:
             "http://localhost:3000"
         )
         assert response.headers["access-control-allow-credentials"] == "true"
+
+
+def test_only_the_published_extension_origin_can_preflight_pairing() -> None:
+    allowed_origin = "chrome-extension://mdbmlilohlhmjmcmkpbpjhldganompcl"
+    with configured_client() as client:
+        response = client.options(
+            "/v1/extension/pair",
+            headers={
+                "Origin": allowed_origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": (
+                    "content-type,idempotency-key,x-extension-client"
+                ),
+            },
+        )
+        unknown = client.options(
+            "/v1/extension/pair",
+            headers={
+                "Origin": "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == allowed_origin
+        assert "access-control-allow-origin" not in unknown.headers

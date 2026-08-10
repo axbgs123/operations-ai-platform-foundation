@@ -48,7 +48,10 @@ app.add_middleware(RateLimitMiddleware)
 app.add_middleware(RequestCorrelationMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[get_settings().web_origin],
+    allow_origins=[
+        get_settings().web_origin,
+        get_settings().extension_origin,
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, readdir, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -6,6 +7,7 @@ import { describe, expect, it } from "vitest";
 type Manifest = {
   manifest_version: number;
   version: string;
+  key?: string;
   permissions?: string[];
   host_permissions?: string[];
   optional_host_permissions?: string[];
@@ -24,6 +26,20 @@ async function readManifest(path = manifestPath): Promise<Manifest> {
 }
 
 describe("least-privilege Manifest V3", () => {
+  it("publishes a stable public identity for exact API CORS allowlisting", async () => {
+    const manifest = await readManifest();
+    expect(manifest.key).toBeTruthy();
+    const digest = createHash("sha256")
+      .update(Buffer.from(manifest.key!, "base64"))
+      .digest("hex")
+      .slice(0, 32);
+    const extensionId = digest.replace(/[0-9a-f]/g, (digit) =>
+      String.fromCharCode("a".charCodeAt(0) + Number.parseInt(digit, 16)),
+    );
+
+    expect(extensionId).toBe("mdbmlilohlhmjmcmkpbpjhldganompcl");
+  });
+
   it("uses Manifest V3 and only the justified extension permissions", async () => {
     const manifest = await readManifest();
 

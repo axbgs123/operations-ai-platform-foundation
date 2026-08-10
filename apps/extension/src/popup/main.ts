@@ -17,7 +17,10 @@ declare const chrome: {
       remove(key: string): Promise<void>;
     };
   };
-  permissions: { request(options: { origins: string[] }): Promise<boolean> };
+  permissions: {
+    contains(options: { origins: string[] }): Promise<boolean>;
+    request(options: { origins: string[] }): Promise<boolean>;
+  };
   tabs: {
     query(options: { active: boolean; currentWindow: boolean }): Promise<Array<{ id?: number; url?: string }>>;
     sendMessage(tabId: number, message: { type: "GET_PAGE_STATUS" }): Promise<PageStatus>;
@@ -301,6 +304,7 @@ if (typeof chrome !== "undefined") {
         fetcher: fetch,
         store,
         clearPairingCode: () => undefined,
+        hasOriginPermission: (originPattern) => chrome.permissions.contains({ origins: [originPattern] }),
         requestOriginPermission: (originPattern) => chrome.permissions.request({ origins: [originPattern] }),
       }),
     revoke: () => revokeExtension(store, fetch),

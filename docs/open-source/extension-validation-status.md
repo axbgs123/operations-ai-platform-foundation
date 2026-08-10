@@ -5,11 +5,14 @@
 ## 已有证据
 
 - 抖音和小红书适配器通过脱敏合成 HTML Fixture 测试。
-- `0.2.0` 的实际 unpacked 构建已在隔离 Playwright Chromium 中加载 Service Worker，并完成配对、选区、遮挡、上传、Mock 识别和 Web 人工确认闭环。
+- `0.2.0` 的实际 unpacked 构建已在隔离 Playwright Chromium 中加载：真实 Popup 完成配对，真实 Service Worker 通过严格上下文校验向真实 content script 提供最小绑定，content script 成功挂载采集遮罩。
+- 自动化使用同一短期扩展令牌直接创建合成暂存任务，并完成 Mock 识别和 Web 人工确认；确认前实际暂存对象存在，确认后实际不存在。
+- 工具栏 Popup 产生的用户手势及真实 `captureVisibleTab` 没有在 Playwright 中执行，仍需用户 macOS Chrome 人工验收；不得把直接 API 暂存任务写成真实截图上传。
 - 配对码复用被拒绝，绑定前后成员数不变；扩展确认接口返回 403。
 - 确认完成后，暂存截图生命周期清理已有自动化验证。
 - Chrome 和 Edge 发布包来自同一业务源码；固定 `SOURCE_DATE_EPOCH` 重复构建的文件表和 SHA-256 相同。
 - 自动化验收没有打开真实抖音或小红书页面，也没有调用真实或计费模型。
+- Manifest 固定公开扩展 ID；API 只精确允许该扩展来源，content script 不直接读取 session storage。
 
 ## 环境矩阵
 

@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 from typing import Self
 
@@ -23,6 +24,9 @@ class Settings(BaseSettings):
         "@localhost:55432/operations_ai"
     )
     web_origin: str = "http://localhost:3000"
+    extension_origin: str = (
+        "chrome-extension://mdbmlilohlhmjmcmkpbpjhldganompcl"
+    )
     redis_url: str = "redis://localhost:6379/0"
     trusted_proxy_ips: str = ""
     rate_limit_auth_per_minute: int = 10
@@ -48,6 +52,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def reject_development_model_key_outside_development(self) -> Self:
+        if not re.fullmatch(
+            r"chrome-extension://[a-p]{32}", self.extension_origin
+        ):
+            raise ValueError("extension origin must be one exact Chrome extension ID")
         if self.app_env == "development":
             return self
         key = self.model_secret_encryption_key.get_secret_value()

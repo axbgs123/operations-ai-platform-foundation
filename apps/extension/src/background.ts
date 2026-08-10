@@ -1,3 +1,4 @@
+import { createSessionBindingStore, type ExtensionBinding } from "./auth/storage";
 import { detectSupportedPage } from "./content/page-support";
 import { parseRuntimeMessage } from "./runtime/messages";
 
@@ -8,6 +9,8 @@ type BackgroundDependencies = {
   queryActiveTab(): Promise<BrowserTab>;
   captureVisibleTab(windowId: number, options: { format: "png" }): Promise<string>;
   now?: () => number;
+  loadBinding?(): Promise<ExtensionBinding | null>;
+  clearBinding?(): Promise<void>;
 };
 
 type ArmedCapture = {
@@ -58,6 +61,60 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       return { ok: true };
     }
 
+    if (message.type === "GET_CAPTURE_BINDING") {
+      const tab = sender.tab;
+      if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
+      const active = await dependencies.queryActiveTab();
+      if (!isActiveSupportedTab(tab, active)) {
+        return { ok: false, error: "inactive-or-unsupported-tab" };
+      }
+      const armed = armedTabs.get(tab.id!);
+      if (!armed || armed.expiresAt <= now()) {
+        return { ok: false, error: "capture-not-armed" };
+      }
+      if (
+        armed.platform !== message.platform ||
+        armed.pageVersion !== message.pageVersion ||
+        armed.pageSignature !== message.pageSignature ||
+        armed.url !== tab.url
+      ) {
+        return { ok: false, error: "capture-context-mismatch" };
+      }
+      const binding = await dependencies.loadBinding?.();
+      if (!binding || Date.parse(binding.expiresAt) <= now()) {
+        await dependencies.clearBinding?.();
+        return { ok: false, error: "rebind-required" };
+      }
+      return {
+        ok: true,
+        binding: {
+          serverOrigin: binding.serverOrigin,
+          webOrigin: binding.webOrigin,
+          workspaceId: binding.workspaceId,
+          accessToken: binding.accessToken,
+          expiresAt: binding.expiresAt,
+          providerMode: binding.providerMode,
+        },
+      };
+    }
+
+    if (message.type === "CLEAR_CAPTURE_BINDING") {
+      const tab = sender.tab;
+      if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
+      const active = await dependencies.queryActiveTab();
+      const detected = typeof tab.url === "string" ? detectSupportedPage(tab.url) : null;
+      if (
+        !isActiveSupportedTab(tab, active) ||
+        !detected ||
+        detected.platform !== message.platform ||
+        detected.pageVersion !== message.pageVersion
+      ) {
+        return { ok: false, error: "inactive-or-unsupported-tab" };
+      }
+      await dependencies.clearBinding?.();
+      return { ok: true };
+    }
+
     if (message.type === "CAPTURE_VISIBLE_TAB") {
       const tab = sender.tab;
       if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
@@ -89,6 +146,13 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
 }
 
 declare const chrome: {
+  storage: {
+    session: {
+      get(key: string): Promise<Record<string, unknown>>;
+      set(values: Record<string, unknown>): Promise<void>;
+      remove(key: string): Promise<void>;
+    };
+  };
   runtime: {
     onMessage: {
       addListener(
@@ -107,10 +171,13 @@ declare const chrome: {
 };
 
 if (typeof chrome !== "undefined") {
+  const bindingStore = createSessionBindingStore(chrome.storage.session);
   const handler = createBackgroundMessageHandler({
     queryActiveTab: async () =>
       (await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? {},
     captureVisibleTab: (windowId, options) => chrome.tabs.captureVisibleTab(windowId, options),
+    loadBinding: () => bindingStore.load(),
+    clearBinding: () => bindingStore.clear(),
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void handler(message, sender).then(sendResponse, () =>

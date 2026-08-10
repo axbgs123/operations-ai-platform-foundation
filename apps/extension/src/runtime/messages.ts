@@ -11,11 +11,15 @@ export type CaptureVisibleTabMessage = {
   type: "CAPTURE_VISIBLE_TAB";
   pageSignature: string;
 };
+export type GetCaptureBindingMessage = { type: "GET_CAPTURE_BINDING" } & CaptureContext;
+export type ClearCaptureBindingMessage = { type: "CLEAR_CAPTURE_BINDING" } & CaptureContext;
 export type OpenReviewMessage = { type: "OPEN_REVIEW"; url: string };
 
 export type RuntimeMessage =
   | GetPageStatusMessage
   | StartSafeCaptureMessage
+  | GetCaptureBindingMessage
+  | ClearCaptureBindingMessage
   | CaptureVisibleTabMessage
   | OpenReviewMessage;
 
@@ -55,6 +59,24 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
       };
     }
     return null;
+  }
+  if (
+    (value.type === "GET_CAPTURE_BINDING" || value.type === "CLEAR_CAPTURE_BINDING") &&
+    hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature"]) &&
+    (value.platform === "douyin" || value.platform === "xiaohongshu") &&
+    typeof value.pageVersion === "string" &&
+    value.pageVersion.length > 0 &&
+    value.pageVersion.length <= 80 &&
+    typeof value.pageSignature === "string" &&
+    value.pageSignature.length > 0 &&
+    value.pageSignature.length <= 160
+  ) {
+    return {
+      type: value.type,
+      platform: value.platform,
+      pageVersion: value.pageVersion,
+      pageSignature: value.pageSignature,
+    };
   }
   if (
     value.type === "CAPTURE_VISIBLE_TAB" &&

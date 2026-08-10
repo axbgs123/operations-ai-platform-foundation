@@ -164,6 +164,69 @@ describe("extension binding security", () => {
     expect(failedPairingCode).toBe("");
   });
 
+  it("requests a valid host pattern without the local server port", async () => {
+    const requested: string[] = [];
+    await pairExtension(
+      {
+        serverOrigin: "http://127.0.0.1:51201",
+        pairingCode: "ABCD2345",
+        clientId: "extension-test",
+      },
+      {
+        fetcher: async () =>
+          new Response(JSON.stringify(validPairResponse), {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          }),
+        store: createMemoryBindingStore(),
+        clearPairingCode: () => undefined,
+        requestOriginPermission: async (pattern) => {
+          requested.push(pattern);
+          return true;
+        },
+      },
+    );
+
+    expect(requested).toEqual(["http://127.0.0.1/*"]);
+  });
+
+  it("does not request an origin Chrome already granted", async () => {
+    let requested = false;
+    await pairExtension(
+      { serverOrigin: "http://127.0.0.1:51201", pairingCode: "ABCD2345", clientId: "extension-test" },
+      {
+        fetcher: async () => new Response(JSON.stringify(validPairResponse), { status: 201 }),
+        store: createMemoryBindingStore(),
+        clearPairingCode: () => undefined,
+        hasOriginPermission: async (pattern) => pattern === "http://127.0.0.1/*",
+        requestOriginPermission: async () => {
+          requested = true;
+          return true;
+        },
+      },
+    );
+    expect(requested).toBe(false);
+  });
+
+  it("invokes the browser fetch function without binding the dependencies object", async () => {
+    const store = createMemoryBindingStore();
+    const fetcher: typeof fetch = async function (this: unknown) {
+      expect(this).toBeUndefined();
+      return new Response(JSON.stringify(validPairResponse), { status: 201 });
+    };
+
+    await pairExtension(
+      {
+        serverOrigin: "https://ops.example.com",
+        pairingCode: "ABCD2345",
+        clientId: "extension-test",
+      },
+      { fetcher, store, clearPairingCode: () => undefined },
+    );
+
+    expect(await store.load()).not.toBeNull();
+  });
+
   it.each([
     ["missing disclosure", { ...validPairResponse, workspace_name: undefined }],
     ["non-loopback HTTP web origin", { ...validPairResponse, web_origin: "http://app.ops.example.com" }],

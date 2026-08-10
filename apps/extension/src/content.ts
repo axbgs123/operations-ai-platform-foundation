@@ -1,7 +1,7 @@
-import { createSessionBindingStore, type ExtensionBinding } from "./auth/storage";
+import { normalizeServerOrigin } from "./auth/server";
 import { pollCaptureTask, type CaptureTaskRead } from "./capture/task-status";
 import { uploadPreview } from "./capture/upload";
-import { CaptureOverlay } from "./content/capture-overlay";
+import { CaptureOverlay, type CaptureBinding } from "./content/capture-overlay";
 import { applyRedactions, cropVisibleTab } from "./content/image-processing";
 import { CaptureState } from "./content/overlay";
 import { detectPage, type PageDetection } from "./content/page-adapters/base";
@@ -34,13 +34,6 @@ export function createContentMessageHandler(dependencies: ContentDependencies) {
 }
 
 declare const chrome: {
-  storage: {
-    session: {
-      get(key: string): Promise<Record<string, unknown>>;
-      set(values: Record<string, unknown>): Promise<void>;
-      remove(key: string): Promise<void>;
-    };
-  };
   runtime: {
     sendMessage(message: unknown): Promise<unknown>;
     onMessage: {
@@ -56,11 +49,63 @@ declare const chrome: {
 };
 
 type CaptureResponse = { ok: true; dataUrl: string } | { ok: false; error: string };
+type CaptureBindingResponse =
+  | { ok: true; binding: CaptureBinding }
+  | { ok: false; error: string };
 
 const isCaptureResponse = (value: unknown): value is CaptureResponse => {
   if (typeof value !== "object" || value === null || !("ok" in value)) return false;
   if (value.ok === true) return "dataUrl" in value && typeof value.dataUrl === "string";
   return value.ok === false && "error" in value && typeof value.error === "string";
+};
+
+const workspaceIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const parseCaptureBindingResponse = (value: unknown): CaptureBindingResponse | null => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const response = value as Record<string, unknown>;
+  if (response.ok === false && typeof response.error === "string") {
+    if (Object.keys(response).sort().join(",") !== "error,ok") return null;
+    return { ok: false, error: response.error };
+  }
+  if (response.ok !== true || typeof response.binding !== "object" || response.binding === null) {
+    return null;
+  }
+  if (Object.keys(response).sort().join(",") !== "binding,ok") return null;
+  const binding = response.binding as Record<string, unknown>;
+  if (
+    Object.keys(binding).sort().join(",") !==
+      "accessToken,expiresAt,providerMode,serverOrigin,webOrigin,workspaceId" ||
+    typeof binding.serverOrigin !== "string" ||
+    typeof binding.webOrigin !== "string" ||
+    typeof binding.workspaceId !== "string" ||
+    !workspaceIdPattern.test(binding.workspaceId) ||
+    typeof binding.accessToken !== "string" ||
+    binding.accessToken.length === 0 ||
+    typeof binding.expiresAt !== "string" ||
+    !Number.isFinite(Date.parse(binding.expiresAt)) ||
+    (binding.providerMode !== "mock" &&
+      binding.providerMode !== "qianwen" &&
+      binding.providerMode !== "unavailable")
+  ) {
+    return null;
+  }
+  try {
+    return {
+      ok: true,
+      binding: {
+        serverOrigin: normalizeServerOrigin(binding.serverOrigin),
+        webOrigin: normalizeServerOrigin(binding.webOrigin),
+        workspaceId: binding.workspaceId,
+        accessToken: binding.accessToken,
+        expiresAt: binding.expiresAt,
+        providerMode: binding.providerMode,
+      },
+    };
+  } catch {
+    return null;
+  }
 };
 
 const currentDetection = () => detectPage({ url: window.location.href, document });
@@ -74,11 +119,18 @@ function finalPreviewController(dataUrl: string) {
 }
 
 function mountChromeCapture(
-  binding: ExtensionBinding,
+  binding: CaptureBinding,
   onDestroy: (overlay: CaptureOverlay) => void,
 ): CaptureOverlay {
   const initial = currentDetection();
-  const store = createSessionBindingStore(chrome.storage.session);
+  const clearBinding = async () => {
+    await chrome.runtime.sendMessage({
+      type: "CLEAR_CAPTURE_BINDING",
+      platform: initial.platform,
+      pageVersion: initial.pageVersion,
+      pageSignature: initial.signature,
+    });
+  };
   const overlay = CaptureOverlay.mount({
     document,
     viewport: {
@@ -115,7 +167,7 @@ function mountChromeCapture(
         pageIdentifier: initial.signature,
         collectedAt: new Date().toISOString(),
         idempotencyKey,
-        onRebindRequired: () => store.clear(),
+        onRebindRequired: clearBinding,
       }),
     poll: (task: CaptureTaskRead) =>
       pollCaptureTask({
@@ -124,9 +176,9 @@ function mountChromeCapture(
         taskId: task.task_id,
         platform: initial.platform!,
         pageVersion: initial.pageVersion,
-        onRebindRequired: () => store.clear(),
+        onRebindRequired: clearBinding,
       }),
-    onRePairRequired: () => store.clear(),
+    onRePairRequired: clearBinding,
     onDestroy,
   });
   return overlay;
@@ -138,17 +190,22 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof c
   document.documentElement.dataset.operationsCaptureSupported = String(detection.supported);
   document.documentElement.dataset.operationsCapturePlatform = detection.platform ?? "unknown";
   document.documentElement.dataset.operationsCaptureSignature = detection.signature;
-  const store = createSessionBindingStore(chrome.storage.session);
   const handler = createContentMessageHandler({
     detect: currentDetection,
     startCapture: async () => {
-      const binding = await store.load();
-      if (!binding || Date.parse(binding.expiresAt) <= Date.now()) {
-        await store.clear();
+      const response = parseCaptureBindingResponse(
+        await chrome.runtime.sendMessage({
+          type: "GET_CAPTURE_BINDING",
+          platform: detection.platform,
+          pageVersion: detection.pageVersion,
+          pageSignature: detection.signature,
+        }),
+      );
+      if (!response || !response.ok || Date.parse(response.binding.expiresAt) <= Date.now()) {
         throw new Error("rebind-required");
       }
       activeOverlay?.cancel();
-      activeOverlay = mountChromeCapture(binding, (overlay) => {
+      activeOverlay = mountChromeCapture(response.binding, (overlay) => {
         if (activeOverlay === overlay) activeOverlay = null;
       });
     },

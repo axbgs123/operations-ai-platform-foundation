@@ -23,6 +23,18 @@ const armMessage = {
   ...captureContext,
 };
 
+const storedBinding = {
+  serverOrigin: "https://ops.example.com",
+  webOrigin: "https://app.ops.example.com",
+  workspaceId: "00000000-0000-0000-0000-000000000001",
+  workspaceName: "不应发送到内容脚本",
+  memberDisplayName: "不应发送到内容脚本",
+  accessToken: "short-lived-token",
+  expiresAt: "2026-08-10T09:00:00Z",
+  providerMode: "mock" as const,
+  region: null,
+};
+
 describe("extension runtime message boundary", () => {
   it("accepts only exact, typed capture messages", () => {
     expect(parseRuntimeMessage({ type: "GET_PAGE_STATUS" })).toEqual({ type: "GET_PAGE_STATUS" });
@@ -35,11 +47,70 @@ describe("extension runtime message boundary", () => {
       type: "OPEN_REVIEW",
       url: "https://app.example/review",
     });
+    expect(parseRuntimeMessage({ type: "GET_CAPTURE_BINDING", ...captureContext })).toEqual({
+      type: "GET_CAPTURE_BINDING",
+      ...captureContext,
+    });
 
     expect(parseRuntimeMessage({ type: "CAPTURE_VISIBLE_TAB", pageSignature: "", token: "secret" })).toBeNull();
     expect(parseRuntimeMessage({ ...armMessage, tabId: -1 })).toBeNull();
     expect(parseRuntimeMessage({ ...armMessage, platform: "unknown" })).toBeNull();
     expect(parseRuntimeMessage({ type: "UNKNOWN" })).toBeNull();
+  });
+
+  it("returns only the minimum current capture binding to the armed active supported sender", async () => {
+    const loadBinding = vi.fn().mockResolvedValue(storedBinding);
+    const handler = createBackgroundMessageHandler({
+      queryActiveTab: vi.fn().mockResolvedValue(supportedTab),
+      captureVisibleTab: vi.fn(),
+      loadBinding,
+      now: () => Date.parse("2026-08-10T08:00:00Z"),
+    });
+    await handler(armMessage, {});
+
+    await expect(
+      handler({ type: "GET_CAPTURE_BINDING", ...captureContext }, { tab: supportedTab }),
+    ).resolves.toEqual({
+      ok: true,
+      binding: {
+        serverOrigin: storedBinding.serverOrigin,
+        webOrigin: storedBinding.webOrigin,
+        workspaceId: storedBinding.workspaceId,
+        accessToken: storedBinding.accessToken,
+        expiresAt: storedBinding.expiresAt,
+        providerMode: storedBinding.providerMode,
+      },
+    });
+    expect(loadBinding).toHaveBeenCalledOnce();
+  });
+
+  it("rejects binding reads from unarmed, inactive, unsupported, drifted, expired, or revoked senders", async () => {
+    let active = supportedTab;
+    let binding: typeof storedBinding | null = storedBinding;
+    const clearBinding = vi.fn(async () => { binding = null; });
+    const handler = createBackgroundMessageHandler({
+      queryActiveTab: vi.fn(async () => active),
+      captureVisibleTab: vi.fn(),
+      loadBinding: vi.fn(async () => binding),
+      clearBinding,
+      now: () => Date.parse("2026-08-10T08:00:00Z"),
+    });
+    const read = { type: "GET_CAPTURE_BINDING" as const, ...captureContext };
+
+    await expect(handler(read, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "capture-not-armed" });
+    await handler(armMessage, {});
+    active = { ...supportedTab, id: 8 };
+    await expect(handler(read, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "inactive-or-unsupported-tab" });
+    active = supportedTab;
+    await handler(armMessage, {});
+    await expect(handler({ ...read, pageSignature: "douyin:drifted" }, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "capture-context-mismatch" });
+    await handler(armMessage, {});
+    binding = { ...storedBinding, expiresAt: "2026-08-10T07:59:59Z" };
+    await expect(handler(read, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "rebind-required" });
+    expect(clearBinding).toHaveBeenCalledOnce();
+    await handler(armMessage, {});
+    await expect(handler(read, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "rebind-required" });
+    await expect(handler(read, { tab: { ...supportedTab, url: "https://example.com" } })).resolves.toEqual({ ok: false, error: "inactive-or-unsupported-tab" });
   });
 
   it("captures only once after the popup arms the active supported tab", async () => {

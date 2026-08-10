@@ -14,6 +14,10 @@ type OverlayState =
   | "cancelled";
 
 type Redaction = Rect & { id: string };
+export type CaptureBinding = Pick<
+  ExtensionBinding,
+  "serverOrigin" | "webOrigin" | "workspaceId" | "accessToken" | "expiresAt" | "providerMode"
+>;
 
 export type CaptureOverlayOptions = {
   document: Document;
@@ -24,7 +28,7 @@ export type CaptureOverlayOptions = {
   redact(dataUrl: string, redactions: Rect[]): Promise<string>;
   upload(dataUrl: string, idempotencyKey: string): Promise<CaptureTaskRead>;
   poll(task: CaptureTaskRead): Promise<CaptureTaskRead>;
-  binding: ExtensionBinding;
+  binding: CaptureBinding;
   getViewport?: () => ViewportMetrics;
   uuid?: () => string;
   nextFrame?: () => Promise<void>;
@@ -48,7 +52,7 @@ export function normalizeSelection(start: Point, end: Point, viewport: Pick<View
   };
 }
 
-export function validateReviewUrl(reviewUrl: string, binding: ExtensionBinding): string {
+export function validateReviewUrl(reviewUrl: string, binding: CaptureBinding): string {
   let result: URL;
   let expectedOrigin: string;
   try {

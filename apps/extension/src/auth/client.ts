@@ -15,11 +15,17 @@ export type PairingDependencies = {
   fetcher: typeof fetch;
   store: BindingStore;
   clearPairingCode(): void;
+  hasOriginPermission?(originPattern: string): Promise<boolean>;
   requestOriginPermission?(originPattern: string): Promise<boolean>;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const hostPermissionPattern = (serverOrigin: string) => {
+  const url = new URL(serverOrigin);
+  return `${url.protocol}//${url.hostname}/*`;
+};
 
 function bindingFromPairResponse(
   payload: unknown,
@@ -43,15 +49,18 @@ export async function pairExtension(
   input: PairingInput,
   dependencies: PairingDependencies,
 ): Promise<PairResponse> {
+  const fetcher = dependencies.fetcher;
   try {
     const serverOrigin = normalizeServerOrigin(input.serverOrigin);
+    const permissionPattern = hostPermissionPattern(serverOrigin);
     if (
       dependencies.requestOriginPermission &&
-      !(await dependencies.requestOriginPermission(`${serverOrigin}/*`))
+      !(await dependencies.hasOriginPermission?.(permissionPattern)) &&
+      !(await dependencies.requestOriginPermission(permissionPattern))
     ) {
       throw new Error("服务器权限未授权");
     }
-    const response = await dependencies.fetcher(
+    const response = await fetcher(
       `${serverOrigin}/v1/extension/pair`,
       {
         method: "POST",
