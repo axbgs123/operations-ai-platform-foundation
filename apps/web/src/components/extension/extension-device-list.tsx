@@ -88,8 +88,20 @@ export function ExtensionDeviceList({
   const [confirmingDeviceId, setConfirmingDeviceId] = useState<string | null>(null);
   const [revoking, setRevoking] = useState(false);
   const [revokeError, setRevokeError] = useState("");
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const requestRef = useRef(0);
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" && !permissionDenied;
+
+  const downgradePermissions = useCallback(() => {
+    requestRef.current += 1;
+    setDevices([]);
+    setLoading(false);
+    setLoadError("");
+    setConfirmingDeviceId(null);
+    setRevoking(false);
+    setRevokeError("");
+    setPermissionDenied(true);
+  }, []);
 
   const loadDevices = useCallback(async () => {
     if (!isAdmin) return;
@@ -105,12 +117,16 @@ export function ExtensionDeviceList({
       if (requestId === requestRef.current) setDevices(nextDevices);
     } catch (failure) {
       if (requestId === requestRef.current) {
+        if (failure instanceof ExtensionDeviceApiError && failure.status === 403) {
+          downgradePermissions();
+          return;
+        }
         setLoadError(safeErrorMessage(failure, "暂时无法加载设备，请稍后重试。"));
       }
     } finally {
       if (requestId === requestRef.current) setLoading(false);
     }
-  }, [isAdmin, workspaceId]);
+  }, [downgradePermissions, isAdmin, workspaceId]);
 
   useEffect(() => {
     let active = true;
@@ -140,11 +156,15 @@ export function ExtensionDeviceList({
       )));
       setConfirmingDeviceId(null);
     } catch (failure) {
+      if (failure instanceof ExtensionDeviceApiError && failure.status === 403) {
+        downgradePermissions();
+        return;
+      }
       setRevokeError(safeErrorMessage(failure, "暂时无法撤销此设备，请稍后重试。"));
     } finally {
       setRevoking(false);
     }
-  }, [confirmingDeviceId, workspaceId]);
+  }, [confirmingDeviceId, downgradePermissions, workspaceId]);
 
   if (!isAdmin) {
     return (
@@ -152,7 +172,7 @@ export function ExtensionDeviceList({
         <h2 className="font-semibold" id="extension-connection-guidance">浏览器扩展连接</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">保持连接，直到你或管理员解除</p>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">
-          当前角色只能查看连接说明，不能查看或撤销设备。需要处理设备时请联系管理员。
+          当前会话只能查看连接说明，不能查看或撤销设备。需要处理设备时请联系管理员。
         </p>
       </section>
     );

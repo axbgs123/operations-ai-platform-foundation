@@ -8,9 +8,11 @@ const listExtensionDevices = vi.hoisted(() => vi.fn());
 const revokeExtensionDevice = vi.hoisted(() => vi.fn());
 const ExtensionDeviceApiError = vi.hoisted(() => class extends Error {
   constructor(readonly status: number) {
-    super(status === 404
-      ? "无法打开这组设备。请从当前工作区的设置页面重试。"
-      : "暂时无法加载设备，请稍后重试。");
+    super(status === 403
+      ? "仅管理员可以管理已连接设备。"
+      : status === 404
+        ? "无法打开这组设备。请从当前工作区的设置页面重试。"
+        : "暂时无法加载设备，请稍后重试。");
   }
 });
 
@@ -107,6 +109,39 @@ test("explains a cross-workspace 404 without revealing whether another workspace
 
   expect(await screen.findByRole("alert")).toHaveTextContent("无法打开这组设备。请从当前工作区的设置页面重试。");
   expect(document.body).not.toHaveTextContent("workspace-1");
+});
+
+test("downgrades a loaded admin list to safe guidance after a later list 403", async () => {
+  listExtensionDevices
+    .mockResolvedValueOnce([device])
+    .mockRejectedValueOnce(new ExtensionDeviceApiError(403));
+  const view = render(<ExtensionDeviceList role="admin" workspaceId="workspace-1" />);
+
+  await screen.findByText("运营电脑");
+  view.rerender(<ExtensionDeviceList role="admin" workspaceId="workspace-2" />);
+  expect(await screen.findByText("保持连接，直到你或管理员解除")).toBeVisible();
+  expect(screen.queryByText("运营电脑")).toBeNull();
+  expect(screen.queryByRole("button", { name: "撤销此设备" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "重试加载设备" })).toBeNull();
+
+  view.rerender(<ExtensionDeviceList role="admin" workspaceId="workspace-3" />);
+  expect(listExtensionDevices).toHaveBeenCalledTimes(2);
+});
+
+test("downgrades a loaded admin list after revocation receives 403", async () => {
+  listExtensionDevices.mockResolvedValue([device]);
+  revokeExtensionDevice.mockRejectedValue(new ExtensionDeviceApiError(403));
+  const user = userEvent.setup();
+  render(<ExtensionDeviceList role="admin" workspaceId="workspace-1" />);
+
+  await screen.findByText("运营电脑");
+  await user.click(screen.getByRole("button", { name: "撤销此设备" }));
+  await user.click(screen.getByRole("button", { name: "确认撤销" }));
+
+  expect(await screen.findByText("保持连接，直到你或管理员解除")).toBeVisible();
+  expect(screen.queryByRole("dialog", { name: "确认撤销设备" })).toBeNull();
+  expect(screen.queryByText("运营电脑")).toBeNull();
+  expect(screen.queryByRole("button", { name: "重试撤销此设备" })).toBeNull();
 });
 
 test.each(["editor", "viewer"] as const)("shows %s safe connection guidance without device actions", async (role) => {
