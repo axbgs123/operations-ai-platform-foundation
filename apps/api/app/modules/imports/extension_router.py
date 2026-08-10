@@ -1,5 +1,7 @@
 from collections import defaultdict, deque
 from datetime import UTC, datetime
+import logging
+import time
 from typing import Annotated, cast
 from uuid import UUID
 
@@ -20,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_session
 from app.core.config import get_settings
+from app.core.logging import current_request_id, emit_log
 from app.core.security import WorkspaceContext, WorkspaceRole
 from app.core.storage import Storage, get_storage
 from app.modules.content.account_models import Platform
@@ -69,6 +72,8 @@ DatabaseSession = Annotated[Session, Depends(get_session)]
 ObjectStorage = Annotated[Storage, Depends(get_storage)]
 binding_attempts: dict[str, deque[datetime]] = defaultdict(deque)
 pairing_attempts: dict[str, deque[datetime]] = defaultdict(deque)
+CAPTURE_EXTENSION_CLIENT = "operations-capture-extension"
+_pairing_logger = logging.getLogger("operations_ai.imports.extension_pairing")
 
 
 class ExtensionBindRequest(BaseModel):
@@ -119,6 +124,29 @@ class ExtensionPairRequest(BaseModel):
 
     pairing_code: str = Field(min_length=1, max_length=64)
     client_id: str = Field(min_length=3, max_length=120)
+
+
+def _emit_pairing_event(
+    *,
+    event: str,
+    message_code: str,
+    started_at: float,
+    workspace_id: UUID | None = None,
+    member_id: UUID | None = None,
+    client_id: str | None = None,
+    error_code: str | None = None,
+) -> None:
+    emit_log(
+        _pairing_logger,
+        event=event,
+        message_code=message_code,
+        request_id=current_request_id(),
+        workspace_id=workspace_id,
+        member_id=member_id,
+        client_id=client_id,
+        error_code=error_code,
+        duration_ms=round((time.monotonic() - started_at) * 1000, 3),
+    )
 
 
 def _binding_metadata(
@@ -283,8 +311,21 @@ def pair_extension(
     session: DatabaseSession,
     extension_client: Annotated[str | None, Header(alias="X-Extension-Client")] = None,
 ) -> ExtensionBindResponse:
-    if extension_client is None or extension_client != data.client_id:
-        raise HTTPException(status_code=422, detail="invalid extension client")
+    started_at = time.monotonic()
+    if (
+        extension_client != CAPTURE_EXTENSION_CLIENT
+        or data.client_id != CAPTURE_EXTENSION_CLIENT
+    ):
+        _emit_pairing_event(
+            event="extension.pairing.invalid",
+            message_code="EXTENSION_PAIR_INVALID",
+            started_at=started_at,
+            error_code="EXTENSION_PAIR_INVALID",
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="pairing code invalid or expired",
+        )
     try:
         issued = ExtensionPairingService(
             session,
@@ -293,13 +334,42 @@ def pair_extension(
         session.commit()
     except PairingCodeUnavailable as error:
         session.rollback()
+        _emit_pairing_event(
+            event="extension.pairing.invalid",
+            message_code="EXTENSION_PAIR_INVALID",
+            started_at=started_at,
+            error_code="EXTENSION_PAIR_INVALID",
+        )
         raise HTTPException(
             status_code=401,
             detail="pairing code invalid or expired",
         ) from error
     except PairingCodeRateLimited as error:
         session.rollback()
+        _emit_pairing_event(
+            event="extension.pairing.rate_limited",
+            message_code="EXTENSION_PAIR_RATE_LIMITED",
+            started_at=started_at,
+            error_code="EXTENSION_PAIR_RATE_LIMITED",
+        )
         raise HTTPException(status_code=429, detail="too many attempts") from error
+    except Exception as error:
+        session.rollback()
+        _emit_pairing_event(
+            event="extension.pairing.internal_failure",
+            message_code="EXTENSION_PAIR_INTERNAL_FAILURE",
+            started_at=started_at,
+            error_code="EXTENSION_PAIR_INTERNAL_FAILURE",
+        )
+        raise HTTPException(status_code=500, detail="pairing unavailable") from error
+    _emit_pairing_event(
+        event="extension.pairing.succeeded",
+        message_code="EXTENSION_PAIR_SUCCEEDED",
+        started_at=started_at,
+        workspace_id=issued.workspace_id,
+        member_id=issued.member_id,
+        client_id=CAPTURE_EXTENSION_CLIENT,
+    )
     return _binding_response(session, issued)
 
 
@@ -380,6 +450,7 @@ def create_extension_pairing_code(
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> ExtensionPairingCodeRead:
+    started_at = time.monotonic()
     context = _pairing_context(
         session,
         workspace_id=workspace_id,
@@ -399,7 +470,33 @@ def create_extension_pairing_code(
         session.commit()
     except PairingCodeUnavailable as error:
         session.rollback()
+        _emit_pairing_event(
+            event="extension.pairing_code.unavailable",
+            message_code="EXTENSION_PAIRING_CODE_UNAVAILABLE",
+            started_at=started_at,
+            workspace_id=workspace_id,
+            member_id=context.member_id,
+            error_code="EXTENSION_PAIRING_CODE_UNAVAILABLE",
+        )
         raise HTTPException(status_code=404, detail="workspace not found") from error
+    except Exception as error:
+        session.rollback()
+        _emit_pairing_event(
+            event="extension.pairing_code.internal_failure",
+            message_code="EXTENSION_PAIR_INTERNAL_FAILURE",
+            started_at=started_at,
+            workspace_id=workspace_id,
+            member_id=context.member_id,
+            error_code="EXTENSION_PAIR_INTERNAL_FAILURE",
+        )
+        raise HTTPException(status_code=500, detail="pairing unavailable") from error
+    _emit_pairing_event(
+        event="extension.pairing_code.created",
+        message_code="EXTENSION_PAIRING_CODE_CREATED",
+        started_at=started_at,
+        workspace_id=workspace.id,
+        member_id=context.member_id,
+    )
     return ExtensionPairingCodeRead(
         pairing_code=created.code,
         expires_at=created.expires_at,

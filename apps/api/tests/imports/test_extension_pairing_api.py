@@ -1,3 +1,5 @@
+import json
+import logging
 from uuid import UUID
 
 import pytest
@@ -12,6 +14,7 @@ from app.core.rate_limit import (
     category_for_request,
 )
 from app.main import app
+from app.modules.imports.extension_pairing import ExtensionPairingService
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.models import MemberRole, WorkspaceMember
 from tests.imports.helpers import configured_client
@@ -278,6 +281,14 @@ def test_old_invalid_and_mismatched_client_exchange_errors_do_not_reveal_codes()
                 "client_id": CLIENT_ID,
             },
         )
+        unapproved = client.post(
+            PAIR_PATH,
+            headers={"X-Extension-Client": "unapproved-client"},
+            json={
+                "pairing_code": second.json()["pairing_code"],
+                "client_id": "unapproved-client",
+            },
+        )
 
         assert stale.status_code == invalid.status_code == 401
         assert (
@@ -287,10 +298,17 @@ def test_old_invalid_and_mismatched_client_exchange_errors_do_not_reveal_codes()
         )
         assert first.json()["pairing_code"] not in stale.text
         assert "ABCD-1234" not in invalid.text
-        assert mismatched.status_code == 422
-        assert missing_header.status_code == 422
+        assert mismatched.status_code == missing_header.status_code == 401
+        assert (
+            mismatched.json()
+            == missing_header.json()
+            == {"detail": "pairing code invalid or expired"}
+        )
+        assert unapproved.status_code == 401
+        assert unapproved.json() == {"detail": "pairing code invalid or expired"}
         assert second.json()["pairing_code"] not in mismatched.text
         assert second.json()["pairing_code"] not in missing_header.text
+        assert second.json()["pairing_code"] not in unapproved.text
 
 
 class _UnavailableLimiterBackend:
@@ -321,3 +339,78 @@ def test_pair_exchange_rate_limits_invalid_codes() -> None:
         assert limited.status_code == 429
         assert limited.json() == {"detail": "too many attempts"}
         assert "ABCD-1234" not in limited.text
+
+
+def test_pairing_lifecycle_logs_stable_safe_events(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Removing a lifecycle event or logging a code/token would break this."""
+    caplog.set_level(logging.INFO, logger="operations_ai.imports.extension_pairing")
+    with configured_client() as (client, _):
+        workspace, login = _create_workspace_session(client)
+        created = _create_code(
+            client,
+            workspace_id=workspace["workspace_id"],
+            csrf=login["csrf_token"],
+        )
+        assert created.status_code == 201, created.text
+        paired = _pair(client, created.json()["pairing_code"])
+        assert paired.status_code == 201, paired.text
+
+        replay = _pair(client, created.json()["pairing_code"])
+        assert replay.status_code == 401
+        for _ in range(8):
+            assert _pair(client, "ABCD-1234").status_code == 401
+        assert _pair(client, "ABCD-1234").status_code == 429
+
+    events = [
+        json.loads(record.message)
+        for record in caplog.records
+        if record.name == "operations_ai.imports.extension_pairing"
+    ]
+    assert {
+        "EXTENSION_PAIRING_CODE_CREATED",
+        "EXTENSION_PAIR_SUCCEEDED",
+        "EXTENSION_PAIR_INVALID",
+        "EXTENSION_PAIR_RATE_LIMITED",
+    } <= {event["message_code"] for event in events}
+    succeeded = next(
+        event for event in events if event["message_code"] == "EXTENSION_PAIR_SUCCEEDED"
+    )
+    assert succeeded["client_id"] == CLIENT_ID
+    assert succeeded["workspace_id"] == workspace["workspace_id"]
+    assert succeeded["member_id"] == login["member_id"]
+    assert isinstance(succeeded["duration_ms"], float)
+    assert created.json()["pairing_code"] not in caplog.text
+    assert paired.json()["access_token"] not in caplog.text
+
+
+def test_pairing_internal_failure_logs_a_safe_stable_event(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dropping the internal-failure event or serializing exception text breaks this."""
+    secret = "pairing-internal-token-secret"
+    caplog.set_level(logging.INFO, logger="operations_ai.imports.extension_pairing")
+
+    def fail_redeem(*args, **kwargs):
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr(ExtensionPairingService, "redeem", fail_redeem)
+    with configured_client() as (_, _):
+        client = TestClient(app, raise_server_exceptions=False)
+        try:
+            response = _pair(client, "ABCD-1234")
+        finally:
+            client.close()
+
+    assert response.status_code == 500
+    event = next(
+        json.loads(record.message)
+        for record in caplog.records
+        if record.name == "operations_ai.imports.extension_pairing"
+        and json.loads(record.message)["message_code"]
+        == "EXTENSION_PAIR_INTERNAL_FAILURE"
+    )
+    assert event["error_code"] == "EXTENSION_PAIR_INTERNAL_FAILURE"
+    assert secret not in caplog.text

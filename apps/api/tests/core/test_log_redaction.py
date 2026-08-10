@@ -50,6 +50,16 @@ def test_structured_log_uses_whitelist_and_recursively_redacts_secrets() -> None
     assert "完整敏感标题" not in rendered
 
 
+def test_structured_log_allows_the_fixed_extension_client_identifier() -> None:
+    event = build_log_event(
+        event="extension.pairing.succeeded",
+        message_code="EXTENSION_PAIR_SUCCEEDED",
+        client_id="operations-capture-extension",
+    )
+
+    assert event["client_id"] == "operations-capture-extension"
+
+
 def test_context_redaction_handles_nested_urls_encoded_values_and_exceptions() -> None:
     secret = "token-with-private-value"
     value = {

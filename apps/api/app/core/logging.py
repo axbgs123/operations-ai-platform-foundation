@@ -28,6 +28,7 @@ LOG_FIELDS = (
     "event",
     "message_code",
     "request_id",
+    "client_id",
     "task_id",
     "workspace_id",
     "member_id",
