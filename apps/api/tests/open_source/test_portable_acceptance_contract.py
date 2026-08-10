@@ -64,6 +64,15 @@ def test_acceptance_runner_uses_only_an_unpacked_isolated_mac_install() -> None:
     assert "/enter" in script
 
 
+def test_acceptance_runner_records_only_the_packaged_extension_version() -> None:
+    """Portable evidence may identify the extension build, never its pairing secret."""
+    script = _text(RUNNER)
+
+    assert 'expected_extension_version="0.2.0"' in script
+    assert 'extension_version' in script
+    assert 'apps/extension/manifest.json' in script
+
+
 def test_acceptance_runner_uses_atomic_owner_and_independent_editor_flows() -> None:
     """Reintroducing bootstrap or reusing the owner session would bypass onboarding."""
     script = _text(RUNNER)
@@ -114,7 +123,7 @@ def test_acceptance_evidence_schema_excludes_credentials_and_user_copy() -> None
     assert "content_id" in script
     assert (
         'evidence_allowed_fields="schema_version macos_runtime source_commit '
-        'zip_sha256 started_at finished_at docker_version '
+        'zip_sha256 extension_version started_at finished_at docker_version '
         'docker_compose_version workspace_id owner_member_id editor_member_id '
         'account_id content_id member_count cleanup"'
     ) in script

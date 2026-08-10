@@ -6,6 +6,7 @@ import {
   readdir,
   rm,
   stat,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import { basename, relative, resolve } from "node:path";
@@ -15,6 +16,19 @@ const root = resolve(import.meta.dirname, "..");
 const dist = resolve(root, "dist");
 const release = resolve(root, "release");
 const unpacked = resolve(release, "unpacked");
+const sourceDateEpochValue = process.env.SOURCE_DATE_EPOCH ?? "1785744000";
+if (!/^\d+$/.test(sourceDateEpochValue)) {
+  throw new Error("SOURCE_DATE_EPOCH must be a ZIP-compatible Unix timestamp");
+}
+const sourceDateEpoch = Number.parseInt(sourceDateEpochValue, 10);
+if (
+  !Number.isSafeInteger(sourceDateEpoch) ||
+  sourceDateEpoch < 315532800 ||
+  sourceDateEpoch > 4354819199
+) {
+  throw new Error("SOURCE_DATE_EPOCH must be a ZIP-compatible Unix timestamp");
+}
+const sourceDate = new Date(sourceDateEpoch * 1000);
 
 const sha256 = (buffer) =>
   createHash("sha256").update(buffer).digest("hex");
@@ -90,7 +104,7 @@ await writeFile(
       documentNamespace: `https://operations-ai.invalid/spdx/extension/${sha256(Buffer.from(JSON.stringify({ packageJson, sharedSchemasPackageJson })))}`,
       creationInfo: {
         creators: ["Tool: package-extension.mjs"],
-        created: "2026-07-28T00:00:00Z",
+        created: sourceDate.toISOString().replace(".000Z", "Z"),
       },
       comment: "Scope: extension production runtime dependencies from locked workspace package metadata; development-only tooling is excluded.",
       packages: extensionSbomPackages,
@@ -162,6 +176,7 @@ await writeFile(
   JSON.stringify(
     {
       extensionVersion: packageJson.version,
+      sourceDateEpoch,
       browsers: ["chrome", "edge"],
       validationScope: "fixture_and_local_build_only",
       realPageValidation: "unverified",
@@ -172,10 +187,17 @@ await writeFile(
   ),
 );
 
+const archiveFiles = await filesIn(unpacked);
+for (const file of archiveFiles) {
+  await utimes(file, sourceDate, sourceDate);
+}
+
 const canonical = resolve(release, `operations-capture-extension-${packageJson.version}.zip`);
-const zipped = spawnSync("/usr/bin/zip", ["-X", "-q", "-r", canonical, "."], {
+const archiveEntries = archiveFiles.map((file) => relative(unpacked, file));
+const zipped = spawnSync("/usr/bin/zip", ["-X", "-q", canonical, "-@"], {
   cwd: unpacked,
   encoding: "utf8",
+  input: `${archiveEntries.join("\n")}\n`,
 });
 if (zipped.status !== 0) throw new Error(zipped.stderr || "zip failed");
 

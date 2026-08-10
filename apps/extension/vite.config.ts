@@ -1,4 +1,5 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 
 import { defineConfig, type Plugin } from "vite";
@@ -11,6 +12,14 @@ function extensionManifest(): Plugin {
     name: "extension-manifest",
     async closeBundle() {
       const dist = resolve(root, "dist");
+      const contentBuild = spawnSync(
+        process.execPath,
+        [process.argv[1]!, "build", "--config", resolve(root, "vite.content.config.ts")],
+        { cwd: root, encoding: "utf8" },
+      );
+      if (contentBuild.status !== 0) {
+        throw new Error(contentBuild.stderr || contentBuild.stdout || "content build failed");
+      }
       await mkdir(resolve(dist, "popup"), { recursive: true });
       const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
         version: string;
@@ -43,7 +52,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         background: resolve(root, "src/background.ts"),
-        content: resolve(root, "src/content.ts"),
         popup: resolve(root, "src/popup/main.ts"),
       },
       output: {

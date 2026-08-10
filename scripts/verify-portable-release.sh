@@ -5,7 +5,8 @@ umask 077
 readonly project_prefix="operations_ai_portable_test_"
 readonly root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly python_bin="$root_dir/apps/api/.venv/bin/python"
-readonly evidence_allowed_fields="schema_version macos_runtime source_commit zip_sha256 started_at finished_at docker_version docker_compose_version workspace_id owner_member_id editor_member_id account_id content_id member_count cleanup"
+readonly expected_extension_version="0.2.0"
+readonly evidence_allowed_fields="schema_version macos_runtime source_commit zip_sha256 extension_version started_at finished_at docker_version docker_compose_version workspace_id owner_member_id editor_member_id account_id content_id member_count cleanup"
 
 mode=""
 zip_argument=""
@@ -205,6 +206,21 @@ PY
 start_launcher="$unpacked_root/启动运营工具-macOS.command"
 stop_launcher="$unpacked_root/停止运营工具-macOS.command"
 [[ -x "$start_launcher" && -x "$stop_launcher" ]] || fail "解压包缺少可执行 macOS 启停入口"
+extension_version="$(
+  "$python_bin" - "$unpacked_root/apps/extension/manifest.json" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+version = manifest.get("version")
+if not isinstance(version, str) or not version:
+    raise SystemExit("extension manifest has no version")
+print(version)
+PY
+)" || fail "解压包缺少有效的扩展版本"
+[[ "$extension_version" == "$expected_extension_version" ]] ||
+  fail "扩展版本不符合验收目标：$extension_version"
 
 export PORTABLE_COMPOSE_PROJECT="$project_name"
 export API_PORT="$api_port"
@@ -503,6 +519,7 @@ SCHEMA_VERSION="operations-ai-portable-acceptance/v1" \
 MACOS_RUNTIME="passed" \
 SOURCE_COMMIT="$source_commit" \
 ZIP_SHA256="$zip_sha256" \
+EXTENSION_VERSION="$extension_version" \
 STARTED_AT="$started_at" \
 FINISHED_AT="$finished_at" \
 DOCKER_VERSION="$docker_version" \
@@ -525,6 +542,7 @@ payload = {
     "macos_runtime": os.environ["MACOS_RUNTIME"],
     "source_commit": os.environ["SOURCE_COMMIT"],
     "zip_sha256": os.environ["ZIP_SHA256"],
+    "extension_version": os.environ["EXTENSION_VERSION"],
     "started_at": os.environ["STARTED_AT"],
     "finished_at": os.environ["FINISHED_AT"],
     "docker_version": os.environ["DOCKER_VERSION"],

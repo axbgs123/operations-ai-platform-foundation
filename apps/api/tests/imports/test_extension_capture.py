@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from app.core.storage import StoredObject, get_storage
 from app.modules.imports.capture_models import CaptureTask, CaptureTaskStatus
-from app.modules.imports.capture_service import transition_task
+from app.modules.imports.capture_service import object_digest, transition_task
 from tests.imports.helpers import configured_client
 
 
@@ -212,7 +214,7 @@ def test_non_mock_capture_freezes_vision_binding_and_discloses_region(
 
 
 def test_only_web_editor_or_admin_can_confirm_into_a_formal_snapshot() -> None:
-    with configured_client() as (client, _):
+    with configured_client() as (client, engine):
         workspace = client.post("/v1/workspaces", json={"name": "人工确认工作区"}).json()
         login = client.post(
             "/v1/sessions/invite",
@@ -256,6 +258,10 @@ def test_only_web_editor_or_admin_can_confirm_into_a_formal_snapshot() -> None:
             headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "review-1"},
         )
         task_id = response.json()["task_id"]
+        with Session(engine) as session:
+            staged_task = session.get(CaptureTask, UUID(task_id))
+            assert staged_task is not None
+            assert object_digest(staged_task) is not None
         mismatch = client.post(
             f"/v1/imports/capture-tasks/{task_id}/confirm",
             json={
@@ -275,3 +281,7 @@ def test_only_web_editor_or_admin_can_confirm_into_a_formal_snapshot() -> None:
         )
         assert confirmed.status_code == 200, confirmed.text
         assert len(confirmed.json()["formal_snapshot_ids"]) == 1
+        with Session(engine) as session:
+            confirmed_task = session.get(CaptureTask, UUID(task_id))
+            assert confirmed_task is not None
+            assert object_digest(confirmed_task) is None

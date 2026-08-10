@@ -83,6 +83,18 @@ describe("least-privilege Manifest V3", () => {
     );
   });
 
+  it("packages the manifest content script as a classic self-contained script", async () => {
+    const manifest = await readManifest();
+    const contentScripts = manifest.content_scripts?.flatMap((entry) => entry.js ?? []) ?? [];
+
+    expect(contentScripts).toEqual(["content.js"]);
+    for (const script of contentScripts) {
+      const source = await readFile(resolve(distRoot, script), "utf8");
+      expect(source).not.toMatch(/^\s*import(?:\s|\{|\*)/m);
+      expect(source).not.toMatch(/^\s*export(?:\s|\{|\*)/m);
+    }
+  });
+
   it("publishes versioned build metadata for the shared Chrome and Edge artifact", async () => {
     const manifest = await readManifest();
     const metadata = await readFile(metadataPath, "utf8");
