@@ -38,6 +38,29 @@ async function openPopupPage(
   return popup;
 }
 
+async function terminateExtensionServiceWorker(
+  context: BrowserContext,
+  popup: Page,
+  extensionId: string,
+): Promise<void> {
+  const cdp = await context.newCDPSession(popup);
+  const targets = await cdp.send("Target.getTargets") as {
+    targetInfos: Array<{ targetId: string; type: string; url: string }>;
+  };
+  const worker = targets.targetInfos.find(
+    (target) => target.type === "service_worker" && target.url.startsWith(`chrome-extension://${extensionId}/`),
+  );
+  expect(worker, "extension service worker target must exist before restart").toBeDefined();
+  await cdp.send("Target.closeTarget", { targetId: worker!.targetId });
+  await expect.poll(async () => {
+    const active = await cdp.send("Target.getTargets") as {
+      targetInfos: Array<{ targetId: string }>;
+    };
+    return active.targetInfos.some((target) => target.targetId === worker!.targetId);
+  }).toBe(false);
+  await cdp.detach();
+}
+
 test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", async ({ browser }) => {
   test.setTimeout(120_000);
   const manifest = JSON.parse(await readFile(join(unpacked, "manifest.json"), "utf8")) as {
@@ -63,6 +86,15 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     headless: false,
     viewport: { width: 1280, height: 800 },
     args: [`--disable-extensions-except=${testUnpacked}`, `--load-extension=${testUnpacked}`],
+  });
+  const renewalStatuses: Array<{ path: "challenge" | "renew"; status: number }> = [];
+  extensionContext.on("response", (response) => {
+    if (response.url().endsWith("/v1/extension/session/challenge")) {
+      renewalStatuses.push({ path: "challenge", status: response.status() });
+    }
+    if (response.url().endsWith("/v1/extension/session/renew")) {
+      renewalStatuses.push({ path: "renew", status: response.status() });
+    }
   });
 
   try {
@@ -187,11 +219,36 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     expect(persistedKey.privateExtractable).toBe(false);
     expect(persistedKey.privateExportRejected).toBe(true);
     expect(Object.keys(persistedKey.publicJwk).sort()).toEqual(["crv", "kty", "x", "y"]);
-    const renewedAfterSessionClear = await pairingPopup.evaluate(async () => {
-      await chrome.storage.session.remove("extensionBinding");
+    await pairingPopup.evaluate(() => chrome.storage.session.remove("extensionBinding"));
+    const restartedWorkerPromise = extensionContext.waitForEvent("serviceworker");
+    await terminateExtensionServiceWorker(extensionContext, pairingPopup, extensionId);
+    const renewedAfterWorkerRestart = await pairingPopup.evaluate(async () => {
       return chrome.runtime.sendMessage({ type: "GET_SESSION_BINDING" });
     });
-    expect(renewedAfterSessionClear).toMatchObject({ ok: true, binding: { accessToken: expect.any(String) } });
+    const restartedWorker = await restartedWorkerPromise;
+    expect(restartedWorker).not.toBe(serviceWorker);
+    expect(restartedWorker.url()).toBe(`chrome-extension://${extensionId}/background.js`);
+    expect(renewedAfterWorkerRestart).toMatchObject({ ok: true, binding: { accessToken: expect.any(String) } });
+    await expect.poll(() => renewalStatuses).toEqual([
+      { path: "challenge", status: 201 },
+      { path: "renew", status: 201 },
+    ]);
+    const persistedAfterWorkerRestart = await pairingPopup.evaluate(async () => {
+      const local = await chrome.storage.local.get("extensionDeviceRegistration");
+      const record = await new Promise<{ privateKey: CryptoKey }>((resolve, reject) => {
+        const request = indexedDB.open("operations-ai-extension-device", 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const read = database.transaction("device-keys", "readonly").objectStore("device-keys").get("device");
+          read.onerror = () => reject(read.error);
+          read.onsuccess = () => { database.close(); resolve(read.result); };
+        };
+      });
+      return { registration: local.extensionDeviceRegistration, privateExtractable: record.privateKey.extractable };
+    });
+    expect(persistedAfterWorkerRestart.registration).toMatchObject({ deviceId: persistedConnection.local.deviceId });
+    expect(persistedAfterWorkerRestart.privateExtractable).toBe(false);
 
     const membersAfter = await json<Array<{ id: string }>>(
       await admin.get(`${apiOrigin}/v1/workspaces/${owner.workspace_id}/members`),
