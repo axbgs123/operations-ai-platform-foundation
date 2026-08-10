@@ -2,6 +2,7 @@ import { pairExtension, revokeExtension, type PairingInput } from "../auth/clien
 import { createSessionBindingStore, type BindingStore, type ExtensionBinding } from "../auth/storage";
 import { createPersistedTrustStore } from "../capture/trust-state";
 import { detectSupportedPage } from "../content/page-support";
+import type { StartSafeCaptureMessage } from "../runtime/messages";
 
 declare const chrome: {
   storage: {
@@ -20,6 +21,9 @@ declare const chrome: {
   tabs: {
     query(options: { active: boolean; currentWindow: boolean }): Promise<Array<{ id?: number; url?: string }>>;
     sendMessage(tabId: number, message: PopupMessage): Promise<PageStatus>;
+  };
+  runtime: {
+    sendMessage(message: StartSafeCaptureMessage): Promise<unknown>;
   };
 };
 
@@ -229,7 +233,43 @@ async function getChromePageStatus(): Promise<PageStatus> {
 async function startChromeSafeCapture(message: Extract<PopupMessage, { type: "START_SAFE_CAPTURE" }>): Promise<void> {
   const tab = await activeTab();
   if (tab.id === undefined) throw new Error("未找到当前页面");
-  await chrome.tabs.sendMessage(tab.id, message);
+  await armAndStartSafeCapture(
+    tab.id,
+    (armMessage) => chrome.runtime.sendMessage(armMessage),
+    (contentMessage) => chrome.tabs.sendMessage(tab.id!, contentMessage),
+  );
+}
+
+export async function armAndStartSafeCapture(
+  tabId: number,
+  arm: (message: StartSafeCaptureMessage) => Promise<unknown>,
+  startContent: (message: StartSafeCaptureMessage) => Promise<unknown>,
+): Promise<void> {
+  const response = await arm({ type: "START_SAFE_CAPTURE", tabId });
+  if (
+    typeof response !== "object" ||
+    response === null ||
+    !("ok" in response) ||
+    response.ok !== true
+  ) {
+    throw new Error("capture-not-armed");
+  }
+  const startResponse = await startContent({ type: "START_SAFE_CAPTURE" });
+  if (
+    typeof startResponse !== "object" ||
+    startResponse === null ||
+    !("ok" in startResponse) ||
+    startResponse.ok !== true
+  ) {
+    const error =
+      typeof startResponse === "object" &&
+      startResponse !== null &&
+      "error" in startResponse &&
+      typeof startResponse.error === "string"
+        ? startResponse.error
+        : "capture-start-failed";
+    throw new Error(error);
+  }
 }
 
 if (typeof chrome !== "undefined") {

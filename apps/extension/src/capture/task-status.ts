@@ -12,6 +12,7 @@ type PollArgs = {
   fetcher?: typeof fetch;
   maxAttempts?: number;
   sleep?: (milliseconds: number) => Promise<void>;
+  onRebindRequired?: () => Promise<void>;
 };
 
 export async function pollCaptureTask(args: PollArgs): Promise<CaptureTaskRead> {
@@ -23,6 +24,10 @@ export async function pollCaptureTask(args: PollArgs): Promise<CaptureTaskRead> 
       `${args.serverOrigin}/v1/extension/capture-tasks/${args.taskId}`,
       { headers: { Authorization: `Bearer ${args.accessToken}` } },
     );
+    if (response.status === 401 || response.status === 403) {
+      await args.onRebindRequired?.();
+      throw new Error("rebind-required");
+    }
     if (!response.ok) throw new Error("capture task status unavailable");
     const result = (await response.json()) as CaptureTaskRead;
     if (["succeeded", "failed", "cancelled"].includes(result.status)) return result;

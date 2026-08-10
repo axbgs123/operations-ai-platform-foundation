@@ -123,4 +123,21 @@ describe("extension capture upload", () => {
       page_version: "xiaohongshu-creator-v1",
     });
   });
+
+  it("clears the binding and requires re-pairing when polling loses authorization", async () => {
+    const onRebindRequired = vi.fn().mockResolvedValue(undefined);
+    await expect(
+      pollCaptureTask({
+        serverOrigin: "https://synthetic.example",
+        accessToken: "expired-token",
+        taskId: "task-expired",
+        platform: "douyin",
+        pageVersion: "douyin-visible-tab-v1",
+        fetcher: vi.fn().mockResolvedValue(new Response(null, { status: 401 })),
+        onRebindRequired,
+        sleep: vi.fn(),
+      }),
+    ).rejects.toThrow("rebind-required");
+    expect(onRebindRequired).toHaveBeenCalledOnce();
+  });
 });

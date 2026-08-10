@@ -1,39 +1,91 @@
-import { createSessionBindingStore } from "./auth/storage";
+import { detectSupportedPage } from "./content/page-support";
+import { parseRuntimeMessage } from "./runtime/messages";
+
+type BrowserTab = { id?: number; windowId?: number; url?: string };
+type MessageSender = { tab?: BrowserTab };
+
+type BackgroundDependencies = {
+  queryActiveTab(): Promise<BrowserTab>;
+  captureVisibleTab(windowId: number, options: { format: "png" }): Promise<string>;
+  now?: () => number;
+};
+
+const armLifetimeMs = 30_000;
+
+const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
+  candidate.id !== undefined &&
+  candidate.id === active.id &&
+  candidate.windowId !== undefined &&
+  typeof candidate.url === "string" &&
+  candidate.url === active.url &&
+  detectSupportedPage(candidate.url).supported;
+
+export function createBackgroundMessageHandler(dependencies: BackgroundDependencies) {
+  const armedTabs = new Map<number, number>();
+  const now = dependencies.now ?? Date.now;
+
+  return async (rawMessage: unknown, sender: MessageSender): Promise<unknown> => {
+    const message = parseRuntimeMessage(rawMessage);
+    if (!message) return { ok: false, error: "invalid-message" };
+
+    if (message.type === "START_SAFE_CAPTURE" && message.tabId !== undefined) {
+      const active = await dependencies.queryActiveTab();
+      if (active.id !== message.tabId || !isActiveSupportedTab(active, active)) {
+        return { ok: false, error: "inactive-or-unsupported-tab" };
+      }
+      armedTabs.set(message.tabId, now() + armLifetimeMs);
+      return { ok: true };
+    }
+
+    if (message.type === "CAPTURE_VISIBLE_TAB") {
+      const tab = sender.tab;
+      if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
+      const active = await dependencies.queryActiveTab();
+      if (!isActiveSupportedTab(tab, active)) {
+        if (tab.id !== undefined) armedTabs.delete(tab.id);
+        return { ok: false, error: "inactive-or-unsupported-tab" };
+      }
+      const armedUntil = armedTabs.get(tab.id!);
+      armedTabs.delete(tab.id!);
+      if (armedUntil === undefined || armedUntil < now()) {
+        return { ok: false, error: "capture-not-armed" };
+      }
+      const dataUrl = await dependencies.captureVisibleTab(tab.windowId!, { format: "png" });
+      return { ok: true, dataUrl };
+    }
+
+    return { ok: false, error: "unsupported-message" };
+  };
+}
 
 declare const chrome: {
-  storage: {
-    session: {
-      get(key: string): Promise<Record<string, unknown>>;
-      set(values: Record<string, unknown>): Promise<void>;
-      remove(key: string): Promise<void>;
-    };
-  };
   runtime: {
     onMessage: {
       addListener(
         listener: (
-          message: { type?: string },
-          sender: unknown,
+          message: unknown,
+          sender: MessageSender,
           sendResponse: (response: unknown) => void,
         ) => boolean | void,
       ): void;
     };
   };
+  tabs: {
+    query(options: { active: boolean; currentWindow: boolean }): Promise<BrowserTab[]>;
+    captureVisibleTab(windowId: number, options: { format: "png" }): Promise<string>;
+  };
 };
 
-chrome.runtime.onMessage.addListener((_message, _sender, sendResponse) => {
-  const store = createSessionBindingStore(chrome.storage.session);
-  void store.load().then(async (binding) => {
-    if (binding && Date.parse(binding.expiresAt) <= Date.now()) {
-      await store.clear();
-      sendResponse({ bound: false, reason: "expired" });
-      return;
-    }
-    sendResponse({
-      bound: binding !== null,
-      serverOrigin: binding?.serverOrigin,
-      expiresAt: binding?.expiresAt,
-    });
+if (typeof chrome !== "undefined") {
+  const handler = createBackgroundMessageHandler({
+    queryActiveTab: async () =>
+      (await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? {},
+    captureVisibleTab: (windowId, options) => chrome.tabs.captureVisibleTab(windowId, options),
   });
-  return true;
-});
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    void handler(message, sender).then(sendResponse, () =>
+      sendResponse({ ok: false, error: "capture-failed" }),
+    );
+    return true;
+  });
+}
