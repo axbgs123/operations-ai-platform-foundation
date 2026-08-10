@@ -165,12 +165,18 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       try {
         dataUrl = await dependencies.captureVisibleTab(tab.windowId!, { format: "png" });
       } catch {
-        armedFullPageTabs.delete(tab.id!);
-        return { ok: false, error: "capture-failed" };
+        if (armedFullPageTabs.get(tab.id!) === armed) {
+          armedFullPageTabs.delete(tab.id!);
+          return { ok: false, error: "capture-failed" };
+        }
+        return { ok: false, error: "capture-not-armed" };
       } finally {
         if (armedFullPageTabs.get(tab.id!) === armed) armed.inFlight = false;
       }
-      if (armedFullPageTabs.get(tab.id!) !== armed || armed.expiresAt <= now()) {
+      if (armedFullPageTabs.get(tab.id!) !== armed) {
+        return { ok: false, error: "capture-not-armed" };
+      }
+      if (armed.expiresAt <= now()) {
         armedFullPageTabs.delete(tab.id!);
         return { ok: false, error: "capture-not-armed" };
       }
