@@ -134,9 +134,10 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
       }),
     );
 
-    let serviceWorker = extensionContext.serviceWorkers()[0];
-    if (!serviceWorker) serviceWorker = await extensionContext.waitForEvent("serviceworker");
-    const extensionId = new URL(serviceWorker.url()).host;
+    let currentWorker = extensionContext.serviceWorkers()[0];
+    if (!currentWorker) currentWorker = await extensionContext.waitForEvent("serviceworker");
+    const initialWorker = currentWorker;
+    const extensionId = new URL(currentWorker.url()).host;
     expect(extensionId).toBe("mdbmlilohlhmjmcmkpbpjhldganompcl");
 
     await extensionContext.route("https://creator.douyin.com/**", async (route) => {
@@ -226,8 +227,10 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
       return chrome.runtime.sendMessage({ type: "GET_SESSION_BINDING" });
     });
     const restartedWorker = await restartedWorkerPromise;
-    expect(restartedWorker).not.toBe(serviceWorker);
+    expect(restartedWorker).not.toBe(initialWorker);
     expect(restartedWorker.url()).toBe(`chrome-extension://${extensionId}/background.js`);
+    currentWorker = restartedWorker;
+    expect(currentWorker).toBe(restartedWorker);
     expect(renewedAfterWorkerRestart).toMatchObject({ ok: true, binding: { accessToken: expect.any(String) } });
     await expect.poll(() => renewalStatuses).toEqual([
       { path: "challenge", status: 201 },
@@ -299,7 +302,8 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     await overlay.getByRole("button", { name: "取消" }).click();
     await expect(overlay).toHaveCount(0);
 
-    const binding = await serviceWorker.evaluate(async () => {
+    expect(currentWorker).not.toBe(initialWorker);
+    const binding = await currentWorker.evaluate(async () => {
       const stored = await chrome.storage.session.get("extensionBinding");
       return stored.extensionBinding as { accessToken: string; workspaceId: string };
     });
