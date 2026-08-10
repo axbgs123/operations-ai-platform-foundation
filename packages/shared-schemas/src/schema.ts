@@ -3614,6 +3614,16 @@ export interface components {
          */
         Capability: "text" | "vision" | "image" | "embedding";
         /**
+         * CaptureMode
+         * @enum {string}
+         */
+        CaptureMode: "full-page" | "visible" | "region";
+        /**
+         * CaptureStopReason
+         * @enum {string}
+         */
+        CaptureStopReason: "bottom" | "slice-limit" | "time-limit" | "cancelled" | "page-hidden" | "pagehide" | "window-blur" | "page-drift" | "capture-failed" | "empty" | "invalid-slice-order" | "pixel-limit" | "edge-limit" | "encoded-size" | "canvas-failed" | "dimension-mismatch" | "visible" | "region";
+        /**
          * CaptureTaskStatus
          * @enum {string}
          */
@@ -4973,11 +4983,14 @@ export interface components {
         };
         /** ExtensionCaptureRequest */
         ExtensionCaptureRequest: {
+            capture_mode: components["schemas"]["CaptureMode"];
             /**
              * Collected At
              * Format: date-time
              */
             collected_at: string;
+            /** Complete */
+            complete: boolean;
             /** Page Identifier */
             page_identifier: string;
             /** Page Version */
@@ -4985,9 +4998,16 @@ export interface components {
             platform: components["schemas"]["Platform"];
             /** Screenshot Data Url */
             screenshot_data_url: string;
+            /** Slice Count */
+            slice_count: number;
+            stop_reason: components["schemas"]["CaptureStopReason"];
         };
         /** ExtensionCaptureTaskRead */
         ExtensionCaptureTaskRead: {
+            /** Capture Metadata */
+            capture_metadata: {
+                [key: string]: unknown;
+            };
             /** Error */
             error: string | null;
             /**

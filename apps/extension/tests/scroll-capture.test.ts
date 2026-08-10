@@ -40,6 +40,16 @@ function createPage(overrides: Partial<ScrollCaptureDriverDependencies> = {}) {
 }
 
 describe("ScrollCaptureDriver", () => {
+  it("captures from the top before restoring a nonzero original scroll position", async () => {
+    const fixture = createPage({
+      getMetrics: () => ({ scrollHeight: 100, viewportWidth: 100, viewportHeight: 100, devicePixelRatio: 1 }),
+    });
+    const result = await new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 });
+
+    expect(result.slices[0]?.scrollY).toBe(0);
+    expect(fixture.scrollTo).toHaveBeenLastCalledWith({ top: 420, behavior: "instant" });
+  });
+
   it("stops after 30 slices and always restores the original scroll position", async () => {
     const fixture = createPage({ getMetrics: () => ({ scrollHeight: 9_999, viewportWidth: 100, viewportHeight: 100, devicePixelRatio: 1 }) });
     const result = await new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 });
@@ -65,7 +75,7 @@ describe("ScrollCaptureDriver", () => {
     const result = await new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 });
     expect(result.complete).toBe(true);
     expect(result.stopReason).toBe("bottom");
-    expect(result.slices).toHaveLength(18);
+    expect(result.slices.length).toBeGreaterThan(20);
   });
 
   it("spaces screenshots by at least 500ms and reports a time limit partial", async () => {

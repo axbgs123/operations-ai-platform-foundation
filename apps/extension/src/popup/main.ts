@@ -171,7 +171,11 @@ export function createPopupController(
   };
 
   const render = async (): Promise<void> => {
-    shortcut = await dependencies.getShortcut?.() ?? "";
+    try {
+      shortcut = await dependencies.getShortcut?.() ?? "";
+    } catch {
+      shortcut = "";
+    }
     let binding: ExtensionBinding | null;
     try {
       binding = dependencies.ensureFreshBinding

@@ -34,6 +34,10 @@ def test_extension_capture_task_is_staged_idempotently_and_never_confirmed_by_to
             "page_identifier": "synthetic-detail-1",
             "collected_at": datetime.now(UTC).isoformat(),
             "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+            "capture_mode": "visible",
+            "complete": True,
+            "stop_reason": "visible",
+            "slice_count": 1,
         }
 
         first = client.post(
@@ -83,6 +87,64 @@ def test_extension_capture_task_is_staged_idempotently_and_never_confirmed_by_to
             ).fetchone() is not None
 
 
+def test_extension_capture_contract_accepts_and_persists_bounded_full_page_metadata() -> None:
+    with configured_client() as (client, engine):
+        workspace = client.post("/v1/workspaces", json={"name": "整页合同工作区"}).json()
+        token = _bind(client, workspace["admin_code"])
+        payload = {
+            "platform": "douyin",
+            "page_version": "douyin-creator-v1",
+            "page_identifier": "synthetic-full-page",
+            "collected_at": datetime.now(UTC).isoformat(),
+            "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+            "capture_mode": "full-page",
+            "complete": False,
+            "stop_reason": "slice-limit",
+            "slice_count": 3,
+        }
+        response = client.post(
+            f"/v1/extension/workspaces/{workspace['workspace_id']}/capture-tasks",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "full-page-1"},
+        )
+
+        assert response.status_code == 202, response.text
+        assert response.json()["capture_metadata"] == {
+            "capture_mode": "full-page",
+            "complete": False,
+            "stop_reason": "slice-limit",
+            "slice_count": 3,
+        }
+        with Session(engine) as session:
+            task = session.get(CaptureTask, UUID(response.json()["task_id"]))
+            assert task is not None
+            assert task.capture_metadata == response.json()["capture_metadata"]
+
+
+def test_extension_capture_contract_rejects_inconsistent_or_out_of_bounds_metadata() -> None:
+    with configured_client() as (client, _):
+        workspace = client.post("/v1/workspaces", json={"name": "整页合同校验工作区"}).json()
+        token = _bind(client, workspace["admin_code"])
+        base = {
+            "platform": "douyin",
+            "page_version": "douyin-creator-v1",
+            "page_identifier": "synthetic-invalid-full-page",
+            "collected_at": datetime.now(UTC).isoformat(),
+            "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+        }
+        for index, metadata in enumerate((
+            {"capture_mode": "full-page", "complete": True, "stop_reason": "slice-limit", "slice_count": 3},
+            {"capture_mode": "visible", "complete": False, "stop_reason": "visible", "slice_count": 1},
+            {"capture_mode": "region", "complete": True, "stop_reason": "region", "slice_count": 31},
+        )):
+            response = client.post(
+                f"/v1/extension/workspaces/{workspace['workspace_id']}/capture-tasks",
+                json={**base, **metadata},
+                headers={"Authorization": f"Bearer {token}", "Idempotency-Key": f"invalid-metadata-{index}"},
+            )
+            assert response.status_code == 422
+
+
 def test_extension_capture_task_is_workspace_scoped_and_rejects_invalid_transitions() -> None:
     with configured_client() as (client, _):
         first = client.post("/v1/workspaces", json={"name": "截图工作区A"}).json()
@@ -96,6 +158,10 @@ def test_extension_capture_task_is_workspace_scoped_and_rejects_invalid_transiti
                 "page_identifier": "synthetic-detail-2",
                 "collected_at": datetime.now(UTC).isoformat(),
                 "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+                "capture_mode": "visible",
+                "complete": True,
+                "stop_reason": "visible",
+                "slice_count": 1,
             },
             headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "upload-2"},
         )
@@ -195,6 +261,10 @@ def test_non_mock_capture_freezes_vision_binding_and_discloses_region(
                 "page_identifier": "synthetic-real-binding",
                 "collected_at": datetime.now(UTC).isoformat(),
                 "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+                "capture_mode": "visible",
+                "complete": True,
+                "stop_reason": "visible",
+                "slice_count": 1,
             },
             headers={
                 "Authorization": f"Bearer {token}",
@@ -252,8 +322,12 @@ def test_only_web_editor_or_admin_can_confirm_into_a_formal_snapshot() -> None:
                 "platform": account["platform"],
                 "page_version": "douyin-creator-v1",
                 "page_identifier": "synthetic-review-1",
-                "collected_at": datetime.now(UTC).isoformat(),
-                "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+                    "collected_at": datetime.now(UTC).isoformat(),
+                    "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+                    "capture_mode": "visible",
+                    "complete": True,
+                    "stop_reason": "visible",
+                    "slice_count": 1,
             },
             headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "review-1"},
         )

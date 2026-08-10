@@ -148,6 +148,14 @@ function mountChromeCapture(
       pageSignature: initial.signature,
     });
   };
+  let fullPageEnded = false;
+  let endFullPagePromise: Promise<unknown> | null = null;
+  const endFullPage = (): Promise<unknown> => {
+    if (!captureSessionId || fullPageEnded) return endFullPagePromise ?? Promise.resolve();
+    fullPageEnded = true;
+    endFullPagePromise = chrome.runtime.sendMessage({ type: "END_FULL_PAGE_CAPTURE", captureSessionId });
+    return endFullPagePromise;
+  };
   let overlay: CaptureOverlay;
   overlay = CaptureOverlay.mount({
     document,
@@ -175,7 +183,7 @@ function mountChromeCapture(
       return response.dataUrl;
     },
     mode,
-    fullPageCapture: mode === "full-page" ? async () => {
+    fullPageCapture: mode === "full-page" ? async (signal) => {
       if (!captureSessionId) throw new Error("capture-session-mismatch");
       const driver = createBrowserScrollCaptureDriver({
         context: {
@@ -184,6 +192,7 @@ function mountChromeCapture(
           pageSignature: initial.signature,
         },
         getSignature: () => currentDetection().signature,
+        signal,
         capture: async (slice) => {
           const response = await chrome.runtime.sendMessage({
             type: "CAPTURE_FULL_PAGE_SLICE",
@@ -197,12 +206,28 @@ function mountChromeCapture(
       });
       try {
         const result = await driver.capture({ maxSlices: 30, timeoutMs: 20_000 });
-        const stitched = await stitchSlices(result.slices, {
+        let stitched = await stitchSlices(result.slices, {
           maxPixels: 40_000_000,
           maxEdge: 32_000,
           maxBytes: 10 * 1024 * 1024,
         });
-        if (!stitched.dataUrl) throw new Error("capture-failed");
+        // If the complete set exceeds a stitch bound, retain only a bounded
+        // prefix that can actually be shown to the user as a partial preview.
+        for (let length = result.slices.length - 1; !stitched.dataUrl && length > 0; length -= 1) {
+          stitched = await stitchSlices(result.slices.slice(0, length), {
+            maxPixels: 40_000_000,
+            maxEdge: 32_000,
+            maxBytes: 10 * 1024 * 1024,
+          });
+        }
+        if (!stitched.dataUrl) {
+          return {
+            dataUrl: null,
+            complete: false,
+            stopReason: result.partialReason ?? result.stopReason ?? stitched.partialReason ?? "empty",
+            sliceCount: result.slices.length,
+          };
+        }
         return {
           dataUrl: stitched.dataUrl,
           width: stitched.width,
@@ -212,9 +237,12 @@ function mountChromeCapture(
           sliceCount: result.slices.length,
         };
       } finally {
-        await chrome.runtime.sendMessage({ type: "END_FULL_PAGE_CAPTURE", captureSessionId });
+        await endFullPage();
       }
     } : undefined,
+    onCancelFullPage: () => {
+      void endFullPage();
+    },
     upload: (dataUrl, idempotencyKey) =>
       uploadPreview({
         controller: finalPreviewController(dataUrl),

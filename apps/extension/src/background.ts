@@ -20,6 +20,7 @@ type PageStatus = CaptureContext & {
 export interface CaptureCoordinator {
   startCapture(mode: CaptureMode, tab: SupportedTab): Promise<void>;
   cancel(reason: string): Promise<void>;
+  finishCapture?(tabId: number, captureSessionId: string): void;
 }
 
 type CaptureCoordinatorDependencies = {
@@ -91,6 +92,11 @@ export function createCaptureCoordinator(dependencies: CaptureCoordinatorDepende
         fullPageSessions.delete(tabId);
         await dependencies.endFullPageCapture?.(tabId, captureSessionId);
       }));
+    },
+    finishCapture(tabId, captureSessionId) {
+      if (fullPageSessions.get(tabId) === captureSessionId) {
+        fullPageSessions.delete(tabId);
+      }
     },
   };
 }
@@ -231,6 +237,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       const armed = armedFullPageTabs.get(tab.id!);
       if (!armed || armed.captureSessionId !== message.captureSessionId) return { ok: false, error: "capture-session-mismatch" };
       armedFullPageTabs.delete(tab.id!);
+      dependencies.captureCoordinator?.finishCapture?.(tab.id!, message.captureSessionId);
       return { ok: true };
     }
 

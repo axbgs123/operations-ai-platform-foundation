@@ -79,6 +79,9 @@ class CaptureTask(UUIDPrimaryKeyMixin, Base):
     metric_labels: Mapped[dict[str, str]] = mapped_column(
         JSON, default_factory=dict
     )
+    capture_metadata: Mapped[dict[str, object]] = mapped_column(
+        JSON, default_factory=dict
+    )
     error_code: Mapped[str | None] = mapped_column(String(120), default=None)
     confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
     confirmed_by: Mapped[UUID | None] = mapped_column(

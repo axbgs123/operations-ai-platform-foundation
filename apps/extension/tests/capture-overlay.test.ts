@@ -194,6 +194,43 @@ describe("user-selected safe capture overlay", () => {
     expect(upload).toHaveBeenCalledOnce();
   });
 
+  it("aborts an in-progress full-page driver when the overlay is cancelled", async () => {
+    const fullPageCapture = vi.fn((signal: AbortSignal) => new Promise<never>((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new Error("capture-cancelled")));
+    }));
+    const { flow } = fixture({ mode: "full-page", fullPageCapture });
+    const pending = flow.startAutomaticCapture();
+    await vi.waitFor(() => expect(fullPageCapture).toHaveBeenCalledOnce());
+
+    flow.cancel();
+
+    expect((fullPageCapture.mock.calls[0] as [AbortSignal])[0].aborted).toBe(true);
+    await expect(pending).rejects.toThrow("capture-cancelled");
+  });
+
+  it.each([
+    ["slice-limit", 3],
+    ["empty", 0],
+  ])("shows the full-page stop reason and recovery actions when no preview can be stitched: %s", async (stopReason, sliceCount) => {
+    const { flow, upload } = fixture({
+      mode: "full-page",
+      fullPageCapture: vi.fn().mockResolvedValue({
+        dataUrl: null,
+        complete: false,
+        stopReason,
+        sliceCount,
+      }),
+    });
+
+    await flow.startAutomaticCapture();
+
+    expect(flow.state).toBe("failed");
+    expect(flow.element.textContent).toContain(stopReason);
+    expect(flow.element.textContent).toContain("重试");
+    expect(flow.element.textContent).toContain("关闭");
+    expect(upload).not.toHaveBeenCalled();
+  });
+
   it("lets the user drag an exact redaction on the preview after choosing 添加遮挡", async () => {
     const { flow, dom } = fixture();
     await flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });

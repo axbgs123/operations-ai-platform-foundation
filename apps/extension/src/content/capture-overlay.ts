@@ -23,6 +23,12 @@ export type FullPagePreview = {
   stopReason: string;
   sliceCount: number;
 };
+export type FullPagePreviewFailure = {
+  dataUrl: null;
+  complete: false;
+  stopReason: string;
+  sliceCount: number;
+};
 export type CaptureBinding = Pick<
   ExtensionBinding,
   "serverOrigin" | "webOrigin" | "workspaceId" | "accessToken" | "expiresAt" | "providerMode"
@@ -45,7 +51,8 @@ export type CaptureOverlayOptions = {
   onDestroy?: (overlay: CaptureOverlay) => void;
   confirm?(message: string): boolean;
   mode?: CaptureMode;
-  fullPageCapture?(): Promise<FullPagePreview>;
+  fullPageCapture?(signal: AbortSignal): Promise<FullPagePreview | FullPagePreviewFailure>;
+  onCancelFullPage?(): void;
 };
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -109,6 +116,8 @@ export class CaptureOverlay {
   private redactionSequence = 0;
   private destroyed = false;
   private fullPagePreview: FullPagePreview | null = null;
+  private fullPageFailure: FullPagePreviewFailure | null = null;
+  private fullPageAbort: AbortController | null = null;
 
   private constructor(private readonly options: CaptureOverlayOptions) {
     this.initialDetection = options.detect();
@@ -192,10 +201,14 @@ export class CaptureOverlay {
       await this.nextFrame();
       this.throwIfCancelled();
       if (!this.pageStillMatches()) throw new Error("page-changed");
-      const preview = await this.options.fullPageCapture();
+      const controller = new AbortController();
+      this.fullPageAbort = controller;
+      const preview = await this.options.fullPageCapture(controller.signal);
       this.throwIfCancelled();
-      if (!preview.dataUrl || preview.width <= 0 || preview.height <= 0 || preview.sliceCount <= 0) {
-        throw new Error("capture-failed");
+      if (preview.dataUrl === null) {
+        this.fullPageFailure = preview;
+        this.state = "failed";
+        return;
       }
       this.fullPagePreview = preview;
       this.previewDataUrl = preview.dataUrl;
@@ -210,6 +223,7 @@ export class CaptureOverlay {
       this.state = "failed";
       throw error;
     } finally {
+      this.fullPageAbort = null;
       if (!this.destroyed) {
         this.element.hidden = false;
         this.render();
@@ -307,6 +321,7 @@ export class CaptureOverlay {
     this.selection = null;
     this.previewDataUrl = null;
     this.fullPagePreview = null;
+    this.fullPageFailure = null;
     this.captureId = null;
     this.uploadPromise = null;
     this.reviewUrl = null;
@@ -335,6 +350,9 @@ export class CaptureOverlay {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.fullPageAbort?.abort();
+    this.fullPageAbort = null;
+    this.options.onCancelFullPage?.();
     this.element.removeEventListener("pointerdown", this.onPointerDown);
     this.element.removeEventListener("pointerup", this.onPointerUp);
     this.options.document.removeEventListener("keydown", this.onKeyDown);
@@ -344,6 +362,7 @@ export class CaptureOverlay {
     this.element.remove();
     this.previewDataUrl = null;
     this.fullPagePreview = null;
+    this.fullPageFailure = null;
     this.selection = null;
     this.redactions.splice(0);
     this.options.onDestroy?.(this);
@@ -543,6 +562,17 @@ export class CaptureOverlay {
       link.rel = "noopener noreferrer";
       link.textContent = "到运营工具确认";
       panel.append(link, this.button("关闭", () => this.cancel()));
+    } else if (this.state === "failed" && this.fullPageFailure) {
+      const failure = this.options.document.createElement("p");
+      failure.textContent = `整页采集未能生成可预览图片：${this.fullPageFailure.stopReason}（${this.fullPageFailure.sliceCount} 张）。`;
+      panel.append(
+        failure,
+        this.button("重试", () => {
+          this.reselect();
+          void this.startAutomaticCapture();
+        }),
+        this.button("关闭", () => this.cancel()),
+      );
     }
     this.element.append(panel);
   }

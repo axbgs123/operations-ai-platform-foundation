@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createBackgroundMessageHandler, createCommandListener } from "../src/background";
+import { createBackgroundMessageHandler, createCaptureCoordinator, createCommandListener } from "../src/background";
 import { createContentMessageHandler } from "../src/content";
 import { armAndStartSafeCapture } from "../src/popup/main";
 import { parseRuntimeMessage } from "../src/runtime/messages";
@@ -43,6 +43,52 @@ describe("extension runtime message boundary", () => {
     await commandListener("capture-full-page", supportedTab);
 
     expect(startCapture).toHaveBeenCalledWith("full-page", supportedTab);
+  });
+  it("clears an armed full-page coordinator session on cancellation", async () => {
+    const endFullPageCapture = vi.fn().mockResolvedValue({ ok: true });
+    const coordinator = createCaptureCoordinator({
+      getPageStatus: vi.fn().mockResolvedValue({
+        supported: true,
+        ...captureContext,
+        url: supportedTab.url,
+        viewport: { width: 100, height: 100, devicePixelRatio: 1 },
+        scrollY: 0,
+      }),
+      arm: vi.fn().mockResolvedValue({ ok: true }),
+      startContent: vi.fn().mockResolvedValue({ ok: true }),
+      endFullPageCapture,
+      uuid: () => "full-page-session",
+    });
+
+    await coordinator.startCapture("full-page", supportedTab);
+    await coordinator.cancel("overlay-cancelled");
+    await coordinator.cancel("again");
+
+    expect(endFullPageCapture).toHaveBeenCalledOnce();
+    expect(endFullPageCapture).toHaveBeenCalledWith(7, "full-page-session");
+  });
+  it("notifies the coordinator when an exact full-page END clears the armed session", async () => {
+    const finishCapture = vi.fn();
+    const handler = createBackgroundMessageHandler({
+      queryActiveTab: vi.fn().mockResolvedValue(supportedTab),
+      captureVisibleTab: vi.fn(),
+      captureCoordinator: { startCapture: vi.fn(), cancel: vi.fn(), finishCapture },
+    });
+    const arm = {
+      type: "ARM_FULL_PAGE_CAPTURE" as const,
+      tabId: 7,
+      captureSessionId: "ending-session",
+      ...captureContext,
+      url: supportedTab.url,
+      viewport: { width: 100, height: 100, devicePixelRatio: 1 },
+      scrollY: 0,
+    };
+    await handler(arm, {});
+    await expect(handler(
+      { type: "END_FULL_PAGE_CAPTURE", captureSessionId: "ending-session" },
+      { tab: supportedTab },
+    )).resolves.toEqual({ ok: true });
+    expect(finishCapture).toHaveBeenCalledWith(7, "ending-session");
   });
   it("accepts only exact, typed capture messages", () => {
     expect(parseRuntimeMessage({ type: "GET_PAGE_STATUS" })).toEqual({ type: "GET_PAGE_STATUS" });

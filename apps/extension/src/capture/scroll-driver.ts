@@ -87,6 +87,9 @@ export class ScrollCaptureDriver {
     };
 
     try {
+      // A full-page capture always begins at the document top. The original
+      // position is retained exclusively for the finally restoration below.
+      dependencies.scrollTo({ top: 0, behavior: "instant" });
       while (true) {
         const earlyStop = interrupted();
         if (earlyStop) return partial(earlyStop);
@@ -179,6 +182,7 @@ export function createBrowserScrollCaptureDriver(options: {
   context: { platform: CapturePlatform; pageVersion: string; pageSignature: string };
   capture(slice: Omit<CaptureSlice, "dataUrl">, options?: { deadlineAt: number; signal: AbortSignal }): Promise<string>;
   getSignature?: () => string;
+  signal?: AbortSignal;
   window?: Window;
   document?: Document;
 }): ScrollCaptureDriver {
@@ -205,6 +209,7 @@ export function createBrowserScrollCaptureDriver(options: {
     getContext: () => options.context,
     scrollTo: ({ top }) => pageWindow.scrollTo({ top, behavior: "instant" as ScrollBehavior }),
     capture: options.capture,
+    signal: options.signal,
     getInterruptionReason: () => interruption,
     cleanup: () => {
       pageDocument.removeEventListener("visibilitychange", onVisibility);

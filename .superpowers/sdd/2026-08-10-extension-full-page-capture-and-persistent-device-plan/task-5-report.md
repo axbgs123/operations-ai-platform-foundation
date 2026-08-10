@@ -51,4 +51,26 @@ The brief named `scripts/scan-secrets.sh`; that file does not exist in this chec
 
 ## Concerns
 
-- The extension request now sends the required capture metadata. Persisting or displaying those fields server-side is outside this extension-only task and depends on the API schema accepting the additive fields.
+- The new capture metadata column requires deployment migration `20260810_0037` before an upgraded API handles extension uploads.
+
+## Fix round 1
+
+- Added the strict API capture contract and task persistence for `capture_mode`, `complete`, `stop_reason`, and `slice_count`, including a forward-only `20260810_0037` migration. Full-page metadata accepts zero through 30 slices; complete captures require `bottom` and at least one slice, and visible/region captures require exactly one complete matching slice.
+- Full-page scrolling now moves to document top before its first slice and still restores the original scroll position in `finally`.
+- Full-page overlays create an `AbortController`; cancellation aborts the driver and sends one exact `END_FULL_PAGE_CAPTURE`. The background clears its armed state and its coordinator session map on that end message.
+- An un-stitchable capture now attempts bounded prefixes. If no image can be made, the overlay keeps the safe stop reason/slice count and renders `重试` and `关闭` instead of throwing a generic failure.
+- Shortcut lookup failures are isolated from Popup rendering and show the unassigned/conflict warning.
+
+Fix-round RED/GREEN:
+
+```text
+RED: FastAPI route rejected the four fields with extra_forbidden (422);
+     nonzero-scroll capture started at 420; cancelled overlay had no AbortSignal;
+     null stitch threw capture-failed; shortcut lookup rejection escaped render.
+GREEN: pnpm --filter extension test                 # 14 files, 169 tests passed
+       pnpm --filter extension lint && pnpm --filter extension typecheck
+       apps/api: uv run pytest tests/imports/test_extension_capture.py -q  # 7 passed
+       apps/api: ruff + mypy                         # passed
+       pnpm schemas:generate                         # regenerated OpenAPI/shared TS
+       extension Chrome/Edge builds and secret scan   # passed
+```

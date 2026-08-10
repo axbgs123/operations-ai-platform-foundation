@@ -128,6 +128,21 @@ describe("capture extension pairing popup", () => {
     expect(dom.window.document.querySelector("#more-capture-methods")?.textContent).toContain("手动选区");
   });
 
+  it("continues rendering a paired supported page when shortcut lookup rejects", async () => {
+    const dom = popup();
+    const controller = createPopupController(dom.window.document, {
+      store: { load: async () => binding, save: async () => undefined, clear: async () => undefined },
+      pair: vi.fn(), revoke: vi.fn(), getPageStatus: vi.fn().mockResolvedValue(supported), startSafeCapture: vi.fn(),
+      getShortcut: vi.fn().mockRejectedValue(new Error("commands unavailable")),
+    });
+
+    await controller.render();
+
+    expect(dom.window.document.querySelector("#start-safe-capture")?.hasAttribute("hidden")).toBe(false);
+    expect(dom.window.document.querySelector("#page-status")?.textContent).toContain("当前页面已就绪");
+    expect(dom.window.document.querySelector("#shortcut-status")?.textContent).toContain("未分配或存在冲突");
+  });
+
   it.each([
     ["fetch rejection", async () => { throw new Error("offline"); }],
     ["non-2xx response", async () => { throw new Error("503"); }],

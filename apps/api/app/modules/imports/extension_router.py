@@ -1,5 +1,6 @@
 from collections import defaultdict, deque
 from datetime import UTC, datetime
+from enum import StrEnum
 import logging
 import time
 import base64
@@ -19,7 +20,7 @@ from fastapi import (
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from redis import Redis
 from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
@@ -813,6 +814,33 @@ def revoke_extension_device(
         raise HTTPException(status_code=404, detail="extension device not found") from error
 
 
+class CaptureMode(StrEnum):
+    FULL_PAGE = "full-page"
+    VISIBLE = "visible"
+    REGION = "region"
+
+
+class CaptureStopReason(StrEnum):
+    BOTTOM = "bottom"
+    SLICE_LIMIT = "slice-limit"
+    TIME_LIMIT = "time-limit"
+    CANCELLED = "cancelled"
+    PAGE_HIDDEN = "page-hidden"
+    PAGEHIDE = "pagehide"
+    WINDOW_BLUR = "window-blur"
+    PAGE_DRIFT = "page-drift"
+    CAPTURE_FAILED = "capture-failed"
+    EMPTY = "empty"
+    INVALID_SLICE_ORDER = "invalid-slice-order"
+    PIXEL_LIMIT = "pixel-limit"
+    EDGE_LIMIT = "edge-limit"
+    ENCODED_SIZE = "encoded-size"
+    CANVAS_FAILED = "canvas-failed"
+    DIMENSION_MISMATCH = "dimension-mismatch"
+    VISIBLE = "visible"
+    REGION = "region"
+
+
 class ExtensionCaptureRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -821,6 +849,25 @@ class ExtensionCaptureRequest(BaseModel):
     page_identifier: str = Field(min_length=1, max_length=160)
     collected_at: datetime
     screenshot_data_url: str = Field(min_length=20, max_length=14_000_000)
+    capture_mode: CaptureMode
+    complete: bool
+    stop_reason: CaptureStopReason
+    slice_count: int = Field(ge=0, le=30)
+
+    @model_validator(mode="after")
+    def validate_capture_metadata(self) -> "ExtensionCaptureRequest":
+        if self.capture_mode == CaptureMode.FULL_PAGE:
+            if self.complete and (
+                self.stop_reason != CaptureStopReason.BOTTOM or self.slice_count == 0
+            ):
+                raise ValueError("complete full-page captures require bottom and at least one slice")
+            if not self.complete and self.stop_reason == CaptureStopReason.BOTTOM:
+                raise ValueError("partial full-page captures cannot use bottom")
+            return self
+        expected_reason = CaptureStopReason(self.capture_mode.value)
+        if not self.complete or self.stop_reason != expected_reason or self.slice_count != 1:
+            raise ValueError("visible and region capture metadata must describe one complete slice")
+        return self
 
 
 class ExtensionCaptureTaskRead(BaseModel):
@@ -837,6 +884,7 @@ class ExtensionCaptureTaskRead(BaseModel):
     formal_snapshot_ids: list[str]
     provider_mode: str
     region: str | None
+    capture_metadata: dict[str, object]
 
 
 @router.post(
@@ -910,6 +958,12 @@ def create_extension_capture_task(
             collected_at=data.collected_at,
             idempotency_key=idempotency_key,
             screenshot_data_url=data.screenshot_data_url,
+            capture_metadata={
+                "capture_mode": data.capture_mode.value,
+                "complete": data.complete,
+                "stop_reason": data.stop_reason.value,
+                "slice_count": data.slice_count,
+            },
             binding=binding,
             storage=storage if binding.provider != "mock" else None,
         )

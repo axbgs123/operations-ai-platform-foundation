@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import json
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
@@ -90,6 +91,7 @@ def create_task(
     collected_at: datetime,
     idempotency_key: str,
     screenshot_data_url: str,
+    capture_metadata: dict[str, object],
     binding: VisionBinding,
     storage: Storage | None = None,
 ) -> CaptureTask:
@@ -101,6 +103,7 @@ def create_task(
                 page_version.encode(),
                 page_identifier.encode(),
                 collected_at.isoformat().encode(),
+                json.dumps(capture_metadata, sort_keys=True, separators=(",", ":")).encode(),
                 hashlib.sha256(image).hexdigest().encode(),
             ]
         )
@@ -145,6 +148,7 @@ def create_task(
         config_version=binding.config_version,
         region=binding.region,
         metric_labels=binding.metric_labels,
+        capture_metadata=capture_metadata,
     )
     session.add(task)
     session.flush()
@@ -281,6 +285,7 @@ def task_payload(task: CaptureTask, request_id: str) -> dict[str, object]:
         "formal_snapshot_ids": task.formal_snapshot_ids,
         "provider_mode": "mock" if task.provider == "mock" else "qianwen",
         "region": task.region,
+        "capture_metadata": task.capture_metadata,
     }
 
 
