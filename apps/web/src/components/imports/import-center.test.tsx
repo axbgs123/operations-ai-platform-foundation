@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 
 import { WorkspaceShell } from "@/components/workbench/workspace-shell";
 import type { ImportHistoryData } from "@/lib/import-api";
@@ -220,6 +221,32 @@ test("shows the shared extension connection entry in the extension import method
   expect(extensionSection).not.toBeNull();
   expect(within(extensionSection!).getByRole("button", { name: "连接扩展" })).toBeVisible();
   expect(screen.queryByText("请在扩展弹窗查看当前短期绑定")).toBeNull();
+});
+
+test("opens the shared pairing dialog from the extension import entry", async () => {
+  const user = userEvent.setup();
+  renderInWorkspace(
+    <ImportCenter
+      accountId="dy-1"
+      accounts={[...accounts]}
+      history={history}
+      method="extension"
+      onMethodChange={vi.fn()}
+      onScopeChange={vi.fn()}
+      platform="douyin"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  const extensionSection = screen.getByRole("heading", {
+    name: "连接 Capture Extension",
+  }).closest("section");
+  expect(extensionSection).not.toBeNull();
+  await user.click(within(extensionSection!).getByRole("button", { name: "连接扩展" }));
+
+  expect(screen.getByRole("dialog", { name: "连接浏览器扩展" })).toBeVisible();
 });
 
 test("keeps extension connection guidance read-only for a viewer", () => {

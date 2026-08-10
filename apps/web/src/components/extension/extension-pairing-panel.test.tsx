@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -66,6 +66,28 @@ test("generates a server-expiring pairing code only for an editor", async () => 
   );
 });
 
+test("updates and expires its countdown from the server expiry timestamp", async () => {
+  createExtensionPairingCode.mockResolvedValue(firstPairing);
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, writeToClipboard: false });
+  render(
+    <ExtensionPairingPanel
+      role="editor"
+      triggerLabel="连接扩展"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "连接扩展" }));
+  await user.click(screen.getByRole("button", { name: "生成连接码" }));
+  await screen.findByText("ABCD2345");
+  expect(screen.getByText("5 分钟内有效")).toBeVisible();
+
+  act(() => vi.advanceTimersByTime(61_000));
+  expect(screen.getByText("4 分钟内有效")).toBeVisible();
+  act(() => vi.advanceTimersByTime(239_000));
+  expect(screen.getByText("连接码已过期")).toBeVisible();
+});
+
 test("replaces a shown pairing code when regenerated", async () => {
   createExtensionPairingCode
     .mockResolvedValueOnce(firstPairing)
@@ -121,6 +143,115 @@ test("copies the displayed code and clears it when closed with focus returned", 
 
   await user.click(trigger);
   expect(screen.queryByText("ABCD2345")).not.toBeInTheDocument();
+});
+
+test("shows a safe message when copying the pairing code fails", async () => {
+  createExtensionPairingCode.mockResolvedValue(firstPairing);
+  writeText.mockRejectedValueOnce(new Error("PRIVATE_CLIPBOARD_FAILURE"));
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, writeToClipboard: false });
+  Object.defineProperty(window.navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  render(
+    <ExtensionPairingPanel
+      role="admin"
+      triggerLabel="连接扩展"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "连接扩展" }));
+  await user.click(screen.getByRole("button", { name: "生成连接码" }));
+  await screen.findByText("ABCD2345");
+  await user.click(screen.getByRole("button", { name: "复制连接码" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("无法复制连接码，请手动复制后重试。");
+  expect(document.body).not.toHaveTextContent("PRIVATE_CLIPBOARD_FAILURE");
+});
+
+test("starts only one request for rapid repeated generation clicks", async () => {
+  createExtensionPairingCode.mockImplementation(() => new Promise(() => undefined));
+  render(
+    <ExtensionPairingPanel
+      role="admin"
+      triggerLabel="连接扩展"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "连接扩展" }));
+  const generate = screen.getByRole("button", { name: "生成连接码" });
+  fireEvent.click(generate);
+  fireEvent.click(generate);
+
+  expect(createExtensionPairingCode).toHaveBeenCalledTimes(1);
+});
+
+test("does not update after a pending generation resolves or rejects following unmount", async () => {
+  let resolveRequest: (value: typeof firstPairing) => void;
+  let rejectRequest: (reason: Error) => void;
+  createExtensionPairingCode
+    .mockImplementationOnce(() => new Promise<typeof firstPairing>((resolve) => {
+      resolveRequest = resolve;
+    }))
+    .mockImplementationOnce(() => new Promise<typeof firstPairing>((_, reject) => {
+      rejectRequest = reject;
+    }));
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, writeToClipboard: false });
+  const first = render(
+    <ExtensionPairingPanel
+      role="admin"
+      triggerLabel="连接扩展"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  await user.click(screen.getByRole("button", { name: "连接扩展" }));
+  await user.click(screen.getByRole("button", { name: "生成连接码" }));
+  first.unmount();
+  await act(async () => resolveRequest!(firstPairing));
+
+  const second = render(
+    <ExtensionPairingPanel
+      role="admin"
+      triggerLabel="连接扩展"
+      workspaceId="workspace-1"
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "连接扩展" }));
+  await user.click(screen.getByRole("button", { name: "生成连接码" }));
+  second.unmount();
+  await act(async () => rejectRequest!(new Error("PRIVATE_LATE_FAILURE")));
+
+  expect(document.body).not.toHaveTextContent("ABCD2345");
+  expect(document.body).not.toHaveTextContent("PRIVATE_LATE_FAILURE");
+});
+
+test("focuses the dialog and cycles Tab in both directions before Escape returns focus", async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime, writeToClipboard: false });
+  render(
+    <ExtensionPairingPanel
+      role="admin"
+      triggerLabel="连接扩展"
+      workspaceId="workspace-1"
+    />,
+  );
+
+  const trigger = screen.getByRole("button", { name: "连接扩展" });
+  await user.click(trigger);
+  const [dismiss, close] = screen.getAllByRole("button", { name: "关闭" });
+  const generate = screen.getByRole("button", { name: "生成连接码" });
+  expect(dismiss).toHaveFocus();
+
+  await user.keyboard("{Shift>}{Tab}{/Shift}");
+  expect(close).toHaveFocus();
+  await user.tab();
+  expect(dismiss).toHaveFocus();
+  await user.tab();
+  expect(generate).toHaveFocus();
+  await user.keyboard("{Escape}");
+  expect(trigger).toHaveFocus();
 });
 
 test("does not restore a pairing code after closing while generation is pending", async () => {

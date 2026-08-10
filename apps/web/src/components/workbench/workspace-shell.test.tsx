@@ -577,6 +577,19 @@ describe("workspace shell behavior", () => {
     expect(screen.queryByRole("button", { name: "连接扩展" })).toBeNull();
   });
 
+  test("opens the shared extension pairing dialog from the topbar entry", async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceShell context={context}>
+        <p>页面业务内容</p>
+      </WorkspaceShell>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "连接扩展" }));
+
+    expect(screen.getByRole("dialog", { name: "连接浏览器扩展" })).toBeVisible();
+  });
+
   test("scopes the shared light form-control baseline to the private workbench", () => {
     render(
       <WorkspaceShell context={context}>
