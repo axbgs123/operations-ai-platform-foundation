@@ -136,6 +136,8 @@ def test_extension_capture_contract_rejects_inconsistent_or_out_of_bounds_metada
             {"capture_mode": "full-page", "complete": True, "stop_reason": "slice-limit", "slice_count": 3},
             {"capture_mode": "visible", "complete": False, "stop_reason": "visible", "slice_count": 1},
             {"capture_mode": "region", "complete": True, "stop_reason": "region", "slice_count": 31},
+            {"capture_mode": "full-page", "complete": False, "stop_reason": "visible", "slice_count": 3},
+            {"capture_mode": "full-page", "complete": False, "stop_reason": "region", "slice_count": 3},
         )):
             response = client.post(
                 f"/v1/extension/workspaces/{workspace['workspace_id']}/capture-tasks",

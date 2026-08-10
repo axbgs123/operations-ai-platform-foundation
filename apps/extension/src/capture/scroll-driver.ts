@@ -130,6 +130,9 @@ export class ScrollCaptureDriver {
         }
         const captureAbort = new AbortController();
         const late = Symbol("deadline");
+        const cancelled = Symbol("cancelled");
+        const onParentAbort = () => captureAbort.abort();
+        dependencies.signal?.addEventListener("abort", onParentAbort, { once: true });
         const captureResult = dependencies.capture(sliceWithoutData, { deadlineAt, signal: captureAbort.signal })
           .then((dataUrl) => dataUrl, () => null);
         let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -137,8 +140,14 @@ export class ScrollCaptureDriver {
           captureAbort.abort();
           resolve(late);
         }, remainingCaptureMs); });
-        const dataUrl = await Promise.race([captureResult, timeout]);
+        const parentAbort = new Promise<typeof cancelled>((resolve) => {
+          if (dependencies.signal?.aborted) resolve(cancelled);
+          else dependencies.signal?.addEventListener("abort", () => resolve(cancelled), { once: true });
+        });
+        const dataUrl = await Promise.race([captureResult, timeout, parentAbort]);
         if (deadlineTimer !== undefined) clearTimeout(deadlineTimer);
+        dependencies.signal?.removeEventListener("abort", onParentAbort);
+        if (dataUrl === cancelled) return partial("cancelled");
         if (dataUrl === late || now() >= deadlineAt) {
           return { slices, complete: false, stopReason: "time-limit", originalScrollY };
         }

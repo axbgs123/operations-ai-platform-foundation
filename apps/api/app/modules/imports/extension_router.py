@@ -863,6 +863,24 @@ class ExtensionCaptureRequest(BaseModel):
                 raise ValueError("complete full-page captures require bottom and at least one slice")
             if not self.complete and self.stop_reason == CaptureStopReason.BOTTOM:
                 raise ValueError("partial full-page captures cannot use bottom")
+            if not self.complete and self.stop_reason not in {
+                CaptureStopReason.SLICE_LIMIT,
+                CaptureStopReason.TIME_LIMIT,
+                CaptureStopReason.CANCELLED,
+                CaptureStopReason.PAGE_HIDDEN,
+                CaptureStopReason.PAGEHIDE,
+                CaptureStopReason.WINDOW_BLUR,
+                CaptureStopReason.PAGE_DRIFT,
+                CaptureStopReason.CAPTURE_FAILED,
+                CaptureStopReason.EMPTY,
+                CaptureStopReason.INVALID_SLICE_ORDER,
+                CaptureStopReason.PIXEL_LIMIT,
+                CaptureStopReason.EDGE_LIMIT,
+                CaptureStopReason.ENCODED_SIZE,
+                CaptureStopReason.CANVAS_FAILED,
+                CaptureStopReason.DIMENSION_MISMATCH,
+            }:
+                raise ValueError("partial full-page captures require a full-page stop reason")
             return self
         expected_reason = CaptureStopReason(self.capture_mode.value)
         if not self.complete or self.stop_reason != expected_reason or self.slice_count != 1:

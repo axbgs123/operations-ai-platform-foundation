@@ -211,6 +211,8 @@ function mountChromeCapture(
           maxEdge: 32_000,
           maxBytes: 10 * 1024 * 1024,
         });
+        const originalStitchReason = stitched.partialReason;
+        let stitchedSliceCount = result.slices.length;
         // If the complete set exceeds a stitch bound, retain only a bounded
         // prefix that can actually be shown to the user as a partial preview.
         for (let length = result.slices.length - 1; !stitched.dataUrl && length > 0; length -= 1) {
@@ -219,6 +221,7 @@ function mountChromeCapture(
             maxEdge: 32_000,
             maxBytes: 10 * 1024 * 1024,
           });
+          if (stitched.dataUrl) stitchedSliceCount = length;
         }
         if (!stitched.dataUrl) {
           return {
@@ -232,9 +235,9 @@ function mountChromeCapture(
           dataUrl: stitched.dataUrl,
           width: stitched.width,
           height: stitched.height,
-          complete: result.complete && stitched.complete,
-          stopReason: result.partialReason ?? result.stopReason ?? stitched.partialReason ?? "bottom",
-          sliceCount: result.slices.length,
+          complete: originalStitchReason ? false : result.complete && stitched.complete,
+          stopReason: originalStitchReason ?? result.partialReason ?? result.stopReason ?? "bottom",
+          sliceCount: stitchedSliceCount,
         };
       } finally {
         await endFullPage();
