@@ -557,12 +557,24 @@ describe("workspace shell behavior", () => {
     expect(screen.getByText("运营管理员")).toBeVisible();
     expect(screen.getByText("管理员")).toBeVisible();
     expect(screen.getByRole("link", { name: "帮助" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "连接扩展" })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("2 个失败任务");
     expect(screen.getByRole("link", { name: "跳转到主内容" })).toHaveAttribute(
       "href",
       "#main-content",
     );
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  });
+
+  test("keeps the topbar extension entry read-only for a viewer", () => {
+    render(
+      <WorkspaceShell context={{ ...context, role: "viewer" }}>
+        <p>查看者页面</p>
+      </WorkspaceShell>,
+    );
+
+    expect(screen.getByText("查看者只能查看扩展连接说明。请联系管理员或编辑者生成连接码。")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "连接扩展" })).toBeNull();
   });
 
   test("scopes the shared light form-control baseline to the private workbench", () => {

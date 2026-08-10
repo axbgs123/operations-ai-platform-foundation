@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactElement } from "react";
 import { loadAgentConfirmations } from "@/lib/agent-api";
 import type { WorkbenchContext } from "@/lib/workbench-api";
 
+import { ExtensionPairingPanel } from "@/components/extension/extension-pairing-panel";
 import { Breadcrumbs } from "./breadcrumbs";
 import { ExperienceControls } from "./experience-controls";
 import { ScopeFilters } from "./scope-filters";
@@ -102,6 +103,11 @@ export function WorkspaceTopbar({
         </span>
       ) : null}
       <ExperienceControls compact={isMobile} />
+      <ExtensionPairingPanel
+        role={context.role}
+        triggerLabel="连接扩展"
+        workspaceId={context.workspace_id}
+      />
       <Link
         className="rounded-lg px-2 py-2 text-sm text-[var(--text-secondary)] hover:bg-slate-100"
         href="/#help"

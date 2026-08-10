@@ -33,6 +33,7 @@ import {
 } from "@/lib/import-api";
 
 import { ExtensionCaptureReview } from "./extension-capture-review";
+import { ExtensionPairingPanel } from "@/components/extension/extension-pairing-panel";
 import { ImportReview } from "./import-review";
 import { ScreenshotReview } from "./screenshot-review";
 
@@ -443,8 +444,8 @@ export function ImportCenter({
           workspaceId={workspaceId}
         />
       ) : null}
-      {writable && hasScope && method === "extension" ? (
-        captureTaskId ? (
+      {hasScope && method === "extension" ? (
+        writable && captureTaskId ? (
           <ExtensionCaptureReview
             accountId={accountId!}
             expectedPlatform={platform!}
@@ -452,15 +453,19 @@ export function ImportCenter({
           />
         ) : (
           <section className="rounded-xl border bg-white p-5">
-            <h2 className="font-semibold">扩展暂存任务</h2>
-            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
-              <div><dt>绑定状态</dt><dd>请在扩展弹窗查看当前短期绑定</dd></div>
-              <div><dt>目标服务器</dt><dd>由扩展弹窗在上传前明确显示</dd></div>
-              <div><dt>平台</dt><dd>{platformLabel[platform!]}</dd></div>
-            </dl>
-            <p className="mt-4 text-sm text-[var(--text-secondary)]">
-              页面版本、签名或敏感区域变化时扩展会安全停止。扩展令牌不能确认正式导入；成功识别后请通过任务链接回到 Web 人工确认。
-            </p>
+            <h2 className="font-semibold">连接 Capture Extension</h2>
+            <div className="mt-3">
+              <ExtensionPairingPanel
+                role={role}
+                triggerLabel="连接扩展"
+                workspaceId={workspaceId}
+              />
+            </div>
+            {writable ? (
+              <p className="mt-4 text-sm text-[var(--text-secondary)]">
+                页面版本、签名或敏感区域变化时扩展会安全停止。扩展令牌不能确认正式导入；成功识别后请通过任务链接回到 Web 人工确认。
+              </p>
+            ) : null}
           </section>
         )
       ) : null}

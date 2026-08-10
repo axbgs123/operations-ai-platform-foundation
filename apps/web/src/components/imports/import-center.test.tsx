@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -196,6 +196,56 @@ test("viewer sees history but no upload, edit, or confirmation controls", () => 
   expect(screen.getAllByText(
     "查看等待确认的导入记录；需要确认时请联系管理员或编辑者。",
   ).length).toBeGreaterThan(0);
+});
+
+test("shows the shared extension connection entry in the extension import method", () => {
+  renderInWorkspace(
+    <ImportCenter
+      accountId="dy-1"
+      accounts={[...accounts]}
+      history={history}
+      method="extension"
+      onMethodChange={vi.fn()}
+      onScopeChange={vi.fn()}
+      platform="douyin"
+      role="editor"
+      workspaceId="workspace-1"
+    />,
+    "editor",
+  );
+
+  const extensionSection = screen.getByRole("heading", {
+    name: "连接 Capture Extension",
+  }).closest("section");
+  expect(extensionSection).not.toBeNull();
+  expect(within(extensionSection!).getByRole("button", { name: "连接扩展" })).toBeVisible();
+  expect(screen.queryByText("请在扩展弹窗查看当前短期绑定")).toBeNull();
+});
+
+test("keeps extension connection guidance read-only for a viewer", () => {
+  renderInWorkspace(
+    <ImportCenter
+      accountId="dy-1"
+      accounts={[...accounts]}
+      history={history}
+      method="extension"
+      onMethodChange={vi.fn()}
+      onScopeChange={vi.fn()}
+      platform="douyin"
+      role="viewer"
+      workspaceId="workspace-1"
+    />,
+    "viewer",
+  );
+
+  const extensionSection = screen.getByRole("heading", {
+    name: "连接 Capture Extension",
+  }).closest("section");
+  expect(extensionSection).not.toBeNull();
+  expect(within(extensionSection!).getByText(
+    "查看者只能查看扩展连接说明。请联系管理员或编辑者生成连接码。",
+  )).toBeVisible();
+  expect(within(extensionSection!).queryByRole("button", { name: "连接扩展" })).toBeNull();
 });
 
 test("shows read/contact-only review guidance to a Viewer in professional mode", () => {
