@@ -192,7 +192,7 @@ export function createPopupController(
       await render();
     }
     if (remoteRevocationFailed && elements.status) {
-      elements.status.textContent = "本地已解绑；服务器撤销将在恢复连接后完成。";
+      elements.status.textContent = "本地已解绑，但未能通知服务器；服务端令牌将在到期后自动失效。";
     }
   };
 

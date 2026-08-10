@@ -40,3 +40,10 @@
 - M2：留待 Task 6 的真实 HTML/Chrome 集成验收。
 
 修复轮验证：`pnpm --filter extension test`（9 files / 65 tests）、`lint`、`typecheck`、`build:chrome` 与 `git diff --check` 均通过。
+
+## 修复轮 2
+
+- NI1：`webOrigin` 复用与 server origin 完全相同的安全规则：HTTPS 或精确 loopback HTTP，且仍拒绝凭据、fragment、path/query 与混淆 hostname。真实默认 API 返回的 `http://localhost:3000` 现在可完成配对；外部 HTTP 继续被拒绝。
+- NI2：撤销通知失败的提示改为“本地已解绑，但未能通知服务器；服务端令牌将在到期后自动失效。”，不会再承诺未实现的自动重试。
+
+修复轮验证：`pnpm --filter extension test`（9 files / 65 tests）、`lint`、`typecheck`、`build:chrome` 与 `git diff --check` 均通过。

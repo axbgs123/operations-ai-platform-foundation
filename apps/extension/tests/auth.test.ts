@@ -26,7 +26,7 @@ const validPairResponse = {
   expires_at: "2026-07-23T00:15:00Z",
   workspace_name: "运营工作区",
   member_display_name: "测试成员",
-  web_origin: "https://app.ops.example.com",
+  web_origin: "http://localhost:3000",
   provider_mode: "mock",
   region: null,
 };
@@ -60,7 +60,7 @@ describe("extension binding security", () => {
     const store = createMemoryBindingStore();
     await store.save({
       serverOrigin: "https://ops.example.com",
-      webOrigin: "https://app.ops.example.com",
+      webOrigin: "http://localhost:3000",
       workspaceId: "00000000-0000-0000-0000-000000000001",
       workspaceName: "运营工作区",
       memberDisplayName: "测试成员",
@@ -71,7 +71,7 @@ describe("extension binding security", () => {
     });
     expect(await store.load()).toEqual({
       serverOrigin: "https://ops.example.com",
-      webOrigin: "https://app.ops.example.com",
+      webOrigin: "http://localhost:3000",
       workspaceId: "00000000-0000-0000-0000-000000000001",
       workspaceName: "运营工作区",
       memberDisplayName: "测试成员",
@@ -135,7 +135,7 @@ describe("extension binding security", () => {
     expect(pairingCode).toBe("");
     expect(await store.load()).toEqual({
       serverOrigin: "https://ops.example.com",
-      webOrigin: "https://app.ops.example.com",
+      webOrigin: "http://localhost:3000",
       workspaceId: "00000000-0000-0000-0000-000000000001",
       workspaceName: "运营工作区",
       memberDisplayName: "测试成员",
@@ -166,7 +166,7 @@ describe("extension binding security", () => {
 
   it.each([
     ["missing disclosure", { ...validPairResponse, workspace_name: undefined }],
-    ["invalid web origin", { ...validPairResponse, web_origin: "http://app.ops.example.com" }],
+    ["non-loopback HTTP web origin", { ...validPairResponse, web_origin: "http://app.ops.example.com" }],
     ["invalid expiry", { ...validPairResponse, expires_at: "not-a-date" }],
     ["unknown provider", { ...validPairResponse, provider_mode: "future-provider" }],
   ])("rejects invalid successful pairing response without saving: %s", async (_name, payload) => {

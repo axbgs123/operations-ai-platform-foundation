@@ -141,7 +141,9 @@ describe("capture extension pairing popup", () => {
     expect(dom.window.document.querySelector("#pairing-form")?.hasAttribute("hidden")).toBe(false);
     expect(dom.window.document.querySelector("#start-safe-capture")?.hasAttribute("hidden")).toBe(true);
     if (_name !== "normal 204") {
-      expect(dom.window.document.querySelector("#status")?.textContent).toBe("本地已解绑；服务器撤销将在恢复连接后完成。");
+      const status = dom.window.document.querySelector("#status")?.textContent;
+      expect(status).toBe("本地已解绑，但未能通知服务器；服务端令牌将在到期后自动失效。");
+      expect(status).not.toContain("恢复连接后完成");
     }
   });
 });

@@ -60,18 +60,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 function normalizeWebOrigin(value: unknown): string | null {
   if (typeof value !== "string") return null;
   try {
-    const url = new URL(value);
-    if (
-      url.protocol !== "https:" ||
-      url.username ||
-      url.password ||
-      url.hash ||
-      url.pathname !== "/" ||
-      url.search
-    ) {
-      return null;
-    }
-    return url.origin;
+    return normalizeServerOrigin(value);
   } catch {
     return null;
   }
