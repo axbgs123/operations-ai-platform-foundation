@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  chmod,
   cp,
   lstat,
   mkdir,
@@ -11,7 +12,8 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, relative, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+
+import { writeDeterministicZip } from "./deterministic-zip.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const dist = resolve(root, "dist");
@@ -37,7 +39,9 @@ const sha256 = (buffer) =>
 async function filesIn(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const output = [];
-  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const entry of entries.sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0
+  )) {
     const path = resolve(directory, entry.name);
     if (entry.isDirectory()) output.push(...(await filesIn(path)));
     else output.push(path);
@@ -215,17 +219,21 @@ await writeFile(
 
 const archiveFiles = await filesIn(unpacked);
 for (const file of archiveFiles) {
+  await chmod(file, 0o644);
   await utimes(file, sourceDate, sourceDate);
 }
 
 const canonical = resolve(release, `operations-capture-extension-${packageJson.version}.zip`);
-const archiveEntries = archiveFiles.map((file) => relative(unpacked, file));
-const zipped = spawnSync("/usr/bin/zip", ["-X", "-q", canonical, "-@"], {
-  cwd: unpacked,
-  encoding: "utf8",
-  input: `${archiveEntries.join("\n")}\n`,
-});
-if (zipped.status !== 0) throw new Error(zipped.stderr || "zip failed");
+await writeDeterministicZip(
+  canonical,
+  await Promise.all(
+    archiveFiles.map(async (file) => ({
+      name: relative(unpacked, file),
+      data: await readFile(file),
+    })),
+  ),
+  sourceDateEpoch,
+);
 
 const chromeArchive = resolve(
   release,

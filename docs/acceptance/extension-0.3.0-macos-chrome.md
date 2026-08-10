@@ -25,12 +25,12 @@
 
 ## 确定性制品
 
-使用 `SOURCE_DATE_EPOCH=1785744000` 连续构建两次；两次 unpacked 文件列表、逐文件 SHA-256 和 ZIP SHA-256 完全相同。Chrome 与 Edge 当前业务内容相同：
+使用 `SOURCE_DATE_EPOCH=1785744000` 分别在 `TZ=UTC` 与 `TZ=Asia/Shanghai` 构建；两次 unpacked 文件列表、逐文件 SHA-256 和 ZIP SHA-256 完全相同。ZIP entry 使用固定 UTC DOS 时间、Unix creator、`0100644` mode、STORE compression 和排序顺序。Chrome 与 Edge 当前业务内容相同：
 
 - `apps/extension/release/unpacked`：11 个文件，可直接由用户加载。
 - `apps/extension/release/operations-capture-extension-chrome-0.3.0.zip`
 - `apps/extension/release/operations-capture-extension-edge-0.3.0.zip`
-- 两个 ZIP 的 SHA-256：`c3e44b78f67eecf227fa3dada949a31b8e1cb93b930e7ae5acefde15df338f31`
+- 两个 ZIP 的 SHA-256：`f5a11e2ee2e597c580b9591b908c38a248b77f96c245770c88fbb61284f20cf1`
 
 制品使用根文件 allowlist 和 `assets/*.js` allowlist；拒绝符号链接、source map、日志、远程脚本、`eval`/`new Function`、常见令牌/私钥、截图、测试目录、fixture、IndexedDB 数据和环境文件。离线制品验证结果为 `release_artifact=clean`。
 
