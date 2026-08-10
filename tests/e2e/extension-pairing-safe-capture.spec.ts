@@ -156,6 +156,18 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
       "扩展 0.2 隔离验收",
       { timeout: 15_000 },
     );
+    const persistedConnection = await pairingPopup.evaluate(async () => {
+      const local = await chrome.storage.local.get("extensionDeviceRegistration");
+      const session = await chrome.storage.session.get("extensionBinding");
+      return { local: local.extensionDeviceRegistration, session: session.extensionBinding };
+    });
+    expect(persistedConnection.local).toMatchObject({
+      deviceId: expect.any(String),
+      workspaceId: owner.workspace_id,
+    });
+    expect(JSON.stringify(persistedConnection.local)).not.toContain("accessToken");
+    expect(JSON.stringify(persistedConnection.local)).not.toContain("pairingCode");
+    expect(persistedConnection.session).toMatchObject({ accessToken: expect.any(String) });
 
     const membersAfter = await json<Array<{ id: string }>>(
       await admin.get(`${apiOrigin}/v1/workspaces/${owner.workspace_id}/members`),
@@ -163,7 +175,14 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     expect(membersAfter.map(({ id }) => id)).toEqual(membersBefore.map(({ id }) => id));
     const replay = await extensionApi.post(`${apiOrigin}/v1/extension/pair`, {
       headers: { "X-Extension-Client": extensionClient },
-      data: { pairing_code: pairing.pairing_code, client_id: extensionClient },
+      data: {
+        pairing_code: pairing.pairing_code,
+        client_id: extensionClient,
+        device_id: "00000000-0000-0000-0000-000000000099",
+        device_public_key_jwk: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
+        device_label: "replay device",
+        extension_version: "0.2.0",
+      },
     });
     expect(replay.status()).toBe(401);
     expect(await replay.json()).toEqual({ detail: "pairing code invalid or expired" });

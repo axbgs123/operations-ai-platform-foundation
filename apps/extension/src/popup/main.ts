@@ -1,5 +1,9 @@
 import { pairExtension, revokeExtension, type PairingInput } from "../auth/client";
+import { createDeviceKeyStore } from "../auth/device-key-store";
+import { createLocalDeviceRegistrationStore } from "../auth/device-registration-store";
+import { createSessionManager } from "../auth/session-renewal";
 import { createSessionBindingStore, type BindingStore, type ExtensionBinding } from "../auth/storage";
+import { extensionVersion } from "../build-metadata";
 import { createPersistedTrustStore } from "../capture/trust-state";
 import { detectSupportedPage } from "../content/page-support";
 import type { CaptureContext, StartSafeCaptureMessage } from "../runtime/messages";
@@ -51,6 +55,7 @@ export type PopupDependencies = {
   revoke(): Promise<void>;
   getPageStatus(): Promise<PageStatus>;
   startSafeCapture(message: Extract<PopupMessage, { type: "START_SAFE_CAPTURE" }>): Promise<unknown>;
+  ensureFreshBinding?(): Promise<ExtensionBinding>;
   now?(): number;
   onUnbound?(): Promise<void>;
 };
@@ -148,7 +153,14 @@ export function createPopupController(
   };
 
   const render = async (): Promise<void> => {
-    const binding = await dependencies.store.load();
+    let binding: ExtensionBinding | null;
+    try {
+      binding = dependencies.ensureFreshBinding
+        ? await dependencies.ensureFreshBinding()
+        : await dependencies.store.load();
+    } catch {
+      return renderUnpaired("连接已失效，请重新输入连接码。");
+    }
     if (!binding) return renderUnpaired();
     if (Date.parse(binding.expiresAt) <= now()) {
       await dependencies.store.clear();
@@ -296,21 +308,35 @@ export async function armAndStartSafeCapture(
 
 if (typeof chrome !== "undefined") {
   const store = createSessionBindingStore(chrome.storage.session);
+  const keyStore = createDeviceKeyStore();
+  const registrations = createLocalDeviceRegistrationStore(chrome.storage.local);
+  const sessionManager = createSessionManager({
+    keyStore,
+    registrations,
+    sessionStore: store,
+    fetcher: fetch,
+  });
   const trustStore = createPersistedTrustStore(chrome.storage.local);
   const controller = createPopupController(document, {
     store,
     pair: (input) =>
-      pairExtension(input, {
+      pairExtension({ ...input, deviceLabel: "Chrome extension", extensionVersion }, {
         fetcher: fetch,
         store,
+        keyStore,
+        registrations,
         clearPairingCode: () => undefined,
         hasOriginPermission: (originPattern) => chrome.permissions.contains({ origins: [originPattern] }),
         requestOriginPermission: (originPattern) => chrome.permissions.request({ origins: [originPattern] }),
       }),
     revoke: () => revokeExtension(store, fetch),
+    ensureFreshBinding: () => sessionManager.ensureFreshBinding(),
     getPageStatus: getChromePageStatus,
     startSafeCapture: startChromeSafeCapture,
-    onUnbound: () => trustStore.clear(),
+    onUnbound: async () => {
+      await sessionManager.unlink();
+      await trustStore.clear();
+    },
   });
   void controller.render();
 }

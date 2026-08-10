@@ -18,6 +18,14 @@ export type BindingStore = {
   clear(): Promise<void>;
 };
 
+export function isBindingFresh(
+  binding: ExtensionBinding,
+  now: number,
+  minRemainingMs: number,
+): boolean {
+  return Date.parse(binding.expiresAt) - now >= minRemainingMs;
+}
+
 export function createMemoryBindingStore(): BindingStore {
   let binding: ExtensionBinding | null = null;
   return {

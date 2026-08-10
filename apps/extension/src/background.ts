@@ -1,4 +1,7 @@
 import { createSessionBindingStore, type ExtensionBinding } from "./auth/storage";
+import { createDeviceKeyStore } from "./auth/device-key-store";
+import { createLocalDeviceRegistrationStore } from "./auth/device-registration-store";
+import { createSessionManager } from "./auth/session-renewal";
 import { detectSupportedPage } from "./content/page-support";
 import { parseRuntimeMessage } from "./runtime/messages";
 
@@ -152,6 +155,11 @@ declare const chrome: {
       set(values: Record<string, unknown>): Promise<void>;
       remove(key: string): Promise<void>;
     };
+    local: {
+      get(key: string): Promise<Record<string, unknown>>;
+      set(values: Record<string, unknown>): Promise<void>;
+      remove(key: string): Promise<void>;
+    };
   };
   runtime: {
     onMessage: {
@@ -172,12 +180,18 @@ declare const chrome: {
 
 if (typeof chrome !== "undefined") {
   const bindingStore = createSessionBindingStore(chrome.storage.session);
+  const sessionManager = createSessionManager({
+    keyStore: createDeviceKeyStore(),
+    registrations: createLocalDeviceRegistrationStore(chrome.storage.local),
+    sessionStore: bindingStore,
+    fetcher: fetch,
+  });
   const handler = createBackgroundMessageHandler({
     queryActiveTab: async () =>
       (await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? {},
     captureVisibleTab: (windowId, options) => chrome.tabs.captureVisibleTab(windowId, options),
-    loadBinding: () => bindingStore.load(),
-    clearBinding: () => bindingStore.clear(),
+    loadBinding: () => sessionManager.ensureFreshBinding().catch(() => null),
+    clearBinding: () => sessionManager.unlink(),
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void handler(message, sender).then(sendResponse, () =>
