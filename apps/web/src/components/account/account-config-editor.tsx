@@ -95,7 +95,7 @@ export function AccountConfigEditor({
             {metric} 权重
             <input
               aria-label={`${metric} 权重`}
-              className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+              className="mt-2 w-full px-4 py-3"
               min="0"
               onChange={(event) => setWeights({ ...weights, [metric]: Number(event.target.value) })}
               step="0.01"
@@ -108,7 +108,7 @@ export function AccountConfigEditor({
       <label className="mt-5 block text-sm">
         动态基准参考最近作品数
         <input
-          className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3"
+          className="mt-2 w-full px-4 py-3"
           max="500"
           min="1"
           onChange={(event) => setSampleSize(Number(event.target.value))}

@@ -168,7 +168,10 @@ export function WorkspaceShell({
   return (
     <WorkbenchShellContext.Provider value={context}>
       <ExperiencePreferencesProvider memberId={context.member_id}>
-        <div className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]">
+        <div
+          className="min-h-screen bg-[var(--canvas)] text-[var(--text-primary)]"
+          data-workbench-shell="true"
+        >
         <Link
           className="sr-only z-[70] rounded bg-white px-3 py-2 focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
           href="#main-content"

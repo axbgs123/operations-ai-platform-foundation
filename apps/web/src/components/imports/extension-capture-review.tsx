@@ -102,7 +102,7 @@ export function ExtensionCaptureReview({
           修正 {candidate.key}
           <input
             aria-label={`修正 ${candidate.key}`}
-            className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3"
+            className="mt-2 w-full px-4 py-3"
             defaultValue={candidate.value}
             onChange={(event) =>
               setCorrections((current) => ({

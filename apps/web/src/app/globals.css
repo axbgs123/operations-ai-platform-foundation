@@ -34,6 +34,114 @@ body {
     "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
 }
 
+@layer base {
+  [data-workbench-shell="true"] :where(
+    input:not([type]),
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="email"],
+    input[type="month"],
+    input[type="number"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="text"],
+    input[type="time"],
+    input[type="url"],
+    input[type="week"],
+    select,
+    textarea
+  ) {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background-color: var(--surface);
+    color: var(--text-primary);
+    box-shadow: 0 1px 2px rgb(27 36 48 / 0.04);
+    color-scheme: light;
+    transition:
+      border-color 120ms ease,
+      box-shadow 120ms ease,
+      background-color 120ms ease;
+  }
+
+  [data-workbench-shell="true"] :where(
+    input:not([type]),
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="email"],
+    input[type="month"],
+    input[type="number"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="text"],
+    input[type="time"],
+    input[type="url"],
+    input[type="week"],
+    select
+  ) {
+    min-height: 2.5rem;
+  }
+
+  [data-workbench-shell="true"] select {
+    appearance: none;
+    padding-right: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='m6 8 4 4 4-4' stroke='%236d55dc' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1rem;
+  }
+
+  [data-workbench-shell="true"] :where(
+    input:not([type]),
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="email"],
+    input[type="month"],
+    input[type="number"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="text"],
+    input[type="time"],
+    input[type="url"],
+    input[type="week"],
+    select,
+    textarea
+  ):focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgb(109 85 220 / 0.14);
+  }
+
+  [data-workbench-shell="true"] :where(input, textarea)::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.82;
+  }
+
+  [data-workbench-shell="true"] :where(
+    input:not([type]),
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="email"],
+    input[type="month"],
+    input[type="number"],
+    input[type="password"],
+    input[type="search"],
+    input[type="tel"],
+    input[type="text"],
+    input[type="time"],
+    input[type="url"],
+    input[type="week"],
+    select,
+    textarea
+  ):disabled {
+    cursor: not-allowed;
+    background-color: #f1f3f7;
+    color: var(--text-secondary);
+    opacity: 1;
+  }
+}
+
 :focus-visible {
   outline: 3px solid var(--brand);
   outline-offset: 2px;

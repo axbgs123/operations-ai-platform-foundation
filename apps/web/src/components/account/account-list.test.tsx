@@ -145,3 +145,27 @@ test("filters account cards by compatible URL platform and account scope", () =>
     accounts[1],
   ]);
 });
+
+test("gives editors a direct account-page creation entry and opens one shared form", () => {
+  navigationState.search = "action=create";
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+
+  renderInWorkspace(<AccountListPage workspaceId="workspace-1" />, "editor");
+
+  expect(screen.getByRole("link", { name: "创建平台账号" })).toHaveAttribute(
+    "href",
+    "/workspaces/workspace-1/accounts?action=create",
+  );
+  expect(screen.getByRole("heading", { name: "创建平台账号" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "创建账号" })).toBeVisible();
+});
+
+test("keeps account creation actions hidden from viewers", () => {
+  navigationState.search = "action=create";
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+
+  renderInWorkspace(<AccountListPage workspaceId="workspace-1" />, "viewer");
+
+  expect(screen.queryByRole("link", { name: "创建平台账号" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "创建账号" })).toBeNull();
+});

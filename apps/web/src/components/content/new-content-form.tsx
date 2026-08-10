@@ -27,10 +27,10 @@ export function NewContentForm({ workspaceId, accountId, platform }: { workspace
   }
   return <form className="mx-auto max-w-2xl space-y-5 rounded-3xl border border-slate-800 bg-slate-900 p-7" onSubmit={submit}>
     <h1 className="text-3xl font-semibold">新建单条作品</h1>
-    <label className="block">内容类型<select className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" defaultValue="video" name="contentType"><option value="video">视频</option><option value="image_text">图文</option></select></label>
-    <label className="block">标题<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="title" required /></label>
-    <label className="block">文案<textarea className="mt-2 min-h-48 w-full rounded-xl bg-slate-950 px-4 py-3" name="body" /></label>
-    <label className="block">作品链接（可选）<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="workUrl" type="url" /></label>
+    <label className="block">内容类型<select className="mt-2 w-full px-4 py-3" defaultValue="video" name="contentType"><option value="video">视频</option><option value="image_text">图文</option></select></label>
+    <label className="block">标题<input className="mt-2 w-full px-4 py-3" name="title" required /></label>
+    <label className="block">文案<textarea className="mt-2 min-h-48 w-full px-4 py-3" name="body" /></label>
+    <label className="block">作品链接（可选）<input className="mt-2 w-full px-4 py-3" name="workUrl" type="url" /></label>
     {error ? <p className="text-rose-400">{error}</p> : null}
     <button className="rounded-xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950" type="submit">创建作品</button>
   </form>;

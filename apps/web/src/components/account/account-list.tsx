@@ -16,6 +16,9 @@ import {
   StatusBadge,
 } from "@/components/workbench/ui";
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
+import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
+
+import { AccountCreatePanel } from "./account-create-panel";
 
 
 const platformLabel = {
@@ -66,13 +69,23 @@ function contentTypeLabel(
 export function AccountList({
   accounts,
   workspaceId,
+  createAccountHref,
 }: {
   accounts: WorkbenchOverviewData["accounts"];
   workspaceId: string;
+  createAccountHref?: string;
 }): ReactElement {
   if (!accounts.length) {
     return (
       <EmptyState
+        action={createAccountHref ? (
+          <Link
+            className="inline-flex rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
+            href={createAccountHref}
+          >
+            创建平台账号
+          </Link>
+        ) : undefined}
         description="创建账号后可分别查看平台指标、样本门禁和运营行动。"
         title="还没有账号"
       />
@@ -142,6 +155,10 @@ export function AccountListPage({
   workspaceId: string;
 }): ReactElement {
   const searchParams = useSearchParams();
+  const context = useWorkbenchShellContext();
+  const canCreate = context?.role === "admin" || context?.role === "editor";
+  const createAccountHref = `/workspaces/${workspaceId}/accounts?action=create`;
+  const showCreatePanel = canCreate && searchParams.get("action") === "create";
   const [state, setState] = useState<
     | { status: "loading" }
     | { status: "ready"; data: WorkbenchOverviewData }
@@ -161,6 +178,17 @@ export function AccountListPage({
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <GuidedPageHeader pageId="accounts" />
+      {canCreate ? (
+        <div className="flex justify-end">
+          <Link
+            className="inline-flex rounded-lg bg-[var(--brand)] px-4 py-2.5 text-sm font-semibold text-white"
+            href={createAccountHref}
+          >
+            创建平台账号
+          </Link>
+        </div>
+      ) : null}
+      {showCreatePanel ? <AccountCreatePanel workspaceId={workspaceId} /> : null}
       {state.status === "loading" ? <Skeleton label="正在加载账号列表" /> : null}
       {state.status === "failed" ? (
         <ErrorState
@@ -175,6 +203,7 @@ export function AccountListPage({
             searchParams.get("platform"),
             searchParams.get("account"),
           )}
+          createAccountHref={canCreate ? createAccountHref : undefined}
           workspaceId={workspaceId}
         />
       ) : null}

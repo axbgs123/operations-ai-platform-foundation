@@ -73,6 +73,11 @@ export function WorkspaceTopbar({
       </div>
       <ScopeFilters
         accounts={context.accounts}
+        createAccountHref={
+          context.role === "viewer"
+            ? undefined
+            : `/workspaces/${context.workspace_id}/accounts?action=create`
+        }
         onScopeChange={onScopeChange}
         scope={scope}
       />

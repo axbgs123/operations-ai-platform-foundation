@@ -565,6 +565,49 @@ describe("workspace shell behavior", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
   });
 
+  test("scopes the shared light form-control baseline to the private workbench", () => {
+    render(
+      <WorkspaceShell context={context}>
+        <label>
+          测试输入
+          <input defaultValue="可读内容" />
+        </label>
+      </WorkspaceShell>,
+    );
+
+    const shell = screen.getByTestId("workspace-shell-background").parentElement;
+    expect(shell).toHaveAttribute("data-workbench-shell", "true");
+    expect(screen.getByRole("combobox", { name: "平台范围" })).toHaveAttribute(
+      "data-workbench-control",
+      "select",
+    );
+    expect(screen.getByRole("combobox", { name: "账号范围" })).toHaveAttribute(
+      "data-workbench-control",
+      "select",
+    );
+  });
+
+  test("offers account creation from the topbar only to members who can edit", () => {
+    const { unmount } = render(
+      <WorkspaceShell context={context}>
+        <p>管理员页面</p>
+      </WorkspaceShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "创建账号" })).toHaveAttribute(
+      "href",
+      "/workspaces/workspace-1/accounts?action=create",
+    );
+
+    unmount();
+    render(
+      <WorkspaceShell context={{ ...context, role: "viewer" }}>
+        <p>查看者页面</p>
+      </WorkspaceShell>,
+    );
+    expect(screen.queryByRole("link", { name: "创建账号" })).toBeNull();
+  });
+
   test("preserves validated platform and account scope across navigation", () => {
     navigationState.search = "platform=douyin&account=dy-account";
     render(

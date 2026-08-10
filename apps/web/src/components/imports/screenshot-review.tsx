@@ -186,33 +186,33 @@ export function ScreenshotReview({
         </label>
         <label>
           截图对应标题
-          <input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="title" required />
+          <input className="mt-2 w-full px-4 py-3" name="title" required />
         </label>
         <label>
           内容类型
-          <select className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="contentType">
+          <select className="mt-2 w-full px-4 py-3" name="contentType">
             <option value="video">视频</option>
             <option value="image_text">图文</option>
           </select>
         </label>
         <label>
           截图对应发布时间
-          <input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="publishedAt" required type="datetime-local" />
+          <input className="mt-2 w-full px-4 py-3" name="publishedAt" required type="datetime-local" />
         </label>
         <label>
           截图数据时间
-          <input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="collectedAt" required type="datetime-local" />
+          <input className="mt-2 w-full px-4 py-3" name="collectedAt" required type="datetime-local" />
         </label>
         <label>
           确认后的截图策略
-          <select className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="retentionPolicy">
+          <select className="mt-2 w-full px-4 py-3" name="retentionPolicy">
             <option value="delete_after_confirm">确认后立即删除</option>
             <option value="retain_as_evidence">保留为识别证据</option>
           </select>
         </label>
         <label>
           备注
-          <input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="body" />
+          <input className="mt-2 w-full px-4 py-3" name="body" />
         </label>
         <button className="rounded-xl bg-violet-400 px-5 py-3 font-semibold text-slate-950 disabled:opacity-50 sm:col-span-2" disabled={!file || busy} type="submit">
           上传并开始识别
@@ -275,7 +275,7 @@ export function ScreenshotReview({
               补正 {candidate.key}
               <input
                 aria-label={`补正 ${candidate.key}`}
-                className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3"
+                className="mt-2 w-full px-4 py-3"
                 onChange={(event) => setCorrections((current) => ({ ...current, [candidate.key]: event.target.value }))}
                 value={corrections[candidate.key] ?? ""}
               />

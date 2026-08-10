@@ -102,10 +102,10 @@ export function ContentDetail({
               </div>
             )}
             <label className="block text-sm">标题
-              <input className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3" onChange={(event) => setTitle(event.target.value)} value={title} />
+              <input className="mt-2 w-full px-4 py-3" onChange={(event) => setTitle(event.target.value)} value={title} />
             </label>
             <label className="block text-sm">文案
-              <textarea className="mt-2 min-h-48 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3" onChange={(event) => setBody(event.target.value)} value={body} />
+              <textarea className="mt-2 min-h-48 w-full px-4 py-3" onChange={(event) => setBody(event.target.value)} value={body} />
             </label>
             <label className="block text-sm">上传运营截图
               <input accept="image/jpeg,image/png,image/webp" className="mt-2 block" onChange={upload} type="file" />

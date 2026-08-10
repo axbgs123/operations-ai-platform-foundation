@@ -137,9 +137,19 @@ export function WorkspaceSettings({
               </p>
             ))}
           </div>
-          <Link className="mt-4 inline-block text-sm font-semibold text-blue-700" href={`/workspaces/${workspaceId}/accounts`}>
-            查看账号配置与版本
-          </Link>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link className="inline-block text-sm font-semibold text-blue-700" href={`/workspaces/${workspaceId}/accounts`}>
+              查看账号配置与版本
+            </Link>
+            {role === "admin" ? (
+              <Link
+                className="inline-block text-sm font-semibold text-[var(--brand)]"
+                href={`/workspaces/${workspaceId}/accounts?action=create`}
+              >
+                创建平台账号
+              </Link>
+            ) : null}
+          </div>
         </Panel>
       </section>
       <Panel title="指标、目标与基准">

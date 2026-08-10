@@ -233,7 +233,7 @@ export function ImportReview({
           <h2 className="text-xl font-semibold">CSV / Excel 批量导入</h2>
           <label className="block">
             内容类型
-            <select className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" onChange={(event) => setContentType(event.target.value as "video" | "image_text")} value={contentType}>
+            <select className="mt-2 w-full px-4 py-3" onChange={(event) => setContentType(event.target.value as "video" | "image_text")} value={contentType}>
               <option value="video">视频</option>
               <option value="image_text">图文</option>
             </select>
@@ -252,7 +252,7 @@ export function ImportReview({
           <label className="block">
             栏目/活动
             <select
-              className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3"
+              className="mt-2 w-full px-4 py-3"
               name="columnCampaignId"
             >
               <option value="">使用账号默认</option>
@@ -263,14 +263,14 @@ export function ImportReview({
               ))}
             </select>
           </label>
-          <label className="block">标题<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="title" required /></label>
-          <label className="block">正文<textarea className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="body" /></label>
-          <label className="block">作品链接<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" name="workUrl" type="url" /></label>
+          <label className="block">标题<input className="mt-2 w-full px-4 py-3" name="title" required /></label>
+          <label className="block">正文<textarea className="mt-2 w-full px-4 py-3" name="body" /></label>
+          <label className="block">作品链接<input className="mt-2 w-full px-4 py-3" name="workUrl" type="url" /></label>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label>发布时间<input className="mt-2 w-full rounded-xl bg-slate-950 px-3 py-2" name="publishedAt" required type="datetime-local" /></label>
-            <label>数据时间<input className="mt-2 w-full rounded-xl bg-slate-950 px-3 py-2" name="collectedAt" required type="datetime-local" /></label>
+            <label>发布时间<input className="mt-2 w-full px-3 py-2" name="publishedAt" required type="datetime-local" /></label>
+            <label>数据时间<input className="mt-2 w-full px-3 py-2" name="collectedAt" required type="datetime-local" /></label>
           </div>
-          <label className="block">播放/阅读量<input className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" min="0" name="views" required type="number" /></label>
+          <label className="block">播放/阅读量<input className="mt-2 w-full px-4 py-3" min="0" name="views" required type="number" /></label>
           <button className="rounded-xl border border-cyan-400 px-5 py-3 font-semibold text-cyan-300" disabled={busy} type="submit">生成手动暂存预览</button>
         </form>
         ) : null}
@@ -331,7 +331,7 @@ export function ImportReview({
                   {row.dedupe_reason ? <span className="text-sm text-amber-300">{row.dedupe_reason}</span> : null}
                 </div>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                  <label className="flex-1">标题<input aria-label={`第 ${row.row_number} 行标题`} className="mt-2 w-full rounded-xl bg-slate-950 px-4 py-3" onChange={(event) => setTitleDrafts((current) => ({ ...current, [row.id]: event.target.value }))} value={titleDrafts[row.id] ?? ""} /></label>
+                  <label className="flex-1">标题<input aria-label={`第 ${row.row_number} 行标题`} className="mt-2 w-full px-4 py-3" onChange={(event) => setTitleDrafts((current) => ({ ...current, [row.id]: event.target.value }))} value={titleDrafts[row.id] ?? ""} /></label>
                   <button className="self-end rounded-xl border border-slate-600 px-4 py-3" onClick={() => saveRow(row.id)} type="button">保存第 {row.row_number} 行修正</button>
                 </div>
                 {row.errors.length ? (

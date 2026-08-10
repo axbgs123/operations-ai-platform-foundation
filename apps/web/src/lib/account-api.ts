@@ -5,6 +5,8 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 export type EffectiveAccountConfiguration =
   components["schemas"]["EffectiveConfigurationRead"];
 export type AccountSummary = components["schemas"]["AccountSummaryRead"];
+export type AccountCreateInput = components["schemas"]["AccountCreate"];
+export type AccountRead = components["schemas"]["AccountRead"];
 export type ColumnCampaign = components["schemas"]["ColumnCampaignRead"];
 type ConfigurationInput = components["schemas"]["ConfigurationInput"];
 
@@ -25,6 +27,18 @@ export function loadEffectiveAccountConfiguration(workspaceId: string, accountId
   return accountRequest<EffectiveAccountConfiguration>(
     `/v1/workspaces/${workspaceId}/accounts/${accountId}/effective-configuration`,
   );
+}
+
+export function createAccount(
+  workspaceId: string,
+  csrfToken: string,
+  input: AccountCreateInput,
+): Promise<AccountRead> {
+  return accountRequest(`/v1/workspaces/${workspaceId}/accounts`, {
+    method: "POST",
+    headers: { "X-CSRF-Token": csrfToken },
+    body: JSON.stringify(input),
+  });
 }
 
 export function loadColumnCampaigns(

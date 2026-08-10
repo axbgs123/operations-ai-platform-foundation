@@ -123,6 +123,22 @@ test("keeps workspace deletion separate and does not offer it to a viewer", () =
   expect(
     screen.queryByRole("button", { name: /删除工作区/ }),
   ).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "创建平台账号" })).toBeNull();
+});
+
+test("gives administrators a direct platform-account creation entry", () => {
+  renderInWorkspace(<WorkspaceSettings workspaceId="ws-1" />, "admin");
+
+  expect(screen.getByRole("link", { name: "创建平台账号" })).toHaveAttribute(
+    "href",
+    "/workspaces/ws-1/accounts?action=create",
+  );
+});
+
+test("keeps the settings creation shortcut admin-only", () => {
+  renderInWorkspace(<WorkspaceSettings workspaceId="ws-1" />, "editor");
+
+  expect(screen.queryByRole("link", { name: "创建平台账号" })).toBeNull();
 });
 
 test("easy settings translate primary model, retention, and deletion-impact terminology", async () => {

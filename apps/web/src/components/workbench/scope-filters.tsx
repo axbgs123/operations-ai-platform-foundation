@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactElement } from "react";
 
 import type {
@@ -13,10 +14,12 @@ export function ScopeFilters({
   accounts,
   scope,
   onScopeChange,
+  createAccountHref,
 }: {
   accounts: readonly WorkbenchAccount[];
   scope: WorkbenchScope;
   onScopeChange: (scope: WorkbenchScope) => void;
+  createAccountHref?: string;
 }): ReactElement {
   const compatibleAccounts = scope.platform
     ? accounts.filter((account) => account.platform === scope.platform)
@@ -53,6 +56,7 @@ export function ScopeFilters({
         <select
           aria-label="平台范围"
           className="h-10 max-w-36 rounded-lg border bg-white px-3 text-sm text-[var(--text-primary)]"
+          data-workbench-control="select"
           onChange={(event) => changePlatform(event.target.value)}
           value={scope.platform ?? ""}
         >
@@ -66,6 +70,7 @@ export function ScopeFilters({
         <select
           aria-label="账号范围"
           className="h-10 max-w-44 rounded-lg border bg-white px-3 text-sm text-[var(--text-primary)]"
+          data-workbench-control="select"
           onChange={(event) => changeAccount(event.target.value)}
           value={scope.accountId ?? ""}
         >
@@ -77,6 +82,16 @@ export function ScopeFilters({
           ))}
         </select>
       </label>
+      {createAccountHref ? (
+        <Link
+          aria-label="创建账号"
+          className="inline-flex h-10 shrink-0 items-center rounded-lg border border-violet-200 bg-violet-50 px-3 text-sm font-semibold text-[var(--brand)] hover:bg-violet-100"
+          href={createAccountHref}
+        >
+          <span aria-hidden="true">＋</span>
+          <span className="ml-1">创建账号</span>
+        </Link>
+      ) : null}
     </div>
   );
 }
