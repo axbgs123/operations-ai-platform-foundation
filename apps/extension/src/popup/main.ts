@@ -5,7 +5,7 @@ import { createSessionBindingStore, type BindingStore, type ExtensionBinding } f
 import { extensionVersion } from "../build-metadata";
 import { createPersistedTrustStore } from "../capture/trust-state";
 import { detectSupportedPage } from "../content/page-support";
-import type { CaptureContext, StartSafeCaptureMessage } from "../runtime/messages";
+import type { CaptureContext, StartCaptureMessage, StartSafeCaptureMessage } from "../runtime/messages";
 
 declare const chrome: {
   storage: {
@@ -30,7 +30,10 @@ declare const chrome: {
     sendMessage(tabId: number, message: { type: "START_SAFE_CAPTURE" }): Promise<unknown>;
   };
   runtime: {
-    sendMessage(message: StartSafeCaptureMessage | { type: "GET_SESSION_BINDING" } | { type: "UNLINK_SESSION" }): Promise<unknown>;
+    sendMessage(message: StartSafeCaptureMessage | StartCaptureMessage | { type: "GET_SESSION_BINDING" } | { type: "UNLINK_SESSION" }): Promise<unknown>;
+  };
+  commands: {
+    getAll(): Promise<Array<{ name: string; shortcut: string }>>;
   };
 };
 
@@ -46,14 +49,15 @@ export type PageStatus = {
 
 export type PopupMessage =
   | { type: "GET_PAGE_STATUS" }
-  | { type: "START_SAFE_CAPTURE" };
+  | StartCaptureMessage;
 
 export type PopupDependencies = {
   store: BindingStore;
   pair(input: PairingInput): Promise<unknown>;
   revoke(): Promise<void>;
   getPageStatus(): Promise<PageStatus>;
-  startSafeCapture(message: Extract<PopupMessage, { type: "START_SAFE_CAPTURE" }>): Promise<unknown>;
+  startSafeCapture(message: StartCaptureMessage): Promise<unknown>;
+  getShortcut?(): Promise<string | null>;
   ensureFreshBinding?(): Promise<ExtensionBinding>;
   now?(): number;
   onUnbound?(): Promise<void>;
@@ -71,7 +75,10 @@ type PopupElements = {
   expiry: HTMLElement | null;
   pageStatus: HTMLElement | null;
   status: HTMLElement | null;
+  shortcutStatus: HTMLElement | null;
   start: HTMLButtonElement | null;
+  visible: HTMLButtonElement | null;
+  region: HTMLButtonElement | null;
   unbind: HTMLButtonElement | null;
 };
 
@@ -106,12 +113,16 @@ export function createPopupController(
     expiry: root.querySelector("#expiry"),
     pageStatus: root.querySelector("#page-status"),
     status: root.querySelector("#status"),
+    shortcutStatus: root.querySelector("#shortcut-status"),
     start: root.querySelector("#start-safe-capture"),
+    visible: root.querySelector("#start-visible-capture"),
+    region: root.querySelector("#start-region-capture"),
     unbind: root.querySelector("#unbind"),
   };
   const now = dependencies.now ?? Date.now;
   let currentStatus = unsupportedPage();
   let currentBinding: ExtensionBinding | null = null;
+  let shortcut = "";
 
   if (elements.serverOrigin) elements.serverOrigin.value = defaultServerOrigin;
 
@@ -127,7 +138,10 @@ export function createPopupController(
     if (elements.expiry) elements.expiry.textContent = "";
     if (elements.pageStatus) elements.pageStatus.textContent = "请先连接工作区。";
     if (elements.status) elements.status.textContent = message;
+    if (elements.shortcutStatus) elements.shortcutStatus.textContent = shortcut || "快捷键未分配或存在冲突，请在扩展快捷键设置中配置。";
     if (elements.start) elements.start.hidden = true;
+    if (elements.visible) elements.visible.hidden = true;
+    if (elements.region) elements.region.hidden = true;
     if (elements.unbind) elements.unbind.hidden = true;
   };
 
@@ -147,11 +161,17 @@ export function createPopupController(
         : "当前页面暂不支持。请打开抖音或小红书的内容管理页后重试。";
     }
     if (elements.status) elements.status.textContent = pageStatus.supported ? "可以开始安全采集。" : "已连接，等待受支持页面。";
+    if (elements.shortcutStatus) elements.shortcutStatus.textContent = shortcut
+      ? `整页采集快捷键：${shortcut}`
+      : "快捷键未分配或存在冲突，请在扩展快捷键设置中配置。";
     if (elements.start) elements.start.hidden = !pageStatus.supported;
+    if (elements.visible) elements.visible.hidden = !pageStatus.supported;
+    if (elements.region) elements.region.hidden = !pageStatus.supported;
     if (elements.unbind) elements.unbind.hidden = false;
   };
 
   const render = async (): Promise<void> => {
+    shortcut = await dependencies.getShortcut?.() ?? "";
     let binding: ExtensionBinding | null;
     try {
       binding = dependencies.ensureFreshBinding
@@ -193,9 +213,9 @@ export function createPopupController(
     }
   };
 
-  const start = async (): Promise<void> => {
+  const start = async (mode: StartCaptureMessage["mode"] = "full-page"): Promise<void> => {
     if (!currentBinding || !currentStatus.supported) return;
-    await dependencies.startSafeCapture({ type: "START_SAFE_CAPTURE" });
+    await dependencies.startSafeCapture({ type: "START_CAPTURE", mode });
   };
 
   const unbind = async (): Promise<void> => {
@@ -225,6 +245,8 @@ export function createPopupController(
     if (elements.advancedSettings) elements.advancedSettings.hidden = !elements.advancedSettings.hidden;
   });
   elements.start?.addEventListener("click", () => void start());
+  elements.visible?.addEventListener("click", () => void start("visible"));
+  elements.region?.addEventListener("click", () => void start("region"));
   elements.unbind?.addEventListener("click", () => void unbind());
 
   return { render, submit, start, unbind };
@@ -253,23 +275,11 @@ async function getChromePageStatus(): Promise<PageStatus> {
   };
 }
 
-async function startChromeSafeCapture(message: Extract<PopupMessage, { type: "START_SAFE_CAPTURE" }>): Promise<void> {
-  const tab = await activeTab();
-  if (tab.id === undefined) throw new Error("未找到当前页面");
-  const status = await chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_STATUS" });
-  if (!status.supported || !status.platform || !status.pageSignature) {
-    throw new Error("当前页面尚未准备好安全采集");
+async function startChromeSafeCapture(message: StartCaptureMessage): Promise<void> {
+  const response = await chrome.runtime.sendMessage(message);
+  if (!response || typeof response !== "object" || !("ok" in response) || response.ok !== true) {
+    throw new Error("capture-start-failed");
   }
-  await armAndStartSafeCapture(
-    tab.id,
-    {
-      platform: status.platform,
-      pageVersion: status.pageVersion,
-      pageSignature: status.pageSignature,
-    },
-    (armMessage) => chrome.runtime.sendMessage(armMessage),
-    (contentMessage) => chrome.tabs.sendMessage(tab.id!, contentMessage),
-  );
 }
 
 export async function armAndStartSafeCapture(
@@ -332,6 +342,7 @@ if (typeof chrome !== "undefined") {
     },
     getPageStatus: getChromePageStatus,
     startSafeCapture: startChromeSafeCapture,
+    getShortcut: async () => (await chrome.commands.getAll()).find((command) => command.name === "capture-full-page")?.shortcut ?? null,
     onUnbound: async () => {
       await chrome.runtime.sendMessage({ type: "UNLINK_SESSION" });
       await trustStore.clear();

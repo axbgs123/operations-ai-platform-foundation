@@ -45,7 +45,13 @@
         <p id="page-status">请先连接工作区。</p>
       </section>
       <p id="status">请输入 Web 端生成的连接码。</p>
-      <button id="start-safe-capture" type="button" hidden>开始安全采集</button>
+      <p id="shortcut-status" class="note"></p>
+      <button id="start-safe-capture" type="button" hidden>自动采集整页</button>
+      <details id="more-capture-methods">
+        <summary>更多采集方式</summary>
+        <button id="start-visible-capture" class="secondary" type="button">采集可见区域</button>
+        <button id="start-region-capture" class="secondary" type="button">手动选区</button>
+      </details>
       <button id="unbind" class="danger" type="button" hidden>解绑</button>
       <p class="note">截图可能包含敏感信息，请先确认遮挡结果；识别数据仍需在 Web 人工确认。</p>
     </main>

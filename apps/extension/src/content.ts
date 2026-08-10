@@ -4,12 +4,14 @@ import { uploadPreview } from "./capture/upload";
 import { CaptureOverlay, type CaptureBinding } from "./content/capture-overlay";
 import { applyRedactions, cropVisibleTab } from "./content/image-processing";
 import { CaptureState } from "./content/overlay";
+import { createBrowserScrollCaptureDriver } from "./capture/scroll-driver";
+import { stitchSlices } from "./capture/stitcher";
 import { detectPage, type PageDetection } from "./content/page-adapters/base";
-import { parseRuntimeMessage } from "./runtime/messages";
+import { parseRuntimeMessage, type CaptureMode } from "./runtime/messages";
 
 type ContentDependencies = {
   detect(): PageDetection;
-  startCapture(): Promise<void>;
+  startCapture(mode?: CaptureMode, captureSessionId?: string): Promise<void>;
 };
 
 export function createContentMessageHandler(dependencies: ContentDependencies) {
@@ -23,10 +25,23 @@ export function createContentMessageHandler(dependencies: ContentDependencies) {
         platform: result.platform,
         pageVersion: result.pageVersion,
         pageSignature: result.signature,
+        ...(typeof window !== "undefined" ? {
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio || 1,
+          },
+          scrollY: window.scrollY,
+          url: window.location.href,
+        } : {}),
       };
     }
     if (message.type === "START_SAFE_CAPTURE" && !("tabId" in message)) {
-      await dependencies.startCapture();
+      await dependencies.startCapture("region");
+      return { ok: true };
+    }
+    if (message.type === "START_CAPTURE") {
+      await dependencies.startCapture(message.mode, message.captureSessionId);
       return { ok: true };
     }
     return { ok: false, error: "unsupported-message" };
@@ -121,6 +136,8 @@ function finalPreviewController(dataUrl: string) {
 function mountChromeCapture(
   binding: CaptureBinding,
   onDestroy: (overlay: CaptureOverlay) => void,
+  mode: CaptureMode,
+  captureSessionId?: string,
 ): CaptureOverlay {
   const initial = currentDetection();
   const clearBinding = async () => {
@@ -131,7 +148,8 @@ function mountChromeCapture(
       pageSignature: initial.signature,
     });
   };
-  const overlay = CaptureOverlay.mount({
+  let overlay: CaptureOverlay;
+  overlay = CaptureOverlay.mount({
     document,
     viewport: {
       width: window.innerWidth,
@@ -156,6 +174,47 @@ function mountChromeCapture(
       if (!response.ok) throw new Error(response.error);
       return response.dataUrl;
     },
+    mode,
+    fullPageCapture: mode === "full-page" ? async () => {
+      if (!captureSessionId) throw new Error("capture-session-mismatch");
+      const driver = createBrowserScrollCaptureDriver({
+        context: {
+          platform: initial.platform!,
+          pageVersion: initial.pageVersion,
+          pageSignature: initial.signature,
+        },
+        getSignature: () => currentDetection().signature,
+        capture: async (slice) => {
+          const response = await chrome.runtime.sendMessage({
+            type: "CAPTURE_FULL_PAGE_SLICE",
+            captureSessionId,
+            ...slice,
+          });
+          if (!isCaptureResponse(response)) throw new Error("capture-failed");
+          if (!response.ok) throw new Error(response.error);
+          return response.dataUrl;
+        },
+      });
+      try {
+        const result = await driver.capture({ maxSlices: 30, timeoutMs: 20_000 });
+        const stitched = await stitchSlices(result.slices, {
+          maxPixels: 40_000_000,
+          maxEdge: 32_000,
+          maxBytes: 10 * 1024 * 1024,
+        });
+        if (!stitched.dataUrl) throw new Error("capture-failed");
+        return {
+          dataUrl: stitched.dataUrl,
+          width: stitched.width,
+          height: stitched.height,
+          complete: result.complete && stitched.complete,
+          stopReason: result.partialReason ?? result.stopReason ?? stitched.partialReason ?? "bottom",
+          sliceCount: result.slices.length,
+        };
+      } finally {
+        await chrome.runtime.sendMessage({ type: "END_FULL_PAGE_CAPTURE", captureSessionId });
+      }
+    } : undefined,
     upload: (dataUrl, idempotencyKey) =>
       uploadPreview({
         controller: finalPreviewController(dataUrl),
@@ -167,6 +226,7 @@ function mountChromeCapture(
         pageIdentifier: initial.signature,
         collectedAt: new Date().toISOString(),
         idempotencyKey,
+        captureMetadata: overlay.captureMetadata(),
         onRebindRequired: clearBinding,
       }),
     poll: (task: CaptureTaskRead) =>
@@ -192,7 +252,7 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof c
   document.documentElement.dataset.operationsCaptureSignature = detection.signature;
   const handler = createContentMessageHandler({
     detect: currentDetection,
-    startCapture: async () => {
+    startCapture: async (mode = "region", captureSessionId) => {
       const response = parseCaptureBindingResponse(
         await chrome.runtime.sendMessage({
           type: "GET_CAPTURE_BINDING",
@@ -207,7 +267,8 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof c
       activeOverlay?.cancel();
       activeOverlay = mountChromeCapture(response.binding, (overlay) => {
         if (activeOverlay === overlay) activeOverlay = null;
-      });
+      }, mode, captureSessionId);
+      await activeOverlay.startAutomaticCapture();
     },
   });
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

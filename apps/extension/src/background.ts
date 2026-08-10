@@ -4,9 +4,103 @@ import { createLocalDeviceRegistrationStore } from "./auth/device-registration-s
 import { createSessionManager } from "./auth/session-renewal";
 import { detectSupportedPage } from "./content/page-support";
 import { parseRuntimeMessage } from "./runtime/messages";
+import type { CaptureContext, CaptureMode, StartSafeCaptureMessage } from "./runtime/messages";
 
 type BrowserTab = { id?: number; windowId?: number; url?: string };
 type MessageSender = { tab?: BrowserTab };
+export type SupportedTab = Required<Pick<BrowserTab, "id" | "windowId" | "url">>;
+
+type PageStatus = CaptureContext & {
+  supported: boolean;
+  viewport?: { width: number; height: number; devicePixelRatio: number };
+  scrollY?: number;
+  url?: string;
+};
+
+export interface CaptureCoordinator {
+  startCapture(mode: CaptureMode, tab: SupportedTab): Promise<void>;
+  cancel(reason: string): Promise<void>;
+}
+
+type CaptureCoordinatorDependencies = {
+  getPageStatus(tabId: number): Promise<PageStatus>;
+  arm(message: StartSafeCaptureMessage | { type: "ARM_FULL_PAGE_CAPTURE"; tabId: number; captureSessionId: string } & CaptureContext & { url: string; viewport: { width: number; height: number; devicePixelRatio: number }; scrollY: number }): Promise<unknown>;
+  startContent(tabId: number, message: { type: "START_CAPTURE"; mode: CaptureMode; captureSessionId?: string }): Promise<unknown>;
+  endFullPageCapture?(tabId: number, captureSessionId: string): Promise<unknown>;
+  uuid?: () => string;
+};
+
+const isSupportedTab = (tab: BrowserTab): tab is SupportedTab =>
+  Number.isSafeInteger(tab.id) && tab.id! >= 0 &&
+  Number.isSafeInteger(tab.windowId) && tab.windowId! >= 0 &&
+  typeof tab.url === "string" && detectSupportedPage(tab.url).supported;
+
+const isOk = (value: unknown) => typeof value === "object" && value !== null && "ok" in value && value.ok === true;
+
+/** The single gesture coordinator used by both the popup and chrome.commands. */
+export function createCaptureCoordinator(dependencies: CaptureCoordinatorDependencies): CaptureCoordinator {
+  const fullPageSessions = new Map<number, string>();
+  const uuid = dependencies.uuid ?? (() => crypto.randomUUID());
+  return {
+    async startCapture(mode, tab) {
+      if (!isSupportedTab(tab)) throw new Error("inactive-or-unsupported-tab");
+      const status = await dependencies.getPageStatus(tab.id);
+      if (!status.supported || !status.platform || !status.pageVersion || !status.pageSignature) {
+        throw new Error("inactive-or-unsupported-tab");
+      }
+      if (mode === "full-page") {
+        if (!status.viewport || typeof status.scrollY !== "number" || !Number.isFinite(status.scrollY) || status.url !== tab.url) {
+          throw new Error("capture-context-mismatch");
+        }
+        const captureSessionId = uuid();
+        const armed = await dependencies.arm({
+          type: "ARM_FULL_PAGE_CAPTURE",
+          tabId: tab.id,
+          captureSessionId,
+          platform: status.platform,
+          pageVersion: status.pageVersion,
+          pageSignature: status.pageSignature,
+          url: tab.url,
+          viewport: status.viewport,
+          scrollY: status.scrollY,
+        });
+        if (!isOk(armed)) throw new Error("capture-not-armed");
+        fullPageSessions.set(tab.id, captureSessionId);
+        const started = await dependencies.startContent(tab.id, { type: "START_CAPTURE", mode, captureSessionId });
+        if (!isOk(started)) {
+          fullPageSessions.delete(tab.id);
+          await dependencies.endFullPageCapture?.(tab.id, captureSessionId);
+          throw new Error("capture-start-failed");
+        }
+        return;
+      }
+      const armed = await dependencies.arm({
+        type: "START_SAFE_CAPTURE",
+        tabId: tab.id,
+        platform: status.platform,
+        pageVersion: status.pageVersion,
+        pageSignature: status.pageSignature,
+      });
+      if (!isOk(armed)) throw new Error("capture-not-armed");
+      const started = await dependencies.startContent(tab.id, { type: "START_CAPTURE", mode });
+      if (!isOk(started)) throw new Error("capture-start-failed");
+    },
+    async cancel(reason) {
+      void reason;
+      await Promise.all([...fullPageSessions.entries()].map(async ([tabId, captureSessionId]) => {
+        fullPageSessions.delete(tabId);
+        await dependencies.endFullPageCapture?.(tabId, captureSessionId);
+      }));
+    },
+  };
+}
+
+export function createCommandListener(coordinator: CaptureCoordinator) {
+  return async (command: string, tab?: BrowserTab): Promise<void> => {
+    if (command !== "capture-full-page" || !tab || !isSupportedTab(tab)) return;
+    await coordinator.startCapture("full-page", tab);
+  };
+}
 
 type BackgroundDependencies = {
   queryActiveTab(): Promise<BrowserTab>;
@@ -16,6 +110,7 @@ type BackgroundDependencies = {
   clearBinding?(): Promise<void>;
   ensureSessionBinding?(): Promise<ExtensionBinding>;
   unlinkSession?(): Promise<void>;
+  captureCoordinator?: CaptureCoordinator;
 };
 
 type ArmedCapture = {
@@ -68,6 +163,14 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
     if (message.type === "UNLINK_SESSION") {
       if (sender.tab) return { ok: false, error: "unsupported-message" };
       await dependencies.unlinkSession?.();
+      return { ok: true };
+    }
+
+    if (message.type === "START_CAPTURE") {
+      if (sender.tab || !dependencies.captureCoordinator) return { ok: false, error: "unsupported-message" };
+      const active = await dependencies.queryActiveTab();
+      if (!isSupportedTab(active)) return { ok: false, error: "inactive-or-unsupported-tab" };
+      await dependencies.captureCoordinator.startCapture(message.mode, active);
       return { ok: true };
     }
 
@@ -194,14 +297,16 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
       const armed = armedTabs.get(tab.id!);
-      if (!armed || armed.expiresAt <= now()) {
+      const fullPageArmed = armedFullPageTabs.get(tab.id!);
+      const activeArm = armed ?? fullPageArmed;
+      if (!activeArm || activeArm.expiresAt <= now()) {
         return { ok: false, error: "capture-not-armed" };
       }
       if (
-        armed.platform !== message.platform ||
-        armed.pageVersion !== message.pageVersion ||
-        armed.pageSignature !== message.pageSignature ||
-        armed.url !== tab.url
+        activeArm.platform !== message.platform ||
+        activeArm.pageVersion !== message.pageVersion ||
+        activeArm.pageSignature !== message.pageSignature ||
+        activeArm.url !== tab.url
       ) {
         return { ok: false, error: "capture-context-mismatch" };
       }
@@ -294,9 +399,13 @@ declare const chrome: {
       ): void;
     };
   };
+  commands: {
+    onCommand: { addListener(listener: (command: string, tab?: BrowserTab) => void): void };
+  };
   tabs: {
     query(options: { active: boolean; currentWindow: boolean }): Promise<BrowserTab[]>;
     captureVisibleTab(windowId: number, options: { format: "png" }): Promise<string>;
+    sendMessage(tabId: number, message: unknown): Promise<unknown>;
   };
 };
 
@@ -308,7 +417,17 @@ if (typeof chrome !== "undefined") {
     sessionStore: bindingStore,
     fetcher: fetch,
   });
-  const handler = createBackgroundMessageHandler({
+  let handler: ReturnType<typeof createBackgroundMessageHandler>;
+  const coordinator = createCaptureCoordinator({
+    getPageStatus: async (tabId) => chrome.tabs.sendMessage(tabId, { type: "GET_PAGE_STATUS" }) as Promise<PageStatus>,
+    arm: (message) => handler(message, {}),
+    startContent: (tabId, message) => chrome.tabs.sendMessage(tabId, message),
+    endFullPageCapture: (tabId, captureSessionId) => handler(
+      { type: "END_FULL_PAGE_CAPTURE", captureSessionId },
+      { tab: { id: tabId } },
+    ),
+  });
+  handler = createBackgroundMessageHandler({
     queryActiveTab: async () =>
       (await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? {},
     captureVisibleTab: (windowId, options) => chrome.tabs.captureVisibleTab(windowId, options),
@@ -316,11 +435,15 @@ if (typeof chrome !== "undefined") {
     clearBinding: () => sessionManager.unlink(),
     ensureSessionBinding: () => sessionManager.ensureFreshBinding(),
     unlinkSession: () => sessionManager.unlink(),
+    captureCoordinator: coordinator,
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void handler(message, sender).then(sendResponse, () =>
       sendResponse({ ok: false, error: "capture-failed" }),
     );
     return true;
+  });
+  chrome.commands.onCommand.addListener((command, tab) => {
+    void createCommandListener(coordinator)(command, tab);
   });
 }

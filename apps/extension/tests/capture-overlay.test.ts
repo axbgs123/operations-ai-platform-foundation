@@ -130,6 +130,7 @@ describe("user-selected safe capture overlay", () => {
     const { flow, upload, redact, poll } = fixture();
     await expect(flow.confirmUpload()).rejects.toThrow("final-preview-required");
     await flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+    Array.from(flow.element.querySelectorAll("button")).find((button) => button.textContent === "启用遮挡")!.click();
     const id = flow.addRedaction({ x: 40, y: 50, width: 120, height: 32 });
     expect(flow.redactions).toHaveLength(1);
     flow.removeRedaction(id);
@@ -148,9 +149,55 @@ describe("user-selected safe capture overlay", () => {
     expect(flow.state).toBe("completed");
   });
 
+  it("keeps redaction controls unmounted by default and confirms before clearing masks", async () => {
+    const confirm = vi.fn().mockReturnValue(false);
+    const { flow } = fixture({ confirm });
+    await flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+
+    expect(flow.element.textContent).not.toContain("添加遮挡");
+    const enable = Array.from(flow.element.querySelectorAll("button")).find((button) => button.textContent === "启用遮挡")!;
+    enable.click();
+    flow.addRedaction({ x: 40, y: 50, width: 120, height: 40 });
+    const disable = Array.from(flow.element.querySelectorAll("button")).find((button) => button.textContent === "关闭遮挡")!;
+    disable.click();
+
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(flow.redactions).toHaveLength(1);
+    expect(flow.element.textContent).toContain("添加遮挡");
+
+    confirm.mockReturnValue(true);
+    disable.click();
+    expect(flow.redactions).toHaveLength(0);
+    expect(flow.element.textContent).not.toContain("添加遮挡");
+  });
+
+  it("previews full-page completeness, slices, dimensions, and size before upload", async () => {
+    const { flow, upload } = fixture({
+      mode: "full-page",
+      fullPageCapture: vi.fn().mockResolvedValue({
+        dataUrl: "data:image/png;base64,FULLPAGE",
+        width: 1200,
+        height: 3200,
+        complete: false,
+        stopReason: "slice-limit",
+        sliceCount: 3,
+      }),
+    });
+
+    await flow.startAutomaticCapture();
+    expect(flow.state).toBe("previewing");
+    expect(flow.element.textContent).toContain("部分");
+    expect(flow.element.textContent).toContain("3 张");
+    expect(flow.element.textContent).toContain("1200×3200");
+    expect(upload).not.toHaveBeenCalled();
+    await flow.confirmUpload();
+    expect(upload).toHaveBeenCalledOnce();
+  });
+
   it("lets the user drag an exact redaction on the preview after choosing 添加遮挡", async () => {
     const { flow, dom } = fixture();
     await flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+    Array.from(flow.element.querySelectorAll("button")).find((button) => button.textContent === "启用遮挡")!.click();
     const addButton = Array.from(flow.element.querySelectorAll("button")).find(
       (button) => button.textContent === "添加遮挡",
     )!;

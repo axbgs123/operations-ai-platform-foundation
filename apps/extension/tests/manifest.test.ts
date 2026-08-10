@@ -14,6 +14,7 @@ type Manifest = {
   background?: { service_worker?: string; type?: string };
   content_scripts?: Array<{ matches?: string[]; js?: string[] }>;
   content_security_policy?: { extension_pages?: string };
+  commands?: Record<string, { suggested_key?: Record<string, string> }>;
 };
 
 const extensionRoot = resolve(import.meta.dirname, "..");
@@ -47,6 +48,15 @@ describe("least-privilege Manifest V3", () => {
     expect(manifest.permissions?.sort()).toEqual(
       ["activeTab", "scripting", "storage"].sort(),
     );
+  });
+
+  it("registers the documented full-page shortcut without broadening permissions", async () => {
+    const manifest = await readManifest();
+
+    expect(manifest.commands?.["capture-full-page"]?.suggested_key).toEqual({
+      default: "Ctrl+Shift+8",
+      mac: "Command+Shift+8",
+    });
   });
 
   it("rejects sensitive, broad, and interception permissions", async () => {

@@ -1,4 +1,10 @@
 export type GetPageStatusMessage = { type: "GET_PAGE_STATUS" };
+export type CaptureMode = "full-page" | "visible" | "region";
+export type StartCaptureMessage = {
+  type: "START_CAPTURE";
+  mode: CaptureMode;
+  captureSessionId?: string;
+};
 export type CaptureContext = {
   platform: "douyin" | "xiaohongshu";
   pageVersion: string;
@@ -37,6 +43,7 @@ export type UnlinkSessionMessage = { type: "UNLINK_SESSION" };
 
 export type RuntimeMessage =
   | GetPageStatusMessage
+  | StartCaptureMessage
   | StartSafeCaptureMessage
   | GetCaptureBindingMessage
   | ClearCaptureBindingMessage
@@ -77,6 +84,19 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
   if (!isRecord(value) || typeof value.type !== "string") return null;
   if (value.type === "GET_PAGE_STATUS" && hasExactKeys(value, ["type"])) {
     return { type: "GET_PAGE_STATUS" };
+  }
+  if (
+    value.type === "START_CAPTURE" &&
+    ((hasExactKeys(value, ["type", "mode"]) && (value.mode === "full-page" || value.mode === "visible" || value.mode === "region")) ||
+      (hasExactKeys(value, ["type", "mode", "captureSessionId"]) &&
+        (value.mode === "full-page" || value.mode === "visible" || value.mode === "region") &&
+        typeof value.captureSessionId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value.captureSessionId)))
+  ) {
+    return {
+      type: "START_CAPTURE",
+      mode: value.mode,
+      ...(typeof value.captureSessionId === "string" ? { captureSessionId: value.captureSessionId } : {}),
+    };
   }
   if (value.type === "GET_SESSION_BINDING" && hasExactKeys(value, ["type"])) return { type: "GET_SESSION_BINDING" };
   if (value.type === "UNLINK_SESSION" && hasExactKeys(value, ["type"])) return { type: "UNLINK_SESSION" };

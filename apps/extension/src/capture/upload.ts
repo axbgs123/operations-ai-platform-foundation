@@ -26,6 +26,12 @@ type UploadArgs = {
   requestMaxAttempts?: number;
   requestTimeoutMs?: number;
   retrySleep?: (milliseconds: number) => Promise<void>;
+  captureMetadata?: {
+    capture_mode: "full-page" | "visible" | "region";
+    complete: boolean;
+    stop_reason: string;
+    slice_count: number;
+  };
 };
 
 export async function uploadPreview(args: UploadArgs): Promise<CaptureTaskResponse> {
@@ -50,6 +56,7 @@ export async function uploadPreview(args: UploadArgs): Promise<CaptureTaskRespon
         page_identifier: args.pageIdentifier,
         collected_at: args.collectedAt,
         screenshot_data_url: args.controller.preview.imageData,
+        ...(args.captureMetadata ?? {}),
       }),
     },
     {

@@ -2,6 +2,7 @@ import type { ExtensionBinding } from "../auth/storage";
 import type { CaptureTaskRead } from "../capture/task-status";
 import type { PageDetection, Rect } from "./page-adapters/base";
 import type { ViewportMetrics } from "./image-processing";
+import type { CaptureMode } from "../runtime/messages";
 
 type Point = { x: number; y: number };
 type OverlayState =
@@ -14,6 +15,14 @@ type OverlayState =
   | "cancelled";
 
 type Redaction = Rect & { id: string };
+export type FullPagePreview = {
+  dataUrl: string;
+  width: number;
+  height: number;
+  complete: boolean;
+  stopReason: string;
+  sliceCount: number;
+};
 export type CaptureBinding = Pick<
   ExtensionBinding,
   "serverOrigin" | "webOrigin" | "workspaceId" | "accessToken" | "expiresAt" | "providerMode"
@@ -34,6 +43,9 @@ export type CaptureOverlayOptions = {
   nextFrame?: () => Promise<void>;
   onRePairRequired?: () => Promise<void>;
   onDestroy?: (overlay: CaptureOverlay) => void;
+  confirm?(message: string): boolean;
+  mode?: CaptureMode;
+  fullPageCapture?(): Promise<FullPagePreview>;
 };
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -93,8 +105,10 @@ export class CaptureOverlay {
   private dragStart: Point | null = null;
   private redactionDragStart: Point | null = null;
   private addingRedaction = false;
+  private redactionEnabled = false;
   private redactionSequence = 0;
   private destroyed = false;
+  private fullPagePreview: FullPagePreview | null = null;
 
   private constructor(private readonly options: CaptureOverlayOptions) {
     this.initialDetection = options.detect();
@@ -133,6 +147,74 @@ export class CaptureOverlay {
 
   canUpload(): boolean {
     return this.state === "previewing" && this.previewDataUrl !== null;
+  }
+
+  captureMetadata(): {
+    capture_mode: CaptureMode;
+    complete: boolean;
+    stop_reason: string;
+    slice_count: number;
+  } {
+    const mode = this.options.mode ?? "region";
+    if (this.fullPagePreview) {
+      return {
+        capture_mode: mode,
+        complete: this.fullPagePreview.complete,
+        stop_reason: this.fullPagePreview.stopReason,
+        slice_count: this.fullPagePreview.sliceCount,
+      };
+    }
+    return {
+      capture_mode: mode,
+      complete: true,
+      stop_reason: mode === "visible" ? "visible" : "region",
+      slice_count: 1,
+    };
+  }
+
+  async startAutomaticCapture(): Promise<void> {
+    const mode = this.options.mode ?? "region";
+    if (mode === "region") return;
+    if (mode === "visible") {
+      return this.confirmSelection({
+        x: 0,
+        y: 0,
+        width: this.initialViewport.width,
+        height: this.initialViewport.height,
+      });
+    }
+    if (!this.options.fullPageCapture) throw new Error("full-page-capture-unavailable");
+    if (this.state !== "selecting") throw new Error("capture-not-available");
+    this.captureId = this.uuid();
+    this.state = "capturing";
+    this.element.hidden = true;
+    try {
+      await this.nextFrame();
+      this.throwIfCancelled();
+      if (!this.pageStillMatches()) throw new Error("page-changed");
+      const preview = await this.options.fullPageCapture();
+      this.throwIfCancelled();
+      if (!preview.dataUrl || preview.width <= 0 || preview.height <= 0 || preview.sliceCount <= 0) {
+        throw new Error("capture-failed");
+      }
+      this.fullPagePreview = preview;
+      this.previewDataUrl = preview.dataUrl;
+      const ratio = this.initialViewport.devicePixelRatio;
+      this.selection = { x: 0, y: 0, width: preview.width / ratio, height: preview.height / ratio };
+      this.state = "previewing";
+    } catch (error) {
+      if (this.isCancelled() || (error instanceof Error && error.message === "capture-cancelled")) {
+        if (!this.destroyed) this.state = "cancelled";
+        throw new Error("capture-cancelled");
+      }
+      this.state = "failed";
+      throw error;
+    } finally {
+      if (!this.destroyed) {
+        this.element.hidden = false;
+        this.render();
+      }
+    }
   }
 
   async confirmSelection(selection: Rect): Promise<void> {
@@ -205,14 +287,31 @@ export class CaptureOverlay {
     this.render();
   }
 
+  toggleRedaction(): void {
+    if (this.redactionEnabled) {
+      const approve = this.options.confirm ?? ((message: string) => this.options.document.defaultView?.confirm(message) ?? false);
+      if (this.redactions.length > 0 && !approve("关闭遮挡将清空已有遮挡，是否继续？")) {
+        return;
+      }
+      this.redactions.splice(0);
+      this.addingRedaction = false;
+      this.redactionEnabled = false;
+    } else {
+      this.redactionEnabled = true;
+    }
+    this.render();
+  }
+
   reselect(): void {
     if (this.state === "uploading") return;
     this.selection = null;
     this.previewDataUrl = null;
+    this.fullPagePreview = null;
     this.captureId = null;
     this.uploadPromise = null;
     this.reviewUrl = null;
     this.addingRedaction = false;
+    this.redactionEnabled = false;
     this.redactionDragStart = null;
     this.redactions.splice(0);
     this.state = "selecting";
@@ -244,6 +343,7 @@ export class CaptureOverlay {
     this.options.document.defaultView?.removeEventListener("blur", this.onLifecycleLoss);
     this.element.remove();
     this.previewDataUrl = null;
+    this.fullPagePreview = null;
     this.selection = null;
     this.redactions.splice(0);
     this.options.onDestroy?.(this);
@@ -346,8 +446,13 @@ export class CaptureOverlay {
 
     const details = this.options.document.createElement("p");
     const platform = this.initialDetection.platform === "douyin" ? "抖音" : "小红书";
-    const size = this.selection ? ` · ${Math.round(this.selection.width)}×${Math.round(this.selection.height)}` : "";
-    details.textContent = `${platform} · ${this.options.binding.webOrigin}${size} · 遮挡 ${this.redactions.length} 处`;
+    const size = this.fullPagePreview
+      ? ` · ${this.fullPagePreview.width}×${this.fullPagePreview.height}`
+      : this.selection ? ` · ${Math.round(this.selection.width)}×${Math.round(this.selection.height)}` : "";
+    const fullPageDetails = this.fullPagePreview
+      ? ` · ${this.fullPagePreview.complete ? "完整" : "部分"} · ${this.fullPagePreview.sliceCount} 张 · ${Math.ceil((this.fullPagePreview.dataUrl.length * 3) / 4 / 1024)} KB`
+      : "";
+    details.textContent = `${platform} · ${this.options.binding.webOrigin}${size}${fullPageDetails} · 遮挡 ${this.redactions.length} 处`;
     panel.append(details);
 
     const disclosure = this.options.document.createElement("p");
@@ -374,7 +479,7 @@ export class CaptureOverlay {
         image.addEventListener("pointerup", this.onRedactionPointerUp);
       }
       preview.append(image);
-      if (this.selection) {
+      if (this.selection && this.redactionEnabled) {
         for (const region of this.redactions) {
           const mask = this.options.document.createElement("span");
           mask.dataset.redactionPreview = region.id;
@@ -393,12 +498,14 @@ export class CaptureOverlay {
         }
       }
       panel.append(preview);
-      for (const region of this.redactions) {
-        const row = this.options.document.createElement("div");
-        row.textContent = `遮挡：${Math.round(region.x)}, ${Math.round(region.y)} · ${Math.round(region.width)}×${Math.round(region.height)}`;
-        const remove = this.button("删除", () => this.removeRedaction(region.id));
-        row.append(remove);
-        panel.append(row);
+      if (this.redactionEnabled) {
+        for (const region of this.redactions) {
+          const row = this.options.document.createElement("div");
+          row.textContent = `遮挡：${Math.round(region.x)}, ${Math.round(region.y)} · ${Math.round(region.width)}×${Math.round(region.height)}`;
+          const remove = this.button("删除", () => this.removeRedaction(region.id));
+          row.append(remove);
+          panel.append(row);
+        }
       }
     }
 
@@ -410,10 +517,15 @@ export class CaptureOverlay {
       }
       panel.append(
         this.button("重新选择", () => this.reselect()),
-        this.button("添加遮挡", () => {
+        this.button(this.redactionEnabled ? "关闭遮挡" : "启用遮挡", () => this.toggleRedaction()),
+      );
+      if (this.redactionEnabled) {
+        panel.append(this.button("添加遮挡", () => {
           this.addingRedaction = true;
           this.render();
-        }),
+        }));
+      }
+      panel.append(
         this.button("取消", () => this.cancel()),
         this.button("确认上传", () => void this.confirmUpload()),
       );

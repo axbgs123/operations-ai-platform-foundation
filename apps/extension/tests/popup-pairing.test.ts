@@ -21,7 +21,8 @@ const popup = () => new JSDOM(`<!doctype html><body>
   <button id="advanced-toggle" type="button">高级设置</button>
   <section id="advanced-settings" hidden><input id="server-origin" /></section>
   <p id="destination"></p><p id="member"></p><p id="processing"></p><p id="expiry"></p><p id="page-status"></p><p id="status"></p>
-  <button id="start-safe-capture" type="button" hidden>开始安全采集</button><button id="unbind" type="button" hidden>解绑</button>
+  <p id="shortcut-status"></p>
+  <button id="start-safe-capture" type="button" hidden>自动采集整页</button><details id="more-capture-methods"><summary>更多采集方式</summary><button id="start-visible-capture" type="button">采集可见区域</button><button id="start-region-capture" type="button">手动选区</button></details><button id="unbind" type="button" hidden>解绑</button>
 </body>`);
 
 const supported: PageStatus = {
@@ -110,7 +111,21 @@ describe("capture extension pairing popup", () => {
     });
     await controller.render();
     await controller.start();
-    expect(startSafeCapture).toHaveBeenCalledWith({ type: "START_SAFE_CAPTURE" });
+    expect(startSafeCapture).toHaveBeenCalledWith({ type: "START_CAPTURE", mode: "full-page" });
+  });
+
+  it("shows the actual registered shortcut and keeps secondary modes under more capture methods", async () => {
+    const dom = popup();
+    const controller = createPopupController(dom.window.document, {
+      store: { load: async () => binding, save: async () => undefined, clear: async () => undefined },
+      pair: vi.fn(), revoke: vi.fn(), getPageStatus: vi.fn().mockResolvedValue(supported), startSafeCapture: vi.fn(),
+      getShortcut: vi.fn().mockResolvedValue("Command+Shift+8"),
+    });
+    await controller.render();
+    expect(dom.window.document.querySelector("#shortcut-status")?.textContent).toContain("Command+Shift+8");
+    expect(dom.window.document.querySelector("#start-safe-capture")?.textContent).toBe("自动采集整页");
+    expect(dom.window.document.querySelector("#more-capture-methods")?.textContent).toContain("采集可见区域");
+    expect(dom.window.document.querySelector("#more-capture-methods")?.textContent).toContain("手动选区");
   });
 
   it.each([

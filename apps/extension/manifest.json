@@ -11,6 +11,15 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "commands": {
+    "capture-full-page": {
+      "description": "自动采集整页",
+      "suggested_key": {
+        "default": "Ctrl+Shift+8",
+        "mac": "Command+Shift+8"
+      }
+    }
+  },
   "permissions": [
     "activeTab",
     "scripting",

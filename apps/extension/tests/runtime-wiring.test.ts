@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createBackgroundMessageHandler } from "../src/background";
+import { createBackgroundMessageHandler, createCommandListener } from "../src/background";
 import { createContentMessageHandler } from "../src/content";
 import { armAndStartSafeCapture } from "../src/popup/main";
 import { parseRuntimeMessage } from "../src/runtime/messages";
@@ -36,6 +36,14 @@ const storedBinding = {
 };
 
 describe("extension runtime message boundary", () => {
+  it("uses the command-provided tab to start the same full-page coordinator", async () => {
+    const startCapture = vi.fn().mockResolvedValue(undefined);
+    const commandListener = createCommandListener({ startCapture, cancel: vi.fn() });
+
+    await commandListener("capture-full-page", supportedTab);
+
+    expect(startCapture).toHaveBeenCalledWith("full-page", supportedTab);
+  });
   it("accepts only exact, typed capture messages", () => {
     expect(parseRuntimeMessage({ type: "GET_PAGE_STATUS" })).toEqual({ type: "GET_PAGE_STATUS" });
     expect(parseRuntimeMessage(armMessage)).toEqual(armMessage);

@@ -57,6 +57,40 @@ describe("extension capture upload", () => {
     expect(JSON.stringify(body)).not.toContain("hidden");
   });
 
+  it("includes capture completion metadata without page text or an unredacted duplicate", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ task_id: "task-2", status: "queued" }), { status: 202 }),
+    );
+    await uploadPreview({
+      controller: previewController(CaptureState.PreviewReady),
+      serverOrigin: "https://synthetic.example",
+      accessToken: "short-lived-token",
+      workspaceId: "workspace-1",
+      platform: "douyin",
+      pageVersion: "douyin-creator-v1",
+      pageIdentifier: "synthetic-detail-1",
+      collectedAt: "2030-01-01T00:00:00Z",
+      fetcher,
+      idempotencyKey: "idem-full-page",
+      captureMetadata: {
+        capture_mode: "full-page",
+        complete: false,
+        stop_reason: "slice-limit",
+        slice_count: 3,
+      },
+    });
+
+    const body = JSON.parse(String((fetcher.mock.calls[0] as [string, RequestInit])[1].body));
+    expect(body).toMatchObject({
+      capture_mode: "full-page",
+      complete: false,
+      stop_reason: "slice-limit",
+      slice_count: 3,
+    });
+    expect(Object.keys(body).filter((key) => key.includes("screenshot"))).toEqual(["screenshot_data_url"]);
+    expect(JSON.stringify(body)).not.toContain("page_body");
+  });
+
   it("rejects every non-final state and does not send stale previews", async () => {
     const fetcher = vi.fn();
     for (const state of [
