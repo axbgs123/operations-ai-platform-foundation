@@ -11,9 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext, WorkspaceRole
-from app.modules.imports.models import ExtensionToken, ExtensionTokenScope
+from app.modules.imports.models import (
+    ExtensionDeviceBinding,
+    ExtensionToken,
+    ExtensionTokenScope,
+)
 from app.modules.workspace.auth import InviteAuthService
-from app.modules.workspace.models import WorkspaceMember
+from app.modules.workspace.models import Workspace, WorkspaceMember
 
 
 @dataclass(frozen=True)
@@ -85,6 +89,7 @@ class ExtensionTokenService:
         workspace_id: UUID,
         member_id: UUID,
         client_id: str,
+        device_id: UUID | None = None,
         now: datetime | None = None,
         lifetime: timedelta | None = None,
     ) -> IssuedExtensionToken:
@@ -102,6 +107,7 @@ class ExtensionTokenService:
         record = ExtensionToken(
             workspace_id=workspace_id,
             member_id=member_id,
+            device_id=device_id,
             token_hash=self._digest(access_token),
             client_id=client_id,
             exchange_fingerprint=self._digest(f"issued:{access_token}"),
@@ -152,6 +158,18 @@ class ExtensionTokenService:
         member = self._session.get(WorkspaceMember, record.member_id)
         if member is None or member.revoked_at is not None:
             return None
+        if record.device_id is not None:
+            device = self._session.get(ExtensionDeviceBinding, record.device_id)
+            workspace = self._session.get(Workspace, record.workspace_id)
+            if (
+                device is None
+                or device.workspace_id != record.workspace_id
+                or device.member_id != record.member_id
+                or device.revoked_at is not None
+                or workspace is None
+                or workspace.status != "active"
+            ):
+                return None
         context = WorkspaceContext(
             workspace_id=record.workspace_id,
             member_id=record.member_id,

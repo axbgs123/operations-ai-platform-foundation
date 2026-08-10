@@ -185,6 +185,7 @@ class ExtensionToken(UUIDPrimaryKeyMixin, Base):
         Index("ix_extension_tokens_token_hash", "token_hash", unique=True),
         Index("ix_extension_tokens_workspace_id", "workspace_id"),
         Index("ix_extension_tokens_member_id", "member_id"),
+        Index("ix_extension_tokens_device_id", "device_id"),
     )
 
     workspace_id: Mapped[UUID] = mapped_column(
@@ -199,6 +200,43 @@ class ExtensionToken(UUIDPrimaryKeyMixin, Base):
     scopes: Mapped[list[str]] = mapped_column(JSON)
     issued_at: Mapped[datetime] = mapped_column(UTCDateTime())
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
+    device_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "extension_device_bindings.id",
+            name="fk_extension_tokens_device_id_extension_device_bindings",
+            ondelete="CASCADE",
+            use_alter=True,
+        ),
+        default=None,
+    )
+
+
+class ExtensionDeviceBinding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "extension_device_bindings"
+    __table_args__ = (
+        Index("ix_extension_device_bindings_device_id", "device_id", unique=True),
+        Index("ix_extension_device_bindings_workspace_id", "workspace_id"),
+        Index("ix_extension_device_bindings_member_id", "member_id"),
+        Index(
+            "ix_extension_device_bindings_public_key_fingerprint",
+            "public_key_fingerprint",
+            unique=True,
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspace_members.id", ondelete="CASCADE")
+    )
+    device_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True))
+    public_key_jwk: Mapped[dict[str, str]] = mapped_column(JSON)
+    public_key_fingerprint: Mapped[str] = mapped_column(String(64))
+    extension_version: Mapped[str] = mapped_column(String(40))
+    label: Mapped[str] = mapped_column(String(120))
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
 
 

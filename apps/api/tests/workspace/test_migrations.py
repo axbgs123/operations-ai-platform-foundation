@@ -66,6 +66,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "risk_feedback_events",
                 "extension_tokens",
                 "extension_pairing_codes",
+                "extension_device_bindings",
                 "extension_capture_tasks",
                 "export_jobs",
                 "restore_jobs",
@@ -310,7 +311,9 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         } <= risk_embedding_columns.keys()
         risk_scan_columns = {
             column["name"]
-            for column in inspect(migrated_engine).get_columns("risk_scans")
+            for column in inspect(migrated_engine).get_columns(
+                "risk_scans"
+            )
         }
         assert {
             "workspace_id",
@@ -393,7 +396,33 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "issued_at",
             "expires_at",
             "revoked_at",
+            "device_id",
         } <= extension_token_columns
+        device_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "extension_device_bindings"
+            )
+        }
+        assert {
+            "workspace_id",
+            "member_id",
+            "device_id",
+            "public_key_jwk",
+            "public_key_fingerprint",
+            "extension_version",
+            "label",
+            "revoked_at",
+        } <= device_columns
+        device_indexes = {
+            index["name"]: index
+            for index in inspect(migrated_engine).get_indexes(
+                "extension_device_bindings"
+            )
+        }
+        assert device_indexes["ix_extension_device_bindings_device_id"]["unique"]
+        assert device_indexes["ix_extension_device_bindings_workspace_id"]
+        assert device_indexes["ix_extension_device_bindings_member_id"]
         pairing_code_columns = {
             column["name"]
             for column in inspect(migrated_engine).get_columns(
@@ -433,7 +462,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260810_0035",
+                expected_head="20260810_0036",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -443,6 +472,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "risk_feedback_events",
                     "extension_tokens",
                     "extension_pairing_codes",
+                    "extension_device_bindings",
                     "extension_capture_tasks",
                     "export_jobs",
                     "restore_jobs",
