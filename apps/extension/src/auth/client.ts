@@ -1,7 +1,7 @@
 import type { components } from "@operations-ai/shared-schemas";
 
 import { normalizeServerOrigin } from "./server";
-import type { BindingStore } from "./storage";
+import { parseExtensionBinding, type BindingStore, type ExtensionBinding } from "./storage";
 
 type PairResponse = components["schemas"]["ExtensionBindResponse"];
 
@@ -18,12 +18,33 @@ export type PairingDependencies = {
   requestOriginPermission?(originPattern: string): Promise<boolean>;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+function bindingFromPairResponse(
+  payload: unknown,
+  serverOrigin: string,
+): ExtensionBinding | null {
+  if (!isRecord(payload)) return null;
+  return parseExtensionBinding({
+    serverOrigin,
+    webOrigin: payload.web_origin,
+    workspaceId: payload.workspace_id,
+    workspaceName: payload.workspace_name,
+    memberDisplayName: payload.member_display_name,
+    accessToken: payload.access_token,
+    expiresAt: payload.expires_at,
+    providerMode: payload.provider_mode,
+    region: payload.region,
+  });
+}
+
 export async function pairExtension(
   input: PairingInput,
   dependencies: PairingDependencies,
 ): Promise<PairResponse> {
-  const serverOrigin = normalizeServerOrigin(input.serverOrigin);
   try {
+    const serverOrigin = normalizeServerOrigin(input.serverOrigin);
     if (
       dependencies.requestOriginPermission &&
       !(await dependencies.requestOriginPermission(`${serverOrigin}/*`))
@@ -46,25 +67,11 @@ export async function pairExtension(
       },
     );
     if (!response.ok) throw new Error("服务器配对失败");
-    const payload = (await response.json()) as PairResponse;
-    const providerMode =
-      payload.provider_mode === "mock" ||
-      payload.provider_mode === "qianwen" ||
-      payload.provider_mode === "unavailable"
-        ? payload.provider_mode
-        : "unavailable";
-    await dependencies.store.save({
-      serverOrigin,
-      webOrigin: payload.web_origin,
-      workspaceId: payload.workspace_id,
-      workspaceName: payload.workspace_name,
-      memberDisplayName: payload.member_display_name,
-      accessToken: payload.access_token,
-      expiresAt: payload.expires_at,
-      providerMode,
-      region: payload.region,
-    });
-    return payload;
+    const payload: unknown = await response.json();
+    const binding = bindingFromPairResponse(payload, serverOrigin);
+    if (!binding) throw new Error("服务器配对失败");
+    await dependencies.store.save(binding);
+    return payload as PairResponse;
   } catch {
     throw new Error("服务器配对失败");
   } finally {
@@ -90,12 +97,13 @@ export async function revokeExtension(
   const binding = await store.load();
   try {
     if (binding) {
-      await fetcher(`${binding.serverOrigin}/v1/extension/binding`, {
+      const response = await fetcher(`${binding.serverOrigin}/v1/extension/binding`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${binding.accessToken}`,
         },
       });
+      if (!response.ok) throw new Error("服务器撤销失败");
     }
   } finally {
     await store.clear();

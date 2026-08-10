@@ -58,6 +58,8 @@ describe("capture extension pairing popup", () => {
     expect(text).not.toContain(binding.workspaceId);
     expect(text).not.toContain(binding.accessToken);
     expect(dom.window.document.querySelector("#start-safe-capture")?.hasAttribute("hidden")).toBe(false);
+    expect(dom.window.document.querySelector("#advanced-settings")?.hasAttribute("hidden")).toBe(true);
+    expect(dom.window.document.querySelector("#advanced-toggle")?.hasAttribute("hidden")).toBe(true);
   });
 
   it("explains an unsupported page and hides safe capture while still paired", async () => {
@@ -108,5 +110,38 @@ describe("capture extension pairing popup", () => {
     await controller.render();
     await controller.start();
     expect(startSafeCapture).toHaveBeenCalledWith({ type: "START_SAFE_CAPTURE" });
+  });
+
+  it.each([
+    ["fetch rejection", async () => { throw new Error("offline"); }],
+    ["non-2xx response", async () => { throw new Error("503"); }],
+    ["normal 204", async () => undefined],
+  ])("always completes local unbinding after %s", async (_name, revoke) => {
+    const dom = popup();
+    let stored: ExtensionBinding | null = binding;
+    const clearTrust = vi.fn();
+    const controller = createPopupController(dom.window.document, {
+      store: {
+        load: async () => stored,
+        save: async (next) => { stored = next; },
+        clear: async () => { stored = null; },
+      },
+      pair: vi.fn(),
+      revoke: async () => {
+        stored = null;
+        await revoke();
+      },
+      getPageStatus: vi.fn().mockResolvedValue(supported),
+      startSafeCapture: vi.fn(),
+      onUnbound: async () => { clearTrust(); },
+    });
+    await controller.render();
+    await expect(controller.unbind()).resolves.toBeUndefined();
+    expect(clearTrust).toHaveBeenCalledOnce();
+    expect(dom.window.document.querySelector("#pairing-form")?.hasAttribute("hidden")).toBe(false);
+    expect(dom.window.document.querySelector("#start-safe-capture")?.hasAttribute("hidden")).toBe(true);
+    if (_name !== "normal 204") {
+      expect(dom.window.document.querySelector("#status")?.textContent).toBe("本地已解绑；服务器撤销将在恢复连接后完成。");
+    }
   });
 });

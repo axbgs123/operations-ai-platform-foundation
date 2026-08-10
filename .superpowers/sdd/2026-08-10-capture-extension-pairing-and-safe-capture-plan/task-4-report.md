@@ -30,3 +30,13 @@
 ## 担忧
 
 内容脚本目前还没有处理这两条消息；Popup 在消息未就绪时安全降级为 URL-only 页面状态，真实安全采集接线留给 Task 5。
+
+## 修复轮 1
+
+- I1：在存储和配对响应的唯一边界添加运行时 binding 解析。它精确要求九个字段、拒绝额外 secret 字段，校验并规范化 server origin、校验 HTTPS web origin、workspace UUID、provider union 和可解析的到期时间。损坏 session 数据会删除；坏的 2xx 响应绝不写入存储。
+- I2：远程 `DELETE` 的非 2xx 也被视为失败，但无论网络、CORS/权限错误还是 204，`revokeExtension` 都清除 session；Popup 在 `finally` 清理持久 trust、重渲染为未连接，并只显示安全的通用提示。
+- I3：origin 规范化移动到 `pairExtension` 的 `try/finally` 内，所有失败出口均恰好清空一次连接码。
+- M1：已连接状态隐藏并收起高级设置。
+- M2：留待 Task 6 的真实 HTML/Chrome 集成验收。
+
+修复轮验证：`pnpm --filter extension test`（9 files / 65 tests）、`lint`、`typecheck`、`build:chrome` 与 `git diff --check` 均通过。

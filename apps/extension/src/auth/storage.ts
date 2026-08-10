@@ -1,3 +1,5 @@
+import { normalizeServerOrigin } from "./server";
+
 export type ExtensionBinding = {
   serverOrigin: string;
   webOrigin: string;
@@ -38,6 +40,98 @@ type SessionStorageArea = {
 };
 
 const storageKey = "extensionBinding";
+const bindingFields = [
+  "serverOrigin",
+  "webOrigin",
+  "workspaceId",
+  "workspaceName",
+  "memberDisplayName",
+  "accessToken",
+  "expiresAt",
+  "providerMode",
+  "region",
+] as const;
+const workspaceIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+function normalizeWebOrigin(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      url.pathname !== "/" ||
+      url.search
+    ) {
+      return null;
+    }
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+export function parseExtensionBinding(value: unknown): ExtensionBinding | null {
+  if (!isRecord(value) || Object.keys(value).length !== bindingFields.length) {
+    return null;
+  }
+  if (!bindingFields.every((field) => Object.hasOwn(value, field))) return null;
+  const {
+    serverOrigin,
+    webOrigin,
+    workspaceId,
+    workspaceName,
+    memberDisplayName,
+    accessToken,
+    expiresAt,
+    providerMode,
+    region,
+  } = value;
+  if (
+    typeof serverOrigin !== "string" ||
+    typeof workspaceId !== "string" ||
+    !workspaceIdPattern.test(workspaceId) ||
+    typeof workspaceName !== "string" ||
+    workspaceName.trim() === "" ||
+    typeof memberDisplayName !== "string" ||
+    memberDisplayName.trim() === "" ||
+    typeof accessToken !== "string" ||
+    accessToken === "" ||
+    typeof expiresAt !== "string" ||
+    !Number.isFinite(Date.parse(expiresAt)) ||
+    (providerMode !== "mock" &&
+      providerMode !== "qianwen" &&
+      providerMode !== "unavailable") ||
+    (region !== null && typeof region !== "string")
+  ) {
+    return null;
+  }
+  let normalizedServerOrigin: string;
+  try {
+    normalizedServerOrigin = normalizeServerOrigin(String(serverOrigin));
+  } catch {
+    return null;
+  }
+  const normalizedWebOrigin = normalizeWebOrigin(webOrigin);
+  if (!normalizedWebOrigin) return null;
+  return {
+    serverOrigin: normalizedServerOrigin,
+    webOrigin: normalizedWebOrigin,
+    workspaceId,
+    workspaceName,
+    memberDisplayName,
+    accessToken,
+    expiresAt,
+    providerMode,
+    region,
+  };
+}
 
 export function createSessionBindingStore(
   session: SessionStorageArea,
@@ -45,10 +139,17 @@ export function createSessionBindingStore(
   return {
     async load() {
       const result = await session.get(storageKey);
-      return (result[storageKey] as ExtensionBinding | undefined) ?? null;
+      const stored = result[storageKey];
+      if (stored === undefined) return null;
+      const binding = parseExtensionBinding(stored);
+      if (binding) return binding;
+      await session.remove(storageKey);
+      return null;
     },
     async save(binding) {
-      await session.set({ [storageKey]: binding });
+      const parsed = parseExtensionBinding(binding);
+      if (!parsed) throw new Error("invalid extension binding");
+      await session.set({ [storageKey]: parsed });
     },
     async clear() {
       await session.remove(storageKey);

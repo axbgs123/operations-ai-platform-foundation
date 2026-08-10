@@ -105,6 +105,8 @@ export function createPopupController(
     currentBinding = null;
     currentStatus = unsupportedPage();
     if (elements.form) elements.form.hidden = false;
+    if (elements.advancedToggle) elements.advancedToggle.hidden = false;
+    if (elements.advancedSettings) elements.advancedSettings.hidden = true;
     if (elements.destination) elements.destination.textContent = "采集将发送至：尚未连接";
     if (elements.member) elements.member.textContent = "";
     if (elements.processing) elements.processing.textContent = "处理方式：连接后由服务器提供";
@@ -119,6 +121,8 @@ export function createPopupController(
     currentBinding = binding;
     currentStatus = pageStatus;
     if (elements.form) elements.form.hidden = true;
+    if (elements.advancedToggle) elements.advancedToggle.hidden = true;
+    if (elements.advancedSettings) elements.advancedSettings.hidden = true;
     if (elements.destination) elements.destination.textContent = `采集将发送至：${binding.webOrigin} · ${binding.workspaceName}`;
     if (elements.member) elements.member.textContent = `已连接成员：${binding.memberDisplayName}`;
     if (elements.processing) elements.processing.textContent = processingText(binding);
@@ -174,9 +178,22 @@ export function createPopupController(
   };
 
   const unbind = async (): Promise<void> => {
-    await dependencies.revoke();
-    await dependencies.onUnbound?.();
-    await render();
+    let remoteRevocationFailed = false;
+    try {
+      await dependencies.revoke();
+    } catch {
+      remoteRevocationFailed = true;
+    } finally {
+      try {
+        await dependencies.onUnbound?.();
+      } catch {
+        // The visible state must still fail closed if local trust cleanup errors.
+      }
+      await render();
+    }
+    if (remoteRevocationFailed && elements.status) {
+      elements.status.textContent = "本地已解绑；服务器撤销将在恢复连接后完成。";
+    }
   };
 
   elements.form?.addEventListener("submit", (event) => {
