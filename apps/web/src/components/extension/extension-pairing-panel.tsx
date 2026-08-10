@@ -143,9 +143,10 @@ export function ExtensionPairingPanel({
 
   if (!writable) {
     return (
-      <p className="text-sm text-[var(--text-secondary)]">
-        查看者只能查看扩展连接说明。请联系管理员或编辑者生成连接码。
-      </p>
+      <div className="space-y-1 text-sm text-[var(--text-secondary)]">
+        <p>查看者只能查看扩展连接说明。请联系管理员或编辑者生成连接码。</p>
+        <p>保持连接，直到你或管理员解除</p>
+      </div>
     );
   }
 
@@ -193,6 +194,12 @@ export function ExtensionPairingPanel({
             </div>
             <p className="mt-4 text-sm text-[var(--text-secondary)]">
               当前便携式默认本地服务地址：<code>http://127.0.0.1:51201</code>（不是通用生产地址）。
+            </p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              保持连接，直到你或管理员解除
+            </p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              连接码仅 5 分钟有效；连接后的短期访问凭据每 8 小时自动续期。浏览器数据或设备密钥丢失时，请重新配对。
             </p>
             {error ? <p className="mt-4 text-sm text-red-700" role="alert">{error}</p> : null}
             {pairing ? (

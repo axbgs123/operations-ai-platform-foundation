@@ -1,3 +1,4 @@
+import { ExtensionDeviceList } from "@/components/extension/extension-device-list";
 import { MemberSettings } from "@/components/workspace/member-settings";
 import { SettingsNav } from "@/components/workspace/settings-nav";
 
@@ -11,6 +12,7 @@ export default async function MembersPage({
     <div className="mx-auto max-w-5xl space-y-6">
         <SettingsNav workspaceId={workspaceId} />
         <MemberSettings workspaceId={workspaceId} />
+        <ExtensionDeviceList workspaceId={workspaceId} />
     </div>
   );
 }
