@@ -6,7 +6,7 @@ import {
   validateServerOrigin,
 } from "../src/auth/server";
 import {
-  bindExtension,
+  pairExtension,
   bindingDisclosure,
   revokeExtension,
 } from "../src/auth/client";
@@ -41,6 +41,10 @@ describe("extension binding security", () => {
     const store = createMemoryBindingStore();
     await store.save({
       serverOrigin: "https://ops.example.com",
+      webOrigin: "https://app.ops.example.com",
+      workspaceId: "00000000-0000-0000-0000-000000000001",
+      workspaceName: "运营工作区",
+      memberDisplayName: "测试成员",
       accessToken: "opaque-short-lived-token",
       expiresAt: "2026-07-23T00:01:00Z",
       providerMode: "mock",
@@ -48,6 +52,10 @@ describe("extension binding security", () => {
     });
     expect(await store.load()).toEqual({
       serverOrigin: "https://ops.example.com",
+      webOrigin: "https://app.ops.example.com",
+      workspaceId: "00000000-0000-0000-0000-000000000001",
+      workspaceName: "运营工作区",
+      memberDisplayName: "测试成员",
       accessToken: "opaque-short-lived-token",
       expiresAt: "2026-07-23T00:01:00Z",
       providerMode: "mock",
@@ -57,11 +65,16 @@ describe("extension binding security", () => {
     expect(await store.load()).toBeNull();
   });
 
-  it("clears the invite from memory after exchange and redacts failed requests", async () => {
+  it("exchanges a pairing code and clears it from memory after both outcomes", async () => {
     const store = createMemoryBindingStore();
-    let invite = "synthetic-invite-secret";
-    const fetcher = async () =>
-      new Response(
+    let pairingCode = "123456";
+    const requests: Array<{ url: string; body: unknown }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      requests.push({
+        url: String(input),
+        body: JSON.parse(String(init?.body)),
+      });
+      return new Response(
         JSON.stringify({
           access_token: "opaque-session-token",
           token_type: "Bearer",
@@ -69,46 +82,63 @@ describe("extension binding security", () => {
           member_id: "00000000-0000-0000-0000-000000000002",
           client_id: "extension-test",
           scopes: ["capture:create", "capture:upload", "capture:read"],
-          issued_at: "2026-07-23T00:00:00Z",
-          expires_at: "2026-07-23T00:15:00Z",
-          provider_mode: "mock",
-          region: null,
+            issued_at: "2026-07-23T00:00:00Z",
+            expires_at: "2026-07-23T00:15:00Z",
+            workspace_name: "运营工作区",
+            member_display_name: "测试成员",
+            web_origin: "https://app.ops.example.com",
+            provider_mode: "mock",
+            region: null,
         }),
         { status: 201, headers: { "Content-Type": "application/json" } },
       );
+    };
 
-    await bindExtension(
+    await pairExtension(
       {
         serverOrigin: "https://ops.example.com",
-        inviteCode: invite,
+        pairingCode,
         clientId: "extension-test",
       },
-      { fetcher, store, clearInvite: () => (invite = "") },
+      { fetcher, store, clearPairingCode: () => (pairingCode = "") },
     );
 
-    expect(invite).toBe("");
-    expect(await store.load()).toMatchObject({
+    expect(requests).toEqual([
+      {
+        url: "https://ops.example.com/v1/extension/pair",
+        body: { pairing_code: "123456", client_id: "extension-test" },
+      },
+    ]);
+    expect(pairingCode).toBe("");
+    expect(await store.load()).toEqual({
       serverOrigin: "https://ops.example.com",
+      webOrigin: "https://app.ops.example.com",
+      workspaceId: "00000000-0000-0000-0000-000000000001",
+      workspaceName: "运营工作区",
+      memberDisplayName: "测试成员",
       accessToken: "opaque-session-token",
+      expiresAt: "2026-07-23T00:15:00Z",
+      providerMode: "mock",
+      region: null,
     });
 
-    let failedInvite = "another-synthetic-invite";
+    let failedPairingCode = "654321";
     await expect(
-      bindExtension(
+      pairExtension(
         {
           serverOrigin: "https://ops.example.com",
-          inviteCode: failedInvite,
+          pairingCode: failedPairingCode,
           clientId: "extension-test",
         },
         {
           fetcher: async () =>
-            new Response(`rejected ${failedInvite}`, { status: 401 }),
+            new Response("rejected", { status: 401 }),
           store,
-          clearInvite: () => (failedInvite = ""),
+          clearPairingCode: () => (failedPairingCode = ""),
         },
       ),
-    ).rejects.toThrow("服务器绑定失败");
-    expect(failedInvite).toBe("");
+    ).rejects.toThrow("服务器配对失败");
+    expect(failedPairingCode).toBe("");
   });
 
   it("always explains destination, processing mode, and human confirmation", () => {
@@ -125,6 +155,10 @@ describe("extension binding security", () => {
     const store = createMemoryBindingStore();
     await store.save({
       serverOrigin: "https://ops.example.com",
+      webOrigin: "https://app.ops.example.com",
+      workspaceId: "00000000-0000-0000-0000-000000000001",
+      workspaceName: "运营工作区",
+      memberDisplayName: "测试成员",
       accessToken: "revocable-session-token",
       expiresAt: "2026-07-23T00:15:00Z",
       providerMode: "mock",

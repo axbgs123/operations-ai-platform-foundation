@@ -4,31 +4,50 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>运营采集</title>
+    <style>
+      :root { color: #172033; background: #f7f8fb; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { margin: 0; min-width: 320px; }
+      main { padding: 16px; }
+      h1 { margin: 0 0 14px; font-size: 18px; }
+      label, input, button { display: block; width: 100%; box-sizing: border-box; }
+      label, p { font-size: 13px; line-height: 1.5; }
+      input { margin-top: 5px; border: 1px solid #cbd2df; border-radius: 6px; padding: 8px; }
+      button { margin-top: 10px; border: 0; border-radius: 6px; padding: 9px; background: #2864dc; color: #fff; cursor: pointer; }
+      button.secondary { background: transparent; color: #2864dc; padding-left: 0; text-align: left; }
+      button.danger { background: #fff; border: 1px solid #d4dae5; color: #a22b32; }
+      #advanced-settings { margin-top: 10px; }
+      #status, #page-status { border-radius: 6px; padding: 8px; background: #edf2ff; }
+      .note { color: #516077; }
+    </style>
   </head>
   <body>
     <main>
       <h1>运营数据采集</h1>
-      <form id="binding-form">
+      <form id="pairing-form">
         <label>
-          目标服务器
-          <input id="server-origin" name="serverOrigin" type="url" required />
+          连接码
+          <input id="pairing-code" name="pairingCode" type="password" autocomplete="one-time-code" required />
         </label>
-        <label>
-          成员邀请码
-          <input id="invite-code" name="inviteCode" type="password" required />
-        </label>
-        <button type="submit">绑定服务器</button>
+        <button type="submit">连接工作区</button>
       </form>
-      <p id="destination">截图将上传到：尚未绑定</p>
-      <p id="processing">处理方式：绑定后由服务器提供</p>
-      <p>图片可能包含敏感信息，请先确认遮挡结果；识别数据仍需在 Web 人工确认。</p>
-      <section id="trust-panel" hidden>
-        <h2>一键模式信任状态</h2>
-        <p id="trust-details"></p>
-        <button id="disable-one-click" type="button">关闭一键模式</button>
+      <button id="advanced-toggle" class="secondary" type="button">高级设置</button>
+      <section id="advanced-settings" hidden>
+        <label>
+          远程服务器（仅 HTTPS）
+          <input id="server-origin" name="serverOrigin" type="url" inputmode="url" />
+        </label>
       </section>
-      <p id="status">需要绑定后才能继续。</p>
-      <button id="unbind" type="button">解绑</button>
+      <section id="binding-details">
+        <p id="destination">采集将发送至：尚未连接</p>
+        <p id="member"></p>
+        <p id="processing">处理方式：连接后由服务器提供</p>
+        <p id="expiry"></p>
+        <p id="page-status">请先连接工作区。</p>
+      </section>
+      <p id="status">请输入 Web 端生成的连接码。</p>
+      <button id="start-safe-capture" type="button" hidden>开始安全采集</button>
+      <button id="unbind" class="danger" type="button" hidden>解绑</button>
+      <p class="note">截图可能包含敏感信息，请先确认遮挡结果；识别数据仍需在 Web 人工确认。</p>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

@@ -1,6 +1,7 @@
-import { bindExtension, revokeExtension } from "../auth/client";
-import { createSessionBindingStore } from "../auth/storage";
+import { pairExtension, revokeExtension, type PairingInput } from "../auth/client";
+import { createSessionBindingStore, type BindingStore, type ExtensionBinding } from "../auth/storage";
 import { createPersistedTrustStore } from "../capture/trust-state";
+import { detectSupportedPage } from "../content/page-support";
 
 declare const chrome: {
   storage: {
@@ -15,93 +16,221 @@ declare const chrome: {
       remove(key: string): Promise<void>;
     };
   };
-  permissions: {
-    request(options: { origins: string[] }): Promise<boolean>;
+  permissions: { request(options: { origins: string[] }): Promise<boolean> };
+  tabs: {
+    query(options: { active: boolean; currentWindow: boolean }): Promise<Array<{ id?: number; url?: string }>>;
+    sendMessage(tabId: number, message: PopupMessage): Promise<PageStatus>;
   };
 };
 
-const store = createSessionBindingStore(chrome.storage.session);
-const trustStore = createPersistedTrustStore(chrome.storage.local);
-const form = document.querySelector<HTMLFormElement>("#binding-form");
-const serverInput =
-  document.querySelector<HTMLInputElement>("#server-origin");
-const inviteInput = document.querySelector<HTMLInputElement>("#invite-code");
-const status = document.querySelector<HTMLElement>("#status");
-const destination = document.querySelector<HTMLElement>("#destination");
-const unbind = document.querySelector<HTMLButtonElement>("#unbind");
-const trustPanel = document.querySelector<HTMLElement>("#trust-panel");
-const trustDetails = document.querySelector<HTMLElement>("#trust-details");
-const disableOneClick = document.querySelector<HTMLButtonElement>("#disable-one-click");
+const defaultServerOrigin = "http://127.0.0.1:51201";
 
-async function render(): Promise<void> {
-  const binding = await store.load();
-  if (binding && Date.parse(binding.expiresAt) > Date.now()) {
-    if (destination) destination.textContent = `截图将上传到：${binding.serverOrigin}`;
-    const processing = document.querySelector<HTMLElement>("#processing");
-    if (processing) {
-      processing.textContent =
-        binding.providerMode === "mock"
-          ? "处理方式：Mock（不会调用外部付费模型）"
-          : `处理方式：阿里云百炼 Qwen-OCR · 地域 ${binding.region ?? "未配置"} · 会产生模型调用费用`;
+export type PageStatus = {
+  supported: boolean;
+  platform: "douyin" | "xiaohongshu" | null;
+  pageVersion: string;
+  reason?: string;
+};
+
+export type PopupMessage =
+  | { type: "GET_PAGE_STATUS" }
+  | { type: "START_SAFE_CAPTURE" };
+
+export type PopupDependencies = {
+  store: BindingStore;
+  pair(input: PairingInput): Promise<unknown>;
+  revoke(): Promise<void>;
+  getPageStatus(): Promise<PageStatus>;
+  startSafeCapture(message: Extract<PopupMessage, { type: "START_SAFE_CAPTURE" }>): Promise<unknown>;
+  now?(): number;
+  onUnbound?(): Promise<void>;
+};
+
+type PopupElements = {
+  form: HTMLFormElement | null;
+  pairingCode: HTMLInputElement | null;
+  advancedToggle: HTMLButtonElement | null;
+  advancedSettings: HTMLElement | null;
+  serverOrigin: HTMLInputElement | null;
+  destination: HTMLElement | null;
+  member: HTMLElement | null;
+  processing: HTMLElement | null;
+  expiry: HTMLElement | null;
+  pageStatus: HTMLElement | null;
+  status: HTMLElement | null;
+  start: HTMLButtonElement | null;
+  unbind: HTMLButtonElement | null;
+};
+
+const processingText = (binding: ExtensionBinding) =>
+  binding.providerMode === "mock"
+    ? "处理方式：Mock（不会调用外部付费模型）"
+    : binding.providerMode === "qianwen"
+      ? `处理方式：阿里云百炼 Qwen-OCR · 地域 ${binding.region ?? "未配置"} · 会产生模型调用费用`
+      : "处理方式：当前不可用，请在 Web 端检查设置。";
+
+const unsupportedPage = (): PageStatus => ({
+  supported: false,
+  platform: null,
+  pageVersion: "unknown",
+  reason: "unsupported-url",
+});
+
+export function createPopupController(
+  root: Document,
+  dependencies: PopupDependencies,
+) {
+  const elements: PopupElements = {
+    form: root.querySelector("#pairing-form"),
+    pairingCode: root.querySelector("#pairing-code"),
+    advancedToggle: root.querySelector("#advanced-toggle"),
+    advancedSettings: root.querySelector("#advanced-settings"),
+    serverOrigin: root.querySelector("#server-origin"),
+    destination: root.querySelector("#destination"),
+    member: root.querySelector("#member"),
+    processing: root.querySelector("#processing"),
+    expiry: root.querySelector("#expiry"),
+    pageStatus: root.querySelector("#page-status"),
+    status: root.querySelector("#status"),
+    start: root.querySelector("#start-safe-capture"),
+    unbind: root.querySelector("#unbind"),
+  };
+  const now = dependencies.now ?? Date.now;
+  let currentStatus = unsupportedPage();
+  let currentBinding: ExtensionBinding | null = null;
+
+  if (elements.serverOrigin) elements.serverOrigin.value = defaultServerOrigin;
+
+  const renderUnpaired = (message = "请输入 Web 端生成的连接码。") => {
+    currentBinding = null;
+    currentStatus = unsupportedPage();
+    if (elements.form) elements.form.hidden = false;
+    if (elements.destination) elements.destination.textContent = "采集将发送至：尚未连接";
+    if (elements.member) elements.member.textContent = "";
+    if (elements.processing) elements.processing.textContent = "处理方式：连接后由服务器提供";
+    if (elements.expiry) elements.expiry.textContent = "";
+    if (elements.pageStatus) elements.pageStatus.textContent = "请先连接工作区。";
+    if (elements.status) elements.status.textContent = message;
+    if (elements.start) elements.start.hidden = true;
+    if (elements.unbind) elements.unbind.hidden = true;
+  };
+
+  const renderPaired = (binding: ExtensionBinding, pageStatus: PageStatus) => {
+    currentBinding = binding;
+    currentStatus = pageStatus;
+    if (elements.form) elements.form.hidden = true;
+    if (elements.destination) elements.destination.textContent = `采集将发送至：${binding.webOrigin} · ${binding.workspaceName}`;
+    if (elements.member) elements.member.textContent = `已连接成员：${binding.memberDisplayName}`;
+    if (elements.processing) elements.processing.textContent = processingText(binding);
+    if (elements.expiry) elements.expiry.textContent = `连接有效至：${new Date(binding.expiresAt).toLocaleString("zh-CN")}`;
+    if (elements.pageStatus) {
+      elements.pageStatus.textContent = pageStatus.supported
+        ? `当前页面已就绪：${pageStatus.platform === "douyin" ? "抖音创作者中心" : "小红书创作中心"}`
+        : "当前页面暂不支持。请打开抖音或小红书的内容管理页后重试。";
     }
-    if (status) {
-      const minutes = Math.max(
-        0,
-        Math.ceil((Date.parse(binding.expiresAt) - Date.now()) / 60_000),
-      );
-      status.textContent = `已绑定，令牌约 ${minutes} 分钟后过期。`;
+    if (elements.status) elements.status.textContent = pageStatus.supported ? "可以开始安全采集。" : "已连接，等待受支持页面。";
+    if (elements.start) elements.start.hidden = !pageStatus.supported;
+    if (elements.unbind) elements.unbind.hidden = false;
+  };
+
+  const render = async (): Promise<void> => {
+    const binding = await dependencies.store.load();
+    if (!binding) return renderUnpaired();
+    if (Date.parse(binding.expiresAt) <= now()) {
+      await dependencies.store.clear();
+      return renderUnpaired("连接已过期，请重新输入连接码。");
     }
-    const trust = await trustStore.load();
-    if (trustPanel && trustDetails && trust) {
-      trustPanel.hidden = false;
-      trustDetails.textContent = `${trust.serverOrigin} · ${trust.platform} · ${trust.pageVersion} · 信任于 ${trust.trustedAt}`;
+    let pageStatus: PageStatus;
+    try {
+      pageStatus = await dependencies.getPageStatus();
+    } catch {
+      pageStatus = unsupportedPage();
     }
-    return;
-  }
-  if (binding) await store.clear();
-  if (destination) destination.textContent = "截图将上传到：尚未绑定";
-  if (status) status.textContent = "需要重新绑定。";
-  if (trustPanel) trustPanel.hidden = true;
+    renderPaired(binding, pageStatus);
+  };
+
+  const submit = async (): Promise<void> => {
+    const pairingCode = elements.pairingCode?.value ?? "";
+    const serverOrigin = elements.serverOrigin?.value || defaultServerOrigin;
+    try {
+      await dependencies.pair({
+        serverOrigin,
+        pairingCode,
+        clientId: "operations-capture-extension",
+      });
+      await render();
+    } catch (error) {
+      if (elements.status) {
+        elements.status.textContent = error instanceof Error ? error.message : "服务器配对失败";
+      }
+    } finally {
+      if (elements.pairingCode) elements.pairingCode.value = "";
+    }
+  };
+
+  const start = async (): Promise<void> => {
+    if (!currentBinding || !currentStatus.supported) return;
+    await dependencies.startSafeCapture({ type: "START_SAFE_CAPTURE" });
+  };
+
+  const unbind = async (): Promise<void> => {
+    await dependencies.revoke();
+    await dependencies.onUnbound?.();
+    await render();
+  };
+
+  elements.form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void submit();
+  });
+  elements.advancedToggle?.addEventListener("click", () => {
+    if (elements.advancedSettings) elements.advancedSettings.hidden = !elements.advancedSettings.hidden;
+  });
+  elements.start?.addEventListener("click", () => void start());
+  elements.unbind?.addEventListener("click", () => void unbind());
+
+  return { render, submit, start, unbind };
 }
 
-form?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const serverOrigin = serverInput?.value ?? "";
-  const inviteCode = inviteInput?.value ?? "";
-  void bindExtension(
-    {
-      serverOrigin,
-      inviteCode,
-      clientId: "operations-capture-extension",
-    },
-    {
-      fetcher: fetch,
-      store,
-      clearInvite: () => {
-        if (inviteInput) inviteInput.value = "";
-      },
-      requestOriginPermission: (originPattern) =>
-        chrome.permissions.request({ origins: [originPattern] }),
-    },
-  )
-    .then(render)
-    .catch((error: unknown) => {
-      if (status) {
-        status.textContent =
-          error instanceof Error ? error.message : "服务器绑定失败";
-      }
-    });
-});
+async function activeTab(): Promise<{ id?: number; url?: string }> {
+  return (await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? {};
+}
 
-unbind?.addEventListener("click", () => {
-  void revokeExtension(store, fetch).then(async () => {
-    await trustStore.clear();
-    await render();
+async function getChromePageStatus(): Promise<PageStatus> {
+  const tab = await activeTab();
+  if (tab.id !== undefined) {
+    try {
+      return await chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_STATUS" });
+    } catch {
+      // A content script may not yet be ready; URL-only detection remains safe.
+    }
+  }
+  const page = tab.url ? detectSupportedPage(tab.url) : unsupportedPage();
+  return { supported: page.supported, platform: page.platform, pageVersion: page.pageVersion };
+}
+
+async function startChromeSafeCapture(message: Extract<PopupMessage, { type: "START_SAFE_CAPTURE" }>): Promise<void> {
+  const tab = await activeTab();
+  if (tab.id === undefined) throw new Error("未找到当前页面");
+  await chrome.tabs.sendMessage(tab.id, message);
+}
+
+if (typeof chrome !== "undefined") {
+  const store = createSessionBindingStore(chrome.storage.session);
+  const trustStore = createPersistedTrustStore(chrome.storage.local);
+  const controller = createPopupController(document, {
+    store,
+    pair: (input) =>
+      pairExtension(input, {
+        fetcher: fetch,
+        store,
+        clearPairingCode: () => undefined,
+        requestOriginPermission: (originPattern) => chrome.permissions.request({ origins: [originPattern] }),
+      }),
+    revoke: () => revokeExtension(store, fetch),
+    getPageStatus: getChromePageStatus,
+    startSafeCapture: startChromeSafeCapture,
+    onUnbound: () => trustStore.clear(),
   });
-});
-
-disableOneClick?.addEventListener("click", () => {
-  void trustStore.clear().then(render);
-});
-
-void render();
+  void controller.render();
+}

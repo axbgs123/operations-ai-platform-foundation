@@ -23,7 +23,7 @@ const fixtureDocument = (platform: "douyin" | "xiaohongshu") =>
   ).window.document;
 
 describe("supported page registry", () => {
-  it("keeps Douyin and Xiaohongshu isolated with Task 3 signatures", () => {
+  it("keeps fixture metadata isolated from URL-only runtime detection", () => {
     const pages = parseSupportedPages(raw());
     expect(pages.map((page) => page.platform)).toEqual([
       "douyin",
@@ -51,18 +51,28 @@ describe("supported page registry", () => {
     });
     expect(pages[0].requiredAnchors).not.toEqual(pages[1].requiredAnchors);
 
-    expect(
-      createDouyinAdapter().detect({
-        url: pages[0].urlPattern.replace("*", "/detail"),
-        document: fixtureDocument("douyin"),
-      }).signature,
-    ).toBe(pages[0].pageSignature);
-    expect(
-      createXiaohongshuAdapter().detect({
-        url: pages[1].urlPattern.replace("*", "/detail"),
-        document: fixtureDocument("xiaohongshu"),
-      }).signature,
-    ).toBe(pages[1].pageSignature);
+    const douyin = createDouyinAdapter().detect({
+      url: pages[0].urlPattern.replace("*", "/detail"),
+      document: fixtureDocument("douyin"),
+    });
+    const xiaohongshu = createXiaohongshuAdapter().detect({
+      url: pages[1].urlPattern.replace("*", "/detail"),
+      document: fixtureDocument("xiaohongshu"),
+    });
+    expect(douyin).toMatchObject({
+      supported: true,
+      pageVersion: "douyin-visible-tab-v1",
+      captureRegion: null,
+      sensitiveRegions: [],
+    });
+    expect(xiaohongshu).toMatchObject({
+      supported: true,
+      pageVersion: "xiaohongshu-visible-tab-v1",
+      captureRegion: null,
+      sensitiveRegions: [],
+    });
+    expect(douyin.signature).not.toBe(pages[0].pageSignature);
+    expect(xiaohongshu.signature).not.toBe(pages[1].pageSignature);
   });
 
   it("rejects broad URLs, real-page claims without evidence, and private data", () => {

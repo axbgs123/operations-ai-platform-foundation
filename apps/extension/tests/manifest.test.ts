@@ -95,6 +95,7 @@ describe("least-privilege Manifest V3", () => {
     expect(metadata).toContain('browsers = ["chrome", "edge"]');
     expect(metadata).toContain("creator.douyin.com");
     expect(metadata).toContain("creator.xiaohongshu.com");
+    expect(manifest.version).toBe("0.2.0");
     expect(packagedMetadata).toContain(
       `extensionVersion = "${manifest.version}"`,
     );

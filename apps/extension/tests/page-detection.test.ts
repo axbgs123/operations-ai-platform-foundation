@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createDouyinAdapter } from "../src/content/page-adapters/douyin";
 import { createXiaohongshuAdapter } from "../src/content/page-adapters/xiaohongshu";
 import { detectPage } from "../src/content/page-adapters/base";
+import { detectSupportedPage } from "../src/content/page-support";
 
 const fixture = (platform: "douyin" | "xiaohongshu") =>
   readFileSync(
@@ -16,8 +17,8 @@ const fixture = (platform: "douyin" | "xiaohongshu") =>
   );
 
 describe("platform page adapters", () => {
-  it("detects the supported Douyin operations detail page", () => {
-    const document = new JSDOM(fixture("douyin")).window.document;
+  it("detects the supported Douyin operations page from its URL alone", () => {
+    const document = new JSDOM("<!doctype html>").window.document;
     const result = createDouyinAdapter().detect({
       url: "https://creator.douyin.com/creator-micro/content/manage/detail",
       document,
@@ -26,22 +27,15 @@ describe("platform page adapters", () => {
     expect(result).toMatchObject({
       supported: true,
       platform: "douyin",
-      pageVersion: "douyin-creator-v1",
-      captureRegion: { x: 40, y: 80, width: 640, height: 360 },
+      pageVersion: "douyin-visible-tab-v1",
+      captureRegion: null,
     });
     expect(result.signature).toMatch(/^douyin:[a-f0-9]{16}$/);
-    expect(result.sensitiveRegions.map((region) => region.kind)).toEqual([
-      "avatar",
-      "nickname",
-      "phone",
-      "email",
-      "dm",
-      "internal-id",
-    ]);
+    expect(result.sensitiveRegions).toEqual([]);
   });
 
-  it("detects Xiaohongshu independently with its own anchor and signature", () => {
-    const document = new JSDOM(fixture("xiaohongshu")).window.document;
+  it("detects Xiaohongshu independently from its URL alone", () => {
+    const document = new JSDOM("<!doctype html>").window.document;
     const result = createXiaohongshuAdapter().detect({
       url: "https://creator.xiaohongshu.com/publish/publish-manage/detail",
       document,
@@ -49,11 +43,12 @@ describe("platform page adapters", () => {
 
     expect(result.supported).toBe(true);
     expect(result.platform).toBe("xiaohongshu");
-    expect(result.captureRegion).toEqual({ x: 24, y: 64, width: 720, height: 420 });
+    expect(result.pageVersion).toBe("xiaohongshu-visible-tab-v1");
+    expect(result.captureRegion).toBeNull();
     expect(result.signature).toMatch(/^xiaohongshu:[a-f0-9]{16}$/);
   });
 
-  it("rejects unsupported URLs, missing anchors, unknown versions, and platform mismatch", () => {
+  it("rejects unsupported URLs without relying on fixture metadata", () => {
     const document = new JSDOM(fixture("douyin")).window.document;
     const adapter = createDouyinAdapter();
 
@@ -64,31 +59,14 @@ describe("platform page adapters", () => {
       }).supported,
     ).toBe(false);
 
-    document.querySelector("[data-anchor]")?.remove();
+    document.documentElement.dataset.pageVersion = "future-unknown";
+    document.documentElement.dataset.accountPlatform = "xiaohongshu";
     expect(
       adapter.detect({
         url: "https://creator.douyin.com/creator-micro/content/manage",
         document,
-      }).reason,
-    ).toBe("missing-anchor");
-
-    const unknown = new JSDOM(fixture("douyin")).window.document;
-    unknown.documentElement.dataset.pageVersion = "future-unknown";
-    expect(
-      adapter.detect({
-        url: "https://creator.douyin.com/creator-micro/content/manage",
-        document: unknown,
-      }).reason,
-    ).toBe("unknown-page-version");
-
-    const mismatch = new JSDOM(fixture("douyin")).window.document;
-    mismatch.documentElement.dataset.accountPlatform = "xiaohongshu";
-    expect(
-      adapter.detect({
-        url: "https://creator.douyin.com/creator-micro/content/manage",
-        document: mismatch,
-      }).reason,
-    ).toBe("platform-account-mismatch");
+      }),
+    ).toMatchObject({ supported: true, pageVersion: "douyin-visible-tab-v1" });
   });
 
   it("uses registry detection without allowing one platform adapter to call another", () => {
@@ -98,7 +76,7 @@ describe("platform page adapters", () => {
         url: "https://creator.douyin.com/creator-micro/content/manage",
         document,
       }),
-    ).toMatchObject({ supported: true, platform: "douyin" });
+    ).toMatchObject({ supported: true, platform: "douyin", captureRegion: null });
 
     const xhsDocument = new JSDOM(fixture("xiaohongshu")).window.document;
     expect(
@@ -106,6 +84,22 @@ describe("platform page adapters", () => {
         url: "https://creator.xiaohongshu.com/publish/publish-manage",
         document: xhsDocument,
       }),
-    ).toMatchObject({ supported: true, platform: "xiaohongshu" });
+    ).toMatchObject({ supported: true, platform: "xiaohongshu", captureRegion: null });
+  });
+
+  it("reports support from declared hostname and path only", () => {
+    expect(
+      detectSupportedPage(
+        "https://creator.douyin.com/creator-micro/content/manage?tab=all",
+      ),
+    ).toMatchObject({
+      supported: true,
+      platform: "douyin",
+      pageVersion: "douyin-visible-tab-v1",
+    });
+    expect(detectSupportedPage("https://creator.douyin.com/creator-micro/content")).toMatchObject({
+      supported: false,
+      platform: null,
+    });
   });
 });

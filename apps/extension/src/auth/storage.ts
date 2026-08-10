@@ -1,8 +1,12 @@
 export type ExtensionBinding = {
   serverOrigin: string;
+  webOrigin: string;
+  workspaceId: string;
+  workspaceName: string;
+  memberDisplayName: string;
   accessToken: string;
   expiresAt: string;
-  providerMode: string;
+  providerMode: "mock" | "qianwen" | "unavailable";
   region: string | null;
 };
 

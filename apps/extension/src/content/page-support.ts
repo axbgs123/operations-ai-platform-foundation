@@ -7,30 +7,49 @@ export type PageSupport = {
   anchors: string[];
 };
 
+export const SUPPORTED = {
+  douyin: {
+    hostname: "creator.douyin.com",
+    pathPrefix: "/creator-micro/content/manage",
+    pageVersion: "douyin-visible-tab-v1",
+  },
+  xiaohongshu: {
+    hostname: "creator.xiaohongshu.com",
+    pathPrefix: "/publish/publish-manage",
+    pageVersion: "xiaohongshu-visible-tab-v1",
+  },
+} as const;
+
 const pageDefinitions: Array<{
   platform: SupportedPlatform;
   hostname: string;
   pathnamePrefix: string;
+  pageVersion: string;
   anchors: string[];
 }> = [
   {
     platform: "douyin",
-    hostname: "creator.douyin.com",
-    pathnamePrefix: "/creator-micro/content/manage",
-    anchors: ["作品管理"],
+    hostname: SUPPORTED.douyin.hostname,
+    pathnamePrefix: SUPPORTED.douyin.pathPrefix,
+    pageVersion: SUPPORTED.douyin.pageVersion,
+    anchors: [],
   },
   {
     platform: "xiaohongshu",
-    hostname: "creator.xiaohongshu.com",
-    pathnamePrefix: "/publish/publish-manage",
-    anchors: ["笔记管理"],
+    hostname: SUPPORTED.xiaohongshu.hostname,
+    pathnamePrefix: SUPPORTED.xiaohongshu.pathPrefix,
+    pageVersion: SUPPORTED.xiaohongshu.pageVersion,
+    anchors: [],
   },
 ];
 
-export function detectSupportedPage(
-  locationLike: Pick<Location, "hostname" | "pathname">,
-  pageText = "",
-): PageSupport {
+export function detectSupportedPage(url: string): PageSupport {
+  let locationLike: Pick<Location, "hostname" | "pathname">;
+  try {
+    locationLike = new URL(url);
+  } catch {
+    return { supported: false, platform: null, pageVersion: "unknown", anchors: [] };
+  }
   const definition = pageDefinitions.find(
     (candidate) =>
       candidate.hostname === locationLike.hostname &&
@@ -39,11 +58,10 @@ export function detectSupportedPage(
   if (!definition) {
     return { supported: false, platform: null, pageVersion: "unknown", anchors: [] };
   }
-  const anchors = definition.anchors.filter((anchor) => pageText.includes(anchor));
   return {
-    supported: anchors.length > 0,
-    platform: anchors.length > 0 ? definition.platform : null,
-    pageVersion: "task-1",
-    anchors,
+    supported: true,
+    platform: definition.platform,
+    pageVersion: definition.pageVersion,
+    anchors: definition.anchors,
   };
 }

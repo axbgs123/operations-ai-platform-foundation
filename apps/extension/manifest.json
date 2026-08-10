@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "运营数据采集助手",
   "description": "仅在受支持的抖音和小红书运营详情页协助用户发起安全采集。",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "action": {
     "default_popup": "popup.html"
   },

@@ -3,25 +3,25 @@ import type { components } from "@operations-ai/shared-schemas";
 import { normalizeServerOrigin } from "./server";
 import type { BindingStore } from "./storage";
 
-type BindResponse = components["schemas"]["ExtensionBindResponse"];
+type PairResponse = components["schemas"]["ExtensionBindResponse"];
 
-export type BindingInput = {
+export type PairingInput = {
   serverOrigin: string;
-  inviteCode: string;
+  pairingCode: string;
   clientId: string;
 };
 
-export type BindingDependencies = {
+export type PairingDependencies = {
   fetcher: typeof fetch;
   store: BindingStore;
-  clearInvite(): void;
+  clearPairingCode(): void;
   requestOriginPermission?(originPattern: string): Promise<boolean>;
 };
 
-export async function bindExtension(
-  input: BindingInput,
-  dependencies: BindingDependencies,
-): Promise<BindResponse> {
+export async function pairExtension(
+  input: PairingInput,
+  dependencies: PairingDependencies,
+): Promise<PairResponse> {
   const serverOrigin = normalizeServerOrigin(input.serverOrigin);
   try {
     if (
@@ -31,7 +31,7 @@ export async function bindExtension(
       throw new Error("服务器权限未授权");
     }
     const response = await dependencies.fetcher(
-      `${serverOrigin}/v1/extension/bind`,
+      `${serverOrigin}/v1/extension/pair`,
       {
         method: "POST",
         headers: {
@@ -40,25 +40,35 @@ export async function bindExtension(
           "X-Extension-Client": input.clientId,
         },
         body: JSON.stringify({
-          invite_code: input.inviteCode,
+          pairing_code: input.pairingCode,
           client_id: input.clientId,
         }),
       },
     );
-    if (!response.ok) throw new Error("服务器绑定失败");
-    const payload = (await response.json()) as BindResponse;
+    if (!response.ok) throw new Error("服务器配对失败");
+    const payload = (await response.json()) as PairResponse;
+    const providerMode =
+      payload.provider_mode === "mock" ||
+      payload.provider_mode === "qianwen" ||
+      payload.provider_mode === "unavailable"
+        ? payload.provider_mode
+        : "unavailable";
     await dependencies.store.save({
       serverOrigin,
+      webOrigin: payload.web_origin,
+      workspaceId: payload.workspace_id,
+      workspaceName: payload.workspace_name,
+      memberDisplayName: payload.member_display_name,
       accessToken: payload.access_token,
       expiresAt: payload.expires_at,
-      providerMode: payload.provider_mode,
+      providerMode,
       region: payload.region,
     });
     return payload;
   } catch {
-    throw new Error("服务器绑定失败");
+    throw new Error("服务器配对失败");
   } finally {
-    dependencies.clearInvite();
+    dependencies.clearPairingCode();
   }
 }
 
