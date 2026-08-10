@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -18,7 +18,7 @@ from app.modules.imports.extension_devices import (
     DeviceRegistrationUnavailable,
     ExtensionDeviceService,
 )
-from app.modules.imports.models import ExtensionToken
+from app.modules.imports.models import ExtensionDeviceBinding, ExtensionToken
 from app.modules.workspace.models import MemberRole, Workspace, WorkspaceMember
 
 
@@ -162,6 +162,10 @@ def test_device_registration_rejects_malformed_keys_and_duplicate_device_ids(
             extension_version="0.3.0",
             label="Chrome",
         )
+    assert (
+        session.scalar(select(func.count()).select_from(ExtensionDeviceBinding))
+        == 1
+    )
 
 
 def test_device_challenges_fail_closed_for_wrong_signature_expiration_and_revocation(
@@ -231,6 +235,36 @@ def test_device_operations_require_active_same_workspace_member(session, redis):
     session.commit()
     with pytest.raises(DeviceChallengeUnavailable):
         service.issue_challenge(device_id=device.id)
+
+
+def test_only_admin_can_revoke_a_device(session, redis):
+    workspace, admin = _workspace_member(session)
+    editor = WorkspaceMember(
+        workspace_id=workspace.id,
+        display_name="编辑",
+        role=MemberRole.EDITOR,
+    )
+    session.add(editor)
+    session.commit()
+    service = _service(session, redis)
+    _, key = p256_fixture()
+    device = service.register_device(
+        workspace_id=workspace.id,
+        member_id=admin.id,
+        device_id=uuid4(),
+        public_key_jwk=key,
+        extension_version="0.3.0",
+        label="Chrome",
+    )
+
+    with pytest.raises(DeviceChallengeUnavailable):
+        service.revoke_device(
+            workspace_id=workspace.id,
+            device_id=device.id,
+            revoked_by=editor.id,
+        )
+
+    assert session.get(ExtensionDeviceBinding, device.id).revoked_at is None
 
 
 def test_concurrent_challenge_consumption_issues_only_one_token(session, redis):

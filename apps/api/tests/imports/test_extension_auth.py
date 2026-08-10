@@ -10,6 +10,8 @@ from app.modules.imports.extension_auth import (
     ExtensionTokenScope,
     ExtensionTokenService,
 )
+from app.modules.imports.models import ExtensionDeviceBinding
+from app.modules.workspace.models import WorkspaceMember
 from tests.imports.helpers import configured_client
 
 
@@ -112,6 +114,59 @@ def test_viewer_binding_is_allowed_but_never_grants_formal_write_scope() -> None
         assert response.status_code == 201, response.text
         assert "confirm_snapshot" not in response.json()["scopes"]
         assert "manage_members" not in response.json()["scopes"]
+
+
+def test_device_bound_token_rejects_member_from_another_workspace() -> None:
+    with configured_client() as (client, engine):
+        workspace = client.post("/v1/workspaces", json={"name": "令牌工作区"}).json()
+        other_workspace = client.post(
+            "/v1/workspaces", json={"name": "成员工作区"}
+        ).json()
+        client.post(
+            "/v1/sessions/invite",
+            json={"code": workspace["admin_code"], "display_name": "令牌管理员"},
+        )
+        client.post(
+            "/v1/sessions/invite",
+            json={
+                "code": other_workspace["admin_code"],
+                "display_name": "成员管理员",
+            },
+        )
+        with Session(engine, expire_on_commit=False) as session:
+            workspace_id = UUID(workspace["workspace_id"])
+            other_workspace_id = UUID(other_workspace["workspace_id"])
+            other_member = session.scalar(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == other_workspace_id
+                )
+            )
+            assert other_member is not None
+            device = ExtensionDeviceBinding(
+                workspace_id=workspace_id,
+                member_id=other_member.id,
+                device_id=UUID("00000000-0000-0000-0000-000000000901"),
+                public_key_jwk={
+                    "kty": "EC",
+                    "crv": "P-256",
+                    "x": "A" * 43,
+                    "y": "B" * 43,
+                },
+                public_key_fingerprint="a" * 64,
+                extension_version="0.3.0",
+                label="inconsistent device",
+            )
+            session.add(device)
+            session.flush()
+            issued = ExtensionTokenService(session).issue(
+                workspace_id=workspace_id,
+                member_id=other_member.id,
+                client_id="operations-capture-extension",
+                device_id=device.id,
+            )
+            session.commit()
+
+            assert ExtensionTokenService(session).authenticate(issued.access_token) is None
 
 
 def test_binding_is_idempotency_protected_and_bearer_only_with_redacted_errors() -> None:

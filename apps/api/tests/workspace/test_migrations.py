@@ -421,6 +421,9 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             )
         }
         assert device_indexes["ix_extension_device_bindings_device_id"]["unique"]
+        assert device_indexes[
+            "ix_extension_device_bindings_public_key_fingerprint"
+        ]["unique"]
         assert device_indexes["ix_extension_device_bindings_workspace_id"]
         assert device_indexes["ix_extension_device_bindings_member_id"]
         pairing_code_columns = {

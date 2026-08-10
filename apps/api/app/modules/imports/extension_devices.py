@@ -22,7 +22,7 @@ from app.modules.imports.extension_auth import (
     IssuedExtensionToken,
 )
 from app.modules.imports.models import ExtensionDeviceBinding
-from app.modules.workspace.models import Workspace, WorkspaceMember
+from app.modules.workspace.models import MemberRole, Workspace, WorkspaceMember
 
 
 EXTENSION_CLIENT_ID = "operations-capture-extension"
@@ -188,11 +188,11 @@ return payload
             extension_version=extension_version,
             label=label,
         )
-        self._session.add(binding)
         try:
-            self._session.flush()
+            with self._session.begin_nested():
+                self._session.add(binding)
+                self._session.flush()
         except IntegrityError:
-            self._session.rollback()
             raise DeviceRegistrationUnavailable from None
         return self._identity(binding)
 
@@ -285,7 +285,11 @@ return payload
         device_id: UUID,
         revoked_by: UUID,
     ) -> None:
-        if self._active_member(workspace_id, revoked_by) is None:
+        revoked_by_member = self._active_member(workspace_id, revoked_by)
+        if (
+            revoked_by_member is None
+            or revoked_by_member.role is not MemberRole.ADMIN
+        ):
             raise DeviceChallengeUnavailable
         device = self._session.get(ExtensionDeviceBinding, device_id)
         if device is None or device.workspace_id != workspace_id:

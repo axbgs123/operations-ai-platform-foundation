@@ -156,7 +156,11 @@ class ExtensionTokenService:
         ):
             return None
         member = self._session.get(WorkspaceMember, record.member_id)
-        if member is None or member.revoked_at is not None:
+        if (
+            member is None
+            or member.workspace_id != record.workspace_id
+            or member.revoked_at is not None
+        ):
             return None
         if record.device_id is not None:
             device = self._session.get(ExtensionDeviceBinding, record.device_id)
