@@ -226,6 +226,44 @@ describe("extension runtime message boundary", () => {
     ).resolves.toEqual({ ok: false, error: "inactive-or-unsupported-tab" });
   });
 
+  it("fences multi-slice captures by armed session, sender, sequence, and exact page metadata", async () => {
+    const captureVisibleTab = vi.fn().mockResolvedValue("data:image/png;base64,SAFE");
+    const handler = createBackgroundMessageHandler({
+      queryActiveTab: vi.fn().mockResolvedValue(supportedTab),
+      captureVisibleTab,
+      now: () => 1_000,
+    });
+    const arm = {
+      type: "ARM_FULL_PAGE_CAPTURE" as const,
+      tabId: 7,
+      captureSessionId: "session-1",
+      ...captureContext,
+      url: supportedTab.url,
+      viewport: { width: 100, height: 100, devicePixelRatio: 1 },
+      scrollY: 420,
+    };
+    const slice = {
+      type: "CAPTURE_FULL_PAGE_SLICE" as const,
+      captureSessionId: "session-1",
+      sequence: 0,
+      ...captureContext,
+      url: supportedTab.url,
+      viewport: { width: 100, height: 100, devicePixelRatio: 1 },
+      scrollY: 420,
+    };
+    expect(parseRuntimeMessage(arm)).toEqual(arm);
+    expect(parseRuntimeMessage(slice)).toEqual(slice);
+    await expect(handler(arm, {})).resolves.toEqual({ ok: true });
+    await expect(handler(slice, { tab: supportedTab })).resolves.toEqual({ ok: true, dataUrl: "data:image/png;base64,SAFE" });
+    await expect(handler({ ...slice, sequence: 2 }, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "capture-sequence-mismatch" });
+    await expect(handler({ ...slice, captureSessionId: "other", sequence: 1 }, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "capture-session-mismatch" });
+    await expect(handler({ ...slice, sequence: 1, viewport: { ...slice.viewport, devicePixelRatio: 2 } }, { tab: supportedTab }))
+      .resolves.toEqual({ ok: false, error: "capture-context-mismatch" });
+    await expect(handler({ ...slice, sequence: 1 }, { tab: { ...supportedTab, id: 8 } }))
+      .resolves.toEqual({ ok: false, error: "inactive-or-unsupported-tab" });
+    expect(captureVisibleTab).toHaveBeenCalledTimes(1);
+  });
+
   it("arms the active tab before asking its content script to start", async () => {
     const arm = vi.fn().mockResolvedValue({ ok: true });
     const startContent = vi.fn().mockResolvedValue({ ok: true });

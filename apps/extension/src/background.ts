@@ -26,7 +26,17 @@ type ArmedCapture = {
   url: string;
 };
 
+type ArmedFullPageCapture = ArmedCapture & {
+  captureSessionId: string;
+  viewport: { width: number; height: number; devicePixelRatio: number };
+  nextSequence: number;
+  lastScrollY: number;
+  lastCaptureAt: number;
+};
+
 const armLifetimeMs = 30_000;
+const fullPageLifetimeMs = 20_000;
+const minimumSliceIntervalMs = 500;
 
 const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
   candidate.id !== undefined &&
@@ -38,6 +48,7 @@ const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
 
 export function createBackgroundMessageHandler(dependencies: BackgroundDependencies) {
   const armedTabs = new Map<number, ArmedCapture>();
+  const armedFullPageTabs = new Map<number, ArmedFullPageCapture>();
   const now = dependencies.now ?? Date.now;
 
   return async (rawMessage: unknown, sender: MessageSender): Promise<unknown> => {
@@ -79,6 +90,84 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         url: active.url!,
       });
       return { ok: true };
+    }
+
+    if (message.type === "ARM_FULL_PAGE_CAPTURE") {
+      const active = await dependencies.queryActiveTab();
+      const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
+      if (
+        active.id !== message.tabId ||
+        !isActiveSupportedTab(active, active) ||
+        !detected ||
+        detected.platform !== message.platform ||
+        detected.pageVersion !== message.pageVersion ||
+        active.url !== message.url
+      ) {
+        return { ok: false, error: "inactive-or-unsupported-tab" };
+      }
+      armedFullPageTabs.set(message.tabId, {
+        expiresAt: now() + fullPageLifetimeMs,
+        captureSessionId: message.captureSessionId,
+        platform: message.platform,
+        pageVersion: message.pageVersion,
+        pageSignature: message.pageSignature,
+        url: message.url,
+        viewport: message.viewport,
+        nextSequence: 0,
+        lastScrollY: message.scrollY,
+        lastCaptureAt: Number.NEGATIVE_INFINITY,
+      });
+      return { ok: true };
+    }
+
+    if (message.type === "END_FULL_PAGE_CAPTURE") {
+      const tab = sender.tab;
+      if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
+      const armed = armedFullPageTabs.get(tab.id!);
+      if (!armed || armed.captureSessionId !== message.captureSessionId) return { ok: false, error: "capture-session-mismatch" };
+      armedFullPageTabs.delete(tab.id!);
+      return { ok: true };
+    }
+
+    if (message.type === "CAPTURE_FULL_PAGE_SLICE") {
+      const tab = sender.tab;
+      if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
+      const active = await dependencies.queryActiveTab();
+      if (!isActiveSupportedTab(tab, active)) {
+        if (tab.id !== undefined) armedFullPageTabs.delete(tab.id);
+        return { ok: false, error: "inactive-or-unsupported-tab" };
+      }
+      const armed = armedFullPageTabs.get(tab.id!);
+      if (!armed || armed.expiresAt <= now()) {
+        if (tab.id !== undefined) armedFullPageTabs.delete(tab.id);
+        return { ok: false, error: "capture-not-armed" };
+      }
+      if (armed.captureSessionId !== message.captureSessionId) return { ok: false, error: "capture-session-mismatch" };
+      if (armed.nextSequence !== message.sequence) return { ok: false, error: "capture-sequence-mismatch" };
+      const detected = detectSupportedPage(tab.url!);
+      if (
+        armed.platform !== message.platform || armed.pageVersion !== message.pageVersion ||
+        armed.pageSignature !== message.pageSignature || armed.url !== message.url || tab.url !== message.url ||
+        armed.viewport.width !== message.viewport.width || armed.viewport.height !== message.viewport.height ||
+        armed.viewport.devicePixelRatio !== message.viewport.devicePixelRatio || message.scrollY < armed.lastScrollY ||
+        (message.sequence === 0 && message.scrollY !== armed.lastScrollY) ||
+        !detected || detected.platform !== armed.platform || detected.pageVersion !== armed.pageVersion
+      ) {
+        armedFullPageTabs.delete(tab.id!);
+        return { ok: false, error: "capture-context-mismatch" };
+      }
+      if (now() - armed.lastCaptureAt < minimumSliceIntervalMs) return { ok: false, error: "capture-rate-limit" };
+      let dataUrl: string;
+      try {
+        dataUrl = await dependencies.captureVisibleTab(tab.windowId!, { format: "png" });
+      } catch {
+        armedFullPageTabs.delete(tab.id!);
+        return { ok: false, error: "capture-failed" };
+      }
+      armed.nextSequence += 1;
+      armed.lastScrollY = message.scrollY;
+      armed.lastCaptureAt = now();
+      return { ok: true, dataUrl };
     }
 
     if (message.type === "GET_CAPTURE_BINDING") {
