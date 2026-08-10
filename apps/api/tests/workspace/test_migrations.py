@@ -65,6 +65,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "risk_scan_feedback",
                 "risk_feedback_events",
                 "extension_tokens",
+                "extension_pairing_codes",
                 "extension_capture_tasks",
                 "export_jobs",
                 "restore_jobs",
@@ -393,6 +394,21 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "expires_at",
             "revoked_at",
         } <= extension_token_columns
+        pairing_code_columns = {
+            column["name"]
+            for column in inspect(migrated_engine).get_columns(
+                "extension_pairing_codes"
+            )
+        }
+        assert {
+            "workspace_id",
+            "member_id",
+            "code_digest",
+            "created_at",
+            "expires_at",
+            "used_at",
+            "revoked_at",
+        } <= pairing_code_columns
         export_job_columns = {
             column["name"]
             for column in inspect(migrated_engine).get_columns("export_jobs")
@@ -417,7 +433,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260805_0034",
+                expected_head="20260810_0035",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -426,6 +442,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "risk_scan_feedback",
                     "risk_feedback_events",
                     "extension_tokens",
+                    "extension_pairing_codes",
                     "extension_capture_tasks",
                     "export_jobs",
                     "restore_jobs",

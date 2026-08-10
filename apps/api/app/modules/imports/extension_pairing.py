@@ -37,7 +37,7 @@ class CreatedPairingCode:
 
 
 class ExtensionPairingService:
-    code_lifetime = timedelta(minutes=15)
+    code_lifetime = timedelta(minutes=5)
 
     def __init__(
         self,
@@ -123,9 +123,30 @@ class ExtensionPairingService:
     def redeem(self, code: str, *, client_id: str) -> IssuedExtensionToken:
         current = self._now()
         self._record_attempt(client_id, current)
+        digest = self._digest(self._normalize(code))
+        pairing = self._session.execute(
+            select(
+                ExtensionPairingCode.workspace_id,
+                ExtensionPairingCode.member_id,
+            )
+            .where(ExtensionPairingCode.code_digest == digest)
+        ).one_or_none()
+        if pairing is None:
+            raise PairingCodeUnavailable
+        member = self._session.scalar(
+            select(WorkspaceMember)
+            .where(
+                WorkspaceMember.id == pairing.member_id,
+                WorkspaceMember.workspace_id == pairing.workspace_id,
+                WorkspaceMember.revoked_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if member is None:
+            raise PairingCodeUnavailable
         record = self._session.scalar(
             select(ExtensionPairingCode)
-            .where(ExtensionPairingCode.code_digest == self._digest(self._normalize(code)))
+            .where(ExtensionPairingCode.code_digest == digest)
             .with_for_update()
         )
         if (
@@ -134,17 +155,6 @@ class ExtensionPairingService:
             or record.revoked_at is not None
             or record.expires_at <= current
         ):
-            raise PairingCodeUnavailable
-        member = self._session.scalar(
-            select(WorkspaceMember)
-            .where(
-                WorkspaceMember.id == record.member_id,
-                WorkspaceMember.workspace_id == record.workspace_id,
-                WorkspaceMember.revoked_at.is_(None),
-            )
-            .with_for_update()
-        )
-        if member is None:
             raise PairingCodeUnavailable
         record.used_at = current
         issued = ExtensionTokenService(self._session, now=self._now).issue(
