@@ -8,7 +8,7 @@ from app.core.schema_consistency import (
 )
 
 
-HEAD = "20260805_0034"
+HEAD = "20260810_0035"
 
 AGENT_TABLES = {
     "agent_briefings",
@@ -44,6 +44,9 @@ def _database_with_version(*, include_required_tables: bool):
             )
             connection.execute(
                 text("CREATE TABLE extension_capture_tasks (id VARCHAR)")
+            )
+            connection.execute(
+                text("CREATE TABLE extension_pairing_codes (id VARCHAR)")
             )
             connection.execute(text("CREATE TABLE export_jobs (id VARCHAR)"))
             connection.execute(text("CREATE TABLE restore_jobs (id VARCHAR)"))
@@ -115,6 +118,7 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "risk_scan_feedback",
                     "risk_feedback_events",
                     "extension_capture_tasks",
+                    "extension_pairing_codes",
                     "export_jobs",
                     "restore_jobs",
                     "knowledge_index_rebuilds",
@@ -148,6 +152,7 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                 "risk_scan_feedback",
                 "risk_feedback_events",
                 "extension_capture_tasks",
+                "extension_pairing_codes",
                 "export_jobs",
                 "restore_jobs",
                     "knowledge_index_rebuilds",

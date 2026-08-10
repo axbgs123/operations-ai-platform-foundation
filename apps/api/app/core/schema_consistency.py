@@ -22,6 +22,7 @@ RUNTIME_REQUIRED_TABLES = {
     "risk_scan_feedback",
     "risk_feedback_events",
     "extension_tokens",
+    "extension_pairing_codes",
     "export_jobs",
     "restore_jobs",
     "knowledge_index_rebuilds",

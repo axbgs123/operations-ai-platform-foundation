@@ -40,7 +40,7 @@ class AuthenticatedExtension:
 
 
 class ExtensionTokenService:
-    lifetime = timedelta(minutes=15)
+    lifetime = timedelta(hours=8)
 
     def __init__(
         self,

@@ -200,3 +200,28 @@ class ExtensionToken(UUIDPrimaryKeyMixin, Base):
     issued_at: Mapped[datetime] = mapped_column(UTCDateTime())
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
+
+
+class ExtensionPairingCode(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "extension_pairing_codes"
+    __table_args__ = (
+        Index(
+            "ix_extension_pairing_codes_code_digest",
+            "code_digest",
+            unique=True,
+        ),
+        Index("ix_extension_pairing_codes_workspace_id", "workspace_id"),
+        Index("ix_extension_pairing_codes_member_id", "member_id"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspace_members.id", ondelete="CASCADE")
+    )
+    code_digest: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
