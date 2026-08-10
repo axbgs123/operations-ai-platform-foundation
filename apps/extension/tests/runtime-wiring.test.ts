@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createBackgroundMessageHandler, createCaptureCoordinator, createCommandListener } from "../src/background";
-import { createContentMessageHandler } from "../src/content";
+import { createContentMessageHandler, fullPageFailureDisclosure } from "../src/content";
 import { armAndStartSafeCapture } from "../src/popup/main";
 import { parseRuntimeMessage } from "../src/runtime/messages";
 
@@ -36,6 +36,17 @@ const storedBinding = {
 };
 
 describe("extension runtime message boundary", () => {
+  it("discloses the original stitch reason when every full-page prefix is unusable", () => {
+    expect(fullPageFailureDisclosure({
+      slices: [{}, {}, {}],
+      stopReason: "bottom",
+    }, "pixel-limit")).toEqual({
+      dataUrl: null,
+      complete: false,
+      stopReason: "pixel-limit",
+      sliceCount: 3,
+    });
+  });
   it("uses the command-provided tab to start the same full-page coordinator", async () => {
     const startCapture = vi.fn().mockResolvedValue(undefined);
     const commandListener = createCommandListener({ startCapture, cancel: vi.fn() });

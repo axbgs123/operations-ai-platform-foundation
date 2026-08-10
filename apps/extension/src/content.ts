@@ -125,6 +125,19 @@ const parseCaptureBindingResponse = (value: unknown): CaptureBindingResponse | n
 
 const currentDetection = () => detectPage({ url: window.location.href, document });
 
+export function fullPageFailureDisclosure(
+  result: { slices: readonly unknown[]; stopReason: string; partialReason?: string },
+  originalStitchReason?: string,
+) {
+  return {
+    dataUrl: null as null,
+    complete: false as const,
+    stopReason: originalStitchReason ?? result.partialReason ??
+      (result.stopReason === "bottom" ? "empty" : result.stopReason),
+    sliceCount: result.slices.length,
+  };
+}
+
 function finalPreviewController(dataUrl: string) {
   return {
     state: CaptureState.PreviewReady,
@@ -224,12 +237,7 @@ function mountChromeCapture(
           if (stitched.dataUrl) stitchedSliceCount = length;
         }
         if (!stitched.dataUrl) {
-          return {
-            dataUrl: null,
-            complete: false,
-            stopReason: result.partialReason ?? result.stopReason ?? stitched.partialReason ?? "empty",
-            sliceCount: result.slices.length,
-          };
+          return fullPageFailureDisclosure(result, originalStitchReason);
         }
         return {
           dataUrl: stitched.dataUrl,

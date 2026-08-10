@@ -80,3 +80,7 @@ GREEN: pnpm --filter extension test                 # 14 files, 169 tests passed
 - Partial full-page requests now accept only full-page driver/stitch stop reasons; `visible`, `region`, and `bottom` are rejected.
 - Parent cancellation now aborts the in-flight slice controller immediately.
 - A successful bounded prefix is explicitly partial and carries the original stitch failure reason plus its actual prefix slice count.
+
+## Fix round 3
+
+- No-prefix full-page failures now always disclose the original stitch failure reason and captured slice count; a completed driver `bottom` is never used as a partial failure reason.
