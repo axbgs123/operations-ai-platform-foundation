@@ -19,7 +19,7 @@ export type ScrollCaptureDriverDependencies = {
   getSignature(): string;
   getContext?(): { platform: CapturePlatform; pageVersion: string; pageSignature?: string };
   scrollTo(position: { top: number; behavior: "instant" }): void;
-  capture(slice: Omit<CaptureSlice, "dataUrl">): Promise<string>;
+  capture(slice: Omit<CaptureSlice, "dataUrl">, options?: { deadlineAt: number; signal: AbortSignal }): Promise<string>;
   now?(): number;
   wait?(milliseconds: number): Promise<void>;
   signal?: AbortSignal;
@@ -32,6 +32,8 @@ const MIN_CAPTURE_INTERVAL_MS = 500;
 const MAX_SLICES = 30;
 const MAX_TIMEOUT_MS = 20_000;
 const defaultWait = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+const restrictiveBound = (value: number, maximum: number) =>
+  Number.isFinite(value) && value >= 0 ? Math.min(value, maximum) : 0;
 
 export class ScrollCaptureDriver {
   constructor(private readonly dependencies: ScrollCaptureDriverDependencies) {}
@@ -50,11 +52,13 @@ export class ScrollCaptureDriver {
       pageSignature: initialSignature,
     };
     const startedAt = now();
-    const maxSlices = Math.min(Math.max(0, options.maxSlices), MAX_SLICES);
-    const timeoutMs = Math.min(Math.max(0, options.timeoutMs), MAX_TIMEOUT_MS);
+    const maxSlices = restrictiveBound(options.maxSlices, MAX_SLICES);
+    const timeoutMs = restrictiveBound(options.timeoutMs, MAX_TIMEOUT_MS);
+    const deadlineAt = startedAt + timeoutMs;
     const slices: CaptureSlice[] = [];
     let lastCaptureAt: number | null = null;
     let stableBottomCount = 0;
+    let observedBottom: { scrollHeight: number; bottomY: number } | null = null;
 
     const partial = (partialReason: PartialCaptureReason): FullPageCaptureResult => ({
       slices,
@@ -86,7 +90,7 @@ export class ScrollCaptureDriver {
       while (true) {
         const earlyStop = interrupted();
         if (earlyStop) return partial(earlyStop);
-        if (now() - startedAt >= timeoutMs) {
+        if (now() >= deadlineAt) {
           return { slices, complete: false, stopReason: "time-limit", originalScrollY };
         }
         if (slices.length >= maxSlices) {
@@ -94,8 +98,8 @@ export class ScrollCaptureDriver {
         }
         if (lastCaptureAt !== null) {
           const remainingSpacing = MIN_CAPTURE_INTERVAL_MS - (now() - lastCaptureAt);
-          if (remainingSpacing > 0) await wait(remainingSpacing);
-          if (now() - startedAt >= timeoutMs) {
+          if (remainingSpacing > 0) await wait(Math.min(remainingSpacing, Math.max(0, deadlineAt - now())));
+          if (now() >= deadlineAt) {
             return { slices, complete: false, stopReason: "time-limit", originalScrollY };
           }
           const delayedStop = interrupted();
@@ -117,11 +121,28 @@ export class ScrollCaptureDriver {
             devicePixelRatio: metrics.devicePixelRatio,
           },
         };
-        try {
-          slices.push({ ...sliceWithoutData, dataUrl: await dependencies.capture(sliceWithoutData) });
-        } catch {
+        const remainingCaptureMs = deadlineAt - now();
+        if (remainingCaptureMs <= 0) {
+          return { slices, complete: false, stopReason: "time-limit", originalScrollY };
+        }
+        const captureAbort = new AbortController();
+        const late = Symbol("deadline");
+        const captureResult = dependencies.capture(sliceWithoutData, { deadlineAt, signal: captureAbort.signal })
+          .then((dataUrl) => dataUrl, () => null);
+        let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<string | null | typeof late>((resolve) => { deadlineTimer = setTimeout(() => {
+          captureAbort.abort();
+          resolve(late);
+        }, remainingCaptureMs); });
+        const dataUrl = await Promise.race([captureResult, timeout]);
+        if (deadlineTimer !== undefined) clearTimeout(deadlineTimer);
+        if (dataUrl === late || now() >= deadlineAt) {
+          return { slices, complete: false, stopReason: "time-limit", originalScrollY };
+        }
+        if (dataUrl === null) {
           return partial("capture-failed");
         }
+        slices.push({ ...sliceWithoutData, dataUrl });
         lastCaptureAt = now();
 
         const afterCaptureStop = interrupted();
@@ -129,12 +150,16 @@ export class ScrollCaptureDriver {
         const latest = dependencies.getMetrics();
         const bottomY = Math.max(0, latest.scrollHeight - latest.viewportHeight);
         if (dependencies.getScrollY() >= bottomY) {
-          stableBottomCount += 1;
+          stableBottomCount = observedBottom?.scrollHeight === latest.scrollHeight && observedBottom.bottomY === bottomY
+            ? stableBottomCount + 1
+            : 1;
+          observedBottom = { scrollHeight: latest.scrollHeight, bottomY };
           if (stableBottomCount >= 2) {
             return { slices, complete: true, stopReason: "bottom", originalScrollY };
           }
         } else {
           stableBottomCount = 0;
+          observedBottom = null;
         }
         dependencies.scrollTo({ top: Math.min(bottomY, dependencies.getScrollY() + latest.viewportHeight), behavior: "instant" });
       }
@@ -152,7 +177,8 @@ export class ScrollCaptureDriver {
 /** Content-side adapter. It observes page lifecycle changes and always delegates restoration to capture(). */
 export function createBrowserScrollCaptureDriver(options: {
   context: { platform: CapturePlatform; pageVersion: string; pageSignature: string };
-  capture(slice: Omit<CaptureSlice, "dataUrl">): Promise<string>;
+  capture(slice: Omit<CaptureSlice, "dataUrl">, options?: { deadlineAt: number; signal: AbortSignal }): Promise<string>;
+  getSignature?: () => string;
   window?: Window;
   document?: Document;
 }): ScrollCaptureDriver {
@@ -175,7 +201,7 @@ export function createBrowserScrollCaptureDriver(options: {
       devicePixelRatio: pageWindow.devicePixelRatio || 1,
     }),
     getUrl: () => pageWindow.location.href,
-    getSignature: () => options.context.pageSignature,
+    getSignature: options.getSignature ?? (() => options.context.pageSignature),
     getContext: () => options.context,
     scrollTo: ({ top }) => pageWindow.scrollTo({ top, behavior: "instant" as ScrollBehavior }),
     capture: options.capture,

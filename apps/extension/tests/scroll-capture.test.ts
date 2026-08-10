@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ScrollCaptureDriver, type ScrollCaptureDriverDependencies } from "../src/capture/scroll-driver";
+import { createBrowserScrollCaptureDriver, ScrollCaptureDriver, type ScrollCaptureDriverDependencies } from "../src/capture/scroll-driver";
 
 function createPage(overrides: Partial<ScrollCaptureDriverDependencies> = {}) {
   let scrollY = 420;
@@ -35,6 +35,7 @@ function createPage(overrides: Partial<ScrollCaptureDriverDependencies> = {}) {
     setSignature: (next: string) => { signature = next; },
     setDpr: (next: number) => { dpr = next; },
     setViewportWidth: (next: number) => { viewportWidth = next; },
+    advance: (milliseconds: number) => { now += milliseconds; },
   };
 }
 
@@ -104,5 +105,68 @@ describe("ScrollCaptureDriver", () => {
       await expect(new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 }))
         .resolves.toMatchObject({ complete: false, partialReason: "page-drift" });
     }
+  });
+
+  it("does not retain a slow screenshot that completes after the absolute deadline", async () => {
+    const fixture = createPage();
+    fixture.capture.mockImplementation(async () => { fixture.advance(20_000); return "data:image/png;base64,late"; });
+    await expect(new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 }))
+      .resolves.toMatchObject({ complete: false, stopReason: "time-limit", slices: [] });
+    expect(fixture.scrollTo).toHaveBeenLastCalledWith({ top: 420, behavior: "instant" });
+  });
+
+  it("truncates screenshot spacing waits to the remaining deadline budget", async () => {
+    const fixture = createPage({ getMetrics: () => ({ scrollHeight: 9_999, viewportWidth: 100, viewportHeight: 100, devicePixelRatio: 1 }) });
+    const waits: number[] = [];
+    fixture.page.wait = async (milliseconds) => { waits.push(milliseconds); fixture.advance(milliseconds + 1); };
+    fixture.capture.mockImplementation(async () => { fixture.advance(400); return "data:image/png;base64,slice"; });
+    await expect(new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 600 }))
+      .resolves.toMatchObject({ complete: false, stopReason: "time-limit" });
+    expect(waits).toEqual([200]);
+  });
+
+  it("treats non-finite or negative driver bounds as restrictive instead of permitting capture", async () => {
+    const fixture = createPage();
+    await expect(new ScrollCaptureDriver(fixture.page).capture({ maxSlices: Number.NaN, timeoutMs: 20_000 }))
+      .resolves.toMatchObject({ stopReason: "slice-limit", slices: [] });
+    await expect(new ScrollCaptureDriver(createPage().page).capture({ maxSlices: 30, timeoutMs: Number.POSITIVE_INFINITY }))
+      .resolves.toMatchObject({ stopReason: "time-limit", slices: [] });
+    await expect(new ScrollCaptureDriver(createPage().page).capture({ maxSlices: -1, timeoutMs: 20_000 }))
+      .resolves.toMatchObject({ stopReason: "slice-limit", slices: [] });
+  });
+
+  it("resets stable-bottom counting if the page grows between bottom observations", async () => {
+    const fixture = createPage();
+    let grew = false;
+    fixture.capture.mockImplementation(async () => {
+      if (fixture.capture.mock.calls.length === 17 && !grew) { fixture.setHeight(2_100); grew = true; }
+      return "data:image/png;base64,slice";
+    });
+    const result = await new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 });
+    expect(result).toMatchObject({ complete: true, stopReason: "bottom" });
+    expect(result.slices.length).toBeGreaterThan(17);
+  });
+
+  it("uses a live browser signature provider rather than the startup signature", async () => {
+    let scrollY = 0;
+    let liveSignature = "signature:initial";
+    const pageWindow = {
+      scrollY, innerWidth: 100, innerHeight: 100, devicePixelRatio: 1,
+      location: { href: "https://creator.douyin.com/creator-micro/content/manage" },
+      scrollTo: ({ top }: { top: number }) => { scrollY = top; }, addEventListener: () => undefined, removeEventListener: () => undefined,
+    } as unknown as Window;
+    const pageDocument = {
+      documentElement: { scrollHeight: 100 }, body: { scrollHeight: 100 }, visibilityState: "visible",
+      addEventListener: () => undefined, removeEventListener: () => undefined,
+    } as unknown as Document;
+    const driver = createBrowserScrollCaptureDriver({
+      context: { platform: "douyin", pageVersion: "v1", pageSignature: "signature:initial" },
+      getSignature: () => liveSignature,
+      window: pageWindow,
+      document: pageDocument,
+      capture: async () => { liveSignature = "signature:drifted"; return "data:image/png;base64,slice"; },
+    });
+    await expect(driver.capture({ maxSlices: 30, timeoutMs: 20_000 }))
+      .resolves.toMatchObject({ complete: false, partialReason: "page-drift" });
   });
 });

@@ -264,6 +264,31 @@ describe("extension runtime message boundary", () => {
     expect(captureVisibleTab).toHaveBeenCalledTimes(1);
   });
 
+  it("atomically reserves a full-page sequence and rejects a concurrent duplicate", async () => {
+    let resolveCapture: ((value: string) => void) | undefined;
+    const captureVisibleTab = vi.fn(() => new Promise<string>((resolve) => { resolveCapture = resolve; }));
+    const handler = createBackgroundMessageHandler({ queryActiveTab: vi.fn().mockResolvedValue(supportedTab), captureVisibleTab, now: () => 1_000 });
+    const arm = { type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, captureSessionId: "session-1", ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
+    const slice = { type: "CAPTURE_FULL_PAGE_SLICE" as const, captureSessionId: "session-1", sequence: 0, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
+    await handler(arm, {});
+    const first = handler(slice, { tab: supportedTab });
+    await vi.waitFor(() => expect(captureVisibleTab).toHaveBeenCalledOnce());
+    await expect(handler(slice, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "capture-in-progress" });
+    expect(captureVisibleTab).toHaveBeenCalledOnce();
+    resolveCapture?.("data:image/png;base64,SAFE");
+    await expect(first).resolves.toEqual({ ok: true, dataUrl: "data:image/png;base64,SAFE" });
+  });
+
+  it("rejects a slice which finishes after the full-page deadline", async () => {
+    let now = 1_000;
+    const captureVisibleTab = vi.fn(async () => { now = 21_001; return "data:image/png;base64,LATE"; });
+    const handler = createBackgroundMessageHandler({ queryActiveTab: vi.fn().mockResolvedValue(supportedTab), captureVisibleTab, now: () => now });
+    const arm = { type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, captureSessionId: "session-1", ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
+    const slice = { type: "CAPTURE_FULL_PAGE_SLICE" as const, captureSessionId: "session-1", sequence: 0, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
+    await handler(arm, {});
+    await expect(handler(slice, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "capture-not-armed" });
+  });
+
   it("arms the active tab before asking its content script to start", async () => {
     const arm = vi.fn().mockResolvedValue({ ok: true });
     const startContent = vi.fn().mockResolvedValue({ ok: true });

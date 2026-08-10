@@ -32,6 +32,7 @@ type ArmedFullPageCapture = ArmedCapture & {
   nextSequence: number;
   lastScrollY: number;
   lastCaptureAt: number;
+  inFlight: boolean;
 };
 
 const armLifetimeMs = 30_000;
@@ -116,6 +117,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         nextSequence: 0,
         lastScrollY: message.scrollY,
         lastCaptureAt: Number.NEGATIVE_INFINITY,
+        inFlight: false,
       });
       return { ok: true };
     }
@@ -156,13 +158,21 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         armedFullPageTabs.delete(tab.id!);
         return { ok: false, error: "capture-context-mismatch" };
       }
+      if (armed.inFlight) return { ok: false, error: "capture-in-progress" };
       if (now() - armed.lastCaptureAt < minimumSliceIntervalMs) return { ok: false, error: "capture-rate-limit" };
+      armed.inFlight = true;
       let dataUrl: string;
       try {
         dataUrl = await dependencies.captureVisibleTab(tab.windowId!, { format: "png" });
       } catch {
         armedFullPageTabs.delete(tab.id!);
         return { ok: false, error: "capture-failed" };
+      } finally {
+        if (armedFullPageTabs.get(tab.id!) === armed) armed.inFlight = false;
+      }
+      if (armedFullPageTabs.get(tab.id!) !== armed || armed.expiresAt <= now()) {
+        armedFullPageTabs.delete(tab.id!);
+        return { ok: false, error: "capture-not-armed" };
       }
       armed.nextSequence += 1;
       armed.lastScrollY = message.scrollY;

@@ -40,7 +40,7 @@ export type StitchedCapture = {
   height: number;
   complete: boolean;
   croppedOverlapPixels: number;
-  partialReason?: "empty" | "invalid-slice-order" | "pixel-limit" | "edge-limit" | "encoded-size" | "canvas-failed";
+  partialReason?: "empty" | "invalid-slice-order" | "pixel-limit" | "edge-limit" | "encoded-size" | "canvas-failed" | "dimension-mismatch";
 };
 
 export type StitchLimits = {

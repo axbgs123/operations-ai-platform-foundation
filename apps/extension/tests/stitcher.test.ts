@@ -58,7 +58,48 @@ describe("stitchSlices", () => {
   it("never permits callers to raise the 40M pixel, 32k edge, or 10MiB encoding caps", async () => {
     const oversized = runtime();
     oversized.decode = async () => ({ width: 32_001, height: 1 });
-    await expect(stitchSlices([slice(0, 0)], { maxPixels: Number.MAX_SAFE_INTEGER, maxEdge: Number.MAX_SAFE_INTEGER, maxBytes: Number.MAX_SAFE_INTEGER }, oversized))
+    await expect(stitchSlices([{ ...slice(0, 0), viewport: { width: 32_001, height: 1, devicePixelRatio: 1 } }], { maxPixels: Number.MAX_SAFE_INTEGER, maxEdge: Number.MAX_SAFE_INTEGER, maxBytes: Number.MAX_SAFE_INTEGER }, oversized))
       .resolves.toMatchObject({ complete: false, partialReason: "edge-limit", dataUrl: null });
+  });
+
+  it("treats NaN, infinity, and negative output limits as restrictive", async () => {
+    await expect(stitchSlices([slice(0, 0)], { ...limits, maxPixels: Number.NaN }, runtime()))
+      .resolves.toMatchObject({ complete: false, partialReason: "pixel-limit" });
+    await expect(stitchSlices([slice(0, 0)], { ...limits, maxEdge: Number.POSITIVE_INFINITY }, runtime()))
+      .resolves.toMatchObject({ complete: false, partialReason: "edge-limit" });
+    await expect(stitchSlices([slice(0, 0)], { ...limits, maxBytes: -1 }, runtime()))
+      .resolves.toMatchObject({ complete: false, partialReason: "encoded-size" });
+  });
+
+  it("compares the corresponding tail of an overlap larger than 64 pixels", async () => {
+    const calls: number[][] = [];
+    const pixelRuntime = {
+      decode: async () => ({ width: 100, height: 100 }),
+      createCanvas: () => ({
+        getContext: () => ({
+          drawImage: (_image: unknown, ...args: number[]) => { calls.push(args); },
+          getImageData: () => ({ data: new Uint8ClampedArray(100 * 64 * 2 * 4).fill(7) }),
+        }),
+        toDataURL: () => "data:image/png;base64,small",
+      }),
+    };
+    const result = await stitchSlices([slice(0, 0), slice(1, 20)], limits, pixelRuntime);
+    expect(result).toMatchObject({ complete: true, croppedOverlapPixels: 80 });
+    expect(calls[1]).toEqual([0, 16, 100, 64, 0, 64, 100, 64]);
+  });
+
+  it("fails closed when decoded dimensions do not match viewport times DPR", async () => {
+    const mismatched = runtime();
+    mismatched.decode = async () => ({ width: 98, height: 100 });
+    await expect(stitchSlices([slice(0, 0)], limits, mismatched))
+      .resolves.toMatchObject({ complete: false, partialReason: "dimension-mismatch", dataUrl: null });
+  });
+
+  it("fails closed when otherwise valid decoded slices are mutually inconsistent", async () => {
+    let decoded = 0;
+    const inconsistent = runtime();
+    inconsistent.decode = async () => ({ width: decoded++ === 0 ? 100 : 90, height: 100 });
+    await expect(stitchSlices([slice(0, 0), { ...slice(1, 100), viewport: { width: 90, height: 100, devicePixelRatio: 1 } }], limits, inconsistent))
+      .resolves.toMatchObject({ complete: false, partialReason: "dimension-mismatch", dataUrl: null });
   });
 });

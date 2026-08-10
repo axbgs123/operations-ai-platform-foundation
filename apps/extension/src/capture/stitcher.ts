@@ -55,7 +55,7 @@ function samePixels(previous: DecodedImage, current: DecodedImage, overlapPixels
   const context = canvas.getContext("2d");
   if (!context) throw new Error("canvas-context-unavailable");
   context.drawImage(previous, 0, previous.height - sampleHeight, width, sampleHeight, 0, 0, width, sampleHeight);
-  context.drawImage(current, 0, 0, width, sampleHeight, 0, sampleHeight, width, sampleHeight);
+  context.drawImage(current, 0, overlapPixels - sampleHeight, width, sampleHeight, 0, sampleHeight, width, sampleHeight);
   const data = context.getImageData(0, 0, width, sampleHeight * 2).data;
   const stride = width * sampleHeight * 4;
   for (let index = 0; index < stride; index += Math.max(4, Math.floor(stride / 256 / 4) * 4)) {
@@ -69,6 +69,10 @@ function encodedBytes(dataUrl: string): number {
   return Math.ceil((payload.length * 3) / 4);
 }
 
+const restrictiveLimit = (value: number, maximum: number) =>
+  Number.isFinite(value) && value >= 0 ? Math.min(value, maximum) : 0;
+const DIMENSION_TOLERANCE_PX = 1;
+
 export async function stitchSlices(
   slices: readonly CaptureSlice[],
   limits: StitchLimits,
@@ -79,10 +83,19 @@ export async function stitchSlices(
     return safeFailure("invalid-slice-order");
   }
   try {
-    const maxPixels = Math.min(Math.max(0, limits.maxPixels), 40_000_000);
-    const maxEdge = Math.min(Math.max(0, limits.maxEdge), 32_000);
-    const maxBytes = Math.min(Math.max(0, limits.maxBytes), 10 * 1024 * 1024);
+    const maxPixels = restrictiveLimit(limits.maxPixels, 40_000_000);
+    const maxEdge = restrictiveLimit(limits.maxEdge, 32_000);
+    const maxBytes = restrictiveLimit(limits.maxBytes, 10 * 1024 * 1024);
     const decoded = await Promise.all(slices.map((slice) => runtime.decode(slice.dataUrl)));
+    if (decoded.some((image, index) =>
+      Math.abs(image.width - Math.round(slices[index]!.viewport.width * slices[index]!.viewport.devicePixelRatio)) > DIMENSION_TOLERANCE_PX ||
+      Math.abs(image.height - Math.round(slices[index]!.viewport.height * slices[index]!.viewport.devicePixelRatio)) > DIMENSION_TOLERANCE_PX,
+    )) return safeFailure("dimension-mismatch");
+    const firstImage = decoded[0]!;
+    if (decoded.some((image) =>
+      Math.abs(image.width - firstImage.width) > DIMENSION_TOLERANCE_PX ||
+      Math.abs(image.height - firstImage.height) > DIMENSION_TOLERANCE_PX,
+    )) return safeFailure("dimension-mismatch");
     let totalHeight = 0;
     let width = 0;
     let croppedOverlapPixels = 0;
@@ -95,7 +108,7 @@ export async function stitchSlices(
         const previous = slices[index - 1]!;
         const current = slices[index]!;
         const previousImage = decoded[index - 1]!;
-        const overlap = Math.max(0, Math.min(previousImage.height, Math.round((previous.scrollY + previous.viewport.height - current.scrollY) * current.viewport.devicePixelRatio)));
+        const overlap = Math.max(0, Math.min(previousImage.height, image.height, Math.round((previous.scrollY + previous.viewport.height - current.scrollY) * current.viewport.devicePixelRatio)));
         if (
           overlap > 0 &&
           previous.viewport.width === current.viewport.width &&
