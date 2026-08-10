@@ -42,11 +42,25 @@ from app.modules.metrics.models import ContentType
 from app.modules.imports.extension_auth import (
     AuthenticatedExtension,
     ExtensionTokenService,
+    IssuedExtensionToken,
+)
+from app.modules.imports.extension_pairing import (
+    ExtensionPairingService,
+    PairingCodeRateLimited,
+    PairingCodeUnavailable,
 )
 from app.modules.imports.models import ExtensionToken, ExtensionTokenScope
-from app.modules.workspace.auth import InvalidInviteCode, InviteAuthService, InviteRateLimitExceeded
-from app.modules.workspace.permissions import Permission, PermissionDenied, require_permission
-from app.modules.workspace.models import WorkspaceMember
+from app.modules.workspace.auth import (
+    InvalidInviteCode,
+    InviteAuthService,
+    InviteRateLimitExceeded,
+)
+from app.modules.workspace.permissions import (
+    Permission,
+    PermissionDenied,
+    require_permission,
+)
+from app.modules.workspace.models import Workspace, WorkspaceMember
 
 
 router = APIRouter(prefix="/v1/extension", tags=["extension-auth"])
@@ -54,6 +68,7 @@ review_router = APIRouter(tags=["extension-capture-review"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
 ObjectStorage = Annotated[Storage, Depends(get_storage)]
 binding_attempts: dict[str, deque[datetime]] = defaultdict(deque)
+pairing_attempts: dict[str, deque[datetime]] = defaultdict(deque)
 
 
 class ExtensionBindRequest(BaseModel):
@@ -74,6 +89,9 @@ class ExtensionBindResponse(BaseModel):
     expires_at: datetime
     provider_mode: str
     region: str | None
+    workspace_name: str
+    member_display_name: str
+    web_origin: str
 
 
 class ExtensionBindingRead(BaseModel):
@@ -84,11 +102,95 @@ class ExtensionBindingRead(BaseModel):
     expires_at: datetime
     provider_mode: str
     region: str | None
+    workspace_name: str
+    member_display_name: str
+    web_origin: str
 
 
-def _vision_disclosure(
-    session: Session, workspace_id: UUID
-) -> tuple[str, str | None]:
+class ExtensionPairingCodeRead(BaseModel):
+    pairing_code: str
+    expires_at: datetime
+    workspace_id: UUID
+    workspace_name: str
+
+
+class ExtensionPairRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pairing_code: str = Field(min_length=1, max_length=64)
+    client_id: str = Field(min_length=3, max_length=120)
+
+
+def _binding_metadata(
+    session: Session,
+    *,
+    workspace_id: UUID,
+    member_id: UUID,
+) -> tuple[str, str]:
+    workspace = session.get(Workspace, workspace_id)
+    member = session.scalar(
+        select(WorkspaceMember).where(
+            WorkspaceMember.id == member_id,
+            WorkspaceMember.workspace_id == workspace_id,
+        )
+    )
+    if workspace is None or member is None:
+        raise HTTPException(status_code=401, detail="invalid extension token")
+    return workspace.name, member.display_name
+
+
+def _binding_response(
+    session: Session,
+    issued: IssuedExtensionToken,
+) -> ExtensionBindResponse:
+    provider_mode, region = _vision_disclosure(session, issued.workspace_id)
+    workspace_name, member_display_name = _binding_metadata(
+        session,
+        workspace_id=issued.workspace_id,
+        member_id=issued.member_id,
+    )
+    return ExtensionBindResponse(
+        access_token=issued.access_token,
+        token_type="Bearer",
+        workspace_id=issued.workspace_id,
+        member_id=issued.member_id,
+        client_id=issued.client_id,
+        scopes=list(issued.scopes),
+        issued_at=issued.issued_at,
+        expires_at=issued.expires_at,
+        provider_mode=provider_mode,
+        region=region,
+        workspace_name=workspace_name,
+        member_display_name=member_display_name,
+        web_origin=get_settings().web_origin,
+    )
+
+
+def _binding_read(
+    session: Session,
+    authenticated: AuthenticatedExtension,
+) -> ExtensionBindingRead:
+    provider_mode, region = _vision_disclosure(session, authenticated.workspace_id)
+    workspace_name, member_display_name = _binding_metadata(
+        session,
+        workspace_id=authenticated.workspace_id,
+        member_id=authenticated.member_id,
+    )
+    return ExtensionBindingRead(
+        workspace_id=authenticated.workspace_id,
+        member_id=authenticated.member_id,
+        client_id=authenticated.client_id,
+        scopes=list(authenticated.scopes),
+        expires_at=authenticated.expires_at,
+        provider_mode=provider_mode,
+        region=region,
+        workspace_name=workspace_name,
+        member_display_name=member_display_name,
+        web_origin=get_settings().web_origin,
+    )
+
+
+def _vision_disclosure(session: Session, workspace_id: UUID) -> tuple[str, str | None]:
     if get_settings().app_mock_mode:
         return "mock", None
     configs = session.scalars(
@@ -101,16 +203,11 @@ def _vision_disclosure(
         (
             item
             for item in configs
-            if item.provider == "qianwen"
-            and "vision" in item.capabilities
+            if item.provider == "qianwen" and "vision" in item.capabilities
         ),
         None,
     )
-    return (
-        ("qianwen", config.region)
-        if config is not None
-        else ("unavailable", None)
-    )
+    return ("qianwen", config.region) if config is not None else ("unavailable", None)
 
 
 def _bearer(
@@ -128,25 +225,23 @@ def _bearer(
         raise HTTPException(status_code=401, detail="invalid extension token")
     if workspace_id is not None and authenticated.workspace_id != workspace_id:
         raise HTTPException(status_code=404, detail="extension resource not found")
-    if (
-        required_scope is not None
-        and required_scope.value not in authenticated.scopes
-    ):
+    if required_scope is not None and required_scope.value not in authenticated.scopes:
         raise HTTPException(status_code=403, detail="extension scope denied")
     return authenticated
 
 
-@router.post("/bind", response_model=ExtensionBindResponse, status_code=201)
+@router.post(
+    "/bind",
+    response_model=ExtensionBindResponse,
+    status_code=201,
+    deprecated=True,
+)
 def bind_extension(
     data: ExtensionBindRequest,
     request: Request,
     session: DatabaseSession,
-    extension_client: Annotated[
-        str | None, Header(alias="X-Extension-Client")
-    ] = None,
-    idempotency_key: Annotated[
-        str | None, Header(alias="Idempotency-Key")
-    ] = None,
+    extension_client: Annotated[str | None, Header(alias="X-Extension-Client")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ExtensionBindResponse:
     if extension_client is None or extension_client != data.client_id:
         raise HTTPException(status_code=422, detail="invalid extension client")
@@ -176,46 +271,49 @@ def bind_extension(
         raise HTTPException(status_code=429, detail="too many attempts") from error
     except IntegrityError as error:
         session.rollback()
-        raise HTTPException(status_code=409, detail="binding already exchanged") from error
-    provider_mode, region = _vision_disclosure(session, issued.workspace_id)
-    return ExtensionBindResponse(
-        access_token=issued.access_token,
-        token_type="Bearer",
-        workspace_id=issued.workspace_id,
-        member_id=issued.member_id,
-        client_id=issued.client_id,
-        scopes=list(issued.scopes),
-        issued_at=issued.issued_at,
-        expires_at=issued.expires_at,
-        provider_mode=provider_mode,
-        region=region,
-    )
+        raise HTTPException(
+            status_code=409, detail="binding already exchanged"
+        ) from error
+    return _binding_response(session, issued)
+
+
+@router.post("/pair", response_model=ExtensionBindResponse, status_code=201)
+def pair_extension(
+    data: ExtensionPairRequest,
+    session: DatabaseSession,
+    extension_client: Annotated[str | None, Header(alias="X-Extension-Client")] = None,
+) -> ExtensionBindResponse:
+    if extension_client is None or extension_client != data.client_id:
+        raise HTTPException(status_code=422, detail="invalid extension client")
+    try:
+        issued = ExtensionPairingService(
+            session,
+            attempts=pairing_attempts,
+        ).redeem(data.pairing_code, client_id=data.client_id)
+        session.commit()
+    except PairingCodeUnavailable as error:
+        session.rollback()
+        raise HTTPException(
+            status_code=401,
+            detail="pairing code invalid or expired",
+        ) from error
+    except PairingCodeRateLimited as error:
+        session.rollback()
+        raise HTTPException(status_code=429, detail="too many attempts") from error
+    return _binding_response(session, issued)
 
 
 @router.get("/binding", response_model=ExtensionBindingRead)
 def read_extension_binding(
     session: DatabaseSession,
-    authorization: Annotated[
-        str | None, Header(alias="Authorization")
-    ] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> ExtensionBindingRead:
     authenticated = _bearer(
         session,
         authorization,
         required_scope=ExtensionTokenScope.CAPTURE_READ,
     )
-    provider_mode, region = _vision_disclosure(
-        session, authenticated.workspace_id
-    )
-    return ExtensionBindingRead(
-        workspace_id=authenticated.workspace_id,
-        member_id=authenticated.member_id,
-        client_id=authenticated.client_id,
-        scopes=list(authenticated.scopes),
-        expires_at=authenticated.expires_at,
-        provider_mode=provider_mode,
-        region=region,
-    )
+    return _binding_read(session, authenticated)
 
 
 @router.get(
@@ -225,9 +323,7 @@ def read_extension_binding(
 def read_scoped_extension_binding(
     workspace_id: UUID,
     session: DatabaseSession,
-    authorization: Annotated[
-        str | None, Header(alias="Authorization")
-    ] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> ExtensionBindingRead:
     authenticated = _bearer(
         session,
@@ -235,30 +331,81 @@ def read_scoped_extension_binding(
         required_scope=ExtensionTokenScope.CAPTURE_READ,
         workspace_id=workspace_id,
     )
-    provider_mode, region = _vision_disclosure(
-        session, authenticated.workspace_id
-    )
-    return ExtensionBindingRead(
-        workspace_id=authenticated.workspace_id,
-        member_id=authenticated.member_id,
-        client_id=authenticated.client_id,
-        scopes=list(authenticated.scopes),
-        expires_at=authenticated.expires_at,
-        provider_mode=provider_mode,
-        region=region,
-    )
+    return _binding_read(session, authenticated)
 
 
 @router.delete("/binding", status_code=status.HTTP_204_NO_CONTENT)
 def revoke_extension_binding(
     session: DatabaseSession,
-    authorization: Annotated[
-        str | None, Header(alias="Authorization")
-    ] = None,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> None:
     authenticated = _bearer(session, authorization)
     ExtensionTokenService(session).revoke(authenticated.token_id)
     session.commit()
+
+
+def _pairing_context(
+    session: Session,
+    *,
+    workspace_id: UUID,
+    session_token: str | None,
+    csrf_token: str | None,
+) -> WorkspaceContext:
+    if session_token is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    auth = InviteAuthService(session)
+    context = auth.authenticate(session_token)
+    if context is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    if context.workspace_id != workspace_id:
+        raise HTTPException(status_code=404, detail="workspace not found")
+    if csrf_token is None or not auth.validate_csrf(session_token, csrf_token):
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
+    try:
+        require_permission(context.role, Permission.WRITE_CONTENT)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    return context
+
+
+@review_router.post(
+    "/v1/workspaces/{workspace_id}/extension-pairing-codes",
+    response_model=ExtensionPairingCodeRead,
+    status_code=201,
+    tags=["extension-auth"],
+)
+def create_extension_pairing_code(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> ExtensionPairingCodeRead:
+    context = _pairing_context(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+    )
+    workspace = session.get(Workspace, workspace_id)
+    if workspace is None:
+        raise HTTPException(status_code=404, detail="workspace not found")
+    if context.member_id is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    try:
+        created = ExtensionPairingService(session).create(
+            workspace_id=context.workspace_id,
+            member_id=context.member_id,
+        )
+        session.commit()
+    except PairingCodeUnavailable as error:
+        session.rollback()
+        raise HTTPException(status_code=404, detail="workspace not found") from error
+    return ExtensionPairingCodeRead(
+        pairing_code=created.code,
+        expires_at=created.expires_at,
+        workspace_id=workspace.id,
+        workspace_name=workspace.name,
+    )
 
 
 class ExtensionCaptureRequest(BaseModel):
@@ -368,7 +515,9 @@ def create_extension_capture_task(
     session.commit()
     if binding.provider != "mock":
         background_tasks.add_task(enqueuer, task.id)
-    return task_payload(task, request_id=request.headers.get("X-Request-ID", str(task.id)))
+    return task_payload(
+        task, request_id=request.headers.get("X-Request-ID", str(task.id))
+    )
 
 
 @router.get(
@@ -396,7 +545,9 @@ def read_extension_capture_task(
     )
     if task is None:
         raise HTTPException(status_code=404, detail="capture task not found")
-    return task_payload(task, request_id=request.headers.get("X-Request-ID", str(task.id)))
+    return task_payload(
+        task, request_id=request.headers.get("X-Request-ID", str(task.id))
+    )
 
 
 @router.get(
@@ -426,7 +577,9 @@ def read_scoped_extension_capture_task(
     )
     if task is None:
         raise HTTPException(status_code=404, detail="capture task not found")
-    return task_payload(task, request_id=request.headers.get("X-Request-ID", str(task.id)))
+    return task_payload(
+        task, request_id=request.headers.get("X-Request-ID", str(task.id))
+    )
 
 
 @router.post(
@@ -458,13 +611,17 @@ def cancel_extension_capture_task(
     try:
         transition_task(task, CaptureTaskStatus.CANCELLED)
     except ValueError as error:
-        raise HTTPException(status_code=409, detail="capture task cannot be cancelled") from error
+        raise HTTPException(
+            status_code=409, detail="capture task cannot be cancelled"
+        ) from error
     clear_task_object(
         task,
         storage=storage if task.provider != "mock" else None,
     )
     session.commit()
-    return task_payload(task, request_id=request.headers.get("X-Request-ID", str(task.id)))
+    return task_payload(
+        task, request_id=request.headers.get("X-Request-ID", str(task.id))
+    )
 
 
 @router.post("/capture-tasks/{task_id}/confirm", status_code=403)
@@ -556,25 +713,25 @@ def confirm_capture_task_in_web(
             account_id=account.id,
             platform=task.platform,
             content_type=ContentType.VIDEO,
-            rows=[{
-                "title": f"扩展识别 {task.page_identifier}",
-                "body": "人工确认的合成扩展识别结果",
-                "published_at": task.collected_at.isoformat(),
-                "collected_at": task.collected_at.isoformat(),
-                "platform_content_id": task.page_identifier,
-                "metrics": metrics,
-                "metric_confidences": {
-                    str(item["key"]): 1.0
-                    for item in candidates
-                    if isinstance(item, dict) and "key" in item
-                },
-            }],
+            rows=[
+                {
+                    "title": f"扩展识别 {task.page_identifier}",
+                    "body": "人工确认的合成扩展识别结果",
+                    "published_at": task.collected_at.isoformat(),
+                    "collected_at": task.collected_at.isoformat(),
+                    "platform_content_id": task.page_identifier,
+                    "metrics": metrics,
+                    "metric_confidences": {
+                        str(item["key"]): 1.0
+                        for item in candidates
+                        if isinstance(item, dict) and "key" in item
+                    },
+                }
+            ],
         )
         row = service.rows(batch.id)[0]
         result = service.confirm(batch.id, [row.id])
-        task.formal_snapshot_ids = list(
-            cast(list[str], result["snapshot_ids"])
-        )
+        task.formal_snapshot_ids = list(cast(list[str], result["snapshot_ids"]))
     task.confirmed_at = datetime.now(UTC)
     task.confirmed_by = context.member_id
     clear_task_object(
