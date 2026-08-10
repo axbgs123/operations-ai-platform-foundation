@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 import logging
 import time
 import base64
-from typing import Annotated, Literal, cast
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import (
@@ -52,11 +52,7 @@ from app.modules.imports.extension_auth import (
     ExtensionTokenService,
     IssuedExtensionToken,
 )
-from app.modules.imports.extension_pairing import (
-    ExtensionPairingService,
-    PairingCodeRateLimited,
-    PairingCodeUnavailable,
-)
+from app.modules.imports.extension_pairing import ExtensionPairingService, PairingCodeUnavailable
 from app.modules.imports.extension_devices import (
     DeviceChallengeUnavailable,
     ExtensionDeviceService,
@@ -115,7 +111,6 @@ review_router = APIRouter(tags=["extension-capture-review"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
 ObjectStorage = Annotated[Storage, Depends(get_storage)]
 binding_attempts: dict[str, deque[datetime]] = defaultdict(deque)
-pairing_attempts: dict[str, deque[datetime]] = defaultdict(deque)
 CAPTURE_EXTENSION_CLIENT = "operations-capture-extension"
 _pairing_logger = logging.getLogger("operations_ai.imports.extension_pairing")
 
@@ -163,13 +158,40 @@ class ExtensionPairingCodeRead(BaseModel):
     workspace_name: str
 
 
+class ExtensionSafeError(BaseModel):
+    detail: str
+
+
+class ExtensionDevicePublicJwk(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kty: Literal["EC"]
+    crv: Literal["P-256"]
+    x: Annotated[
+        str,
+        StringConstraints(
+            min_length=43,
+            max_length=43,
+            pattern=r"^[A-Za-z0-9_-]{43}$",
+        ),
+    ]
+    y: Annotated[
+        str,
+        StringConstraints(
+            min_length=43,
+            max_length=43,
+            pattern=r"^[A-Za-z0-9_-]{43}$",
+        ),
+    ]
+
+
 class ExtensionPairRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pairing_code: str = Field(min_length=1, max_length=64)
     client_id: Literal["operations-capture-extension"]
     device_id: UUID
-    device_public_key_jwk: dict[str, str]
+    device_public_key_jwk: ExtensionDevicePublicJwk
     device_label: str = Field(min_length=1, max_length=120)
     extension_version: str = Field(min_length=1, max_length=40)
 
@@ -209,6 +231,17 @@ class ExtensionDeviceRead(BaseModel):
     last_used_at: datetime | None
     status: Literal["active", "revoked"]
     revoked_at: datetime | None
+
+
+SAFE_EXTENSION_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    401: {"model": ExtensionSafeError},
+    422: {"model": ExtensionSafeError},
+}
+DEVICE_ADMIN_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    401: {"model": ExtensionSafeError},
+    403: {"model": ExtensionSafeError},
+    404: {"model": ExtensionSafeError},
+}
 
 
 def _emit_pairing_event(
@@ -409,7 +442,12 @@ def bind_extension(
     return _binding_response(session, issued)
 
 
-@router.post("/pair", response_model=ExtensionPairResponse, status_code=201)
+@router.post(
+    "/pair",
+    response_model=ExtensionPairResponse,
+    status_code=201,
+    responses=SAFE_EXTENSION_ERROR_RESPONSES,
+)
 def pair_extension(
     data: ExtensionPairRequest,
     session: DatabaseSession,
@@ -431,14 +469,11 @@ def pair_extension(
             detail="pairing code invalid or expired",
         )
     try:
-        issued = ExtensionPairingService(
-            session,
-            attempts=pairing_attempts,
-        ).redeem(
+        issued = ExtensionPairingService(session).redeem(
             data.pairing_code,
             client_id=data.client_id,
             device_id=data.device_id,
-            device_public_key_jwk=data.device_public_key_jwk,
+            device_public_key_jwk=data.device_public_key_jwk.model_dump(),
             extension_version=data.extension_version,
             device_label=data.device_label,
             redis=Redis.from_url(get_settings().redis_url, decode_responses=True),
@@ -456,15 +491,6 @@ def pair_extension(
             status_code=401,
             detail="pairing code invalid or expired",
         ) from error
-    except PairingCodeRateLimited as error:
-        session.rollback()
-        _emit_pairing_event(
-            event="extension.pairing.rate_limited",
-            message_code="EXTENSION_PAIR_RATE_LIMITED",
-            started_at=started_at,
-            error_code="EXTENSION_PAIR_RATE_LIMITED",
-        )
-        raise HTTPException(status_code=429, detail="too many attempts") from error
     except Exception as error:
         session.rollback()
         _emit_pairing_event(
@@ -489,13 +515,16 @@ def pair_extension(
     "/session/challenge",
     response_model=ExtensionSessionChallengeRead,
     status_code=201,
+    responses=SAFE_EXTENSION_ERROR_RESPONSES,
 )
 def create_extension_session_challenge(
     data: ExtensionSessionChallengeRequest,
     session: DatabaseSession,
 ) -> ExtensionSessionChallengeRead:
     try:
-        challenge = _extension_devices(session).issue_challenge(device_id=data.device_id)
+        challenge = _extension_devices(session).issue_public_challenge(
+            device_id=data.device_id
+        )
     except DeviceChallengeUnavailable as error:
         raise HTTPException(status_code=401, detail="device session invalid") from error
     return ExtensionSessionChallengeRead(
@@ -512,13 +541,14 @@ def create_extension_session_challenge(
     "/session/renew",
     response_model=ExtensionPairResponse,
     status_code=201,
+    responses=SAFE_EXTENSION_ERROR_RESPONSES,
 )
 def renew_extension_session(
     data: ExtensionSessionRenewRequest,
     session: DatabaseSession,
 ) -> ExtensionPairResponse:
     try:
-        issued = _extension_devices(session).renew_session(
+        issued = _extension_devices(session).renew_public_session(
             device_id=data.device_id,
             challenge_id=data.challenge_id,
             signature=data.signature,
@@ -696,16 +726,33 @@ def create_extension_pairing_code(
     "/v1/workspaces/{workspace_id}/extension-devices",
     response_model=list[ExtensionDeviceRead],
     tags=["extension-auth"],
+    responses=DEVICE_ADMIN_ERROR_RESPONSES,
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "X-CSRF-Token",
+                "in": "header",
+                "required": True,
+                "schema": {"type": "string"},
+            }
+        ]
+    },
 )
 def list_extension_devices(
     workspace_id: UUID,
     session: DatabaseSession,
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[
+        str | None,
+        Header(alias="X-CSRF-Token", include_in_schema=False),
+    ] = None,
 ) -> list[ExtensionDeviceRead]:
     _device_management_context(
         session,
         workspace_id=workspace_id,
         session_token=session_token,
+        csrf_token=csrf_token,
+        require_csrf_token=True,
     )
     devices = session.scalars(
         select(ExtensionDeviceBinding)
@@ -736,6 +783,7 @@ def list_extension_devices(
     "/v1/workspaces/{workspace_id}/extension-devices/{device_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     tags=["extension-auth"],
+    responses=DEVICE_ADMIN_ERROR_RESPONSES,
 )
 def revoke_extension_device(
     workspace_id: UUID,
@@ -754,7 +802,7 @@ def revoke_extension_device(
     if context.member_id is None:
         raise HTTPException(status_code=401, detail="invalid session")
     try:
-        _extension_devices(session).revoke_device(
+        _extension_devices(session).revoke_public_device(
             workspace_id=workspace_id,
             device_id=device_id,
             revoked_by=context.member_id,

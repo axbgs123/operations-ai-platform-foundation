@@ -5978,6 +5978,43 @@
         "title": "ExtensionCaptureTaskRead",
         "type": "object"
       },
+      "ExtensionDevicePublicJwk": {
+        "additionalProperties": false,
+        "properties": {
+          "crv": {
+            "const": "P-256",
+            "title": "Crv",
+            "type": "string"
+          },
+          "kty": {
+            "const": "EC",
+            "title": "Kty",
+            "type": "string"
+          },
+          "x": {
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "X",
+            "type": "string"
+          },
+          "y": {
+            "maxLength": 43,
+            "minLength": 43,
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "Y",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kty",
+          "crv",
+          "x",
+          "y"
+        ],
+        "title": "ExtensionDevicePublicJwk",
+        "type": "object"
+      },
       "ExtensionDeviceRead": {
         "properties": {
           "browser": {
@@ -6068,11 +6105,7 @@
             "type": "string"
           },
           "device_public_key_jwk": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Device Public Key Jwk",
-            "type": "object"
+            "$ref": "#/components/schemas/ExtensionDevicePublicJwk"
           },
           "extension_version": {
             "maxLength": 40,
@@ -6219,6 +6252,19 @@
           "workspace_name"
         ],
         "title": "ExtensionPairingCodeRead",
+        "type": "object"
+      },
+      "ExtensionSafeError": {
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ExtensionSafeError",
         "type": "object"
       },
       "ExtensionSessionChallengeRead": {
@@ -15563,15 +15609,25 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ExtensionSafeError"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Entity"
           }
         },
         "summary": "Pair Extension",
@@ -15604,15 +15660,25 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ExtensionSafeError"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Entity"
           }
         },
         "summary": "Create Extension Session Challenge",
@@ -15645,15 +15711,25 @@
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ExtensionSafeError"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Entity"
           }
         },
         "summary": "Renew Extension Session",
@@ -21035,6 +21111,14 @@
               ],
               "title": "Session"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -21051,6 +21135,36 @@
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "content": {
@@ -21130,6 +21244,36 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "content": {

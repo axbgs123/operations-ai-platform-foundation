@@ -74,26 +74,33 @@ def test_pair_registers_device_and_retries_are_idempotent_for_the_same_identity(
         workspace, login = _create_workspace_session(client)
         private_key, public_key = _public_key()
         device_id = uuid4()
+        code = client.post(
+            f"/v1/workspaces/{workspace['workspace_id']}/extension-pairing-codes",
+            headers={"X-CSRF-Token": login["csrf_token"]},
+        )
+        payload = {
+            "pairing_code": code.json()["pairing_code"],
+            "client_id": CLIENT_ID,
+            "device_id": str(device_id),
+            "device_public_key_jwk": public_key,
+            "device_label": "Chrome on macOS",
+            "extension_version": "0.3.0",
+        }
         for _ in range(2):
-            code = client.post(
-                f"/v1/workspaces/{workspace['workspace_id']}/extension-pairing-codes",
-                headers={"X-CSRF-Token": login["csrf_token"]},
-            )
             paired = client.post(
                 "/v1/extension/pair",
                 headers={"X-Extension-Client": CLIENT_ID},
-                json={
-                    "pairing_code": code.json()["pairing_code"],
-                    "client_id": CLIENT_ID,
-                    "device_id": str(device_id),
-                    "device_public_key_jwk": public_key,
-                    "device_label": "Chrome on macOS",
-                    "extension_version": "0.3.0",
-                },
+                json=payload,
             )
             assert paired.status_code == 201, paired.text
             assert paired.json()["device_id"] == str(device_id)
             assert private_key is not None
+        changed_payload = {**payload, "device_label": "Different browser"}
+        assert client.post(
+            "/v1/extension/pair",
+            headers={"X-Extension-Client": CLIENT_ID},
+            json=changed_payload,
+        ).json() == {"detail": "pairing code invalid or expired"}
         with Session(engine) as session:
             assert (
                 len(session.scalars(select(ExtensionDeviceBinding)).all()) == 1
@@ -160,7 +167,7 @@ def test_admin_lists_redacted_devices_and_revocation_invalidates_device_tokens()
         workspace, login = _create_workspace_session(client)
         paired, _ = _pair_real_device(client, workspace, login)
         path = f"/v1/workspaces/{workspace['workspace_id']}/extension-devices"
-        listed = client.get(path)
+        listed = client.get(path, headers={"X-CSRF-Token": login["csrf_token"]})
         assert listed.status_code == 200, listed.text
         assert len(listed.json()) == 1
         assert set(listed.json()[0]) == {
@@ -188,6 +195,35 @@ def test_admin_lists_redacted_devices_and_revocation_invalidates_device_tokens()
         ).status_code == 401
 
 
+def test_public_device_routes_reject_internal_binding_identifiers() -> None:
+    """Accepting a binding primary key at a public route would expose an internal ID."""
+    with configured_client() as (client, engine):
+        workspace, login = _create_workspace_session(client)
+        paired, private_key = _pair_real_device(client, workspace, login)
+        with Session(engine) as session:
+            binding = session.scalar(select(ExtensionDeviceBinding))
+            assert binding is not None
+            internal_id = str(binding.id)
+
+        assert _challenge(client, internal_id).json() == {"detail": "device session invalid"}
+        challenge = _challenge(client, paired["device_id"])
+        signature = sign_raw_p256(
+            private_key, _challenge_payload(challenge.json()["challenge"])
+        )
+        assert client.post(
+            "/v1/extension/session/renew",
+            json={
+                "device_id": internal_id,
+                "challenge_id": challenge.json()["challenge_id"],
+                "signature": signature,
+            },
+        ).json() == {"detail": "device session invalid"}
+        assert client.delete(
+            f"/v1/workspaces/{workspace['workspace_id']}/extension-devices/{internal_id}",
+            headers={"X-CSRF-Token": login["csrf_token"]},
+        ).status_code == 404
+
+
 def test_device_admin_routes_require_admin_session_and_workspace_scope() -> None:
     """Granting device governance to a member, bearer token, or other workspace is unsafe."""
     with configured_client() as (admin, _):
@@ -205,7 +241,9 @@ def test_device_admin_routes_require_admin_session_and_workspace_scope() -> None
                 "/v1/sessions/invite",
                 json={"code": invite.json()["code"], "display_name": "设备编辑"},
             ).json()
-            assert editor.get(path).status_code == 403
+            assert editor.get(
+                path, headers={"X-CSRF-Token": editor_login["csrf_token"]}
+            ).status_code == 403
             assert editor.delete(
                 f"{path}/{paired['device_id']}",
                 headers={"X-CSRF-Token": editor_login["csrf_token"]},
@@ -224,7 +262,9 @@ def test_device_admin_routes_require_admin_session_and_workspace_scope() -> None
                 "/v1/sessions/invite",
                 json={"code": viewer_invite.json()["code"], "display_name": "设备查看"},
             ).json()
-            assert viewer.get(path).status_code == 403
+            assert viewer.get(
+                path, headers={"X-CSRF-Token": viewer_login["csrf_token"]}
+            ).status_code == 403
             assert viewer.delete(
                 f"{path}/{paired['device_id']}",
                 headers={"X-CSRF-Token": viewer_login["csrf_token"]},
@@ -234,7 +274,8 @@ def test_device_admin_routes_require_admin_session_and_workspace_scope() -> None
 
         other = admin.post("/v1/workspaces", json={"name": "另一工作区"}).json()
         assert admin.get(
-            f"/v1/workspaces/{other['workspace_id']}/extension-devices"
+            f"/v1/workspaces/{other['workspace_id']}/extension-devices",
+            headers={"X-CSRF-Token": login["csrf_token"]},
         ).status_code == 404
         extension_only = TestClient(app)
         try:
@@ -248,6 +289,20 @@ def test_device_admin_routes_require_admin_session_and_workspace_scope() -> None
             ).status_code == 401
         finally:
             extension_only.close()
+
+
+def test_device_list_requires_csrf_after_workspace_scope_check() -> None:
+    """Reading governed devices without CSRF would permit a cross-site credentialed read."""
+    with configured_client() as (client, _):
+        workspace, login = _create_workspace_session(client)
+        _pair_real_device(client, workspace, login)
+        path = f"/v1/workspaces/{workspace['workspace_id']}/extension-devices"
+        assert client.get(path).status_code == 403
+        assert client.get(path, headers={"X-CSRF-Token": "invalid"}).status_code == 403
+        other = client.post("/v1/workspaces", json={"name": "越权读取工作区"}).json()
+        assert client.get(
+            f"/v1/workspaces/{other['workspace_id']}/extension-devices"
+        ).status_code == 404
 
 
 def test_device_bound_token_stops_when_its_member_is_removed() -> None:
@@ -296,3 +351,35 @@ def test_openapi_device_contracts_never_publish_key_or_token_secrets() -> None:
     assert "public_key_jwk" not in public_contract
     assert "public_key_fingerprint" not in public_contract
     assert "token_hash" not in public_contract
+    jwk_contract = schema["components"]["schemas"]["ExtensionDevicePublicJwk"]
+    assert jwk_contract["additionalProperties"] is False
+    assert jwk_contract["properties"]["kty"]["const"] == "EC"
+    assert jwk_contract["properties"]["crv"]["const"] == "P-256"
+    list_operation = schema["paths"][
+        "/v1/workspaces/{workspace_id}/extension-devices"
+    ]["get"]
+    assert next(
+        parameter
+        for parameter in list_operation["parameters"]
+        if parameter["in"] == "header" and parameter["name"] == "X-CSRF-Token"
+    )["required"] is True
+    assert schema["paths"]["/v1/extension/pair"]["post"]["responses"]["422"][
+        "content"
+    ]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ExtensionSafeError"
+    }
+    for path, method, statuses in (
+        ("/v1/extension/pair", "post", ("401", "422")),
+        ("/v1/extension/session/challenge", "post", ("401", "422")),
+        ("/v1/extension/session/renew", "post", ("401", "422")),
+        (
+            "/v1/workspaces/{workspace_id}/extension-devices",
+            "get",
+            ("401", "403", "404"),
+        ),
+    ):
+        responses = schema["paths"][path][method]["responses"]
+        for status in statuses:
+            assert responses[status]["content"]["application/json"]["schema"] == {
+                "$ref": "#/components/schemas/ExtensionSafeError"
+            }

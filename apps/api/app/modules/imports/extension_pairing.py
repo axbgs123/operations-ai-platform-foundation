@@ -1,7 +1,7 @@
 import hashlib
 import hmac
+import json
 import secrets
-from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -20,8 +20,8 @@ from app.modules.imports.extension_devices import (
     ExtensionDeviceService,
     RedisChallengeClient,
 )
-from app.modules.imports.models import ExtensionDeviceBinding
-from app.modules.imports.models import ExtensionPairingCode
+from app.modules.imports.models import ExtensionDeviceBinding, ExtensionPairingCode
+from app.modules.imports.models import ExtensionToken
 from app.modules.workspace.models import WorkspaceMember
 
 
@@ -29,10 +29,6 @@ PAIRING_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
 
 class PairingCodeUnavailable(ValueError):
-    pass
-
-
-class PairingCodeRateLimited(ValueError):
     pass
 
 
@@ -50,11 +46,9 @@ class ExtensionPairingService:
         session: Session,
         *,
         now: Callable[[], datetime] | None = None,
-        attempts: dict[str, deque[datetime]] | None = None,
     ) -> None:
         self._session = session
         self._now = now or (lambda: datetime.now(UTC))
-        self._attempts = attempts if attempts is not None else defaultdict(deque)
 
     @staticmethod
     def _normalize(code: str) -> str:
@@ -71,14 +65,28 @@ class ExtensionPairingService:
     def _new_code() -> str:
         return "".join(secrets.choice(PAIRING_CODE_ALPHABET) for _ in range(8))
 
-    def _record_attempt(self, client_id: str, now: datetime) -> None:
-        attempts = self._attempts[client_id]
-        window_start = now - timedelta(minutes=1)
-        while attempts and attempts[0] <= window_start:
-            attempts.popleft()
-        if len(attempts) >= get_settings().rate_limit_auth_per_minute:
-            raise PairingCodeRateLimited
-        attempts.append(now)
+    def _replay_fingerprint(
+        self,
+        *,
+        code: str,
+        client_id: str,
+        device_id: UUID,
+        public_key_jwk: dict[str, str],
+        extension_version: str,
+        device_label: str,
+    ) -> str:
+        payload = json.dumps(
+            {
+                "client_id": client_id,
+                "device_id": str(device_id),
+                "device_label": device_label,
+                "extension_version": extension_version,
+                "public_key_jwk": public_key_jwk,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return self._digest(f"pair-replay:{self._normalize(code)}:{payload}")
 
     def create(self, *, workspace_id: UUID, member_id: UUID) -> CreatedPairingCode:
         current = self._now()
@@ -138,7 +146,6 @@ class ExtensionPairingService:
         redis: RedisChallengeClient | None = None,
     ) -> IssuedExtensionToken:
         current = self._now()
-        self._record_attempt(client_id, current)
         digest = self._digest(self._normalize(code))
         pairing = self._session.execute(
             select(
@@ -165,15 +172,9 @@ class ExtensionPairingService:
             .where(ExtensionPairingCode.code_digest == digest)
             .with_for_update()
         )
-        if (
-            record is None
-            or record.used_at is not None
-            or record.revoked_at is not None
-            or record.expires_at <= current
-        ):
+        if record is None or record.revoked_at is not None or record.expires_at <= current:
             raise PairingCodeUnavailable
-        record.used_at = current
-        device_binding_id = None
+        replay_fingerprint = None
         if device_id is not None:
             if (
                 device_public_key_jwk is None
@@ -182,6 +183,53 @@ class ExtensionPairingService:
                 or redis is None
             ):
                 raise PairingCodeUnavailable
+            replay_fingerprint = self._replay_fingerprint(
+                code=code,
+                client_id=client_id,
+                device_id=device_id,
+                public_key_jwk=device_public_key_jwk,
+                extension_version=extension_version,
+                device_label=device_label,
+            )
+        if record.used_at is not None:
+            if replay_fingerprint is None:
+                raise PairingCodeUnavailable
+            previous = self._session.scalar(
+                select(ExtensionToken).where(
+                    ExtensionToken.exchange_fingerprint == replay_fingerprint
+                )
+            )
+            binding = (
+                self._session.get(ExtensionDeviceBinding, previous.device_id)
+                if previous is not None and previous.device_id is not None
+                else None
+            )
+            if (
+                previous is None
+                or binding is None
+                or binding.workspace_id != record.workspace_id
+                or binding.member_id != record.member_id
+                or binding.device_id != device_id
+                or binding.revoked_at is not None
+                or binding.public_key_jwk != device_public_key_jwk
+                or binding.extension_version != extension_version
+                or binding.label != device_label
+            ):
+                raise PairingCodeUnavailable
+            return ExtensionTokenService(self._session, now=self._now).issue(
+                workspace_id=record.workspace_id,
+                member_id=record.member_id,
+                client_id=client_id,
+                device_id=binding.id,
+                now=current,
+            )
+        record.used_at = current
+        device_binding_id = None
+        if device_id is not None:
+            assert device_public_key_jwk is not None
+            assert extension_version is not None
+            assert device_label is not None
+            assert redis is not None
             devices = ExtensionDeviceService(self._session, redis=redis, now=self._now)
             try:
                 registered = devices.register_device(
@@ -217,6 +265,10 @@ class ExtensionPairingService:
             device_id=device_binding_id,
             now=current,
         )
+        if replay_fingerprint is not None:
+            token = self._session.get(ExtensionToken, issued.token_id)
+            assert token is not None
+            token.exchange_fingerprint = replay_fingerprint
         self._session.flush()
         return issued
 
@@ -224,6 +276,5 @@ class ExtensionPairingService:
 __all__ = [
     "CreatedPairingCode",
     "ExtensionPairingService",
-    "PairingCodeRateLimited",
     "PairingCodeUnavailable",
 ]

@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -8,9 +9,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.rate_limit import (
+    InMemoryAtomicBackend,
     RateLimitBackendUnavailable,
     RateLimitCategory,
+    RateLimitExceeded,
     RateLimiter,
+    RateLimitPolicy,
     category_for_request,
 )
 from app.main import app
@@ -202,6 +206,26 @@ def test_pair_requires_a_strict_real_device_registration_payload() -> None:
         assert missing_required.status_code == 422
         assert public_key["x"] not in missing_required.text
         assert public_key["y"] not in missing_required.text
+
+        malformed_jwk = client.post(
+            PAIR_PATH,
+            headers={"X-Extension-Client": CLIENT_ID},
+            json={
+                "pairing_code": created.json()["pairing_code"],
+                "client_id": CLIENT_ID,
+                "device_id": str(uuid4()),
+                "device_public_key_jwk": {
+                    **public_key,
+                    "x": "!" * 43,
+                    "unexpected": "value",
+                },
+                "device_label": "Chrome on macOS",
+                "extension_version": "0.3.0",
+            },
+        )
+        assert malformed_jwk.status_code == 422
+        assert malformed_jwk.json() == {"detail": "invalid extension request"}
+        assert public_key["y"] not in malformed_jwk.text
 
 
 def test_editor_can_create_code_but_read_only_and_extension_auth_cannot() -> None:
@@ -399,19 +423,23 @@ def test_pair_exchange_uses_fail_closed_auth_rate_limits() -> None:
         )
 
 
-def test_pair_exchange_rate_limits_invalid_codes() -> None:
-    """Removing pairing attempt accounting would stop the eleventh bad exchange."""
-    with configured_client() as (client, _):
-        for _ in range(10):
-            invalid = _pair(client, "ABCD-1234")
-            assert invalid.status_code == 401
-            assert invalid.json() == {"detail": "pairing code invalid or expired"}
-
-        limited = _pair(client, "ABCD-1234")
-
-        assert limited.status_code == 429
-        assert limited.json() == {"detail": "too many attempts"}
-        assert "ABCD-1234" not in limited.text
+def test_pair_auth_rate_limit_is_isolated_by_trusted_request_source() -> None:
+    """Sharing one fixed extension client bucket would let one source exhaust another."""
+    limiter = RateLimiter(
+        InMemoryAtomicBackend(),
+        policies={
+            RateLimitCategory.AUTH: RateLimitPolicy(
+                limit=1,
+                window=timedelta(minutes=1),
+                count_failures=True,
+                fail_closed=True,
+            )
+        },
+    )
+    limiter.check(RateLimitCategory.AUTH, "198.51.100.1")
+    limiter.check(RateLimitCategory.AUTH, "198.51.100.2")
+    with pytest.raises(RateLimitExceeded):
+        limiter.check(RateLimitCategory.AUTH, "198.51.100.1")
 
 
 def test_pairing_lifecycle_logs_stable_safe_events(
@@ -434,7 +462,6 @@ def test_pairing_lifecycle_logs_stable_safe_events(
         assert replay.status_code == 401
         for _ in range(8):
             assert _pair(client, "ABCD-1234").status_code == 401
-        assert _pair(client, "ABCD-1234").status_code == 429
 
     events = [
         json.loads(record.message)
@@ -445,7 +472,6 @@ def test_pairing_lifecycle_logs_stable_safe_events(
         "EXTENSION_PAIRING_CODE_CREATED",
         "EXTENSION_PAIR_SUCCEEDED",
         "EXTENSION_PAIR_INVALID",
-        "EXTENSION_PAIR_RATE_LIMITED",
     } <= {event["message_code"] for event in events}
     succeeded = next(
         event for event in events if event["message_code"] == "EXTENSION_PAIR_SUCCEEDED"

@@ -16,7 +16,6 @@ from app import main as _app  # noqa: F401
 from app.core.database import Base
 from app.modules.imports.extension_pairing import (
     ExtensionPairingService,
-    PairingCodeRateLimited,
     PairingCodeUnavailable,
 )
 from app.modules.imports.models import (
@@ -305,12 +304,10 @@ def test_revoked_member_cannot_redeem_code() -> None:
         service.redeem(created.code, client_id="operations-capture-extension")
 
 
-def test_invalid_redemptions_are_rate_limited_without_revealing_code_state() -> None:
+def test_invalid_redemptions_do_not_keep_a_shared_process_local_rate_bucket() -> None:
     session = _session()
     service = ExtensionPairingService(session)
 
-    for _ in range(10):
+    for _ in range(11):
         with pytest.raises(PairingCodeUnavailable):
             service.redeem("ABCD-1234", client_id="operations-capture-extension")
-    with pytest.raises(PairingCodeRateLimited):
-        service.redeem("ABCD-1234", client_id="operations-capture-extension")

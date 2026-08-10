@@ -158,14 +158,22 @@ return payload
             )
         )
 
-    def _active_device(self, device_id: UUID) -> ExtensionDeviceBinding | None:
-        device = self._session.get(ExtensionDeviceBinding, device_id)
-        if device is None:
-            device = self._session.scalar(
-                select(ExtensionDeviceBinding).where(
-                    ExtensionDeviceBinding.device_id == device_id
-                )
+    def _active_binding(self, binding_id: UUID) -> ExtensionDeviceBinding | None:
+        device = self._session.get(ExtensionDeviceBinding, binding_id)
+        if device is None or device.revoked_at is not None:
+            return None
+        if self._active_member(device.workspace_id, device.member_id) is None:
+            return None
+        return device
+
+    def _active_public_device(
+        self, public_device_id: UUID
+    ) -> ExtensionDeviceBinding | None:
+        device = self._session.scalar(
+            select(ExtensionDeviceBinding).where(
+                ExtensionDeviceBinding.device_id == public_device_id
             )
+        )
         if device is None or device.revoked_at is not None:
             return None
         if self._active_member(device.workspace_id, device.member_id) is None:
@@ -203,7 +211,16 @@ return payload
         return self._identity(binding)
 
     def issue_challenge(self, *, device_id: UUID) -> DeviceChallenge:
-        device = self._active_device(device_id)
+        device = self._active_binding(device_id)
+        return self._issue_challenge(device)
+
+    def issue_public_challenge(self, *, device_id: UUID) -> DeviceChallenge:
+        device = self._active_public_device(device_id)
+        return self._issue_challenge(device)
+
+    def _issue_challenge(
+        self, device: ExtensionDeviceBinding | None
+    ) -> DeviceChallenge:
         if device is None:
             raise DeviceChallengeUnavailable
         challenge_id = uuid4()
@@ -238,7 +255,34 @@ return payload
         challenge_id: UUID,
         signature: str,
     ) -> IssuedExtensionToken:
-        device = self._active_device(device_id)
+        device = self._active_binding(device_id)
+        return self._renew_session(
+            device=device,
+            challenge_id=challenge_id,
+            signature=signature,
+        )
+
+    def renew_public_session(
+        self,
+        *,
+        device_id: UUID,
+        challenge_id: UUID,
+        signature: str,
+    ) -> IssuedExtensionToken:
+        device = self._active_public_device(device_id)
+        return self._renew_session(
+            device=device,
+            challenge_id=challenge_id,
+            signature=signature,
+        )
+
+    def _renew_session(
+        self,
+        *,
+        device: ExtensionDeviceBinding | None,
+        challenge_id: UUID,
+        signature: str,
+    ) -> IssuedExtensionToken:
         if device is None:
             raise DeviceChallengeUnavailable
         result = self._redis.eval(
@@ -298,12 +342,34 @@ return payload
         ):
             raise DeviceChallengeUnavailable
         device = self._session.get(ExtensionDeviceBinding, device_id)
-        if device is None:
-            device = self._session.scalar(
-                select(ExtensionDeviceBinding).where(
-                    ExtensionDeviceBinding.device_id == device_id
-                )
+        self._revoke(device=device, workspace_id=workspace_id)
+
+    def revoke_public_device(
+        self,
+        *,
+        workspace_id: UUID,
+        device_id: UUID,
+        revoked_by: UUID,
+    ) -> None:
+        revoked_by_member = self._active_member(workspace_id, revoked_by)
+        if (
+            revoked_by_member is None
+            or revoked_by_member.role is not MemberRole.ADMIN
+        ):
+            raise DeviceChallengeUnavailable
+        device = self._session.scalar(
+            select(ExtensionDeviceBinding).where(
+                ExtensionDeviceBinding.device_id == device_id
             )
+        )
+        self._revoke(device=device, workspace_id=workspace_id)
+
+    def _revoke(
+        self,
+        *,
+        device: ExtensionDeviceBinding | None,
+        workspace_id: UUID,
+    ) -> None:
         if device is None or device.workspace_id != workspace_id:
             raise DeviceChallengeUnavailable
         if device.revoked_at is None:

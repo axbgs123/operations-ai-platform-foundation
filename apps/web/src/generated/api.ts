@@ -5024,6 +5024,23 @@ export interface components {
              */
             workspace_id: string;
         };
+        /** ExtensionDevicePublicJwk */
+        ExtensionDevicePublicJwk: {
+            /**
+             * Crv
+             * @constant
+             */
+            crv: "P-256";
+            /**
+             * Kty
+             * @constant
+             */
+            kty: "EC";
+            /** X */
+            x: string;
+            /** Y */
+            y: string;
+        };
         /** ExtensionDeviceRead */
         ExtensionDeviceRead: {
             /** Browser */
@@ -5066,10 +5083,7 @@ export interface components {
             device_id: string;
             /** Device Label */
             device_label: string;
-            /** Device Public Key Jwk */
-            device_public_key_jwk: {
-                [key: string]: string;
-            };
+            device_public_key_jwk: components["schemas"]["ExtensionDevicePublicJwk"];
             /** Extension Version */
             extension_version: string;
             /** Pairing Code */
@@ -5137,6 +5151,11 @@ export interface components {
             workspace_id: string;
             /** Workspace Name */
             workspace_name: string;
+        };
+        /** ExtensionSafeError */
+        ExtensionSafeError: {
+            /** Detail */
+            detail: string;
         };
         /** ExtensionSessionChallengeRead */
         ExtensionSessionChallengeRead: {
@@ -9018,13 +9037,22 @@ export interface operations {
                     "application/json": components["schemas"]["ExtensionPairResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ExtensionSafeError"];
                 };
             };
         };
@@ -9051,13 +9079,22 @@ export interface operations {
                     "application/json": components["schemas"]["ExtensionSessionChallengeRead"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ExtensionSafeError"];
                 };
             };
         };
@@ -9084,13 +9121,22 @@ export interface operations {
                     "application/json": components["schemas"]["ExtensionPairResponse"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Unprocessable Entity */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ExtensionSafeError"];
                 };
             };
         };
@@ -11431,7 +11477,9 @@ export interface operations {
     list_extension_devices_v1_workspaces__workspace_id__extension_devices_get: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
             path: {
                 workspace_id: string;
             };
@@ -11448,6 +11496,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtensionDeviceRead"][];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
                 };
             };
             /** @description Validation Error */
@@ -11483,6 +11558,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
             };
             /** @description Validation Error */
             422: {
