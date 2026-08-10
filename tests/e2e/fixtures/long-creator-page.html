@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>合成长页面 · 仅用于隔离验收</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; width: 100%; min-height: 100%; }
+      body {
+        color: #172033;
+        background: #eef1f7;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main { height: 4000px; }
+      section {
+        height: 800px;
+        padding: 64px 80px;
+        border-bottom: 4px solid rgba(23, 32, 51, .16);
+      }
+      section:nth-child(1) { background: #eef5ff; }
+      section:nth-child(2) { background: #e9f8f1; }
+      section:nth-child(3) { background: #fff5e7; }
+      section:nth-child(4) { background: #f5edff; }
+      section:nth-child(5) { background: #ffeef2; }
+      h1, h2 { margin: 0 0 24px; }
+      .card {
+        width: 760px;
+        height: 420px;
+        padding: 32px;
+        border: 1px solid #ccd3df;
+        border-radius: 16px;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <main data-e2e-page="synthetic-long-creator">
+      <section><h1>合成创作者页面</h1><div class="card">第 1 屏：隔离截图验收</div></section>
+      <section><h2>合成数据区 A</h2><div class="card">第 2 屏：无真实账号数据</div></section>
+      <section><h2>合成数据区 B</h2><div class="card">第 3 屏：无真实平台请求</div></section>
+      <section><h2>合成数据区 C</h2><div class="card">第 4 屏：Mock Provider</div></section>
+      <section><h2>合成页面末尾</h2><div class="card">第 5 屏：稳定页底</div></section>
+    </main>
+  </body>
+</html>

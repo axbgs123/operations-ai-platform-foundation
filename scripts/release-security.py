@@ -137,7 +137,9 @@ def verify_docs(args: argparse.Namespace) -> int:
         return fail("docs_contract", ["README is missing"])
     problems: list[str] = []
     readme_text = readme.read_text(encoding="utf-8")
-    ignored_parts = {".git", "node_modules", ".venv", "__pycache__"}
+    # Internal planning/evidence files are not product documentation and may
+    # contain machine-local review links. They are excluded from release docs.
+    ignored_parts = {".git", ".superpowers", "node_modules", ".venv", "__pycache__"}
     for markdown in sorted(root.rglob("*.md")):
         if any(part in ignored_parts for part in markdown.relative_to(root).parts):
             continue

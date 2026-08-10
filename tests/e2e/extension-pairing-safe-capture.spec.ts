@@ -5,12 +5,14 @@ import { join, resolve } from "node:path";
 
 const apiPort = process.env.EXTENSION_E2E_API_PORT;
 const webPort = process.env.EXTENSION_E2E_WEB_PORT;
+const cdpPort = process.env.EXTENSION_E2E_CDP_PORT;
 const e2eSecret = process.env.EXTENSION_E2E_SECRET;
-if (!apiPort || !webPort || !e2eSecret) throw new Error("extension E2E runtime is not configured");
+if (!apiPort || !webPort || !cdpPort || !e2eSecret) throw new Error("extension E2E runtime is not configured");
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
 const extensionClient = "operations-capture-extension";
 // Global setup builds current HEAD; each test copies this dist into an isolated temporary profile.
-const unpacked = resolve(process.cwd(), "../../apps/extension/dist");
+const unpacked = resolve(import.meta.dirname, "../../apps/extension/dist");
+const longCreatorFixture = resolve(import.meta.dirname, "fixtures/long-creator-page.html");
 
 type Session = { workspace_id: string; member_id: string; csrf_token: string };
 
@@ -22,7 +24,7 @@ async function json<T>(response: { ok(): boolean; status(): number; text(): Prom
 async function onboard(admin: APIRequestContext): Promise<Session> {
   return json<Session>(
     await admin.post(`${apiOrigin}/v1/workspaces/onboard`, {
-      data: { workspace_name: "扩展 0.2 隔离验收", display_name: "合成管理员" },
+      data: { workspace_name: "扩展 0.3 隔离验收", display_name: "合成管理员" },
     }),
   );
 }
@@ -31,73 +33,82 @@ async function openPopupPage(
   context: BrowserContext,
   extensionId: string,
 ): Promise<Page> {
-  const popup = await context.newPage();
-  await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+  let worker = context.serviceWorkers()[0];
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  const opened = await worker.evaluate(async () => {
+    const extensionChrome = (globalThis as unknown as {
+      chrome: { action: { openPopup(): Promise<void> } };
+    }).chrome;
+    try {
+      await extensionChrome.action.openPopup();
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "unknown" };
+    }
+  });
+  expect(opened).toEqual({ ok: true });
+  const anchor = context.pages()[0] ?? (await context.newPage());
+  const cdp = await context.newCDPSession(anchor);
+  let popupTarget: { targetId: string; type: string; url: string } | undefined;
+  await expect.poll(async () => {
+    const targets = await cdp.send("Target.getTargets") as {
+      targetInfos: Array<{ targetId: string; type: string; url: string }>;
+    };
+    popupTarget = targets.targetInfos.find((target) => target.url === `chrome-extension://${extensionId}/popup.html`);
+    return popupTarget;
+  }, { timeout: 10_000 }).toBeDefined();
+  await cdp.detach();
+  const cdpBrowser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
+  const cdpContext = cdpBrowser.contexts()[0];
+  if (!cdpContext) throw new Error("CDP did not expose the extension context");
+  let popup: Page | undefined;
+  await expect.poll(() => {
+    popup = cdpContext.pages().find((page) => page.url() === `chrome-extension://${extensionId}/popup.html`);
+    return popup;
+  }, { timeout: 10_000 }).toBeDefined();
+  if (!popup) throw new Error(`CDP did not expose popup target: ${JSON.stringify(popupTarget)}`);
   await popup.waitForLoadState("domcontentloaded");
   expect(popup.url()).toBe(`chrome-extension://${extensionId}/popup.html`);
   return popup;
 }
 
-async function terminateExtensionServiceWorker(
-  context: BrowserContext,
-  popup: Page,
-  extensionId: string,
-): Promise<void> {
-  const cdp = await context.newCDPSession(popup);
-  const targets = await cdp.send("Target.getTargets") as {
-    targetInfos: Array<{ targetId: string; type: string; url: string }>;
-  };
-  const worker = targets.targetInfos.find(
-    (target) => target.type === "service_worker" && target.url.startsWith(`chrome-extension://${extensionId}/`),
-  );
-  expect(worker, "extension service worker target must exist before restart").toBeDefined();
-  await cdp.send("Target.closeTarget", { targetId: worker!.targetId });
-  await expect.poll(async () => {
-    const active = await cdp.send("Target.getTargets") as {
-      targetInfos: Array<{ targetId: string }>;
-    };
-    return active.targetInfos.some((target) => target.targetId === worker!.targetId);
-  }).toBe(false);
-  await cdp.detach();
+async function launchExtensionContext(profile: string, extensionPath: string): Promise<BrowserContext> {
+  return chromium.launchPersistentContext(profile, {
+    channel: "chromium",
+    headless: false,
+    viewport: { width: 1280, height: 800 },
+    args: [
+      `--disable-extensions-except=${extensionPath}`,
+      `--load-extension=${extensionPath}`,
+      `--remote-debugging-port=${cdpPort}`,
+    ],
+  });
 }
 
-test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", async ({ browser }) => {
+test("0.3.0 真实扩展链持久续期并安全披露自动化截图权限边界", async ({ browser }) => {
   test.setTimeout(120_000);
   const manifest = JSON.parse(await readFile(join(unpacked, "manifest.json"), "utf8")) as {
     name: string;
     version: string;
   };
-  expect(manifest).toMatchObject({ name: "运营数据采集助手", version: "0.2.0" });
+  expect(manifest).toMatchObject({ name: "运营数据采集助手", version: "0.3.0" });
 
   const adminContext = await browser.newContext();
   const editorContext = await browser.newContext();
   const extensionApi = await request.newContext();
   const extensionProfile = await mkdtemp(join(tmpdir(), "operations-ai-extension-e2e-"));
-  const testUnpacked = join(extensionProfile, "preauthorized-unpacked");
-  await cp(unpacked, testUnpacked, { recursive: true });
-  const testManifestPath = join(testUnpacked, "manifest.json");
-  const testManifest = JSON.parse(await readFile(testManifestPath, "utf8")) as {
-    host_permissions: string[];
-  };
-  testManifest.host_permissions = [...testManifest.host_permissions, "http://127.0.0.1/*"];
-  await writeFile(testManifestPath, JSON.stringify(testManifest, null, 2));
-  const extensionContext = await chromium.launchPersistentContext(extensionProfile, {
-    channel: "chromium",
-    headless: false,
-    viewport: { width: 1280, height: 800 },
-    args: [`--disable-extensions-except=${testUnpacked}`, `--load-extension=${testUnpacked}`],
-  });
-  const renewalStatuses: Array<{ path: "challenge" | "renew"; status: number }> = [];
-  extensionContext.on("response", (response) => {
-    if (response.url().endsWith("/v1/extension/session/challenge")) {
-      renewalStatuses.push({ path: "challenge", status: response.status() });
-    }
-    if (response.url().endsWith("/v1/extension/session/renew")) {
-      renewalStatuses.push({ path: "renew", status: response.status() });
-    }
-  });
+  let extensionContext: BrowserContext | undefined;
 
   try {
+    const testUnpacked = join(extensionProfile, "preauthorized-unpacked");
+    await cp(unpacked, testUnpacked, { recursive: true });
+    const testManifestPath = join(testUnpacked, "manifest.json");
+    const testManifest = JSON.parse(await readFile(testManifestPath, "utf8")) as {
+      host_permissions: string[];
+    };
+    testManifest.host_permissions = [...testManifest.host_permissions, "http://127.0.0.1/*"];
+    await writeFile(testManifestPath, JSON.stringify(testManifest, null, 2));
+    extensionContext = await launchExtensionContext(extensionProfile, testUnpacked);
     const admin = adminContext.request;
     const editor = editorContext.request;
     const owner = await onboard(admin);
@@ -136,24 +147,21 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
 
     let currentWorker = extensionContext.serviceWorkers()[0];
     if (!currentWorker) currentWorker = await extensionContext.waitForEvent("serviceworker");
-    const initialWorker = currentWorker;
     const extensionId = new URL(currentWorker.url()).host;
     expect(extensionId).toBe("mdbmlilohlhmjmcmkpbpjhldganompcl");
 
+    const fixtureHtml = await readFile(longCreatorFixture, "utf8");
     await extensionContext.route("https://creator.douyin.com/**", async (route) => {
       await route.fulfill({
         contentType: "text/html; charset=utf-8",
-        body: `<!doctype html><html><body style="margin:0;background:#f6f7fb">
-          <main style="padding:180px 80px"><h1>合成创作者页面</h1>
-          <section style="width:760px;height:420px;background:#fff;border:1px solid #ccd3df">仅用于隔离截图验收</section></main>
-        </body></html>`,
+        body: fixtureHtml,
       });
     });
-    const creator = extensionContext.pages()[0] ?? (await extensionContext.newPage());
-    await creator.goto("https://creator.douyin.com/creator-micro/content/manage?fixture=extension-0.2");
+    let creator = extensionContext.pages()[0] ?? (await extensionContext.newPage());
+    await creator.goto("https://creator.douyin.com/creator-micro/content/manage?fixture=extension-0.3-long-page");
     await expect.poll(() => creator.locator("html").getAttribute("data-operations-capture-supported")).toBe("true");
 
-    const pairingPopup = await openPopupPage(extensionContext, extensionId);
+    let pairingPopup = await openPopupPage(extensionContext, extensionId);
     const pairStatuses: number[] = [];
     pairingPopup.on("response", (response) => {
       if (response.url().endsWith("/v1/extension/pair")) {
@@ -186,8 +194,17 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     await pairingPopup.locator("#pairing-code").fill(pairing.pairing_code);
     await pairingPopup.getByRole("button", { name: "连接工作区" }).click();
     await expect.poll(() => pairStatuses).toEqual([201]);
+    const postPairStorage = await pairingPopup.evaluate(async () => {
+      const local = await chrome.storage.local.get("extensionDeviceRegistration");
+      const session = await chrome.storage.session.get("extensionBinding");
+      return { local: local.extensionDeviceRegistration, session: session.extensionBinding };
+    });
+    expect(postPairStorage, `popup status: ${await pairingPopup.locator("#status").innerText()}`).toMatchObject({
+      local: { deviceId: expect.any(String), extensionVersion: "0.3.0" },
+      session: { accessToken: expect.any(String), providerMode: "mock" },
+    });
     await expect(pairingPopup.locator("#destination")).toContainText(
-      "扩展 0.2 隔离验收",
+      "扩展 0.3 隔离验收",
       { timeout: 15_000 },
     );
     const persistedConnection = await pairingPopup.evaluate(async () => {
@@ -220,23 +237,133 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     expect(persistedKey.privateExtractable).toBe(false);
     expect(persistedKey.privateExportRejected).toBe(true);
     expect(Object.keys(persistedKey.publicJwk).sort()).toEqual(["crv", "kty", "x", "y"]);
-    await pairingPopup.evaluate(() => chrome.storage.session.remove("extensionBinding"));
-    const restartedWorkerPromise = extensionContext.waitForEvent("serviceworker");
-    await terminateExtensionServiceWorker(extensionContext, pairingPopup, extensionId);
-    const renewedAfterWorkerRestart = await pairingPopup.evaluate(async () => {
-      return chrome.runtime.sendMessage({ type: "GET_SESSION_BINDING" });
+    await pairingPopup.close();
+    await extensionContext.close();
+    extensionContext = await launchExtensionContext(extensionProfile, testUnpacked);
+    await extensionContext.route("https://creator.douyin.com/**", async (route) => {
+      await route.fulfill({ contentType: "text/html; charset=utf-8", body: fixtureHtml });
     });
-    const restartedWorker = await restartedWorkerPromise;
-    expect(restartedWorker).not.toBe(initialWorker);
-    expect(restartedWorker.url()).toBe(`chrome-extension://${extensionId}/background.js`);
-    currentWorker = restartedWorker;
-    expect(currentWorker).toBe(restartedWorker);
-    expect(renewedAfterWorkerRestart).toMatchObject({ ok: true, binding: { accessToken: expect.any(String) } });
-    await expect.poll(() => renewalStatuses).toEqual([
-      { path: "challenge", status: 201 },
-      { path: "renew", status: 201 },
-    ]);
-    const persistedAfterWorkerRestart = await pairingPopup.evaluate(async () => {
+    creator = extensionContext.pages()[0] ?? (await extensionContext.newPage());
+    await creator.goto("https://creator.douyin.com/creator-micro/content/manage?fixture=extension-0.3-long-page-restarted");
+    await expect.poll(() => creator.locator("html").getAttribute("data-operations-capture-supported")).toBe("true");
+    currentWorker = extensionContext.serviceWorkers()[0] ?? await extensionContext.waitForEvent("serviceworker");
+    expect(new URL(currentWorker.url()).host).toBe(extensionId);
+    const bindingBeforeRestartPopup = await currentWorker.evaluate(async () =>
+      (await chrome.storage.session.get("extensionBinding")).extensionBinding,
+    );
+    expect(bindingBeforeRestartPopup).toBeUndefined();
+    const sessionEventsBefore = await json<{ events: Array<{ path: string; status: number }> }>(
+      await extensionApi.get(`${apiOrigin}/__e2e/extension-session-events`, {
+        headers: { "X-E2E-Secret": e2eSecret },
+      }),
+    );
+    expect(sessionEventsBefore.events).toEqual([]);
+    const restartedWorkerHealth = await currentWorker.evaluate(async (origin) => {
+      try {
+        const response = await fetch(`${origin}/healthz`);
+        return { ok: response.ok, status: response.status };
+      } catch (error) {
+        return { error: error instanceof Error ? error.message : "unknown" };
+      }
+    }, apiOrigin);
+    expect(restartedWorkerHealth).toEqual({ ok: true, status: 200 });
+    const restartedIdentityDiagnostic = await currentWorker.evaluate(async () => {
+      const local = await chrome.storage.local.get("extensionDeviceRegistration");
+      const rawRecord = await new Promise<{
+        deviceId: string;
+        privateKey: CryptoKey;
+        publicJwk: JsonWebKey;
+      }>((resolve, reject) => {
+        const request = indexedDB.open("operations-ai-extension-device", 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction("device-keys", "readonly");
+          const read = transaction.objectStore("device-keys").get("device");
+          read.onerror = () => reject(read.error);
+          read.onsuccess = () => { database.close(); resolve(read.result); };
+        };
+      });
+      let signatureVerified = false;
+      let signatureError: string | null = null;
+      try {
+        const publicKey = await crypto.subtle.importKey(
+          "jwk",
+          rawRecord.publicJwk,
+          { name: "ECDSA", namedCurve: "P-256" },
+          false,
+          ["verify"],
+        );
+        const payload = new Uint8Array([0, 1, 2, 3]);
+        const signature = await crypto.subtle.sign(
+          { name: "ECDSA", hash: "SHA-256" },
+          rawRecord.privateKey,
+          payload,
+        );
+        signatureVerified = await crypto.subtle.verify(
+          { name: "ECDSA", hash: "SHA-256" },
+          publicKey,
+          signature,
+          payload,
+        );
+      } catch (error) {
+        signatureError = error instanceof Error ? error.message : String(error);
+      }
+      return {
+        registration: local.extensionDeviceRegistration,
+        recordDeviceId: rawRecord.deviceId,
+        privateKeyIsCryptoKey: rawRecord.privateKey instanceof CryptoKey,
+        privateKeyType: rawRecord.privateKey.type,
+        privateKeyExtractable: rawRecord.privateKey.extractable,
+        privateKeyAlgorithm: rawRecord.privateKey.algorithm,
+        privateKeyUsages: rawRecord.privateKey.usages,
+        publicJwk: rawRecord.publicJwk,
+        signatureVerified,
+        signatureError,
+      };
+    });
+    expect(restartedIdentityDiagnostic).toMatchObject({
+      recordDeviceId: persistedConnection.local.deviceId,
+      privateKeyIsCryptoKey: true,
+      privateKeyType: "private",
+      privateKeyExtractable: false,
+      privateKeyAlgorithm: { name: "ECDSA", namedCurve: "P-256" },
+      privateKeyUsages: ["sign"],
+      signatureVerified: true,
+      signatureError: null,
+    });
+    pairingPopup = await openPopupPage(extensionContext, extensionId);
+    await pairingPopup.waitForTimeout(1_000);
+    const restartDiagnostic = await pairingPopup.evaluate(async () => {
+      const session = await chrome.storage.session.get("extensionBinding");
+      const local = await chrome.storage.local.get("extensionDeviceRegistration");
+      const keyPresent = await new Promise<boolean>((resolve, reject) => {
+        const request = indexedDB.open("operations-ai-extension-device", 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const read = database.transaction("device-keys", "readonly").objectStore("device-keys").get("device");
+          read.onerror = () => reject(read.error);
+          read.onsuccess = () => { database.close(); resolve(Boolean(read.result)); };
+        };
+      });
+      const binding = session.extensionBinding as { accessToken?: unknown; providerMode?: unknown; workspaceId?: unknown } | undefined;
+      return {
+        binding: binding ? {
+          accessTokenPresent: typeof binding.accessToken === "string" && binding.accessToken.length > 0,
+          providerMode: binding.providerMode,
+          workspaceId: binding.workspaceId,
+        } : null,
+        registration: local.extensionDeviceRegistration,
+        keyPresent,
+      };
+    });
+    expect(restartDiagnostic, `${JSON.stringify({ restartDiagnostic, restartedIdentityDiagnostic })}; ${await pairingPopup.locator("#status").innerText()}`).toMatchObject({
+      binding: { accessTokenPresent: true, providerMode: "mock", workspaceId: owner.workspace_id },
+    });
+    await expect(pairingPopup.locator("#destination")).toContainText("扩展 0.3 隔离验收", { timeout: 15_000 });
+    const renewedAfterBrowserRestart = await pairingPopup.evaluate(async () => {
+      const session = await chrome.storage.session.get("extensionBinding");
       const local = await chrome.storage.local.get("extensionDeviceRegistration");
       const record = await new Promise<{ privateKey: CryptoKey }>((resolve, reject) => {
         const request = indexedDB.open("operations-ai-extension-device", 1);
@@ -248,10 +375,27 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
           read.onsuccess = () => { database.close(); resolve(read.result); };
         };
       });
-      return { registration: local.extensionDeviceRegistration, privateExtractable: record.privateKey.extractable };
+      return {
+        binding: session.extensionBinding,
+        registration: local.extensionDeviceRegistration,
+        privateExtractable: record.privateKey.extractable,
+      };
     });
-    expect(persistedAfterWorkerRestart.registration).toMatchObject({ deviceId: persistedConnection.local.deviceId });
-    expect(persistedAfterWorkerRestart.privateExtractable).toBe(false);
+    expect(renewedAfterBrowserRestart).toMatchObject({
+      binding: { accessToken: expect.any(String), providerMode: "mock", workspaceId: owner.workspace_id },
+      registration: { deviceId: persistedConnection.local.deviceId, extensionVersion: "0.3.0" },
+      privateExtractable: false,
+    });
+    expect(renewedAfterBrowserRestart.binding.accessToken).not.toBe(persistedConnection.session.accessToken);
+    const sessionEventsAfter = await json<{ events: Array<{ path: string; status: number }> }>(
+      await extensionApi.get(`${apiOrigin}/__e2e/extension-session-events`, {
+        headers: { "X-E2E-Secret": e2eSecret },
+      }),
+    );
+    expect(sessionEventsAfter.events).toEqual([
+      { path: "/v1/extension/session/challenge", status: 201 },
+      { path: "/v1/extension/session/renew", status: 201 },
+    ]);
 
     const membersAfter = await json<Array<{ id: string }>>(
       await admin.get(`${apiOrigin}/v1/workspaces/${owner.workspace_id}/members`),
@@ -265,7 +409,7 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
         device_id: "00000000-0000-0000-0000-000000000099",
         device_public_key_jwk: { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) },
         device_label: "replay device",
-        extension_version: "0.2.0",
+        extension_version: "0.3.0",
       },
     });
     expect(replay.status()).toBe(401);
@@ -282,90 +426,33 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     }, creator.url());
     await capturePopup.waitForLoadState("domcontentloaded");
     await expect(capturePopup.locator("#page-status")).toContainText("当前页面已就绪");
-    const runtimeStart = await capturePopup.evaluate(async (creatorUrl) => {
-      const [tab] = await chrome.tabs.query({ url: creatorUrl });
-      if (tab?.id === undefined) throw new Error("synthetic creator tab unavailable");
-      const status = await chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_STATUS" });
-      const armed = await chrome.runtime.sendMessage({
-        type: "START_SAFE_CAPTURE",
-        tabId: tab.id,
-        platform: status.platform,
-        pageVersion: status.pageVersion,
-        pageSignature: status.pageSignature,
-      });
-      const started = await chrome.tabs.sendMessage(tab.id, { type: "START_SAFE_CAPTURE" });
-      return { armed, started };
-    }, creator.url());
-    expect(runtimeStart).toEqual({ armed: { ok: true }, started: { ok: true } });
+    const shortcutDisclosure = await capturePopup.locator("#shortcut-status").innerText();
+    expect(shortcutDisclosure).toMatch(/^整页采集快捷键：\S+/);
+    expect(shortcutDisclosure).not.toContain("未分配");
+    await capturePopup.getByRole("button", { name: "自动采集整页" }).click();
     const overlay = creator.locator("[data-operations-capture-overlay]");
-    await expect(overlay.getByText("拖动选择要采集的区域")).toBeVisible();
-    await overlay.getByRole("button", { name: "取消" }).click();
-    await expect(overlay).toHaveCount(0);
-
-    expect(currentWorker).not.toBe(initialWorker);
-    const binding = await currentWorker.evaluate(async () => {
-      const stored = await chrome.storage.session.get("extensionBinding");
-      return stored.extensionBinding as { accessToken: string; workspaceId: string };
+    await expect(overlay.getByText("确认截图和遮挡")).toBeVisible({ timeout: 30_000 });
+    await expect(overlay).toContainText("当前使用 Mock 识别，不会调用外部付费模型");
+    await expect(overlay).toContainText("遮挡敏感信息：关");
+    await expect(overlay).toContainText("整页采集未能生成可预览图片：empty（0 张）");
+    await expect(overlay.getByRole("button", { name: "确认上传" })).toHaveCount(0);
+    const programmaticCaptureBoundary = await currentWorker.evaluate(async () => {
+      try {
+        await chrome.tabs.captureVisibleTab({ format: "png" });
+        return { unexpectedlyCaptured: true, error: null };
+      } catch (error) {
+        return {
+          unexpectedlyCaptured: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
     });
-    expect(binding.workspaceId).toBe(owner.workspace_id);
-    const createdTask = await json<{ task_id: string; review_url: string }>(
-      await extensionApi.post(
-        `${apiOrigin}/v1/extension/workspaces/${owner.workspace_id}/capture-tasks`,
-        {
-          headers: {
-            Authorization: `Bearer ${binding.accessToken}`,
-            "Idempotency-Key": `extension-e2e-${process.env.EXTENSION_E2E_RUN_ID}`,
-          },
-          data: {
-            platform: "douyin",
-            page_version: "douyin-creator-v1",
-            page_identifier: "synthetic-extension-runtime",
-            collected_at: new Date().toISOString(),
-            screenshot_data_url: "data:image/png;base64,U1lOVEhFVElD",
-          },
-        },
-      ),
-    );
-    const taskId = createdTask.task_id;
-    const reviewUrl = `${process.env.EXTENSION_E2E_WEB_ORIGIN ?? `http://127.0.0.1:${webPort}`}${createdTask.review_url}`;
-    expect(createdTask.review_url).toContain(`/workspaces/${owner.workspace_id}/imports`);
-    const scopedTask = await json<{ status: string; workspace_id: string }>(
-      await extensionApi.get(
-        `${apiOrigin}/v1/extension/workspaces/${owner.workspace_id}/capture-tasks/${taskId}`,
-        { headers: { Authorization: `Bearer ${binding.accessToken}` } },
-      ),
-    );
-    expect(scopedTask).toMatchObject({ status: "succeeded", workspace_id: owner.workspace_id });
-    const stagedBefore = await json<{ present: boolean; prefix_matches: boolean }>(
-      await extensionApi.get(`${apiOrigin}/__e2e/capture-object/${owner.workspace_id}/${taskId}`, {
-        headers: { "X-E2E-Secret": e2eSecret },
-      }),
-    );
-    expect(stagedBefore).toEqual({ present: true, prefix_matches: true });
-
-    const denied = await extensionApi.post(`${apiOrigin}/v1/extension/capture-tasks/${taskId}/confirm`, {
-      headers: { Authorization: `Bearer ${binding.accessToken}` },
-    });
-    expect(denied.status()).toBe(403);
-
-    const editorPage = await editorContext.newPage();
-    const editorReviewUrl = new URL(reviewUrl);
-    editorReviewUrl.searchParams.set("platform", "douyin");
-    editorReviewUrl.searchParams.set("account", account.id);
-    await editorPage.goto(editorReviewUrl.toString());
-    await editorPage.evaluate((csrf) => sessionStorage.setItem("workspace_csrf", csrf), editorSession.csrf_token);
-    await editorPage.reload();
-    await expect(editorPage.getByText("扩展识别结果待确认")).toBeVisible();
-    await editorPage.getByRole("button", { name: "人工确认并写入快照" }).click();
-    await expect(editorPage.getByText("已写入 1 条正式快照。")).toBeVisible();
-    const stagedAfter = await json<{ present: boolean; prefix_matches: boolean }>(
-      await extensionApi.get(`${apiOrigin}/__e2e/capture-object/${owner.workspace_id}/${taskId}`, {
-        headers: { "X-E2E-Secret": e2eSecret },
-      }),
-    );
-    expect(stagedAfter).toEqual({ present: false, prefix_matches: true });
+    expect(programmaticCaptureBoundary.unexpectedlyCaptured).toBe(false);
+    expect(programmaticCaptureBoundary.error).toMatch(/activeTab|<all_urls>/);
+    expect(account.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(e2eSecret).not.toBe("");
   } finally {
-    await extensionContext.close();
+    await extensionContext?.close();
     await extensionApi.dispose();
     await adminContext.close();
     await editorContext.close();

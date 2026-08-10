@@ -3,18 +3,24 @@ import { randomBytes } from "node:crypto";
 
 const runId = process.env.EXTENSION_E2E_RUN_ID ?? randomBytes(6).toString("hex");
 if (!/^[a-f0-9]{12}$/.test(runId)) throw new Error("invalid extension E2E run id");
-const portBase = 20_000 + (Number.parseInt(runId.slice(0, 6), 16) % 7_000) * 3;
-const redisPort = portBase;
-const apiPort = portBase + 1;
-const webPort = portBase + 2;
+const portBase = 20_000 + (Number.parseInt(runId.slice(0, 6), 16) % 6_000) * 5;
+const postgresPort = portBase;
+const redisPort = portBase + 1;
+const apiPort = portBase + 2;
+const webPort = portBase + 3;
+const cdpPort = portBase + 4;
+const postgresName = `operations_ai_extension_e2e_postgres_${runId}`;
 const redisName = `operations_ai_extension_e2e_${runId}`;
 const e2eSecret = process.env.EXTENSION_E2E_SECRET ?? randomBytes(24).toString("hex");
 Object.assign(process.env, {
   EXTENSION_E2E_RUN_ID: runId,
+  EXTENSION_E2E_POSTGRES_NAME: postgresName,
+  EXTENSION_E2E_POSTGRES_PORT: String(postgresPort),
   EXTENSION_E2E_REDIS_NAME: redisName,
   EXTENSION_E2E_REDIS_PORT: String(redisPort),
   EXTENSION_E2E_API_PORT: String(apiPort),
   EXTENSION_E2E_WEB_PORT: String(webPort),
+  EXTENSION_E2E_CDP_PORT: String(cdpPort),
   EXTENSION_E2E_SECRET: e2eSecret,
 });
 
@@ -32,6 +38,16 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: [
+    {
+      command:
+        `docker run --rm --name ${postgresName} --tmpfs /var/lib/postgresql:rw,size=512m ` +
+        `--env POSTGRES_DB=operations_ai --env POSTGRES_USER=operations_ai ` +
+        `--env POSTGRES_PASSWORD=local-development-only --publish 127.0.0.1:${postgresPort}:5432 ` +
+        "pgvector/pgvector:0.8.2-pg18-trixie",
+      port: postgresPort,
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
     {
       command:
         `docker run --rm --name ${redisName} --tmpfs /data --publish 127.0.0.1:${redisPort}:6379 redis:8.2.1-alpine`,

@@ -682,7 +682,7 @@ def test_analysis_model_binding_migration_is_current_head() -> None:
     config = Config(str(root / "apps" / "api" / "alembic.ini"))
     scripts = ScriptDirectory.from_config(config)
 
-    assert scripts.get_current_head() == "20260810_0035"
+    assert scripts.get_current_head() == "20260810_0037"
 
 
 def test_non_mock_analysis_api_requires_workspace_text_configuration(

@@ -62,6 +62,7 @@ function sameIdentity(binding: ExtensionBinding, registration: DeviceRegistratio
 
 export function createSessionManager(dependencies: SessionManagerDependencies): SessionManager {
   const now = dependencies.now ?? Date.now;
+  const fetcher = dependencies.fetcher;
   const timeoutMs = dependencies.requestTimeoutMs ?? defaultRequestTimeoutMs;
   const clientId = dependencies.clientId ?? "operations-capture-extension";
   let inFlight: Promise<ExtensionBinding> | null = null;
@@ -85,7 +86,7 @@ export function createSessionManager(dependencies: SessionManagerDependencies): 
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const response = await Promise.race([
-        dependencies.fetcher(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: controller.signal }),
+        fetcher(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: controller.signal }),
         new Promise<Response>((_resolve, reject) => { timer = setTimeout(() => { controller.abort(); reject(new Error("session-renewal-timeout")); }, timeoutMs); }),
       ]);
       requireCurrentGeneration(startedGeneration);

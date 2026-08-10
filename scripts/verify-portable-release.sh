@@ -5,8 +5,8 @@ umask 077
 readonly project_prefix="operations_ai_portable_test_"
 readonly root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly python_bin="$root_dir/apps/api/.venv/bin/python"
-readonly expected_extension_version="0.2.0"
-readonly evidence_allowed_fields="schema_version macos_runtime source_commit zip_sha256 extension_version started_at finished_at docker_version docker_compose_version workspace_id owner_member_id editor_member_id account_id content_id member_count cleanup"
+readonly expected_extension_version="0.3.0"
+readonly evidence_allowed_fields="schema_version macos_runtime source_commit zip_sha256 extension_version started_at finished_at docker_version docker_compose_version workspace_id owner_member_id editor_member_id account_id content_id member_count shortcut_assignment device_renewal full_page_completeness redaction_default cleanup not_run"
 
 mode=""
 zip_argument=""
@@ -530,6 +530,10 @@ EDITOR_MEMBER_ID="$editor_member_id" \
 ACCOUNT_ID="$account_id" \
 CONTENT_ID="$content_id" \
 MEMBER_COUNT="$member_count_after_second_start" \
+SHORTCUT_ASSIGNMENT="not_run" \
+DEVICE_RENEWAL="not_run" \
+FULL_PAGE_COMPLETENESS="not_run" \
+REDACTION_DEFAULT="not_run" \
 CLEANUP="passed" \
 "$python_bin" - "$evidence_tmp" "$evidence_allowed_fields" <<'PY'
 import json
@@ -553,7 +557,22 @@ payload = {
     "account_id": os.environ["ACCOUNT_ID"],
     "content_id": os.environ["CONTENT_ID"],
     "member_count": int(os.environ["MEMBER_COUNT"]),
+    "shortcut_assignment": os.environ["SHORTCUT_ASSIGNMENT"],
+    "device_renewal": os.environ["DEVICE_RENEWAL"],
+    "full_page_completeness": os.environ["FULL_PAGE_COMPLETENESS"],
+    "redaction_default": os.environ["REDACTION_DEFAULT"],
     "cleanup": os.environ["CLEANUP"],
+    "not_run": [
+        "macos_chrome_unpacked_install",
+        "toolbar_shortcut_gesture",
+        "capture_visible_tab",
+        "mock_upload",
+        "web_manual_confirmation",
+        "staging_object_cleanup",
+        "real_creator_page",
+        "paid_provider",
+        "edge_runtime",
+    ],
 }
 allowed = set(sys.argv[2].split())
 if set(payload) != allowed:

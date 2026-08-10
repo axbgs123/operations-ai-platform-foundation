@@ -31,6 +31,19 @@ describe("stitchSlices", () => {
     expect(result).toMatchObject({ complete: true, width: 100, height: 180, croppedOverlapPixels: 20 });
   });
 
+  it("stitches the six-slice synthetic long-page plan to 1280x4000", async () => {
+    const slices = [0, 800, 1_600, 2_400, 3_200, 3_200].map((scrollY, sequence) => ({
+      ...slice(sequence, scrollY),
+      viewport: { width: 1_280, height: 800, devicePixelRatio: 1 },
+    }));
+    const longPageRuntime = runtime();
+    longPageRuntime.decode = async () => ({ width: 1_280, height: 800 });
+
+    const result = await stitchSlices(slices, limits, longPageRuntime);
+
+    expect(result).toMatchObject({ complete: true, width: 1_280, height: 4_000, croppedOverlapPixels: 800 });
+  });
+
   it("keeps uncertain sticky-looking overlap instead of guessing removal", async () => {
     const result = await stitchSlices([slice(0, 0), slice(1, 80)], limits, runtime(false));
     expect(result).toMatchObject({ complete: true, height: 200, croppedOverlapPixels: 0 });

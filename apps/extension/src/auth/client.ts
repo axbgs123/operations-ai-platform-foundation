@@ -89,7 +89,7 @@ export async function pairExtension(
     const serverOrigin = normalizeServerOrigin(input.serverOrigin);
     device = dependencies.keyStore ? await dependencies.keyStore.getOrCreate() : null;
     const deviceLabel = input.deviceLabel ?? "Operations AI extension";
-    const extensionVersion = input.extensionVersion ?? "0.2.0";
+    const extensionVersion = input.extensionVersion ?? "0.3.0";
     const permissionPattern = hostPermissionPattern(serverOrigin);
     if (
       dependencies.requestOriginPermission &&

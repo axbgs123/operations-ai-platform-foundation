@@ -224,6 +224,22 @@ describe("persistent device sessions", () => {
     expect(await registrations.load()).not.toHaveProperty("pairingCode");
   });
 
+  it("invokes a native-style fetcher without rebinding its receiver", async () => {
+    const { keyStore, registration, registrations } = await fixture();
+    const sessions = createMemoryBindingStore();
+    const receivers: unknown[] = [];
+    const fetcher = function (this: unknown, input: string | URL | Request) {
+      receivers.push(this);
+      const url = String(input);
+      if (url.endsWith("/challenge")) return Promise.resolve(json(challenge(registration.deviceId)));
+      return Promise.resolve(json(renewPayload(registration.deviceId)));
+    } as typeof fetch;
+
+    await manager(keyStore, registrations, sessions, fetcher).ensureFreshBinding();
+
+    expect(receivers).toEqual([undefined, undefined]);
+  });
+
   it("keeps registration local records free of tokens and pairing codes", async () => {
     let values: Record<string, unknown> = {};
     const localWrites: Record<string, unknown>[] = [];

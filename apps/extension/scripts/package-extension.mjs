@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   cp,
+  lstat,
   mkdir,
   readFile,
   readdir,
@@ -57,6 +58,10 @@ await cp(
 const packageJson = JSON.parse(
   await readFile(resolve(root, "package.json"), "utf8"),
 );
+const builtManifest = JSON.parse(await readFile(resolve(dist, "manifest.json"), "utf8"));
+if (packageJson.version !== "0.3.0" || builtManifest.version !== packageJson.version) {
+  throw new Error("extension package and built manifest must both be version 0.3.0");
+}
 const sharedSchemasPackageJson = JSON.parse(
   await readFile(resolve(root, "../../packages/shared-schemas/package.json"), "utf8"),
 );
@@ -135,15 +140,36 @@ const forbiddenNames = [
   "node_modules",
   ".env",
   "test-results",
+  "test-data",
+  "tests",
+  "fixtures",
+  "indexeddb",
+  "indexeddb.leveldb",
+  "tokens",
+  "screenshot",
   "screenshots",
 ];
+const allowedRootFiles = new Set([
+  "manifest.json",
+  "background.js",
+  "content.js",
+  "popup.html",
+  "popup.js",
+  "build-metadata.js",
+  "supported-pages.json",
+  "PRIVACY.md",
+  "sbom.spdx.json",
+]);
 const files = await filesIn(unpacked);
 for (const file of files) {
   const path = relative(unpacked, file);
+  const metadata = await lstat(file);
   if (
+    metadata.isSymbolicLink() ||
     forbiddenNames.some((part) => path.split("/").includes(part)) ||
     path.endsWith(".map") ||
-    path.endsWith(".log")
+    path.endsWith(".log") ||
+    !(allowedRootFiles.has(path) || /^assets\/[A-Za-z0-9._-]+\.js$/.test(path))
   ) {
     throw new Error(`forbidden release artifact: ${path}`);
   }
@@ -154,7 +180,7 @@ for (const file of files) {
   const buffer = await readFile(file);
   const text = buffer.toString("utf8");
   if (
-    /sk-[A-Za-z0-9]{10,}|eyJ[A-Za-z0-9_-]{20,}/.test(text) ||
+    /sk-[A-Za-z0-9_-]{10,}|eyJ[A-Za-z0-9_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY/.test(text) ||
     /<script[^>]+src=["']https?:\/\//i.test(text) ||
     /\beval\s*\(|new Function\s*\(/.test(text)
   ) {

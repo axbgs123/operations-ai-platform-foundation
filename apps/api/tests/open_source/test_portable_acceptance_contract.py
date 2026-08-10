@@ -68,7 +68,7 @@ def test_acceptance_runner_records_only_the_packaged_extension_version() -> None
     """Portable evidence may identify the extension build, never its pairing secret."""
     script = _text(RUNNER)
 
-    assert 'expected_extension_version="0.2.0"' in script
+    assert 'expected_extension_version="0.3.0"' in script
     assert 'extension_version' in script
     assert 'apps/extension/manifest.json' in script
 
@@ -125,11 +125,26 @@ def test_acceptance_evidence_schema_excludes_credentials_and_user_copy() -> None
         'evidence_allowed_fields="schema_version macos_runtime source_commit '
         'zip_sha256 extension_version started_at finished_at docker_version '
         'docker_compose_version workspace_id owner_member_id editor_member_id '
-        'account_id content_id member_count cleanup"'
+        'account_id content_id member_count shortcut_assignment device_renewal '
+        'full_page_completeness redaction_default cleanup not_run"'
     ) in script
     evidence_block = script.split("# EVIDENCE_START", 1)[1].split(
         "# EVIDENCE_END", 1
     )[0]
+    for field in (
+        '"shortcut_assignment"',
+        '"device_renewal"',
+        '"full_page_completeness"',
+        '"redaction_default"',
+        '"not_run"',
+    ):
+        assert field in evidence_block
+    for not_run_item in (
+        '"mock_upload"',
+        '"web_manual_confirmation"',
+        '"staging_object_cleanup"',
+    ):
+        assert not_run_item in evidence_block
     for forbidden_key in (
         '"invite_code"',
         '"cookie"',

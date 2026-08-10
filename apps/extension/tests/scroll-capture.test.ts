@@ -78,6 +78,17 @@ describe("ScrollCaptureDriver", () => {
     expect(result.slices.length).toBeGreaterThan(20);
   });
 
+  it("captures a deterministic 4000px fixture in six 800px slices", async () => {
+    const fixture = createPage({
+      getMetrics: () => ({ scrollHeight: 4_000, viewportWidth: 1_280, viewportHeight: 800, devicePixelRatio: 1 }),
+    });
+
+    const result = await new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 });
+
+    expect(result).toMatchObject({ complete: true, stopReason: "bottom" });
+    expect(result.slices.map(({ scrollY }) => scrollY)).toEqual([0, 800, 1_600, 2_400, 3_200, 3_200]);
+  });
+
   it("spaces screenshots by at least 500ms and reports a time limit partial", async () => {
     const timestamps: number[] = [];
     const fixture = createPage({

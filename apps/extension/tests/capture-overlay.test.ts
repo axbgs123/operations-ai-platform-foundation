@@ -176,19 +176,19 @@ describe("user-selected safe capture overlay", () => {
       mode: "full-page",
       fullPageCapture: vi.fn().mockResolvedValue({
         dataUrl: "data:image/png;base64,FULLPAGE",
-        width: 1200,
-        height: 3200,
-        complete: false,
-        stopReason: "slice-limit",
-        sliceCount: 3,
+        width: 1280,
+        height: 4000,
+        complete: true,
+        stopReason: "bottom",
+        sliceCount: 6,
       }),
     });
 
     await flow.startAutomaticCapture();
     expect(flow.state).toBe("previewing");
-    expect(flow.element.textContent).toContain("部分");
-    expect(flow.element.textContent).toContain("3 张");
-    expect(flow.element.textContent).toContain("1200×3200");
+    expect(flow.element.textContent).toContain("完整");
+    expect(flow.element.textContent).toContain("采集 6 屏");
+    expect(flow.element.textContent).toContain("1280×4000");
     expect(upload).not.toHaveBeenCalled();
     await flow.confirmUpload();
     expect(upload).toHaveBeenCalledOnce();
