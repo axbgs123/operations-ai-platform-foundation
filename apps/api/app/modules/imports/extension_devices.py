@@ -31,7 +31,7 @@ EXTENSION_CLIENT_ID = "operations-capture-extension"
 class RedisChallengeClient(Protocol):
     def set(self, name: str, value: str, *, ex: int, nx: bool) -> object: ...
 
-    def eval(self, script: str, numkeys: int, *keys_and_args: object) -> object: ...
+    def eval(self, script: str, numkeys: int, *keys_and_args: str) -> object: ...
 
 
 class DeviceChallengeUnavailable(ValueError):
@@ -160,6 +160,12 @@ return payload
 
     def _active_device(self, device_id: UUID) -> ExtensionDeviceBinding | None:
         device = self._session.get(ExtensionDeviceBinding, device_id)
+        if device is None:
+            device = self._session.scalar(
+                select(ExtensionDeviceBinding).where(
+                    ExtensionDeviceBinding.device_id == device_id
+                )
+            )
         if device is None or device.revoked_at is not None:
             return None
         if self._active_member(device.workspace_id, device.member_id) is None:
@@ -220,7 +226,7 @@ return payload
             raise DeviceChallengeUnavailable
         return DeviceChallenge(
             id=challenge_id,
-            device_id=device.id,
+            device_id=device.device_id,
             expires_at=expires_at,
             signing_payload=payload,
         )
@@ -238,7 +244,7 @@ return payload
         result = self._redis.eval(
             self._CONSUME_CHALLENGE,
             1,
-            self._challenge_key(device_id, challenge_id),
+            self._challenge_key(device.id, challenge_id),
         )
         if not result:
             raise DeviceChallengeUnavailable
@@ -292,6 +298,12 @@ return payload
         ):
             raise DeviceChallengeUnavailable
         device = self._session.get(ExtensionDeviceBinding, device_id)
+        if device is None:
+            device = self._session.scalar(
+                select(ExtensionDeviceBinding).where(
+                    ExtensionDeviceBinding.device_id == device_id
+                )
+            )
         if device is None or device.workspace_id != workspace_id:
             raise DeviceChallengeUnavailable
         if device.revoked_at is None:

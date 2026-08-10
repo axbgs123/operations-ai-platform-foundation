@@ -15,6 +15,12 @@ from app.modules.imports.extension_auth import (
     ExtensionTokenService,
     IssuedExtensionToken,
 )
+from app.modules.imports.extension_devices import (
+    DeviceRegistrationUnavailable,
+    ExtensionDeviceService,
+    RedisChallengeClient,
+)
+from app.modules.imports.models import ExtensionDeviceBinding
 from app.modules.imports.models import ExtensionPairingCode
 from app.modules.workspace.models import WorkspaceMember
 
@@ -120,7 +126,17 @@ class ExtensionPairingService:
         self._session.flush()
         return CreatedPairingCode(code=code, expires_at=expires_at)
 
-    def redeem(self, code: str, *, client_id: str) -> IssuedExtensionToken:
+    def redeem(
+        self,
+        code: str,
+        *,
+        client_id: str,
+        device_id: UUID | None = None,
+        device_public_key_jwk: dict[str, str] | None = None,
+        extension_version: str | None = None,
+        device_label: str | None = None,
+        redis: RedisChallengeClient | None = None,
+    ) -> IssuedExtensionToken:
         current = self._now()
         self._record_attempt(client_id, current)
         digest = self._digest(self._normalize(code))
@@ -157,10 +173,48 @@ class ExtensionPairingService:
         ):
             raise PairingCodeUnavailable
         record.used_at = current
+        device_binding_id = None
+        if device_id is not None:
+            if (
+                device_public_key_jwk is None
+                or extension_version is None
+                or device_label is None
+                or redis is None
+            ):
+                raise PairingCodeUnavailable
+            devices = ExtensionDeviceService(self._session, redis=redis, now=self._now)
+            try:
+                registered = devices.register_device(
+                    workspace_id=record.workspace_id,
+                    member_id=record.member_id,
+                    device_id=device_id,
+                    public_key_jwk=device_public_key_jwk,
+                    extension_version=extension_version,
+                    label=device_label,
+                )
+                device_binding_id = registered.id
+            except DeviceRegistrationUnavailable:
+                existing = self._session.scalar(
+                    select(ExtensionDeviceBinding).where(
+                        ExtensionDeviceBinding.device_id == device_id
+                    )
+                )
+                if (
+                    existing is None
+                    or existing.workspace_id != record.workspace_id
+                    or existing.member_id != record.member_id
+                    or existing.revoked_at is not None
+                    or existing.public_key_jwk != device_public_key_jwk
+                    or existing.extension_version != extension_version
+                    or existing.label != device_label
+                ):
+                    raise PairingCodeUnavailable from None
+                device_binding_id = existing.id
         issued = ExtensionTokenService(self._session, now=self._now).issue(
             workspace_id=record.workspace_id,
             member_id=record.member_id,
             client_id=client_id,
+            device_id=device_binding_id,
             now=current,
         )
         self._session.flush()

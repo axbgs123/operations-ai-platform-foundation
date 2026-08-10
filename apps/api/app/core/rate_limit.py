@@ -215,6 +215,8 @@ def category_for_request(method: str, path: str) -> RateLimitCategory | None:
             "/v1/sessions/invite",
             "/v1/workspaces/onboard",
             "/v1/extension/pair",
+            "/v1/extension/session/challenge",
+            "/v1/extension/session/renew",
         }
         or "/extension/bind" in normalized
     ):

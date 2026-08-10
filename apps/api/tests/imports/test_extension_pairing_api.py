@@ -1,6 +1,6 @@
 import json
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,6 +18,7 @@ from app.modules.imports.extension_pairing import ExtensionPairingService
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.models import MemberRole, WorkspaceMember
 from tests.imports.helpers import configured_client
+from tests.imports.test_extension_devices import p256_fixture
 
 
 CLIENT_ID = "operations-capture-extension"
@@ -66,11 +67,26 @@ def _create_code(client: TestClient, *, workspace_id: str, csrf: str):
     )
 
 
-def _pair(client: TestClient, pairing_code: str, *, client_id: str = CLIENT_ID):
+def _pair(
+    client: TestClient,
+    pairing_code: str,
+    *,
+    client_id: str = CLIENT_ID,
+    device_id: UUID | None = None,
+    device_public_key_jwk: dict[str, str] | None = None,
+):
+    _, public_key = p256_fixture()
     return client.post(
         PAIR_PATH,
         headers={"X-Extension-Client": client_id},
-        json={"pairing_code": pairing_code, "client_id": client_id},
+        json={
+            "pairing_code": pairing_code,
+            "client_id": client_id,
+            "device_id": str(device_id or uuid4()),
+            "device_public_key_jwk": device_public_key_jwk or public_key,
+            "device_label": "Chrome on macOS",
+            "extension_version": "0.3.0",
+        },
     )
 
 
@@ -112,6 +128,7 @@ def test_admin_pairing_code_redeems_once_without_creating_a_member() -> None:
         assert paired.json()["web_origin"] == "http://localhost:3000"
         assert paired.json()["member_id"] == login["member_id"]
         assert paired.json()["client_id"] == CLIENT_ID
+        assert UUID(paired.json()["device_id"])
         assert paired.json()["scopes"] == [
             "capture:create",
             "capture:upload",
@@ -141,6 +158,50 @@ def test_admin_pairing_code_redeems_once_without_creating_a_member() -> None:
         assert binding.json()["web_origin"] == "http://localhost:3000"
         assert "pairing_code" not in binding.text
         assert "access_token" not in binding.text
+
+
+def test_pair_requires_a_strict_real_device_registration_payload() -> None:
+    """Accepting missing device identity or unknown fields would weaken pairing."""
+    with configured_client() as (client, _):
+        workspace, login = _create_workspace_session(client)
+        created = _create_code(
+            client,
+            workspace_id=workspace["workspace_id"],
+            csrf=login["csrf_token"],
+        )
+        _, public_key = p256_fixture()
+        invalid = client.post(
+            PAIR_PATH,
+            headers={"X-Extension-Client": CLIENT_ID},
+            json={
+                "pairing_code": created.json()["pairing_code"],
+                "client_id": CLIENT_ID,
+                "device_id": str(uuid4()),
+                "device_public_key_jwk": public_key,
+                "device_label": "Chrome on macOS",
+                "extension_version": "0.3.0",
+                "unexpected": True,
+            },
+        )
+
+        assert invalid.status_code == 422
+        assert public_key["x"] not in invalid.text
+        assert public_key["y"] not in invalid.text
+
+        missing_required = client.post(
+            PAIR_PATH,
+            headers={"X-Extension-Client": CLIENT_ID},
+            json={
+                "pairing_code": created.json()["pairing_code"],
+                "client_id": CLIENT_ID,
+                "device_id": str(uuid4()),
+                "device_public_key_jwk": public_key,
+                "device_label": "Chrome on macOS",
+            },
+        )
+        assert missing_required.status_code == 422
+        assert public_key["x"] not in missing_required.text
+        assert public_key["y"] not in missing_required.text
 
 
 def test_editor_can_create_code_but_read_only_and_extension_auth_cannot() -> None:
@@ -268,10 +329,14 @@ def test_old_invalid_and_mismatched_client_exchange_errors_do_not_reveal_codes()
         invalid = _pair(client, "ABCD-1234")
         mismatched = client.post(
             PAIR_PATH,
-            headers={"X-Extension-Client": CLIENT_ID},
+            headers={"X-Extension-Client": "other-client"},
             json={
                 "pairing_code": second.json()["pairing_code"],
-                "client_id": "other-client",
+                "client_id": CLIENT_ID,
+                "device_id": str(uuid4()),
+                "device_public_key_jwk": p256_fixture()[1],
+                "device_label": "Chrome on macOS",
+                "extension_version": "0.3.0",
             },
         )
         missing_header = client.post(
@@ -279,6 +344,10 @@ def test_old_invalid_and_mismatched_client_exchange_errors_do_not_reveal_codes()
             json={
                 "pairing_code": second.json()["pairing_code"],
                 "client_id": CLIENT_ID,
+                "device_id": str(uuid4()),
+                "device_public_key_jwk": p256_fixture()[1],
+                "device_label": "Chrome on macOS",
+                "extension_version": "0.3.0",
             },
         )
         unapproved = client.post(
@@ -286,7 +355,11 @@ def test_old_invalid_and_mismatched_client_exchange_errors_do_not_reveal_codes()
             headers={"X-Extension-Client": "unapproved-client"},
             json={
                 "pairing_code": second.json()["pairing_code"],
-                "client_id": "unapproved-client",
+                "client_id": CLIENT_ID,
+                "device_id": str(uuid4()),
+                "device_public_key_jwk": p256_fixture()[1],
+                "device_label": "Chrome on macOS",
+                "extension_version": "0.3.0",
             },
         )
 

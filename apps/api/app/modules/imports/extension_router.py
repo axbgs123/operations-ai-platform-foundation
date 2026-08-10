@@ -2,7 +2,8 @@ from collections import defaultdict, deque
 from datetime import UTC, datetime
 import logging
 import time
-from typing import Annotated, cast
+import base64
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from fastapi import (
@@ -15,8 +16,12 @@ from fastapi import (
     Request,
     status,
 )
-from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from redis import Redis
+from sqlalchemy import desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -52,7 +57,15 @@ from app.modules.imports.extension_pairing import (
     PairingCodeRateLimited,
     PairingCodeUnavailable,
 )
-from app.modules.imports.models import ExtensionToken, ExtensionTokenScope
+from app.modules.imports.extension_devices import (
+    DeviceChallengeUnavailable,
+    ExtensionDeviceService,
+)
+from app.modules.imports.models import (
+    ExtensionDeviceBinding,
+    ExtensionToken,
+    ExtensionTokenScope,
+)
 from app.modules.workspace.auth import (
     InvalidInviteCode,
     InviteAuthService,
@@ -66,7 +79,38 @@ from app.modules.workspace.permissions import (
 from app.modules.workspace.models import Workspace, WorkspaceMember
 
 
-router = APIRouter(prefix="/v1/extension", tags=["extension-auth"])
+_SAFE_EXTENSION_VALIDATION_PATHS = frozenset(
+    {
+        "/v1/extension/pair",
+        "/v1/extension/session/challenge",
+        "/v1/extension/session/renew",
+    }
+)
+
+
+class SafeExtensionValidationRoute(APIRoute):
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def safe_handler(request: Request):
+            try:
+                return await handler(request)
+            except RequestValidationError:
+                if request.url.path in _SAFE_EXTENSION_VALIDATION_PATHS:
+                    return JSONResponse(
+                        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                        content={"detail": "invalid extension request"},
+                    )
+                raise
+
+        return safe_handler
+
+
+router = APIRouter(
+    prefix="/v1/extension",
+    tags=["extension-auth"],
+    route_class=SafeExtensionValidationRoute,
+)
 review_router = APIRouter(tags=["extension-capture-review"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
 ObjectStorage = Annotated[Storage, Depends(get_storage)]
@@ -123,7 +167,48 @@ class ExtensionPairRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pairing_code: str = Field(min_length=1, max_length=64)
-    client_id: str = Field(min_length=3, max_length=120)
+    client_id: Literal["operations-capture-extension"]
+    device_id: UUID
+    device_public_key_jwk: dict[str, str]
+    device_label: str = Field(min_length=1, max_length=120)
+    extension_version: str = Field(min_length=1, max_length=40)
+
+
+class ExtensionPairResponse(ExtensionBindResponse):
+    device_id: UUID
+
+
+class ExtensionSessionChallengeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device_id: UUID
+    client_id: Literal["operations-capture-extension"]
+
+
+class ExtensionSessionChallengeRead(BaseModel):
+    challenge_id: UUID
+    device_id: UUID
+    challenge: str
+    expires_at: datetime
+
+
+class ExtensionSessionRenewRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    device_id: UUID
+    challenge_id: UUID
+    signature: Annotated[str, StringConstraints(min_length=86, max_length=88)]
+
+
+class ExtensionDeviceRead(BaseModel):
+    device_id: UUID
+    label: str
+    browser: str
+    extension_version: str
+    created_at: datetime
+    last_used_at: datetime | None
+    status: Literal["active", "revoked"]
+    revoked_at: datetime | None
 
 
 def _emit_pairing_event(
@@ -191,6 +276,25 @@ def _binding_response(
         workspace_name=workspace_name,
         member_display_name=member_display_name,
         web_origin=get_settings().web_origin,
+    )
+
+
+def _pair_response(
+    session: Session,
+    issued: IssuedExtensionToken,
+    *,
+    device_id: UUID,
+) -> ExtensionPairResponse:
+    return ExtensionPairResponse(
+        **_binding_response(session, issued).model_dump(),
+        device_id=device_id,
+    )
+
+
+def _extension_devices(session: Session) -> ExtensionDeviceService:
+    return ExtensionDeviceService(
+        session,
+        redis=Redis.from_url(get_settings().redis_url, decode_responses=True),
     )
 
 
@@ -305,12 +409,12 @@ def bind_extension(
     return _binding_response(session, issued)
 
 
-@router.post("/pair", response_model=ExtensionBindResponse, status_code=201)
+@router.post("/pair", response_model=ExtensionPairResponse, status_code=201)
 def pair_extension(
     data: ExtensionPairRequest,
     session: DatabaseSession,
     extension_client: Annotated[str | None, Header(alias="X-Extension-Client")] = None,
-) -> ExtensionBindResponse:
+) -> ExtensionPairResponse:
     started_at = time.monotonic()
     if (
         extension_client != CAPTURE_EXTENSION_CLIENT
@@ -330,7 +434,15 @@ def pair_extension(
         issued = ExtensionPairingService(
             session,
             attempts=pairing_attempts,
-        ).redeem(data.pairing_code, client_id=data.client_id)
+        ).redeem(
+            data.pairing_code,
+            client_id=data.client_id,
+            device_id=data.device_id,
+            device_public_key_jwk=data.device_public_key_jwk,
+            extension_version=data.extension_version,
+            device_label=data.device_label,
+            redis=Redis.from_url(get_settings().redis_url, decode_responses=True),
+        )
         session.commit()
     except PairingCodeUnavailable as error:
         session.rollback()
@@ -370,7 +482,55 @@ def pair_extension(
         member_id=issued.member_id,
         client_id=CAPTURE_EXTENSION_CLIENT,
     )
-    return _binding_response(session, issued)
+    return _pair_response(session, issued, device_id=data.device_id)
+
+
+@router.post(
+    "/session/challenge",
+    response_model=ExtensionSessionChallengeRead,
+    status_code=201,
+)
+def create_extension_session_challenge(
+    data: ExtensionSessionChallengeRequest,
+    session: DatabaseSession,
+) -> ExtensionSessionChallengeRead:
+    try:
+        challenge = _extension_devices(session).issue_challenge(device_id=data.device_id)
+    except DeviceChallengeUnavailable as error:
+        raise HTTPException(status_code=401, detail="device session invalid") from error
+    return ExtensionSessionChallengeRead(
+        challenge_id=challenge.id,
+        device_id=challenge.device_id,
+        challenge=base64.urlsafe_b64encode(challenge.signing_payload)
+        .rstrip(b"=")
+        .decode(),
+        expires_at=challenge.expires_at,
+    )
+
+
+@router.post(
+    "/session/renew",
+    response_model=ExtensionPairResponse,
+    status_code=201,
+)
+def renew_extension_session(
+    data: ExtensionSessionRenewRequest,
+    session: DatabaseSession,
+) -> ExtensionPairResponse:
+    try:
+        issued = _extension_devices(session).renew_session(
+            device_id=data.device_id,
+            challenge_id=data.challenge_id,
+            signature=data.signature,
+        )
+        session.commit()
+    except DeviceChallengeUnavailable as error:
+        session.rollback()
+        raise HTTPException(status_code=401, detail="device session invalid") from error
+    except Exception as error:
+        session.rollback()
+        raise HTTPException(status_code=401, detail="device session invalid") from error
+    return _pair_response(session, issued, device_id=data.device_id)
 
 
 @router.get("/binding", response_model=ExtensionBindingRead)
@@ -433,6 +593,33 @@ def _pairing_context(
         raise HTTPException(status_code=403, detail="CSRF validation failed")
     try:
         require_permission(context.role, Permission.WRITE_CONTENT)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    return context
+
+
+def _device_management_context(
+    session: Session,
+    *,
+    workspace_id: UUID,
+    session_token: str | None,
+    csrf_token: str | None = None,
+    require_csrf_token: bool = False,
+) -> WorkspaceContext:
+    if session_token is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    auth = InviteAuthService(session)
+    context = auth.authenticate(session_token)
+    if context is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    if context.workspace_id != workspace_id:
+        raise HTTPException(status_code=404, detail="workspace not found")
+    if require_csrf_token and (
+        csrf_token is None or not auth.validate_csrf(session_token, csrf_token)
+    ):
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
+    try:
+        require_permission(context.role, Permission.MANAGE_MEMBERS)
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
     return context
@@ -503,6 +690,79 @@ def create_extension_pairing_code(
         workspace_id=workspace.id,
         workspace_name=workspace.name,
     )
+
+
+@review_router.get(
+    "/v1/workspaces/{workspace_id}/extension-devices",
+    response_model=list[ExtensionDeviceRead],
+    tags=["extension-auth"],
+)
+def list_extension_devices(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> list[ExtensionDeviceRead]:
+    _device_management_context(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+    )
+    devices = session.scalars(
+        select(ExtensionDeviceBinding)
+        .where(ExtensionDeviceBinding.workspace_id == workspace_id)
+        .order_by(desc(ExtensionDeviceBinding.created_at))
+    ).all()
+    return [
+        ExtensionDeviceRead(
+            device_id=device.device_id,
+            label=device.label,
+            browser=device.label,
+            extension_version=device.extension_version,
+            created_at=device.created_at,
+            last_used_at=session.scalar(
+                select(ExtensionToken.issued_at)
+                .where(ExtensionToken.device_id == device.id)
+                .order_by(desc(ExtensionToken.issued_at))
+                .limit(1)
+            ),
+            status="revoked" if device.revoked_at is not None else "active",
+            revoked_at=device.revoked_at,
+        )
+        for device in devices
+    ]
+
+
+@review_router.delete(
+    "/v1/workspaces/{workspace_id}/extension-devices/{device_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["extension-auth"],
+)
+def revoke_extension_device(
+    workspace_id: UUID,
+    device_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> None:
+    context = _device_management_context(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+        require_csrf_token=True,
+    )
+    if context.member_id is None:
+        raise HTTPException(status_code=401, detail="invalid session")
+    try:
+        _extension_devices(session).revoke_device(
+            workspace_id=workspace_id,
+            device_id=device_id,
+            revoked_by=context.member_id,
+        )
+        session.commit()
+    except DeviceChallengeUnavailable as error:
+        session.rollback()
+        raise HTTPException(status_code=404, detail="extension device not found") from error
 
 
 class ExtensionCaptureRequest(BaseModel):

@@ -5978,13 +5978,106 @@
         "title": "ExtensionCaptureTaskRead",
         "type": "object"
       },
+      "ExtensionDeviceRead": {
+        "properties": {
+          "browser": {
+            "title": "Browser",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_id": {
+            "format": "uuid",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "extension_version": {
+            "title": "Extension Version",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_used_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Used At"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "revoked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "label",
+          "browser",
+          "extension_version",
+          "created_at",
+          "last_used_at",
+          "status",
+          "revoked_at"
+        ],
+        "title": "ExtensionDeviceRead",
+        "type": "object"
+      },
       "ExtensionPairRequest": {
         "additionalProperties": false,
         "properties": {
           "client_id": {
-            "maxLength": 120,
-            "minLength": 3,
+            "const": "operations-capture-extension",
             "title": "Client Id",
+            "type": "string"
+          },
+          "device_id": {
+            "format": "uuid",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "device_label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Device Label",
+            "type": "string"
+          },
+          "device_public_key_jwk": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Device Public Key Jwk",
+            "type": "object"
+          },
+          "extension_version": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Extension Version",
             "type": "string"
           },
           "pairing_code": {
@@ -5996,9 +6089,106 @@
         },
         "required": [
           "pairing_code",
-          "client_id"
+          "client_id",
+          "device_id",
+          "device_public_key_jwk",
+          "device_label",
+          "extension_version"
         ],
         "title": "ExtensionPairRequest",
+        "type": "object"
+      },
+      "ExtensionPairResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "device_id": {
+            "format": "uuid",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "member_display_name": {
+            "title": "Member Display Name",
+            "type": "string"
+          },
+          "member_id": {
+            "format": "uuid",
+            "title": "Member Id",
+            "type": "string"
+          },
+          "provider_mode": {
+            "title": "Provider Mode",
+            "type": "string"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Scopes",
+            "type": "array"
+          },
+          "token_type": {
+            "title": "Token Type",
+            "type": "string"
+          },
+          "web_origin": {
+            "title": "Web Origin",
+            "type": "string"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "workspace_name": {
+            "title": "Workspace Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "token_type",
+          "workspace_id",
+          "member_id",
+          "client_id",
+          "scopes",
+          "issued_at",
+          "expires_at",
+          "provider_mode",
+          "region",
+          "workspace_name",
+          "member_display_name",
+          "web_origin",
+          "device_id"
+        ],
+        "title": "ExtensionPairResponse",
         "type": "object"
       },
       "ExtensionPairingCodeRead": {
@@ -6029,6 +6219,86 @@
           "workspace_name"
         ],
         "title": "ExtensionPairingCodeRead",
+        "type": "object"
+      },
+      "ExtensionSessionChallengeRead": {
+        "properties": {
+          "challenge": {
+            "title": "Challenge",
+            "type": "string"
+          },
+          "challenge_id": {
+            "format": "uuid",
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "device_id": {
+            "format": "uuid",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "device_id",
+          "challenge",
+          "expires_at"
+        ],
+        "title": "ExtensionSessionChallengeRead",
+        "type": "object"
+      },
+      "ExtensionSessionChallengeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "const": "operations-capture-extension",
+            "title": "Client Id",
+            "type": "string"
+          },
+          "device_id": {
+            "format": "uuid",
+            "title": "Device Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "client_id"
+        ],
+        "title": "ExtensionSessionChallengeRequest",
+        "type": "object"
+      },
+      "ExtensionSessionRenewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "title": "Challenge Id",
+            "type": "string"
+          },
+          "device_id": {
+            "format": "uuid",
+            "title": "Device Id",
+            "type": "string"
+          },
+          "signature": {
+            "maxLength": 88,
+            "minLength": 86,
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device_id",
+          "challenge_id",
+          "signature"
+        ],
+        "title": "ExtensionSessionRenewRequest",
         "type": "object"
       },
       "FactContextRead": {
@@ -15287,7 +15557,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ExtensionBindResponse"
+                  "$ref": "#/components/schemas/ExtensionPairResponse"
                 }
               }
             },
@@ -15305,6 +15575,88 @@
           }
         },
         "summary": "Pair Extension",
+        "tags": [
+          "extension-auth"
+        ]
+      }
+    },
+    "/v1/extension/session/challenge": {
+      "post": {
+        "operationId": "create_extension_session_challenge_v1_extension_session_challenge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionSessionChallengeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSessionChallengeRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Extension Session Challenge",
+        "tags": [
+          "extension-auth"
+        ]
+      }
+    },
+    "/v1/extension/session/renew": {
+      "post": {
+        "operationId": "renew_extension_session_v1_extension_session_renew_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtensionSessionRenewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionPairResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Renew Extension Session",
         "tags": [
           "extension-auth"
         ]
@@ -20651,6 +21003,149 @@
         "summary": "Read Export",
         "tags": [
           "exports"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/extension-devices": {
+      "get": {
+        "operationId": "list_extension_devices_v1_workspaces__workspace_id__extension_devices_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtensionDeviceRead"
+                  },
+                  "title": "Response List Extension Devices V1 Workspaces  Workspace Id  Extension Devices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Extension Devices",
+        "tags": [
+          "extension-capture-review",
+          "extension-auth"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/extension-devices/{device_id}": {
+      "delete": {
+        "operationId": "revoke_extension_device_v1_workspaces__workspace_id__extension_devices__device_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "device_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Device Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Extension Device",
+        "tags": [
+          "extension-capture-review",
+          "extension-auth"
         ]
       }
     },
