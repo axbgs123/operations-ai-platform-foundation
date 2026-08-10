@@ -14,6 +14,8 @@ type BackgroundDependencies = {
   now?: () => number;
   loadBinding?(): Promise<ExtensionBinding | null>;
   clearBinding?(): Promise<void>;
+  ensureSessionBinding?(): Promise<ExtensionBinding>;
+  unlinkSession?(): Promise<void>;
 };
 
 type ArmedCapture = {
@@ -41,6 +43,21 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
   return async (rawMessage: unknown, sender: MessageSender): Promise<unknown> => {
     const message = parseRuntimeMessage(rawMessage);
     if (!message) return { ok: false, error: "invalid-message" };
+
+    if (message.type === "GET_SESSION_BINDING") {
+      if (sender.tab) return { ok: false, error: "unsupported-message" };
+      try {
+        return { ok: true, binding: await dependencies.ensureSessionBinding?.() };
+      } catch {
+        return { ok: false, error: "rebind-required" };
+      }
+    }
+
+    if (message.type === "UNLINK_SESSION") {
+      if (sender.tab) return { ok: false, error: "unsupported-message" };
+      await dependencies.unlinkSession?.();
+      return { ok: true };
+    }
 
     if (message.type === "START_SAFE_CAPTURE" && "tabId" in message) {
       const active = await dependencies.queryActiveTab();
@@ -192,6 +209,8 @@ if (typeof chrome !== "undefined") {
     captureVisibleTab: (windowId, options) => chrome.tabs.captureVisibleTab(windowId, options),
     loadBinding: () => sessionManager.ensureFreshBinding().catch(() => null),
     clearBinding: () => sessionManager.unlink(),
+    ensureSessionBinding: () => sessionManager.ensureFreshBinding(),
+    unlinkSession: () => sessionManager.unlink(),
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void handler(message, sender).then(sendResponse, () =>

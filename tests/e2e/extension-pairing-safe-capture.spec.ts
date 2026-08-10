@@ -9,7 +9,8 @@ const e2eSecret = process.env.EXTENSION_E2E_SECRET;
 if (!apiPort || !webPort || !e2eSecret) throw new Error("extension E2E runtime is not configured");
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
 const extensionClient = "operations-capture-extension";
-const unpacked = resolve(process.cwd(), "../../apps/extension/release/unpacked");
+// Global setup builds current HEAD; each test copies this dist into an isolated temporary profile.
+const unpacked = resolve(process.cwd(), "../../apps/extension/dist");
 
 type Session = { workspace_id: string; member_id: string; csrf_token: string };
 
@@ -168,6 +169,29 @@ test("0.2.0 真实扩展链完成配对、安全采集和 Web 人工确认", asy
     expect(JSON.stringify(persistedConnection.local)).not.toContain("accessToken");
     expect(JSON.stringify(persistedConnection.local)).not.toContain("pairingCode");
     expect(persistedConnection.session).toMatchObject({ accessToken: expect.any(String) });
+    const persistedKey = await pairingPopup.evaluate(async () => {
+      const record = await new Promise<{ privateKey: CryptoKey; publicJwk: JsonWebKey }>((resolve, reject) => {
+        const request = indexedDB.open("operations-ai-extension-device", 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const read = database.transaction("device-keys", "readonly").objectStore("device-keys").get("device");
+          read.onerror = () => reject(read.error);
+          read.onsuccess = () => { database.close(); resolve(read.result); };
+        };
+      });
+      let privateExportRejected = false;
+      try { await crypto.subtle.exportKey("jwk", record.privateKey); } catch { privateExportRejected = true; }
+      return { privateExtractable: record.privateKey.extractable, privateExportRejected, publicJwk: record.publicJwk };
+    });
+    expect(persistedKey.privateExtractable).toBe(false);
+    expect(persistedKey.privateExportRejected).toBe(true);
+    expect(Object.keys(persistedKey.publicJwk).sort()).toEqual(["crv", "kty", "x", "y"]);
+    const renewedAfterSessionClear = await pairingPopup.evaluate(async () => {
+      await chrome.storage.session.remove("extensionBinding");
+      return chrome.runtime.sendMessage({ type: "GET_SESSION_BINDING" });
+    });
+    expect(renewedAfterSessionClear).toMatchObject({ ok: true, binding: { accessToken: expect.any(String) } });
 
     const membersAfter = await json<Array<{ id: string }>>(
       await admin.get(`${apiOrigin}/v1/workspaces/${owner.workspace_id}/members`),

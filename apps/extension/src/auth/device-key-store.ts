@@ -23,6 +23,8 @@ export type DeviceKeyRecord = {
 
 const databaseName = "operations-ai-extension-device";
 const storeName = "device-keys";
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const publicKeyFields = ["crv", "kty", "x", "y"];
 
 function encodeBase64Url(value: ArrayBuffer): string {
   const bytes = new Uint8Array(value);
@@ -35,15 +37,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isDeviceKeyRecord(value: unknown): value is DeviceKeyRecord {
-  return isRecord(value) &&
+function normalizePublicJwk(value: JsonWebKey): JsonWebKey | null {
+  if (value.kty !== "EC" || value.crv !== "P-256" ||
+    typeof value.x !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(value.x) ||
+    typeof value.y !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(value.y)) return null;
+  return { kty: "EC", crv: "P-256", x: value.x, y: value.y };
+}
+
+function canonicalPublicJwk(value: JsonWebKey): JsonWebKey | null {
+  return Object.keys(value).sort().join(",") === publicKeyFields.join(",") ? normalizePublicJwk(value) : null;
+}
+
+async function isDeviceKeyRecord(value: unknown, cryptoApi: Crypto): Promise<boolean> {
+  if (!(isRecord(value) &&
     value.id === "device" &&
-    typeof value.deviceId === "string" &&
-    value.deviceId !== "" &&
+    typeof value.deviceId === "string" && uuidPattern.test(value.deviceId) &&
     isRecord(value.publicJwk) &&
-    value.publicJwk.kty === "EC" &&
+    canonicalPublicJwk(value.publicJwk as JsonWebKey) &&
     value.publicJwk.crv === "P-256" &&
-    value.privateKey instanceof CryptoKey;
+    value.privateKey instanceof CryptoKey &&
+    value.privateKey.type === "private" && !value.privateKey.extractable &&
+    value.privateKey.algorithm.name === "ECDSA" &&
+    (value.privateKey.algorithm as EcKeyAlgorithm).namedCurve === "P-256" &&
+    value.privateKey.usages.length === 1 && value.privateKey.usages[0] === "sign")) return false;
+  try {
+    const publicKey = await cryptoApi.subtle.importKey(
+      "jwk", canonicalPublicJwk(value.publicJwk as JsonWebKey)!, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"],
+    );
+    const payload = new Uint8Array([0, 1, 2, 3]);
+    const signature = await cryptoApi.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, value.privateKey, payload as BufferSource);
+    return cryptoApi.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, publicKey, signature, payload as BufferSource);
+  } catch {
+    return false;
+  }
 }
 
 function asSigner(record: DeviceKeyRecord, cryptoApi: Crypto): StoredDeviceSigner {
@@ -74,7 +100,7 @@ async function generateDevice(cryptoApi: Crypto): Promise<DeviceKeyRecord> {
   return {
     id: "device",
     deviceId: cryptoApi.randomUUID(),
-    publicJwk: await cryptoApi.subtle.exportKey("jwk", pair.publicKey),
+    publicJwk: normalizePublicJwk(await cryptoApi.subtle.exportKey("jwk", pair.publicKey))!,
     privateKey: pair.privateKey,
   };
 }
@@ -91,11 +117,15 @@ function createStore(persistence: KeyPersistence, cryptoApi: Crypto): DeviceKeyS
   return {
     async load() {
       const record = await persistence.get();
-      return record && isDeviceKeyRecord(record) ? asSigner(record, cryptoApi) : null;
+      if (!record) return null;
+      if (await isDeviceKeyRecord(record, cryptoApi)) return asSigner(record as DeviceKeyRecord, cryptoApi);
+      await persistence.clear();
+      return null;
     },
     async getOrCreate() {
       const existing = await persistence.get();
-      if (existing && isDeviceKeyRecord(existing)) return asSigner(existing, cryptoApi);
+      if (existing && await isDeviceKeyRecord(existing, cryptoApi)) return asSigner(existing as DeviceKeyRecord, cryptoApi);
+      if (existing) await persistence.clear();
       const generated = await generateDevice(cryptoApi);
       await persistence.put(generated);
       return asSigner(generated, cryptoApi);
@@ -122,6 +152,14 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   });
 }
 
+function transactionComplete(transaction: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    transaction.addEventListener("complete", () => resolve());
+    transaction.addEventListener("abort", () => reject(transaction.error ?? new Error("device-key-unavailable")));
+    transaction.addEventListener("error", () => reject(transaction.error ?? new Error("device-key-unavailable")));
+  });
+}
+
 async function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(databaseName, 1);
@@ -141,7 +179,9 @@ function idbPersistence(): KeyPersistence {
       const database = await openDatabase();
       try {
         const transaction = database.transaction(storeName, "readonly");
-        return (await requestResult(transaction.objectStore(storeName).get("device"))) as DeviceKeyRecord | null;
+        const result = (await requestResult(transaction.objectStore(storeName).get("device"))) as DeviceKeyRecord | null;
+        await transactionComplete(transaction);
+        return result;
       } finally {
         database.close();
       }
@@ -151,6 +191,7 @@ function idbPersistence(): KeyPersistence {
       try {
         const transaction = database.transaction(storeName, "readwrite");
         await requestResult(transaction.objectStore(storeName).put(value));
+        await transactionComplete(transaction);
       } finally {
         database.close();
       }
@@ -160,6 +201,7 @@ function idbPersistence(): KeyPersistence {
       try {
         const transaction = database.transaction(storeName, "readwrite");
         await requestResult(transaction.objectStore(storeName).clear());
+        await transactionComplete(transaction);
       } finally {
         database.close();
       }

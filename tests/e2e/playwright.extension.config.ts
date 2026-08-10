@@ -22,6 +22,7 @@ export default defineConfig({
   testDir: ".",
   testMatch: "extension-pairing-safe-capture.spec.ts",
   globalTeardown: "./extension-pairing-global-teardown.ts",
+  globalSetup: "./extension-pairing-global-setup.ts",
   fullyParallel: false,
   workers: 1,
   timeout: 120_000,

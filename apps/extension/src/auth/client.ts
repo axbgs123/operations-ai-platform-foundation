@@ -83,9 +83,11 @@ export async function pairExtension(
   dependencies: PairingDependencies,
 ): Promise<PairResponse> {
   const fetcher = dependencies.fetcher;
+  let pairedDevice = false;
+  let device: Awaited<ReturnType<DeviceKeyStore["getOrCreate"]>> | null = null;
   try {
     const serverOrigin = normalizeServerOrigin(input.serverOrigin);
-    const device = dependencies.keyStore ? await dependencies.keyStore.getOrCreate() : null;
+    device = dependencies.keyStore ? await dependencies.keyStore.getOrCreate() : null;
     const deviceLabel = input.deviceLabel ?? "Operations AI extension";
     const extensionVersion = input.extensionVersion ?? "0.2.0";
     const permissionPattern = hostPermissionPattern(serverOrigin);
@@ -120,6 +122,7 @@ export async function pairExtension(
       },
     );
     if (!response.ok) throw new Error("服务器配对失败");
+    pairedDevice = device !== null;
     const payload: unknown = await response.json();
     const binding = bindingFromPairResponse(payload, serverOrigin);
     if (!binding) throw new Error("服务器配对失败");
@@ -137,6 +140,13 @@ export async function pairExtension(
     await dependencies.store.save(binding);
     return payload as PairResponse;
   } catch {
+    if (pairedDevice && device && dependencies.registrations) {
+      await Promise.allSettled([
+        dependencies.store.clear(),
+        dependencies.registrations.clear(),
+        dependencies.keyStore?.clear() ?? Promise.resolve(),
+      ]);
+    }
     throw new Error("服务器配对失败");
   } finally {
     dependencies.clearPairingCode();

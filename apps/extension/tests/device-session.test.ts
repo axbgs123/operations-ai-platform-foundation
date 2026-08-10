@@ -14,6 +14,7 @@ import {
   type DeviceRegistrationStore,
 } from "../src/auth/device-registration-store";
 import { createSessionManager } from "../src/auth/session-renewal";
+import { pairExtension } from "../src/auth/client";
 import { createMemoryBindingStore, type BindingStore, type ExtensionBinding } from "../src/auth/storage";
 
 const cryptoApi = webcrypto as unknown as Crypto;
@@ -105,7 +106,6 @@ function manager(
     registrations,
     sessionStore,
     fetcher,
-    crypto: cryptoApi,
     now: () => now,
     requestTimeoutMs,
   });
@@ -116,9 +116,96 @@ describe("persistent device sessions", () => {
     const keyStore = createMemoryDeviceKeyStore(cryptoApi);
     const device = await keyStore.getOrCreate();
 
-    expect(device.publicJwk).toMatchObject({ kty: "EC", crv: "P-256" });
+    expect(device.publicJwk).toEqual(expect.objectContaining({ kty: "EC", crv: "P-256" }));
+    expect(Object.keys(device.publicJwk).sort()).toEqual(["crv", "kty", "x", "y"]);
+    expect(device.publicJwk.x).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(device.publicJwk.y).toMatch(/^[A-Za-z0-9_-]{43}$/);
     await expect(cryptoApi.subtle.exportKey("jwk", device.privateKey)).rejects.toThrow();
     expect(await device.sign(new Uint8Array([1, 2, 3]))).toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+
+  it("rejects a persisted key whose public JWK does not verify its private signer", async () => {
+    const state: MemoryDeviceKeyStoreState = { record: null };
+    const keyStore = createMemoryDeviceKeyStore(cryptoApi, state);
+    await keyStore.getOrCreate();
+    state.record!.publicJwk = { kty: "EC", crv: "P-256", x: "A".repeat(43), y: "A".repeat(43) };
+
+    await expect(keyStore.load()).resolves.toBeNull();
+    expect(state.record).toBeNull();
+  });
+
+  it.each(["registration", "key", "device", "workspace", "origin"])("does not return a fresh bearer when %s identity is invalid", async (kind) => {
+    const { keyStore, registration, registrations } = await fixture();
+    const sessions = createMemoryBindingStore();
+    await sessions.save(binding());
+    if (kind === "registration") await registrations.clear();
+    if (kind === "key") await keyStore.clear();
+    if (kind === "device") await registrations.save({ ...registration, deviceId: "00000000-0000-0000-0000-000000000999" });
+    if (kind === "workspace") await registrations.save({ ...registration, workspaceId: "00000000-0000-0000-0000-000000000999" });
+    if (kind === "origin") await registrations.save({ ...registration, webOrigin: "https://other.ops.example.com" });
+
+    await expect(manager(keyStore, registrations, sessions, renewFetcher(registration.deviceId)).ensureFreshBinding()).rejects.toThrow("rebind-required");
+    expect(await sessions.load()).toBeNull();
+  });
+
+  it("keeps the device identity on retryable renewal failure and never returns a near-expiry token", async () => {
+    const { keyStore, registration, registrations } = await fixture();
+    const sessions = createMemoryBindingStore();
+    await sessions.save(binding("2030-01-01T00:29:59Z"));
+
+    await expect(manager(keyStore, registrations, sessions, renewFetcher(registration.deviceId, { pending: true }), 1).ensureFreshBinding()).rejects.toThrow("session-unavailable");
+    expect(await registrations.load()).toEqual(registration);
+    expect(await keyStore.load()).not.toBeNull();
+    expect(await sessions.load()).toBeNull();
+  });
+
+  it("prevents an in-flight renewal from restoring a binding after unlink", async () => {
+    const { keyStore, registration, registrations } = await fixture();
+    const sessions = createMemoryBindingStore();
+    let resolveRenew!: (value: Response) => void;
+    const fetcher = vi.fn((input: string | URL | Request) => {
+      if (String(input).endsWith("/challenge")) return Promise.resolve(json(challenge(registration.deviceId)));
+      return new Promise<Response>((resolve) => { resolveRenew = resolve; });
+    }) as unknown as typeof fetch;
+    const sessionManager = manager(keyStore, registrations, sessions, fetcher);
+    const pending = sessionManager.ensureFreshBinding();
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    await sessionManager.unlink();
+    resolveRenew(json(renewPayload(registration.deviceId)));
+
+    await expect(pending).rejects.toThrow("rebind-required");
+    expect(await sessions.load()).toBeNull();
+    expect(await registrations.load()).toBeNull();
+    expect(await keyStore.load()).toBeNull();
+  });
+
+  it.each(["registration", "session"])("cleans all local device material when %s persistence after pairing fails", async (failedStore) => {
+    const keyState: MemoryDeviceKeyStoreState = { record: null };
+    const keyStore = createMemoryDeviceKeyStore(cryptoApi, keyState);
+    const registrations = createMemoryDeviceRegistrationStore();
+    const session = createMemoryBindingStore();
+    const failingRegistrations: DeviceRegistrationStore = failedStore === "registration"
+      ? { ...registrations, save: async () => { throw new Error("storage failed"); } }
+      : registrations;
+    const failingSession: BindingStore = failedStore === "session"
+      ? { ...session, save: async () => { throw new Error("storage failed"); } }
+      : session;
+    const device = await keyStore.getOrCreate();
+
+    await expect(pairExtension(
+      { serverOrigin: "https://ops.example.com", pairingCode: "123456", clientId: "operations-capture-extension" },
+      {
+        fetcher: async () => json(renewPayload(device.deviceId)),
+        store: failingSession,
+        keyStore,
+        registrations: failingRegistrations,
+        clearPairingCode: () => undefined,
+      },
+    )).rejects.toThrow("服务器配对失败");
+    expect(await keyStore.load()).toBeNull();
+    expect(await registrations.load()).toBeNull();
+    expect(await session.load()).toBeNull();
+    expect((await keyStore.getOrCreate()).deviceId).not.toBe(device.deviceId);
   });
 
   it("renews after a service-worker restart without persisting a bearer token", async () => {
@@ -187,20 +274,13 @@ describe("persistent device sessions", () => {
     expect(await registrations.load()).toBeNull();
   });
 
-  it("fails closed after a renewal timeout", async () => {
-    vi.useFakeTimers();
-    try {
-      const { keyStore, registrations } = await fixture();
-      const sessions = createMemoryBindingStore();
-      const pending = manager(keyStore, registrations, sessions, renewFetcher("unused", { pending: true }), 50).ensureFreshBinding();
-      const assertion = expect(pending).rejects.toThrow("rebind-required");
-      await vi.advanceTimersByTimeAsync(50);
-      await assertion;
-      expect(await sessions.load()).toBeNull();
-      expect(await registrations.load()).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+  it("keeps device identity after a renewal timeout", async () => {
+    const { keyStore, registrations } = await fixture();
+    const sessions = createMemoryBindingStore();
+    await expect(manager(keyStore, registrations, sessions, renewFetcher("unused", { pending: true }), 10).ensureFreshBinding()).rejects.toThrow("session-unavailable");
+    expect(await sessions.load()).toBeNull();
+    expect(await registrations.load()).not.toBeNull();
+    expect(await keyStore.load()).not.toBeNull();
   });
 
   it("renews only when the token is missing or has less than thirty minutes remaining", async () => {

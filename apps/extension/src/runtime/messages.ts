@@ -14,6 +14,8 @@ export type CaptureVisibleTabMessage = {
 export type GetCaptureBindingMessage = { type: "GET_CAPTURE_BINDING" } & CaptureContext;
 export type ClearCaptureBindingMessage = { type: "CLEAR_CAPTURE_BINDING" } & CaptureContext;
 export type OpenReviewMessage = { type: "OPEN_REVIEW"; url: string };
+export type GetSessionBindingMessage = { type: "GET_SESSION_BINDING" };
+export type UnlinkSessionMessage = { type: "UNLINK_SESSION" };
 
 export type RuntimeMessage =
   | GetPageStatusMessage
@@ -21,7 +23,9 @@ export type RuntimeMessage =
   | GetCaptureBindingMessage
   | ClearCaptureBindingMessage
   | CaptureVisibleTabMessage
-  | OpenReviewMessage;
+  | OpenReviewMessage
+  | GetSessionBindingMessage
+  | UnlinkSessionMessage;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -36,6 +40,8 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
   if (value.type === "GET_PAGE_STATUS" && hasExactKeys(value, ["type"])) {
     return { type: "GET_PAGE_STATUS" };
   }
+  if (value.type === "GET_SESSION_BINDING" && hasExactKeys(value, ["type"])) return { type: "GET_SESSION_BINDING" };
+  if (value.type === "UNLINK_SESSION" && hasExactKeys(value, ["type"])) return { type: "UNLINK_SESSION" };
   if (value.type === "START_SAFE_CAPTURE") {
     if (hasExactKeys(value, ["type"])) return { type: "START_SAFE_CAPTURE" };
     if (

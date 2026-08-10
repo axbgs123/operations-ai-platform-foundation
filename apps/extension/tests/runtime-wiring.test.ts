@@ -51,11 +51,28 @@ describe("extension runtime message boundary", () => {
       type: "GET_CAPTURE_BINDING",
       ...captureContext,
     });
+    expect(parseRuntimeMessage({ type: "GET_SESSION_BINDING" })).toEqual({ type: "GET_SESSION_BINDING" });
+    expect(parseRuntimeMessage({ type: "UNLINK_SESSION" })).toEqual({ type: "UNLINK_SESSION" });
 
     expect(parseRuntimeMessage({ type: "CAPTURE_VISIBLE_TAB", pageSignature: "", token: "secret" })).toBeNull();
     expect(parseRuntimeMessage({ ...armMessage, tabId: -1 })).toBeNull();
     expect(parseRuntimeMessage({ ...armMessage, platform: "unknown" })).toBeNull();
     expect(parseRuntimeMessage({ type: "UNKNOWN" })).toBeNull();
+  });
+
+  it("keeps popup session renewal and unlink in the background-only runtime boundary", async () => {
+    const binding = { ...storedBinding, expiresAt: "2030-01-01T08:00:00Z" };
+    const ensureSessionBinding = vi.fn().mockResolvedValue(binding);
+    const unlinkSession = vi.fn().mockResolvedValue(undefined);
+    const handler = createBackgroundMessageHandler({
+      queryActiveTab: vi.fn(), captureVisibleTab: vi.fn(), ensureSessionBinding, unlinkSession,
+    });
+
+    await expect(handler({ type: "GET_SESSION_BINDING" }, {})).resolves.toEqual({ ok: true, binding });
+    await expect(handler({ type: "UNLINK_SESSION" }, {})).resolves.toEqual({ ok: true });
+    await expect(handler({ type: "GET_SESSION_BINDING" }, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "unsupported-message" });
+    expect(ensureSessionBinding).toHaveBeenCalledOnce();
+    expect(unlinkSession).toHaveBeenCalledOnce();
   });
 
   it("returns only the minimum current capture binding to the armed active supported sender", async () => {

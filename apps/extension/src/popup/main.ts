@@ -1,7 +1,6 @@
 import { pairExtension, revokeExtension, type PairingInput } from "../auth/client";
 import { createDeviceKeyStore } from "../auth/device-key-store";
 import { createLocalDeviceRegistrationStore } from "../auth/device-registration-store";
-import { createSessionManager } from "../auth/session-renewal";
 import { createSessionBindingStore, type BindingStore, type ExtensionBinding } from "../auth/storage";
 import { extensionVersion } from "../build-metadata";
 import { createPersistedTrustStore } from "../capture/trust-state";
@@ -31,7 +30,7 @@ declare const chrome: {
     sendMessage(tabId: number, message: { type: "START_SAFE_CAPTURE" }): Promise<unknown>;
   };
   runtime: {
-    sendMessage(message: StartSafeCaptureMessage): Promise<unknown>;
+    sendMessage(message: StartSafeCaptureMessage | { type: "GET_SESSION_BINDING" } | { type: "UNLINK_SESSION" }): Promise<unknown>;
   };
 };
 
@@ -310,12 +309,6 @@ if (typeof chrome !== "undefined") {
   const store = createSessionBindingStore(chrome.storage.session);
   const keyStore = createDeviceKeyStore();
   const registrations = createLocalDeviceRegistrationStore(chrome.storage.local);
-  const sessionManager = createSessionManager({
-    keyStore,
-    registrations,
-    sessionStore: store,
-    fetcher: fetch,
-  });
   const trustStore = createPersistedTrustStore(chrome.storage.local);
   const controller = createPopupController(document, {
     store,
@@ -330,11 +323,17 @@ if (typeof chrome !== "undefined") {
         requestOriginPermission: (originPattern) => chrome.permissions.request({ origins: [originPattern] }),
       }),
     revoke: () => revokeExtension(store, fetch),
-    ensureFreshBinding: () => sessionManager.ensureFreshBinding(),
+    ensureFreshBinding: async () => {
+      const response = await chrome.runtime.sendMessage({ type: "GET_SESSION_BINDING" });
+      if (!response || typeof response !== "object" || !("ok" in response) || response.ok !== true || !("binding" in response)) {
+        throw new Error("rebind-required");
+      }
+      return response.binding as ExtensionBinding;
+    },
     getPageStatus: getChromePageStatus,
     startSafeCapture: startChromeSafeCapture,
     onUnbound: async () => {
-      await sessionManager.unlink();
+      await chrome.runtime.sendMessage({ type: "UNLINK_SESSION" });
       await trustStore.clear();
     },
   });
