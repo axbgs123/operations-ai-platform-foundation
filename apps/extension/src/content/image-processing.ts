@@ -64,6 +64,19 @@ export async function cropVisibleTab(
     throw new Error("invalid-crop-region");
   }
   const image = await decodeImage(dataUrl);
+  const expectedWidth = width * devicePixelRatio;
+  const expectedHeight = height * devicePixelRatio;
+  // Browser chrome can introduce sub-pixel rounding. Permit at most 0.5% or
+  // two physical pixels, whichever is larger; larger drift is a resize/zoom
+  // or capture-surface mismatch and must fail closed.
+  const widthTolerance = Math.max(2, expectedWidth * 0.005);
+  const heightTolerance = Math.max(2, expectedHeight * 0.005);
+  if (
+    Math.abs(image.naturalWidth - expectedWidth) > widthTolerance ||
+    Math.abs(image.naturalHeight - expectedHeight) > heightTolerance
+  ) {
+    throw new Error("screenshot-dimension-mismatch");
+  }
   const cropWidth = Math.round(selection.width * devicePixelRatio);
   const cropHeight = Math.round(selection.height * devicePixelRatio);
   const { canvas, context } = canvas2d(cropWidth, cropHeight);

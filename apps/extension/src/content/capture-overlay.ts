@@ -25,9 +25,11 @@ export type CaptureOverlayOptions = {
   upload(dataUrl: string, idempotencyKey: string): Promise<CaptureTaskRead>;
   poll(task: CaptureTaskRead): Promise<CaptureTaskRead>;
   binding: ExtensionBinding;
+  getViewport?: () => ViewportMetrics;
   uuid?: () => string;
   nextFrame?: () => Promise<void>;
   onRePairRequired?: () => Promise<void>;
+  onDestroy?: (overlay: CaptureOverlay) => void;
 };
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -76,6 +78,7 @@ export class CaptureOverlay {
   readonly redactions: Redaction[] = [];
 
   private readonly initialDetection: PageDetection;
+  private readonly initialViewport: ViewportMetrics;
   private readonly uuid: () => string;
   private readonly nextFrame: () => Promise<void>;
   private selection: Rect | null = null;
@@ -91,6 +94,7 @@ export class CaptureOverlay {
 
   private constructor(private readonly options: CaptureOverlayOptions) {
     this.initialDetection = options.detect();
+    this.initialViewport = { ...options.viewport };
     if (!this.initialDetection.supported || !this.initialDetection.platform) {
       throw new Error("unsupported-page");
     }
@@ -112,6 +116,9 @@ export class CaptureOverlay {
     this.element.addEventListener("pointerdown", this.onPointerDown);
     this.element.addEventListener("pointerup", this.onPointerUp);
     this.options.document.addEventListener("keydown", this.onKeyDown);
+    this.options.document.addEventListener("visibilitychange", this.onVisibilityChange);
+    this.options.document.defaultView?.addEventListener("pagehide", this.onLifecycleLoss);
+    this.options.document.defaultView?.addEventListener("blur", this.onLifecycleLoss);
     this.options.document.body.append(this.element);
     this.render();
   }
@@ -144,11 +151,22 @@ export class CaptureOverlay {
     let failureMessage: string | null = null;
     try {
       await this.nextFrame();
+      this.throwIfCancelled();
       if (!this.pageStillMatches()) throw new Error("page-changed");
+      const captureViewport = this.readStableViewport();
       const fullImage = await this.options.captureVisibleTab();
-      this.previewDataUrl = await this.options.crop(fullImage, normalized, this.options.viewport);
+      this.throwIfCancelled();
+      this.readStableViewport();
+      const cropped = await this.options.crop(fullImage, normalized, captureViewport);
+      this.throwIfCancelled();
+      this.readStableViewport();
+      this.previewDataUrl = cropped;
       this.state = "previewing";
     } catch (error) {
+      if (this.isCancelled() || (error instanceof Error && error.message === "capture-cancelled")) {
+        if (!this.destroyed) this.state = "cancelled";
+        throw new Error("capture-cancelled");
+      }
       this.state = "failed";
       failureMessage = error instanceof Error && error.message === "page-changed"
         ? "页面已经变化，请重新开始采集。"
@@ -217,10 +235,14 @@ export class CaptureOverlay {
     this.element.removeEventListener("pointerdown", this.onPointerDown);
     this.element.removeEventListener("pointerup", this.onPointerUp);
     this.options.document.removeEventListener("keydown", this.onKeyDown);
+    this.options.document.removeEventListener("visibilitychange", this.onVisibilityChange);
+    this.options.document.defaultView?.removeEventListener("pagehide", this.onLifecycleLoss);
+    this.options.document.defaultView?.removeEventListener("blur", this.onLifecycleLoss);
     this.element.remove();
     this.previewDataUrl = null;
     this.selection = null;
     this.redactions.splice(0);
+    this.options.onDestroy?.(this);
   }
 
   private async performUpload(): Promise<void> {
@@ -279,6 +301,23 @@ export class CaptureOverlay {
       current.pageVersion === this.initialDetection.pageVersion &&
       current.signature === this.initialDetection.signature,
     );
+  }
+
+  private throwIfCancelled(): void {
+    if (this.isCancelled()) throw new Error("capture-cancelled");
+  }
+
+  private readStableViewport(): ViewportMetrics {
+    const current = this.options.getViewport?.() ?? this.options.viewport;
+    const dprChanged = Math.abs(current.devicePixelRatio - this.initialViewport.devicePixelRatio) > 0.001;
+    if (
+      current.width !== this.initialViewport.width ||
+      current.height !== this.initialViewport.height ||
+      dprChanged
+    ) {
+      throw new Error("viewport-changed");
+    }
+    return { ...current };
   }
 
   private render(): void {
@@ -465,5 +504,13 @@ export class CaptureOverlay {
 
   private readonly onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") this.cancel();
+  };
+
+  private readonly onVisibilityChange = () => {
+    if (this.options.document.visibilityState === "hidden") this.cancel();
+  };
+
+  private readonly onLifecycleLoss = () => {
+    this.cancel();
   };
 }

@@ -2,7 +2,7 @@ import { pairExtension, revokeExtension, type PairingInput } from "../auth/clien
 import { createSessionBindingStore, type BindingStore, type ExtensionBinding } from "../auth/storage";
 import { createPersistedTrustStore } from "../capture/trust-state";
 import { detectSupportedPage } from "../content/page-support";
-import type { StartSafeCaptureMessage } from "../runtime/messages";
+import type { CaptureContext, StartSafeCaptureMessage } from "../runtime/messages";
 
 declare const chrome: {
   storage: {
@@ -20,7 +20,8 @@ declare const chrome: {
   permissions: { request(options: { origins: string[] }): Promise<boolean> };
   tabs: {
     query(options: { active: boolean; currentWindow: boolean }): Promise<Array<{ id?: number; url?: string }>>;
-    sendMessage(tabId: number, message: PopupMessage): Promise<PageStatus>;
+    sendMessage(tabId: number, message: { type: "GET_PAGE_STATUS" }): Promise<PageStatus>;
+    sendMessage(tabId: number, message: { type: "START_SAFE_CAPTURE" }): Promise<unknown>;
   };
   runtime: {
     sendMessage(message: StartSafeCaptureMessage): Promise<unknown>;
@@ -33,6 +34,7 @@ export type PageStatus = {
   supported: boolean;
   platform: "douyin" | "xiaohongshu" | null;
   pageVersion: string;
+  pageSignature: string;
   reason?: string;
 };
 
@@ -77,6 +79,7 @@ const unsupportedPage = (): PageStatus => ({
   supported: false,
   platform: null,
   pageVersion: "unknown",
+  pageSignature: "unsupported",
   reason: "unsupported-url",
 });
 
@@ -227,14 +230,29 @@ async function getChromePageStatus(): Promise<PageStatus> {
     }
   }
   const page = tab.url ? detectSupportedPage(tab.url) : unsupportedPage();
-  return { supported: page.supported, platform: page.platform, pageVersion: page.pageVersion };
+  return {
+    supported: false,
+    platform: page.platform,
+    pageVersion: page.pageVersion,
+    pageSignature: "unavailable",
+    reason: "content-script-unavailable",
+  };
 }
 
 async function startChromeSafeCapture(message: Extract<PopupMessage, { type: "START_SAFE_CAPTURE" }>): Promise<void> {
   const tab = await activeTab();
   if (tab.id === undefined) throw new Error("未找到当前页面");
+  const status = await chrome.tabs.sendMessage(tab.id, { type: "GET_PAGE_STATUS" });
+  if (!status.supported || !status.platform || !status.pageSignature) {
+    throw new Error("当前页面尚未准备好安全采集");
+  }
   await armAndStartSafeCapture(
     tab.id,
+    {
+      platform: status.platform,
+      pageVersion: status.pageVersion,
+      pageSignature: status.pageSignature,
+    },
     (armMessage) => chrome.runtime.sendMessage(armMessage),
     (contentMessage) => chrome.tabs.sendMessage(tab.id!, contentMessage),
   );
@@ -242,10 +260,11 @@ async function startChromeSafeCapture(message: Extract<PopupMessage, { type: "ST
 
 export async function armAndStartSafeCapture(
   tabId: number,
+  context: CaptureContext,
   arm: (message: StartSafeCaptureMessage) => Promise<unknown>,
   startContent: (message: StartSafeCaptureMessage) => Promise<unknown>,
 ): Promise<void> {
-  const response = await arm({ type: "START_SAFE_CAPTURE", tabId });
+  const response = await arm({ type: "START_SAFE_CAPTURE", tabId, ...context });
   if (
     typeof response !== "object" ||
     response === null ||

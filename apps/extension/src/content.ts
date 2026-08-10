@@ -22,9 +22,10 @@ export function createContentMessageHandler(dependencies: ContentDependencies) {
         supported: result.supported,
         platform: result.platform,
         pageVersion: result.pageVersion,
+        pageSignature: result.signature,
       };
     }
-    if (message.type === "START_SAFE_CAPTURE" && message.tabId === undefined) {
+    if (message.type === "START_SAFE_CAPTURE" && !("tabId" in message)) {
       await dependencies.startCapture();
       return { ok: true };
     }
@@ -72,7 +73,10 @@ function finalPreviewController(dataUrl: string) {
   };
 }
 
-function mountChromeCapture(binding: ExtensionBinding): CaptureOverlay {
+function mountChromeCapture(
+  binding: ExtensionBinding,
+  onDestroy: (overlay: CaptureOverlay) => void,
+): CaptureOverlay {
   const initial = currentDetection();
   const store = createSessionBindingStore(chrome.storage.session);
   const overlay = CaptureOverlay.mount({
@@ -82,6 +86,11 @@ function mountChromeCapture(binding: ExtensionBinding): CaptureOverlay {
       height: window.innerHeight,
       devicePixelRatio: window.devicePixelRatio || 1,
     },
+    getViewport: () => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio || 1,
+    }),
     detect: currentDetection,
     binding,
     crop: cropVisibleTab,
@@ -118,6 +127,7 @@ function mountChromeCapture(binding: ExtensionBinding): CaptureOverlay {
         onRebindRequired: () => store.clear(),
       }),
     onRePairRequired: () => store.clear(),
+    onDestroy,
   });
   return overlay;
 }
@@ -138,7 +148,9 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof c
         throw new Error("rebind-required");
       }
       activeOverlay?.cancel();
-      activeOverlay = mountChromeCapture(binding);
+      activeOverlay = mountChromeCapture(binding, (overlay) => {
+        if (activeOverlay === overlay) activeOverlay = null;
+      });
     },
   });
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

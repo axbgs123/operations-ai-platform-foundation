@@ -28,6 +28,7 @@ const supported: PageStatus = {
   supported: true,
   platform: "douyin",
   pageVersion: "douyin-visible-tab-v1",
+  pageSignature: "douyin:fixture",
 };
 
 describe("capture extension pairing popup", () => {
@@ -66,7 +67,7 @@ describe("capture extension pairing popup", () => {
     const dom = popup();
     const controller = createPopupController(dom.window.document, {
       store: { load: async () => binding, save: async () => undefined, clear: async () => undefined },
-      pair: vi.fn(), revoke: vi.fn(), getPageStatus: vi.fn().mockResolvedValue({ supported: false, platform: null, pageVersion: "unknown", reason: "unsupported-url" }), startSafeCapture: vi.fn(),
+      pair: vi.fn(), revoke: vi.fn(), getPageStatus: vi.fn().mockResolvedValue({ supported: false, platform: null, pageVersion: "unknown", pageSignature: "unsupported", reason: "unsupported-url" }), startSafeCapture: vi.fn(),
     });
     await controller.render();
     expect(dom.window.document.querySelector("#page-status")?.textContent).toContain("当前页面暂不支持");

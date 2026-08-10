@@ -140,4 +140,207 @@ describe("extension capture upload", () => {
     ).rejects.toThrow("rebind-required");
     expect(onRebindRequired).toHaveBeenCalledOnce();
   });
+
+  it("retries a lost POST response with the same idempotency key", async () => {
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("response lost"))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ task_id: "task-recovered", status: "queued" }), { status: 202 }),
+      );
+    const result = await uploadPreview({
+      controller: previewController(CaptureState.PreviewReady),
+      serverOrigin: "https://synthetic.example",
+      accessToken: "token",
+      workspaceId: "workspace-1",
+      platform: "douyin",
+      pageVersion: "douyin-visible-tab-v1",
+      pageIdentifier: "douyin:fixture",
+      collectedAt: "2030-01-01T00:00:00Z",
+      fetcher,
+      idempotencyKey: "stable-capture-id",
+      requestMaxAttempts: 2,
+      retrySleep: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(result.task_id).toBe("task-recovered");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    for (const call of fetcher.mock.calls) {
+      expect((call[1] as RequestInit).headers).toMatchObject({
+        "Idempotency-Key": "stable-capture-id",
+      });
+    }
+  });
+
+  it("retries eligible 429 and 5xx responses, then succeeds within the bound", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ task_id: "task-after-rate-limit", status: "queued" }), { status: 202 }),
+      );
+    await expect(
+      uploadPreview({
+        controller: previewController(CaptureState.PreviewReady),
+        serverOrigin: "https://synthetic.example",
+        accessToken: "token",
+        workspaceId: "workspace-1",
+        platform: "douyin",
+        pageVersion: "douyin-visible-tab-v1",
+        pageIdentifier: "douyin:fixture",
+        collectedAt: "2030-01-01T00:00:00Z",
+        fetcher,
+        idempotencyKey: "idem-rate-limit",
+        requestMaxAttempts: 2,
+        retrySleep: vi.fn().mockResolvedValue(undefined),
+      }),
+    ).resolves.toMatchObject({ task_id: "task-after-rate-limit" });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry unsafe 4xx and clears binding once on 401 or 403", async () => {
+    for (const status of [400, 401, 403]) {
+      const fetcher = vi.fn().mockResolvedValue(new Response(null, { status }));
+      const onRebindRequired = vi.fn().mockResolvedValue(undefined);
+      await expect(
+        uploadPreview({
+          controller: previewController(CaptureState.PreviewReady),
+          serverOrigin: "https://synthetic.example",
+          accessToken: "token",
+          workspaceId: "workspace-1",
+          platform: "douyin",
+          pageVersion: "douyin-visible-tab-v1",
+          pageIdentifier: "douyin:fixture",
+          collectedAt: "2030-01-01T00:00:00Z",
+          fetcher,
+          idempotencyKey: `idem-${status}`,
+          requestMaxAttempts: 3,
+          retrySleep: vi.fn().mockResolvedValue(undefined),
+          onRebindRequired,
+        }),
+      ).rejects.toThrow(status === 400 ? "capture upload failed" : "rebind-required");
+      expect(fetcher).toHaveBeenCalledOnce();
+      expect(onRebindRequired).toHaveBeenCalledTimes(status === 400 ? 0 : 1);
+    }
+  });
+
+  it("stops after bounded transient exhaustion", async () => {
+    const fetcher = vi.fn().mockRejectedValue(new TypeError("offline"));
+    await expect(
+      uploadPreview({
+        controller: previewController(CaptureState.PreviewReady),
+        serverOrigin: "https://synthetic.example",
+        accessToken: "token",
+        workspaceId: "workspace-1",
+        platform: "douyin",
+        pageVersion: "douyin-visible-tab-v1",
+        pageIdentifier: "douyin:fixture",
+        collectedAt: "2030-01-01T00:00:00Z",
+        fetcher,
+        idempotencyKey: "idem-exhausted",
+        requestMaxAttempts: 2,
+        retrySleep: vi.fn().mockResolvedValue(undefined),
+      }),
+    ).rejects.toThrow("capture request failed");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it("aborts a hung upload request at the per-attempt timeout", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetcher = vi.fn((_url: string | URL | Request, init?: RequestInit) => {
+        if (!init?.signal) return Promise.reject(new Error("missing abort signal"));
+        return new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        });
+      });
+      const pending = uploadPreview({
+        controller: previewController(CaptureState.PreviewReady),
+        serverOrigin: "https://synthetic.example",
+        accessToken: "token",
+        workspaceId: "workspace-1",
+        platform: "douyin",
+        pageVersion: "douyin-visible-tab-v1",
+        pageIdentifier: "douyin:fixture",
+        collectedAt: "2030-01-01T00:00:00Z",
+        fetcher,
+        idempotencyKey: "idem-timeout",
+        requestMaxAttempts: 1,
+        requestTimeoutMs: 50,
+      });
+      const assertion = expect(pending).rejects.toThrow("capture request timeout");
+      await vi.advanceTimersByTimeAsync(50);
+      await assertion;
+      expect(fetcher).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps the timeout active while reading the successful response body", async () => {
+    vi.useFakeTimers();
+    try {
+      let requestSignal: AbortSignal | undefined;
+      let finishBody!: (value: object) => void;
+      const fetcher = vi.fn((_url: string | URL | Request, init?: RequestInit) => {
+        requestSignal = init?.signal ?? undefined;
+        return Promise.resolve({
+          ok: true,
+          status: 202,
+          json: () => new Promise<object>((resolve, reject) => {
+            finishBody = resolve;
+            requestSignal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          }),
+        } as Response);
+      });
+      const pending = uploadPreview({
+        controller: previewController(CaptureState.PreviewReady),
+        serverOrigin: "https://synthetic.example",
+        accessToken: "token",
+        workspaceId: "workspace-1",
+        platform: "douyin",
+        pageVersion: "douyin-visible-tab-v1",
+        pageIdentifier: "douyin:fixture",
+        collectedAt: "2030-01-01T00:00:00Z",
+        fetcher,
+        idempotencyKey: "idem-body-timeout",
+        requestMaxAttempts: 1,
+        requestTimeoutMs: 50,
+      });
+      const outcome = pending.then(
+        (value) => ({ value, error: null as Error | null }),
+        (error: Error) => ({ value: null, error }),
+      );
+      await vi.advanceTimersByTimeAsync(50);
+      if (!requestSignal?.aborted) {
+        finishBody({ task_id: "unexpected", status: "queued" });
+      }
+      const settled = await outcome;
+      expect(requestSignal?.aborted).toBe(true);
+      expect(settled.value).toBeNull();
+      expect(settled.error?.message).toBe("capture request timeout");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries transient polling requests but keeps the overall status attempt bound", async () => {
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("temporary network loss"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "running" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "succeeded" }), { status: 200 }));
+    const result = await pollCaptureTask({
+      serverOrigin: "https://synthetic.example",
+      accessToken: "token",
+      taskId: "task-retry",
+      platform: "douyin",
+      pageVersion: "douyin-visible-tab-v1",
+      fetcher,
+      maxAttempts: 2,
+      requestMaxAttempts: 2,
+      sleep: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(result.status).toBe("succeeded");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
 });

@@ -10,6 +10,14 @@ type BackgroundDependencies = {
   now?: () => number;
 };
 
+type ArmedCapture = {
+  expiresAt: number;
+  platform: "douyin" | "xiaohongshu";
+  pageVersion: string;
+  pageSignature: string;
+  url: string;
+};
+
 const armLifetimeMs = 30_000;
 
 const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
@@ -21,19 +29,32 @@ const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
   detectSupportedPage(candidate.url).supported;
 
 export function createBackgroundMessageHandler(dependencies: BackgroundDependencies) {
-  const armedTabs = new Map<number, number>();
+  const armedTabs = new Map<number, ArmedCapture>();
   const now = dependencies.now ?? Date.now;
 
   return async (rawMessage: unknown, sender: MessageSender): Promise<unknown> => {
     const message = parseRuntimeMessage(rawMessage);
     if (!message) return { ok: false, error: "invalid-message" };
 
-    if (message.type === "START_SAFE_CAPTURE" && message.tabId !== undefined) {
+    if (message.type === "START_SAFE_CAPTURE" && "tabId" in message) {
       const active = await dependencies.queryActiveTab();
-      if (active.id !== message.tabId || !isActiveSupportedTab(active, active)) {
+      const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
+      if (
+        active.id !== message.tabId ||
+        !isActiveSupportedTab(active, active) ||
+        !detected ||
+        detected.platform !== message.platform ||
+        detected.pageVersion !== message.pageVersion
+      ) {
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
-      armedTabs.set(message.tabId, now() + armLifetimeMs);
+      armedTabs.set(message.tabId, {
+        expiresAt: now() + armLifetimeMs,
+        platform: message.platform,
+        pageVersion: message.pageVersion,
+        pageSignature: message.pageSignature,
+        url: active.url!,
+      });
       return { ok: true };
     }
 
@@ -45,10 +66,19 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         if (tab.id !== undefined) armedTabs.delete(tab.id);
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
-      const armedUntil = armedTabs.get(tab.id!);
+      const armed = armedTabs.get(tab.id!);
       armedTabs.delete(tab.id!);
-      if (armedUntil === undefined || armedUntil < now()) {
+      if (armed === undefined || armed.expiresAt <= now()) {
         return { ok: false, error: "capture-not-armed" };
+      }
+      const detected = detectSupportedPage(tab.url!);
+      if (
+        armed.platform !== detected.platform ||
+        armed.pageVersion !== detected.pageVersion ||
+        armed.pageSignature !== message.pageSignature ||
+        armed.url !== tab.url
+      ) {
+        return { ok: false, error: "capture-context-mismatch" };
       }
       const dataUrl = await dependencies.captureVisibleTab(tab.windowId!, { format: "png" });
       return { ok: true, dataUrl };

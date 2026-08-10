@@ -69,7 +69,26 @@ function fixture(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
   const flow = CaptureOverlay.mount(options);
-  return { dom, flow, options, captureVisibleTab, crop, redact, upload, poll };
+  return {
+    dom,
+    flow,
+    options,
+    captureVisibleTab: options.captureVisibleTab,
+    crop: options.crop,
+    redact: options.redact,
+    upload: options.upload,
+    poll: options.poll,
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
 }
 
 describe("user-selected safe capture overlay", () => {
@@ -171,6 +190,108 @@ describe("user-selected safe capture overlay", () => {
     expect(upload).not.toHaveBeenCalled();
     expect(flow.state).toBe("cancelled");
     expect(dom.window.document.querySelector("[data-operations-capture-overlay]")).toBeNull();
+  });
+
+  it("fences cancellation during the hidden frame before requesting a screenshot", async () => {
+    const frame = deferred<void>();
+    const onDestroy = vi.fn();
+    const { flow, captureVisibleTab } = fixture({
+      nextFrame: () => frame.promise,
+      onDestroy,
+    });
+    const pending = flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+    flow.cancel();
+    frame.resolve();
+    await expect(pending).rejects.toThrow("capture-cancelled");
+    expect(captureVisibleTab).not.toHaveBeenCalled();
+    expect(flow.state).toBe("cancelled");
+    expect(onDestroy).toHaveBeenCalledOnce();
+  });
+
+  it("fences cancellation while the browser screenshot request is pending", async () => {
+    const capture = deferred<string>();
+    const crop = vi.fn();
+    const { flow, captureVisibleTab } = fixture({
+      captureVisibleTab: vi.fn(() => capture.promise),
+      crop,
+    });
+    const pending = flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+    await vi.waitFor(() => expect(captureVisibleTab).toHaveBeenCalledOnce());
+    flow.cancel();
+    capture.resolve("data:image/png;base64,RAW");
+    await expect(pending).rejects.toThrow("capture-cancelled");
+    expect(crop).not.toHaveBeenCalled();
+    expect(flow.state).toBe("cancelled");
+  });
+
+  it("fences cancellation while image cropping is pending and retains no uploadable preview", async () => {
+    const cropResult = deferred<string>();
+    const crop = vi.fn(() => cropResult.promise);
+    const { flow } = fixture({ crop });
+    const pending = flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+    await vi.waitFor(() => expect(crop).toHaveBeenCalledOnce());
+    flow.cancel();
+    cropResult.resolve("data:image/png;base64,CROPPED");
+    await expect(pending).rejects.toThrow("capture-cancelled");
+    expect(flow.state).toBe("cancelled");
+    expect(flow.canUpload()).toBe(false);
+  });
+
+  it("fails closed on visibility loss while selecting", () => {
+    const { flow, dom } = fixture();
+    Object.defineProperty(dom.window.document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    const visibilityEvent = dom.window.document.createEvent("Event");
+    visibilityEvent.initEvent("visibilitychange", false, false);
+    dom.window.document.dispatchEvent(visibilityEvent);
+    expect(flow.state).toBe("cancelled");
+    expect(dom.window.document.querySelector("[data-operations-capture-overlay]")).toBeNull();
+  });
+
+  it("fails closed on pagehide while capturing", async () => {
+    const capture = deferred<string>();
+    const { flow, dom, captureVisibleTab } = fixture({
+      captureVisibleTab: vi.fn(() => capture.promise),
+    });
+    const pending = flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+    await vi.waitFor(() => expect(captureVisibleTab).toHaveBeenCalledOnce());
+    const pagehideEvent = dom.window.document.createEvent("Event");
+    pagehideEvent.initEvent("pagehide", false, false);
+    dom.window.document.defaultView?.dispatchEvent(pagehideEvent);
+    capture.resolve("data:image/png;base64,RAW");
+    await expect(pending).rejects.toThrow("capture-cancelled");
+    expect(flow.state).toBe("cancelled");
+  });
+
+  it("clears an in-memory preview when the page window loses focus", async () => {
+    const { flow, dom } = fixture();
+    await flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 });
+    expect(flow.canUpload()).toBe(true);
+    const blurEvent = dom.window.document.createEvent("Event");
+    blurEvent.initEvent("blur", false, false);
+    dom.window.document.defaultView?.dispatchEvent(blurEvent);
+    expect(flow.state).toBe("cancelled");
+    expect(flow.canUpload()).toBe(false);
+  });
+
+  it("fails closed when viewport size or device pixel ratio changes before capture", async () => {
+    let viewport = { width: 1280, height: 720, devicePixelRatio: 2 };
+    const first = fixture({ getViewport: () => viewport });
+    viewport = { width: 1200, height: 720, devicePixelRatio: 2 };
+    await expect(first.flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 })).rejects.toThrow(
+      "viewport-changed",
+    );
+    expect(first.captureVisibleTab).not.toHaveBeenCalled();
+
+    viewport = { width: 1280, height: 720, devicePixelRatio: 2 };
+    const second = fixture({ getViewport: () => viewport });
+    viewport = { width: 1280, height: 720, devicePixelRatio: 1.5 };
+    await expect(second.flow.confirmSelection({ x: 20, y: 30, width: 500, height: 300 })).rejects.toThrow(
+      "viewport-changed",
+    );
+    expect(second.captureVisibleTab).not.toHaveBeenCalled();
   });
 
   it("fails closed when the page changes and cancellation removes all extension UI", async () => {
@@ -308,6 +429,36 @@ describe("controlled visible-tab image processing", () => {
         applyRedactions("data:image/png;base64,UkFX", [{ x: 5, y: 6, width: 30, height: 12 }]),
       ).resolves.toBe("data:image/png;base64,UE5H");
       expect(fillRect).toHaveBeenCalledWith(5, 6, 30, 12);
+    } finally {
+      Object.assign(globalThis, { Image: restoreImage, document: restoreDocument });
+    }
+  });
+
+  it("rejects a decoded screenshot whose physical dimensions do not match the captured viewport", async () => {
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({ drawImage: vi.fn(), fillRect: vi.fn() }),
+      toDataURL: () => "data:image/png;base64,UE5H",
+    };
+    const restoreImage = globalThis.Image;
+    const restoreDocument = globalThis.document;
+    class MismatchedImage {
+      naturalWidth = 2200;
+      naturalHeight = 1200;
+      onload: null | (() => void) = null;
+      onerror: null | (() => void) = null;
+      set src(_value: string) { queueMicrotask(() => this.onload?.()); }
+    }
+    Object.assign(globalThis, { Image: MismatchedImage, document: { createElement: () => canvas } });
+    try {
+      await expect(
+        cropVisibleTab(
+          "data:image/png;base64,UkFX",
+          { x: 10, y: 20, width: 100, height: 50 },
+          { width: 1280, height: 720, devicePixelRatio: 2 },
+        ),
+      ).rejects.toThrow("screenshot-dimension-mismatch");
     } finally {
       Object.assign(globalThis, { Image: restoreImage, document: restoreDocument });
     }

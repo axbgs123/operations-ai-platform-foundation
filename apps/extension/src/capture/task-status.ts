@@ -1,4 +1,5 @@
 import type { components } from "@operations-ai/shared-schemas";
+import { boundedJsonFetch } from "./request";
 
 export type CaptureTaskRead =
   components["schemas"]["ExtensionCaptureTaskRead"];
@@ -13,24 +14,32 @@ type PollArgs = {
   maxAttempts?: number;
   sleep?: (milliseconds: number) => Promise<void>;
   onRebindRequired?: () => Promise<void>;
+  requestMaxAttempts?: number;
+  requestTimeoutMs?: number;
 };
 
 export async function pollCaptureTask(args: PollArgs): Promise<CaptureTaskRead> {
-  const fetcher = args.fetcher ?? fetch;
   const sleep = args.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   const maxAttempts = args.maxAttempts ?? 8;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const response = await fetcher(
+    const result = await boundedJsonFetch<CaptureTaskRead>(
       `${args.serverOrigin}/v1/extension/capture-tasks/${args.taskId}`,
       { headers: { Authorization: `Bearer ${args.accessToken}` } },
+      {
+        fetcher: args.fetcher,
+        maxAttempts: args.requestMaxAttempts,
+        timeoutMs: args.requestTimeoutMs,
+        retrySleep: sleep,
+      },
     );
+    const { response } = result;
     if (response.status === 401 || response.status === 403) {
       await args.onRebindRequired?.();
       throw new Error("rebind-required");
     }
     if (!response.ok) throw new Error("capture task status unavailable");
-    const result = (await response.json()) as CaptureTaskRead;
-    if (["succeeded", "failed", "cancelled"].includes(result.status)) return result;
+    if (!result.body) throw new Error("capture response invalid");
+    if (["succeeded", "failed", "cancelled"].includes(result.body.status)) return result.body;
     await sleep(Math.min(1000 * 2 ** attempt, 5000));
   }
   return {
