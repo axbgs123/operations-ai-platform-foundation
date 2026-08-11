@@ -2,9 +2,17 @@ import { createSessionBindingStore, type ExtensionBinding } from "./auth/storage
 import { createDeviceKeyStore } from "./auth/device-key-store";
 import { createLocalDeviceRegistrationStore } from "./auth/device-registration-store";
 import { createSessionManager, sessionRenewalErrorCode } from "./auth/session-renewal";
+import { pollCaptureTask as pollCaptureTaskRequest, type CaptureTaskRead } from "./capture/task-status";
+import { uploadPreview, type CaptureTaskResponse } from "./capture/upload";
 import { detectSupportedPage } from "./content/page-support";
+import { CaptureState } from "./content/overlay";
 import { parseRuntimeMessage } from "./runtime/messages";
-import type { CaptureContext, CaptureMode, StartSafeCaptureMessage } from "./runtime/messages";
+import type {
+  CaptureCompletionMetadata,
+  CaptureContext,
+  CaptureMode,
+  StartSafeCaptureMessage,
+} from "./runtime/messages";
 
 type BrowserTab = { id?: number; windowId?: number; url?: string };
 type MessageSender = { tab?: BrowserTab };
@@ -189,6 +197,27 @@ type BackgroundDependencies = {
   ensureSessionBinding?(): Promise<ExtensionBinding>;
   unlinkSession?(): Promise<void>;
   captureCoordinator?: CaptureCoordinator;
+  uploadCaptureTask?(args: {
+    serverOrigin: string;
+    accessToken: string;
+    workspaceId: string;
+    platform: "douyin" | "xiaohongshu";
+    pageVersion: string;
+    pageIdentifier: string;
+    collectedAt: string;
+    idempotencyKey: string;
+    screenshotDataUrl: string;
+    captureMetadata: CaptureCompletionMetadata;
+    onRebindRequired(): Promise<void>;
+  }): Promise<CaptureTaskResponse>;
+  pollCaptureTask?(args: {
+    serverOrigin: string;
+    accessToken: string;
+    taskId: string;
+    platform: "douyin" | "xiaohongshu";
+    pageVersion: string;
+    onRebindRequired(): Promise<void>;
+  }): Promise<CaptureTaskRead>;
 };
 
 type ArmedCapture = {
@@ -220,6 +249,31 @@ const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
   candidate.url === active.url &&
   detectSupportedPage(candidate.url).supported;
 
+const matchesCaptureContext = (
+  message: CaptureContext,
+  sender: MessageSender,
+  active: BrowserTab,
+) => {
+  const tab = sender.tab;
+  if (!tab || !isActiveSupportedTab(tab, active)) return false;
+  const detected = detectSupportedPage(tab.url!);
+  return detected.supported && detected.platform === message.platform &&
+    detected.pageVersion === message.pageVersion;
+};
+
+const networkErrorCode = (error: unknown) => {
+  if (!(error instanceof Error)) return "capture-request-failed";
+  const allowed = new Set([
+    "rebind-required",
+    "capture upload failed",
+    "capture request failed",
+    "capture request timeout",
+    "capture response invalid",
+    "capture task status unavailable",
+  ]);
+  return allowed.has(error.message) ? error.message : "capture-request-failed";
+};
+
 export function createBackgroundMessageHandler(dependencies: BackgroundDependencies) {
   const armedTabs = new Map<number, ArmedCapture>();
   const armedFullPageTabs = new Map<number, ArmedFullPageCapture>();
@@ -246,6 +300,57 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       if (sender.tab) return { ok: false, error: "unsupported-message" };
       await dependencies.unlinkSession?.();
       return { ok: true };
+    }
+
+    if (message.type === "UPLOAD_CAPTURE_TASK" || message.type === "POLL_CAPTURE_TASK") {
+      const active = await dependencies.queryActiveTab();
+      if (!matchesCaptureContext(message, sender, active)) {
+        return { ok: false, error: "inactive-or-unsupported-tab" };
+      }
+      let binding: ExtensionBinding | null | undefined;
+      try {
+        binding = await dependencies.loadBinding?.();
+      } catch (error) {
+        return { ok: false, error: sessionRenewalErrorCode(error) ?? "session-unavailable" };
+      }
+      if (!binding || Date.parse(binding.expiresAt) <= now()) {
+        await dependencies.clearSessionBinding?.();
+        return { ok: false, error: "rebind-required" };
+      }
+      const onRebindRequired = async () => {
+        await dependencies.clearSessionBinding?.();
+      };
+      try {
+        if (message.type === "UPLOAD_CAPTURE_TASK") {
+          const task = await dependencies.uploadCaptureTask?.({
+            serverOrigin: binding.serverOrigin,
+            accessToken: binding.accessToken,
+            workspaceId: binding.workspaceId,
+            platform: message.platform,
+            pageVersion: message.pageVersion,
+            pageIdentifier: message.pageSignature,
+            collectedAt: message.collectedAt,
+            idempotencyKey: message.idempotencyKey,
+            screenshotDataUrl: message.screenshotDataUrl,
+            captureMetadata: message.captureMetadata,
+            onRebindRequired,
+          });
+          if (!task) return { ok: false, error: "capture-request-failed" };
+          return { ok: true, task };
+        }
+        const task = await dependencies.pollCaptureTask?.({
+          serverOrigin: binding.serverOrigin,
+          accessToken: binding.accessToken,
+          taskId: message.taskId,
+          platform: message.platform,
+          pageVersion: message.pageVersion,
+          onRebindRequired,
+        });
+        if (!task) return { ok: false, error: "capture-request-failed" };
+        return { ok: true, task };
+      } catch (error) {
+        return { ok: false, error: networkErrorCode(error) };
+      }
     }
 
     if (message.type === "START_CAPTURE") {
@@ -549,6 +654,24 @@ if (typeof chrome !== "undefined") {
     clearSessionBinding: () => bindingStore.clear(),
     ensureSessionBinding: () => sessionManager.ensureFreshBinding(),
     unlinkSession: () => sessionManager.unlink(),
+    uploadCaptureTask: (args) => uploadPreview({
+      controller: {
+        state: CaptureState.PreviewReady,
+        preview: { imageData: args.screenshotDataUrl, maskedRegions: [] },
+        canUpload: () => true,
+      },
+      serverOrigin: args.serverOrigin,
+      accessToken: args.accessToken,
+      workspaceId: args.workspaceId,
+      platform: args.platform,
+      pageVersion: args.pageVersion,
+      pageIdentifier: args.pageIdentifier,
+      collectedAt: args.collectedAt,
+      idempotencyKey: args.idempotencyKey,
+      captureMetadata: args.captureMetadata,
+      onRebindRequired: args.onRebindRequired,
+    }),
+    pollCaptureTask: (args) => pollCaptureTaskRequest(args),
     captureCoordinator: coordinator,
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

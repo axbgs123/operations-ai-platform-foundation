@@ -155,6 +155,90 @@ describe("extension runtime message boundary", () => {
     expect(parseRuntimeMessage({ type: "UNKNOWN" })).toBeNull();
   });
 
+  it("accepts only exact background upload and polling messages", () => {
+    const upload = {
+      type: "UPLOAD_CAPTURE_TASK",
+      ...captureContext,
+      screenshotDataUrl: "data:image/png;base64,SYNTHETIC",
+      idempotencyKey: "capture-idem-1",
+      collectedAt: "2030-01-01T00:00:00.000Z",
+      captureMetadata: {
+        capture_mode: "full-page",
+        complete: true,
+        stop_reason: "bottom",
+        slice_count: 3,
+      },
+    };
+    const poll = {
+      type: "POLL_CAPTURE_TASK",
+      ...captureContext,
+      taskId: "00000000-0000-0000-0000-000000000002",
+    };
+
+    expect(parseRuntimeMessage(upload)).toEqual(upload);
+    expect(parseRuntimeMessage(poll)).toEqual(poll);
+    expect(parseRuntimeMessage({ ...upload, accessToken: "must-not-cross-content-boundary" })).toBeNull();
+    expect(parseRuntimeMessage({ ...poll, serverOrigin: "https://untrusted.example" })).toBeNull();
+  });
+
+  it("executes capture upload and polling in the trusted background context", async () => {
+    const uploadCaptureTask = vi.fn().mockResolvedValue({
+      task_id: "00000000-0000-0000-0000-000000000002",
+      status: "queued",
+    });
+    const pollCaptureTask = vi.fn().mockResolvedValue({
+      task_id: "00000000-0000-0000-0000-000000000002",
+      status: "succeeded",
+    });
+    const handler = createBackgroundMessageHandler({
+      queryActiveTab: vi.fn().mockResolvedValue(supportedTab),
+      captureVisibleTab: vi.fn(),
+      loadBinding: vi.fn().mockResolvedValue({ ...storedBinding, expiresAt: "2030-01-01T00:00:00Z" }),
+      clearSessionBinding: vi.fn(),
+      uploadCaptureTask,
+      pollCaptureTask,
+      now: () => Date.parse("2029-01-01T00:00:00Z"),
+    });
+    const upload = {
+      type: "UPLOAD_CAPTURE_TASK",
+      ...captureContext,
+      screenshotDataUrl: "data:image/png;base64,SYNTHETIC",
+      idempotencyKey: "capture-idem-1",
+      collectedAt: "2030-01-01T00:00:00.000Z",
+      captureMetadata: {
+        capture_mode: "full-page",
+        complete: true,
+        stop_reason: "bottom",
+        slice_count: 3,
+      },
+    };
+    const poll = {
+      type: "POLL_CAPTURE_TASK",
+      ...captureContext,
+      taskId: "00000000-0000-0000-0000-000000000002",
+    };
+
+    await expect(handler(upload, { tab: supportedTab })).resolves.toEqual({
+      ok: true,
+      task: { task_id: "00000000-0000-0000-0000-000000000002", status: "queued" },
+    });
+    await expect(handler(poll, { tab: supportedTab })).resolves.toEqual({
+      ok: true,
+      task: { task_id: "00000000-0000-0000-0000-000000000002", status: "succeeded" },
+    });
+    expect(uploadCaptureTask).toHaveBeenCalledWith(expect.objectContaining({
+      serverOrigin: storedBinding.serverOrigin,
+      accessToken: storedBinding.accessToken,
+      workspaceId: storedBinding.workspaceId,
+      screenshotDataUrl: upload.screenshotDataUrl,
+    }));
+    expect(pollCaptureTask).toHaveBeenCalledWith(expect.objectContaining({
+      serverOrigin: storedBinding.serverOrigin,
+      accessToken: storedBinding.accessToken,
+      taskId: poll.taskId,
+    }));
+  });
+
   it("keeps popup session renewal and unlink in the background-only runtime boundary", async () => {
     const binding = { ...storedBinding, expiresAt: "2030-01-01T08:00:00Z" };
     const ensureSessionBinding = vi.fn().mockResolvedValue(binding);

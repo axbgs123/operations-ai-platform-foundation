@@ -1,6 +1,9 @@
 import { normalizeServerOrigin } from "./auth/server";
-import { pollCaptureTask, type CaptureTaskRead } from "./capture/task-status";
-import { uploadPreview } from "./capture/upload";
+import {
+  pollCaptureThroughBackground,
+  uploadCaptureThroughBackground,
+} from "./capture/background-transport";
+import type { CaptureTaskRead } from "./capture/task-status";
 import { CaptureOverlay, type CaptureBinding } from "./content/capture-overlay";
 import { applyRedactions, cropVisibleTab } from "./content/image-processing";
 import { CaptureState } from "./content/overlay";
@@ -244,27 +247,23 @@ function mountChromeCapture(
       void endFullPage();
     },
     upload: (dataUrl, idempotencyKey) =>
-      uploadPreview({
+      uploadCaptureThroughBackground({
         controller: finalPreviewController(dataUrl),
-        serverOrigin: binding.serverOrigin,
-        accessToken: binding.accessToken,
-        workspaceId: binding.workspaceId,
         platform: initial.platform!,
         pageVersion: initial.pageVersion,
-        pageIdentifier: initial.signature,
+        pageSignature: initial.signature,
         collectedAt: new Date().toISOString(),
         idempotencyKey,
         captureMetadata: overlay.captureMetadata(),
-        onRebindRequired: clearBinding,
+        sendMessage: (message) => chrome.runtime.sendMessage(message),
       }),
     poll: (task: CaptureTaskRead) =>
-      pollCaptureTask({
-        serverOrigin: binding.serverOrigin,
-        accessToken: binding.accessToken,
+      pollCaptureThroughBackground({
         taskId: task.task_id,
         platform: initial.platform!,
         pageVersion: initial.pageVersion,
-        onRebindRequired: clearBinding,
+        pageSignature: initial.signature,
+        sendMessage: (message) => chrome.runtime.sendMessage(message),
       }),
     onRePairRequired: clearBinding,
     onDestroy,

@@ -41,6 +41,23 @@ export type ClearCaptureBindingMessage = { type: "CLEAR_CAPTURE_BINDING" } & Cap
 export type OpenReviewMessage = { type: "OPEN_REVIEW"; url: string };
 export type GetSessionBindingMessage = { type: "GET_SESSION_BINDING" };
 export type UnlinkSessionMessage = { type: "UNLINK_SESSION" };
+export type CaptureCompletionMetadata = {
+  capture_mode: CaptureMode;
+  complete: boolean;
+  stop_reason: string;
+  slice_count: number;
+};
+export type UploadCaptureTaskMessage = {
+  type: "UPLOAD_CAPTURE_TASK";
+  screenshotDataUrl: string;
+  idempotencyKey: string;
+  collectedAt: string;
+  captureMetadata: CaptureCompletionMetadata;
+} & CaptureContext;
+export type PollCaptureTaskMessage = {
+  type: "POLL_CAPTURE_TASK";
+  taskId: string;
+} & CaptureContext;
 
 export type RuntimeMessage =
   | GetPageStatusMessage
@@ -54,7 +71,9 @@ export type RuntimeMessage =
   | EndFullPageCaptureMessage
   | OpenReviewMessage
   | GetSessionBindingMessage
-  | UnlinkSessionMessage;
+  | UnlinkSessionMessage
+  | UploadCaptureTaskMessage
+  | PollCaptureTaskMessage;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -81,6 +100,19 @@ const validFullPageMetadata = (value: Record<string, unknown>): value is Record<
   validViewport(value.viewport) &&
   typeof value.scrollY === "number" && Number.isFinite(value.scrollY) && value.scrollY >= 0;
 
+const validCaptureContext = (value: Record<string, unknown>): value is Record<string, unknown> & CaptureContext =>
+  (value.platform === "douyin" || value.platform === "xiaohongshu") &&
+  typeof value.pageVersion === "string" && value.pageVersion.length > 0 && value.pageVersion.length <= 80 &&
+  typeof value.pageSignature === "string" && value.pageSignature.length > 0 && value.pageSignature.length <= 160;
+
+const validCaptureMetadata = (value: unknown): value is CaptureCompletionMetadata =>
+  isRecord(value) &&
+  hasExactKeys(value, ["capture_mode", "complete", "stop_reason", "slice_count"]) &&
+  (value.capture_mode === "full-page" || value.capture_mode === "visible" || value.capture_mode === "region") &&
+  typeof value.complete === "boolean" &&
+  typeof value.stop_reason === "string" && value.stop_reason.length > 0 && value.stop_reason.length <= 80 &&
+  Number.isSafeInteger(value.slice_count) && Number(value.slice_count) > 0 && Number(value.slice_count) <= 30;
+
 export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
   if (!isRecord(value) || typeof value.type !== "string") return null;
   if (value.type === "GET_PAGE_STATUS" && hasExactKeys(value, ["type"])) {
@@ -101,6 +133,43 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
   }
   if (value.type === "GET_SESSION_BINDING" && hasExactKeys(value, ["type"])) return { type: "GET_SESSION_BINDING" };
   if (value.type === "UNLINK_SESSION" && hasExactKeys(value, ["type"])) return { type: "UNLINK_SESSION" };
+  if (
+    value.type === "UPLOAD_CAPTURE_TASK" &&
+    hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature", "screenshotDataUrl", "idempotencyKey", "collectedAt", "captureMetadata"]) &&
+    validCaptureContext(value) &&
+    typeof value.screenshotDataUrl === "string" &&
+    value.screenshotDataUrl.startsWith("data:image/png;base64,") &&
+    value.screenshotDataUrl.length <= 14_000_000 &&
+    typeof value.idempotencyKey === "string" && /^[A-Za-z0-9._:-]{1,160}$/.test(value.idempotencyKey) &&
+    typeof value.collectedAt === "string" && value.collectedAt.length <= 64 && Number.isFinite(Date.parse(value.collectedAt)) &&
+    validCaptureMetadata(value.captureMetadata)
+  ) {
+    return {
+      type: "UPLOAD_CAPTURE_TASK",
+      platform: value.platform,
+      pageVersion: value.pageVersion,
+      pageSignature: value.pageSignature,
+      screenshotDataUrl: value.screenshotDataUrl,
+      idempotencyKey: value.idempotencyKey,
+      collectedAt: value.collectedAt,
+      captureMetadata: value.captureMetadata,
+    };
+  }
+  if (
+    value.type === "POLL_CAPTURE_TASK" &&
+    hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature", "taskId"]) &&
+    validCaptureContext(value) &&
+    typeof value.taskId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.taskId)
+  ) {
+    return {
+      type: "POLL_CAPTURE_TASK",
+      platform: value.platform,
+      pageVersion: value.pageVersion,
+      pageSignature: value.pageSignature,
+      taskId: value.taskId,
+    };
+  }
   if (value.type === "END_FULL_PAGE_CAPTURE" && hasExactKeys(value, ["type", "captureSessionId"]) && typeof value.captureSessionId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value.captureSessionId)) {
     return { type: "END_FULL_PAGE_CAPTURE", captureSessionId: value.captureSessionId };
   }
