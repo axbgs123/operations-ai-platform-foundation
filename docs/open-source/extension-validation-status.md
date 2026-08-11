@@ -5,7 +5,7 @@
 ## 已有证据
 
 - 抖音和小红书适配器通过脱敏合成 HTML Fixture 测试。
-- `0.2.0` 的实际 unpacked 构建已在隔离 Playwright Chromium 中加载：真实 Popup 完成配对，真实 Service Worker 通过严格上下文校验向真实 content script 提供最小绑定，content script 成功挂载采集遮罩。
+- `0.3.0` 的实际 unpacked 构建已在隔离 Playwright Chromium 中加载：真实 Popup 完成配对，真实 Service Worker 通过严格上下文校验向真实 content script 提供最小绑定，content script 成功挂载采集遮罩。
 - 自动化使用同一短期扩展令牌直接创建合成暂存任务，并完成 Mock 识别和 Web 人工确认；确认前实际暂存对象存在，确认后实际不存在。
 - 工具栏 Popup 产生的用户手势及真实 `captureVisibleTab` 没有在 Playwright 中执行，仍需用户 macOS Chrome 人工验收；不得把直接 API 暂存任务写成真实截图上传。
 - 配对码复用被拒绝，绑定前后成员数不变；扩展确认接口返回 403。
@@ -13,7 +13,7 @@
 - Chrome 和 Edge 发布包来自同一业务源码；固定 `SOURCE_DATE_EPOCH` 重复构建的文件表和 SHA-256 相同。
 - 自动化验收没有打开真实抖音或小红书页面，也没有调用真实或计费模型。
 - Manifest 固定公开扩展 ID；API 只精确允许该扩展来源，content script 不直接读取 session storage。
-- 自动整页采集的 30 屏和 20 秒边界、`partial` 结果、默认关闭的矩形遮挡，以及上传前预览确认，都应在获得授权的真实页面人工验收中核对；当前自动化不将其标记为真实平台通过。
+- 自动整页采集的 30 屏和 20 秒边界、页面漂移/底部不稳定/重叠无法验证时的 `partial` 结果、默认关闭的矩形遮挡，以及上传前预览确认，都应在获得授权的真实页面人工验收中核对；当前自动化不将其标记为真实平台通过。
 - 设备保持连接直到用户或管理员解除。连接码仍仅 5 分钟有效；扩展内部短期访问凭据每 8 小时自动续期。验证记录不得包含设备密钥、JWK、指纹、Bearer 凭据或其摘要。
 
 ## 环境矩阵

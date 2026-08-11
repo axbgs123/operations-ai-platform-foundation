@@ -56,9 +56,10 @@ export class ScrollCaptureDriver {
     const timeoutMs = restrictiveBound(options.timeoutMs, MAX_TIMEOUT_MS);
     const deadlineAt = startedAt + timeoutMs;
     const slices: CaptureSlice[] = [];
+    let captureCount = 0;
     let lastCaptureAt: number | null = null;
     let stableBottomCount = 0;
-    let observedBottom: { scrollHeight: number; bottomY: number } | null = null;
+    let observedBottom: { scrollHeight: number; bottomY: number; dataUrl: string } | null = null;
 
     const partial = (partialReason: PartialCaptureReason): FullPageCaptureResult => ({
       slices,
@@ -96,7 +97,7 @@ export class ScrollCaptureDriver {
         if (now() >= deadlineAt) {
           return { slices, complete: false, stopReason: "time-limit", originalScrollY };
         }
-        if (slices.length >= maxSlices) {
+        if (captureCount >= maxSlices) {
           return { slices, complete: false, stopReason: "slice-limit", originalScrollY };
         }
         if (lastCaptureAt !== null) {
@@ -112,7 +113,7 @@ export class ScrollCaptureDriver {
         const metrics = dependencies.getMetrics();
         const scrollY = dependencies.getScrollY();
         const sliceWithoutData: Omit<CaptureSlice, "dataUrl"> = {
-          sequence: slices.length,
+          sequence: captureCount,
           scrollY,
           url: initialUrl,
           platform: context.platform,
@@ -155,6 +156,7 @@ export class ScrollCaptureDriver {
           return partial("capture-failed");
         }
         slices.push({ ...sliceWithoutData, dataUrl });
+        captureCount += 1;
         lastCaptureAt = now();
 
         const afterCaptureStop = interrupted();
@@ -165,10 +167,14 @@ export class ScrollCaptureDriver {
           stableBottomCount = observedBottom?.scrollHeight === latest.scrollHeight && observedBottom.bottomY === bottomY
             ? stableBottomCount + 1
             : 1;
-          observedBottom = { scrollHeight: latest.scrollHeight, bottomY };
           if (stableBottomCount >= 2) {
+            slices.pop();
+            if (observedBottom?.dataUrl !== dataUrl) {
+              return partial("bottom-unstable");
+            }
             return { slices, complete: true, stopReason: "bottom", originalScrollY };
           }
+          observedBottom = { scrollHeight: latest.scrollHeight, bottomY, dataUrl };
         } else {
           stableBottomCount = 0;
           observedBottom = null;

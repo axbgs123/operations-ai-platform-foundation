@@ -1,4 +1,5 @@
 import type { ExtensionBinding } from "../auth/storage";
+import { encodedDataUrlByteLength } from "../capture/data-url";
 import type { CaptureTaskRead } from "../capture/task-status";
 import type { PageDetection, Rect } from "./page-adapters/base";
 import type { ViewportMetrics } from "./image-processing";
@@ -469,7 +470,7 @@ export class CaptureOverlay {
       ? ` · ${this.fullPagePreview.width}×${this.fullPagePreview.height}`
       : this.selection ? ` · ${Math.round(this.selection.width)}×${Math.round(this.selection.height)}` : "";
     const fullPageDetails = this.fullPagePreview
-      ? ` · ${this.fullPagePreview.complete ? "完整" : "部分"} · 采集 ${this.fullPagePreview.sliceCount} 屏 · ${Math.ceil((this.fullPagePreview.dataUrl.length * 3) / 4 / 1024)} KB`
+      ? ` · ${this.fullPagePreview.complete ? "完整" : "部分"} · 采集 ${this.fullPagePreview.sliceCount} 屏 · ${Math.ceil(encodedDataUrlByteLength(this.fullPagePreview.dataUrl) / 1024)} KB`
       : "";
     details.textContent = `${platform} · ${this.options.binding.webOrigin}${size}${fullPageDetails} · 遮挡敏感信息：${this.redactionEnabled ? "开" : "关"} · 遮挡 ${this.redactions.length} 处`;
     panel.append(details);

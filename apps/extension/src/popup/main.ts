@@ -65,6 +65,7 @@ export type PopupDependencies = {
 
 type PopupElements = {
   form: HTMLFormElement | null;
+  pairSubmit: HTMLButtonElement | null;
   pairingCode: HTMLInputElement | null;
   advancedToggle: HTMLButtonElement | null;
   advancedSettings: HTMLElement | null;
@@ -103,6 +104,7 @@ export function createPopupController(
 ) {
   const elements: PopupElements = {
     form: root.querySelector("#pairing-form"),
+    pairSubmit: root.querySelector('#pairing-form button[type="submit"]'),
     pairingCode: root.querySelector("#pairing-code"),
     advancedToggle: root.querySelector("#advanced-toggle"),
     advancedSettings: root.querySelector("#advanced-settings"),
@@ -123,6 +125,7 @@ export function createPopupController(
   let currentStatus = unsupportedPage();
   let currentBinding: ExtensionBinding | null = null;
   let shortcut = "";
+  let pairingInFlight: Promise<void> | null = null;
 
   if (elements.serverOrigin) elements.serverOrigin.value = defaultServerOrigin;
 
@@ -182,7 +185,7 @@ export function createPopupController(
         ? await dependencies.ensureFreshBinding()
         : await dependencies.store.load();
     } catch {
-      return renderUnpaired("连接已失效，请重新输入连接码。");
+      return renderUnpaired("连接暂时不可用；设备身份已保留，请稍后重试。");
     }
     if (!binding) return renderUnpaired();
     if (Date.parse(binding.expiresAt) <= now()) {
@@ -198,7 +201,7 @@ export function createPopupController(
     renderPaired(binding, pageStatus);
   };
 
-  const submit = async (): Promise<void> => {
+  const performSubmit = async (): Promise<void> => {
     const pairingCode = elements.pairingCode?.value ?? "";
     const serverOrigin = elements.serverOrigin?.value || defaultServerOrigin;
     try {
@@ -215,6 +218,25 @@ export function createPopupController(
     } finally {
       if (elements.pairingCode) elements.pairingCode.value = "";
     }
+  };
+
+  const submit = (): Promise<void> => {
+    if (!pairingInFlight) {
+      const operation = performSubmit();
+      pairingInFlight = operation;
+      if (elements.pairSubmit) elements.pairSubmit.disabled = true;
+      operation.then(
+        () => {
+          if (pairingInFlight === operation) pairingInFlight = null;
+          if (elements.pairSubmit) elements.pairSubmit.disabled = false;
+        },
+        () => {
+          if (pairingInFlight === operation) pairingInFlight = null;
+          if (elements.pairSubmit) elements.pairSubmit.disabled = false;
+        },
+      );
+    }
+    return pairingInFlight;
   };
 
   const start = async (mode: StartCaptureMessage["mode"] = "full-page"): Promise<void> => {
@@ -237,7 +259,7 @@ export function createPopupController(
       await render();
     }
     if (remoteRevocationFailed && elements.status) {
-      elements.status.textContent = "本地已解绑，但未能通知服务器；服务端令牌将在到期后自动失效。";
+      elements.status.textContent = "本地已解绑，但服务器端设备可能仍显示为已连接；恢复网络后请在工作台设备列表中撤销它。";
     }
   };
 

@@ -146,6 +146,7 @@ export function ExtensionPairingPanel({
       <div className="space-y-1 text-sm text-[var(--text-secondary)]">
         <p>查看者只能查看扩展连接说明。请联系管理员或编辑者生成连接码。</p>
         <p>保持连接，直到你或管理员解除</p>
+        <p>默认快捷键为 Command/Ctrl + Shift + 8；浏览器可能因自定义或快捷键冲突而不同，以扩展弹窗显示的实际分配结果为准。</p>
       </div>
     );
   }
@@ -200,6 +201,9 @@ export function ExtensionPairingPanel({
             </p>
             <p className="mt-2 text-sm text-[var(--text-secondary)]">
               连接码仅 5 分钟有效；连接后的短期访问凭据每 8 小时自动续期。浏览器数据或设备密钥丢失时，请重新配对。
+            </p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              默认快捷键为 Command/Ctrl + Shift + 8；浏览器可能因自定义或快捷键冲突而不同，以扩展弹窗显示的实际分配结果为准。
             </p>
             {error ? <p className="mt-4 text-sm text-red-700" role="alert">{error}</p> : null}
             {pairing ? (

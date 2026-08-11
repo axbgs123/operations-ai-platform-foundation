@@ -121,6 +121,56 @@ def test_extension_capture_contract_accepts_and_persists_bounded_full_page_metad
             assert task.capture_metadata == response.json()["capture_metadata"]
 
 
+def test_extension_capture_contract_defaults_an_entirely_legacy_payload() -> None:
+    with configured_client() as (client, _):
+        workspace = client.post("/v1/workspaces", json={"name": "旧版截图合同工作区"}).json()
+        token = _bind(client, workspace["admin_code"])
+        response = client.post(
+            f"/v1/extension/workspaces/{workspace['workspace_id']}/capture-tasks",
+            json={
+                "platform": "douyin",
+                "page_version": "douyin-creator-v1",
+                "page_identifier": "synthetic-pre-0.3-client",
+                "collected_at": datetime.now(UTC).isoformat(),
+                "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+            },
+            headers={"Authorization": f"Bearer {token}", "Idempotency-Key": "legacy-capture-1"},
+        )
+
+        assert response.status_code == 202, response.text
+        assert response.json()["capture_metadata"] == {
+            "capture_mode": "visible",
+            "complete": True,
+            "stop_reason": "visible",
+            "slice_count": 1,
+        }
+
+
+def test_extension_capture_contract_accepts_new_partial_disclosure_reasons() -> None:
+    with configured_client() as (client, _):
+        workspace = client.post("/v1/workspaces", json={"name": "新版部分截图合同工作区"}).json()
+        token = _bind(client, workspace["admin_code"])
+        for index, stop_reason in enumerate(("bottom-unstable", "overlap-unverified")):
+            response = client.post(
+                f"/v1/extension/workspaces/{workspace['workspace_id']}/capture-tasks",
+                json={
+                    "platform": "douyin",
+                    "page_version": "douyin-creator-v1",
+                    "page_identifier": f"synthetic-{stop_reason}",
+                    "collected_at": datetime.now(UTC).isoformat(),
+                    "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
+                    "capture_mode": "full-page",
+                    "complete": False,
+                    "stop_reason": stop_reason,
+                    "slice_count": 2,
+                },
+                headers={"Authorization": f"Bearer {token}", "Idempotency-Key": f"partial-reason-{index}"},
+            )
+
+            assert response.status_code == 202, response.text
+            assert response.json()["capture_metadata"]["stop_reason"] == stop_reason
+
+
 def test_extension_capture_contract_rejects_inconsistent_or_out_of_bounds_metadata() -> None:
     with configured_client() as (client, _):
         workspace = client.post("/v1/workspaces", json={"name": "整页合同校验工作区"}).json()
@@ -133,6 +183,7 @@ def test_extension_capture_contract_rejects_inconsistent_or_out_of_bounds_metada
             "screenshot_data_url": "data:image/png;base64,U1lOVEhFVElD",
         }
         for index, metadata in enumerate((
+            {"capture_mode": "visible"},
             {"capture_mode": "full-page", "complete": True, "stop_reason": "slice-limit", "slice_count": 3},
             {"capture_mode": "visible", "complete": False, "stop_reason": "visible", "slice_count": 1},
             {"capture_mode": "region", "complete": True, "stop_reason": "region", "slice_count": 31},

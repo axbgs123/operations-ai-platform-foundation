@@ -172,10 +172,11 @@ describe("user-selected safe capture overlay", () => {
   });
 
   it("previews full-page completeness, slices, dimensions, and size before upload", async () => {
+    const exactOneKibibyte = `data:image/png;base64,${Buffer.alloc(1_024).toString("base64")}`;
     const { flow, upload } = fixture({
       mode: "full-page",
       fullPageCapture: vi.fn().mockResolvedValue({
-        dataUrl: "data:image/png;base64,FULLPAGE",
+        dataUrl: exactOneKibibyte,
         width: 1280,
         height: 4000,
         complete: true,
@@ -189,6 +190,7 @@ describe("user-selected safe capture overlay", () => {
     expect(flow.element.textContent).toContain("完整");
     expect(flow.element.textContent).toContain("采集 6 屏");
     expect(flow.element.textContent).toContain("1280×4000");
+    expect(flow.element.textContent).toContain("1 KB");
     expect(upload).not.toHaveBeenCalled();
     await flow.confirmUpload();
     expect(upload).toHaveBeenCalledOnce();

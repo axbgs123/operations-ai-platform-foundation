@@ -114,6 +114,19 @@ type KeyPersistence = {
 export type MemoryDeviceKeyStoreState = { record: DeviceKeyRecord | null };
 
 function createStore(persistence: KeyPersistence, cryptoApi: Crypto): DeviceKeyStore {
+  let getOrCreateInFlight: Promise<StoredDeviceSigner> | null = null;
+  let generation = 0;
+
+  const getOrCreate = async (startedGeneration: number): Promise<StoredDeviceSigner> => {
+    const existing = await persistence.get();
+    if (existing && await isDeviceKeyRecord(existing, cryptoApi)) return asSigner(existing as DeviceKeyRecord, cryptoApi);
+    if (existing) await persistence.clear();
+    const generated = await generateDevice(cryptoApi);
+    if (generation !== startedGeneration) throw new Error("device-key-cleared");
+    await persistence.put(generated);
+    return asSigner(generated, cryptoApi);
+  };
+
   return {
     async load() {
       const record = await persistence.get();
@@ -122,15 +135,21 @@ function createStore(persistence: KeyPersistence, cryptoApi: Crypto): DeviceKeyS
       await persistence.clear();
       return null;
     },
-    async getOrCreate() {
-      const existing = await persistence.get();
-      if (existing && await isDeviceKeyRecord(existing, cryptoApi)) return asSigner(existing as DeviceKeyRecord, cryptoApi);
-      if (existing) await persistence.clear();
-      const generated = await generateDevice(cryptoApi);
-      await persistence.put(generated);
-      return asSigner(generated, cryptoApi);
+    getOrCreate() {
+      if (!getOrCreateInFlight) {
+        const operation = getOrCreate(generation);
+        getOrCreateInFlight = operation;
+        operation.then(
+          () => { if (getOrCreateInFlight === operation) getOrCreateInFlight = null; },
+          () => { if (getOrCreateInFlight === operation) getOrCreateInFlight = null; },
+        );
+      }
+      return getOrCreateInFlight;
     },
-    clear: () => persistence.clear(),
+    async clear() {
+      generation += 1;
+      await persistence.clear();
+    },
   };
 }
 

@@ -3614,6 +3614,16 @@ export interface components {
          */
         Capability: "text" | "vision" | "image" | "embedding";
         /**
+         * CaptureMode
+         * @enum {string}
+         */
+        CaptureMode: "full-page" | "visible" | "region";
+        /**
+         * CaptureStopReason
+         * @enum {string}
+         */
+        CaptureStopReason: "bottom" | "slice-limit" | "time-limit" | "cancelled" | "page-hidden" | "pagehide" | "window-blur" | "page-drift" | "capture-failed" | "empty" | "invalid-slice-order" | "pixel-limit" | "edge-limit" | "encoded-size" | "canvas-failed" | "dimension-mismatch" | "bottom-unstable" | "overlap-unverified" | "visible" | "region";
+        /**
          * CaptureTaskStatus
          * @enum {string}
          */
@@ -4973,11 +4983,14 @@ export interface components {
         };
         /** ExtensionCaptureRequest */
         ExtensionCaptureRequest: {
+            capture_mode: components["schemas"]["CaptureMode"];
             /**
              * Collected At
              * Format: date-time
              */
             collected_at: string;
+            /** Complete */
+            complete: boolean;
             /** Page Identifier */
             page_identifier: string;
             /** Page Version */
@@ -4985,9 +4998,16 @@ export interface components {
             platform: components["schemas"]["Platform"];
             /** Screenshot Data Url */
             screenshot_data_url: string;
+            /** Slice Count */
+            slice_count: number;
+            stop_reason: components["schemas"]["CaptureStopReason"];
         };
         /** ExtensionCaptureTaskRead */
         ExtensionCaptureTaskRead: {
+            /** Capture Metadata */
+            capture_metadata: {
+                [key: string]: unknown;
+            };
             /** Error */
             error: string | null;
             /**
@@ -5043,13 +5063,13 @@ export interface components {
         };
         /** ExtensionDeviceRead */
         ExtensionDeviceRead: {
-            /** Browser */
-            browser: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Device Description */
+            device_description: string;
             /**
              * Device Id
              * Format: uuid
@@ -5059,8 +5079,8 @@ export interface components {
             extension_version: string;
             /** Label */
             label: string;
-            /** Last Used At */
-            last_used_at: string | null;
+            /** Last Session Issued At */
+            last_session_issued_at: string | null;
             /** Revoked At */
             revoked_at: string | null;
             /**
@@ -9055,6 +9075,15 @@ export interface operations {
                     "application/json": components["schemas"]["ExtensionSafeError"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
         };
     };
     create_extension_session_challenge_v1_extension_session_challenge_post: {
@@ -9097,6 +9126,15 @@ export interface operations {
                     "application/json": components["schemas"]["ExtensionSafeError"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
         };
     };
     renew_extension_session_v1_extension_session_renew_post: {
@@ -9132,6 +9170,15 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtensionSafeError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

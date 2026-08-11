@@ -11,7 +11,7 @@ const binding: ExtensionBinding = {
   workspaceName: "运营工作区",
   memberDisplayName: "小王",
   accessToken: "opaque-short-lived-token",
-  expiresAt: "2026-08-11T00:00:00Z",
+  expiresAt: "2030-08-11T00:00:00Z",
   providerMode: "mock",
   region: null,
 };
@@ -102,6 +102,33 @@ describe("capture extension pairing popup", () => {
     }
   });
 
+  it("deduplicates concurrent pairing submissions and disables submit until completion", async () => {
+    const dom = popup();
+    let finishPairing!: () => void;
+    const pair = vi.fn(() => new Promise<void>((resolve) => { finishPairing = resolve; }));
+    const controller = createPopupController(dom.window.document, {
+      store: { load: async () => null, save: async () => undefined, clear: async () => undefined },
+      pair,
+      revoke: vi.fn(),
+      getPageStatus: vi.fn(),
+      startSafeCapture: vi.fn(),
+    });
+    const code = dom.window.document.querySelector<HTMLInputElement>("#pairing-code")!;
+    const submitButton = dom.window.document.querySelector<HTMLButtonElement>('#pairing-form button[type="submit"]')!;
+    code.value = "one-time-code";
+
+    const first = controller.submit();
+    const second = controller.submit();
+    await vi.waitFor(() => expect(pair).toHaveBeenCalledOnce());
+    expect(submitButton.disabled).toBe(true);
+    finishPairing();
+    await Promise.all([first, second]);
+
+    expect(pair).toHaveBeenCalledOnce();
+    expect(submitButton.disabled).toBe(false);
+    expect(code.value).toBe("");
+  });
+
   it("sends start only for a paired supported page", async () => {
     const dom = popup();
     const startSafeCapture = vi.fn();
@@ -173,8 +200,7 @@ describe("capture extension pairing popup", () => {
     expect(dom.window.document.querySelector("#start-safe-capture")?.hasAttribute("hidden")).toBe(true);
     if (_name !== "normal 204") {
       const status = dom.window.document.querySelector("#status")?.textContent;
-      expect(status).toBe("本地已解绑，但未能通知服务器；服务端令牌将在到期后自动失效。");
-      expect(status).not.toContain("恢复连接后完成");
+      expect(status).toBe("本地已解绑，但服务器端设备可能仍显示为已连接；恢复网络后请在工作台设备列表中撤销它。");
     }
   });
 });

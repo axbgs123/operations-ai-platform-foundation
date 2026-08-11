@@ -219,23 +219,12 @@ function mountChromeCapture(
       });
       try {
         const result = await driver.capture({ maxSlices: 30, timeoutMs: 20_000 });
-        let stitched = await stitchSlices(result.slices, {
+        const stitched = await stitchSlices(result.slices, {
           maxPixels: 40_000_000,
           maxEdge: 32_000,
           maxBytes: 10 * 1024 * 1024,
         });
         const originalStitchReason = stitched.partialReason;
-        let stitchedSliceCount = result.slices.length;
-        // If the complete set exceeds a stitch bound, retain only a bounded
-        // prefix that can actually be shown to the user as a partial preview.
-        for (let length = result.slices.length - 1; !stitched.dataUrl && length > 0; length -= 1) {
-          stitched = await stitchSlices(result.slices.slice(0, length), {
-            maxPixels: 40_000_000,
-            maxEdge: 32_000,
-            maxBytes: 10 * 1024 * 1024,
-          });
-          if (stitched.dataUrl) stitchedSliceCount = length;
-        }
         if (!stitched.dataUrl) {
           return fullPageFailureDisclosure(result, originalStitchReason);
         }
@@ -245,7 +234,7 @@ function mountChromeCapture(
           height: stitched.height,
           complete: originalStitchReason ? false : result.complete && stitched.complete,
           stopReason: originalStitchReason ?? result.partialReason ?? result.stopReason ?? "bottom",
-          sliceCount: stitchedSliceCount,
+          sliceCount: stitched.sliceCount,
         };
       } finally {
         await endFullPage();
@@ -292,12 +281,14 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof c
   const handler = createContentMessageHandler({
     detect: currentDetection,
     startCapture: async (mode = "region", captureSessionId) => {
+      const captureDetection = currentDetection();
       const response = parseCaptureBindingResponse(
         await chrome.runtime.sendMessage({
           type: "GET_CAPTURE_BINDING",
-          platform: detection.platform,
-          pageVersion: detection.pageVersion,
-          pageSignature: detection.signature,
+          platform: captureDetection.platform,
+          pageVersion: captureDetection.pageVersion,
+          pageSignature: captureDetection.signature,
+          ...(mode === "full-page" && captureSessionId ? { captureSessionId } : {}),
         }),
       );
       if (!response || !response.ok || Date.parse(response.binding.expiresAt) <= Date.now()) {

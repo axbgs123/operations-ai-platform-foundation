@@ -26,12 +26,12 @@ afterEach(() => {
 
 test("lists a workspace's devices through the generated client with typed path and CSRF header", async () => {
   const devices = [{
-    browser: "Chrome",
+    device_description: "Chrome",
     created_at: "2026-08-10T01:00:00.000Z",
     device_id: "device-1",
     extension_version: "0.3.0",
     label: "运营电脑",
-    last_used_at: "2026-08-10T02:00:00.000Z",
+    last_session_issued_at: "2026-08-10T02:00:00.000Z",
     revoked_at: null,
     status: "active" as const,
   }];

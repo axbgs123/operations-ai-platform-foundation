@@ -226,10 +226,10 @@ class ExtensionSessionRenewRequest(BaseModel):
 class ExtensionDeviceRead(BaseModel):
     device_id: UUID
     label: str
-    browser: str
+    device_description: str
     extension_version: str
     created_at: datetime
-    last_used_at: datetime | None
+    last_session_issued_at: datetime | None
     status: Literal["active", "revoked"]
     revoked_at: datetime | None
 
@@ -237,6 +237,7 @@ class ExtensionDeviceRead(BaseModel):
 SAFE_EXTENSION_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ExtensionSafeError},
     422: {"model": ExtensionSafeError},
+    503: {"model": ExtensionSafeError},
 }
 DEVICE_ADMIN_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ExtensionSafeError},
@@ -528,6 +529,11 @@ def create_extension_session_challenge(
         )
     except DeviceChallengeUnavailable as error:
         raise HTTPException(status_code=401, detail="device session invalid") from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail="device session unavailable",
+        ) from error
     return ExtensionSessionChallengeRead(
         challenge_id=challenge.id,
         device_id=challenge.device_id,
@@ -560,7 +566,10 @@ def renew_extension_session(
         raise HTTPException(status_code=401, detail="device session invalid") from error
     except Exception as error:
         session.rollback()
-        raise HTTPException(status_code=401, detail="device session invalid") from error
+        raise HTTPException(
+            status_code=503,
+            detail="device session unavailable",
+        ) from error
     return _pair_response(session, issued, device_id=data.device_id)
 
 
@@ -601,7 +610,21 @@ def revoke_extension_binding(
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> None:
     authenticated = _bearer(session, authorization)
-    ExtensionTokenService(session).revoke(authenticated.token_id)
+    if authenticated.device_id is None:
+        ExtensionTokenService(session).revoke(authenticated.token_id)
+    else:
+        try:
+            _extension_devices(session).revoke_authenticated_device(
+                workspace_id=authenticated.workspace_id,
+                member_id=authenticated.member_id,
+                device_id=authenticated.device_id,
+            )
+        except DeviceChallengeUnavailable as error:
+            session.rollback()
+            raise HTTPException(
+                status_code=401,
+                detail="invalid extension token",
+            ) from error
     session.commit()
 
 
@@ -764,10 +787,10 @@ def list_extension_devices(
         ExtensionDeviceRead(
             device_id=device.device_id,
             label=device.label,
-            browser=device.label,
+            device_description=device.label,
             extension_version=device.extension_version,
             created_at=device.created_at,
-            last_used_at=session.scalar(
+            last_session_issued_at=session.scalar(
                 select(ExtensionToken.issued_at)
                 .where(ExtensionToken.device_id == device.id)
                 .order_by(desc(ExtensionToken.issued_at))
@@ -837,6 +860,8 @@ class CaptureStopReason(StrEnum):
     ENCODED_SIZE = "encoded-size"
     CANVAS_FAILED = "canvas-failed"
     DIMENSION_MISMATCH = "dimension-mismatch"
+    BOTTOM_UNSTABLE = "bottom-unstable"
+    OVERLAP_UNVERIFIED = "overlap-unverified"
     VISIBLE = "visible"
     REGION = "region"
 
@@ -853,6 +878,22 @@ class ExtensionCaptureRequest(BaseModel):
     complete: bool
     stop_reason: CaptureStopReason
     slice_count: int = Field(ge=0, le=30)
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_complete_legacy_metadata(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        metadata_fields = {"capture_mode", "complete", "stop_reason", "slice_count"}
+        if metadata_fields.isdisjoint(value):
+            return {
+                **value,
+                "capture_mode": CaptureMode.VISIBLE,
+                "complete": True,
+                "stop_reason": CaptureStopReason.VISIBLE,
+                "slice_count": 1,
+            }
+        return value
 
     @model_validator(mode="after")
     def validate_capture_metadata(self) -> "ExtensionCaptureRequest":
@@ -879,6 +920,8 @@ class ExtensionCaptureRequest(BaseModel):
                 CaptureStopReason.ENCODED_SIZE,
                 CaptureStopReason.CANVAS_FAILED,
                 CaptureStopReason.DIMENSION_MISMATCH,
+                CaptureStopReason.BOTTOM_UNSTABLE,
+                CaptureStopReason.OVERLAP_UNVERIFIED,
             }:
                 raise ValueError("partial full-page captures require a full-page stop reason")
             return self

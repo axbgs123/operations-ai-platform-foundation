@@ -1,14 +1,19 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+import os
 from uuid import UUID
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from redis import Redis
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_session
 from app.main import app
+from app.modules.imports import extension_router
+from app.modules.imports.extension_devices import ExtensionDeviceService
 from app.modules.imports.extension_router import binding_attempts
 from app.modules.imports.capture_service import reset_capture_objects
 from app.modules.workspace.router import invite_attempts
@@ -30,6 +35,14 @@ def configured_client() -> Iterator[tuple[TestClient, object]]:
         lambda connection, _: connection.execute("PRAGMA foreign_keys=ON"),
     )
     Base.metadata.create_all(engine)
+    challenge_namespace = f"extension-api-test:{uuid4()}"
+    redis = Redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
+    original_extension_devices = extension_router._extension_devices
+    extension_router._extension_devices = lambda session: ExtensionDeviceService(
+        session,
+        redis=redis,
+        challenge_key_namespace=challenge_namespace,
+    )
 
     def override_session() -> Iterator[Session]:
         with Session(engine, expire_on_commit=False) as session:
@@ -41,6 +54,11 @@ def configured_client() -> Iterator[tuple[TestClient, object]]:
             yield client, engine
     finally:
         app.dependency_overrides.clear()
+        extension_router._extension_devices = original_extension_devices
+        keys = list(redis.scan_iter(match=f"{challenge_namespace}:*"))
+        if keys:
+            redis.delete(*keys)
+        redis.close()
         reset_capture_objects()
 
 

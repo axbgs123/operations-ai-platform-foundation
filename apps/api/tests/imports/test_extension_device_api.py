@@ -7,9 +7,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.imports import extension_router as extension_router_module
 from app.core.rate_limit import RateLimitCategory, category_for_request
 from app.main import app
-from app.modules.imports.models import ExtensionDeviceBinding
+from app.modules.imports.models import ExtensionDeviceBinding, ExtensionToken
 from app.modules.workspace.models import WorkspaceMember
 from tests.imports.helpers import configured_client
 from tests.imports.test_extension_devices import p256_fixture, sign_raw_p256
@@ -145,9 +146,23 @@ def test_challenge_renewal_uses_one_time_signature_and_safe_failures() -> None:
                 "signature": signature,
             },
         )
-        unknown = _challenge(client, str(uuid4()))
-        assert replay.status_code == unknown.status_code == 401
-        assert replay.json() == unknown.json() == {"detail": "device session invalid"}
+        unknown_device_id = str(uuid4())
+        unknown = _challenge(client, unknown_device_id)
+        assert unknown.status_code == 201
+        assert set(unknown.json()) == set(challenge.json())
+        assert unknown.json()["device_id"] == unknown_device_id
+        unknown_renewal = client.post(
+            "/v1/extension/session/renew",
+            json={
+                "device_id": unknown_device_id,
+                "challenge_id": unknown.json()["challenge_id"],
+                "signature": "A" * 86,
+            },
+        )
+        assert replay.status_code == unknown_renewal.status_code == 401
+        assert replay.json() == unknown_renewal.json() == {
+            "detail": "device session invalid"
+        }
 
         strict = client.post(
             "/v1/extension/session/renew",
@@ -159,6 +174,98 @@ def test_challenge_renewal_uses_one_time_signature_and_safe_failures() -> None:
             },
         )
         assert strict.status_code == 422
+
+
+def test_revoked_and_unknown_devices_receive_indistinguishable_challenges() -> None:
+    """Returning an early 401 would expose whether a public device ID is active."""
+    with configured_client() as (client, _):
+        workspace, login = _create_workspace_session(client)
+        paired, _ = _pair_real_device(client, workspace, login)
+        path = f"/v1/workspaces/{workspace['workspace_id']}/extension-devices"
+        assert client.delete(
+            f"{path}/{paired['device_id']}",
+            headers={"X-CSRF-Token": login["csrf_token"]},
+        ).status_code == 204
+
+        revoked = _challenge(client, paired["device_id"])
+        unknown_id = str(uuid4())
+        unknown = _challenge(client, unknown_id)
+
+        assert revoked.status_code == unknown.status_code == 201
+        assert set(revoked.json()) == set(unknown.json()) == {
+            "challenge_id",
+            "device_id",
+            "challenge",
+            "expires_at",
+        }
+        assert revoked.json()["device_id"] == paired["device_id"]
+        assert unknown.json()["device_id"] == unknown_id
+
+
+def test_renewal_infrastructure_failure_is_retryable_not_terminal() -> None:
+    """Converting Redis or database outages to 401 destroys a valid local identity."""
+
+    class UnavailableDevices:
+        def renew_public_session(self, **_kwargs):
+            raise RuntimeError("isolated Redis outage")
+
+    with configured_client() as (client, _):
+        namespaced_factory = extension_router_module._extension_devices
+        try:
+            extension_router_module._extension_devices = (
+                lambda _session: UnavailableDevices()
+            )
+            response = client.post(
+                "/v1/extension/session/renew",
+                json={
+                    "device_id": str(uuid4()),
+                    "challenge_id": str(uuid4()),
+                    "signature": "A" * 86,
+                },
+            )
+        finally:
+            extension_router_module._extension_devices = namespaced_factory
+    assert response.status_code == 503
+    assert response.json() == {"detail": "device session unavailable"}
+
+
+def test_self_unlink_revokes_the_device_and_every_issued_token_transactionally() -> None:
+    """Revoking only the caller token leaves an unrecoverable active device orphan."""
+    with configured_client() as (client, engine):
+        workspace, login = _create_workspace_session(client)
+        paired, private_key = _pair_real_device(client, workspace, login)
+        challenge = _challenge(client, paired["device_id"])
+        renewed = client.post(
+            "/v1/extension/session/renew",
+            json={
+                "device_id": paired["device_id"],
+                "challenge_id": challenge.json()["challenge_id"],
+                "signature": sign_raw_p256(
+                    private_key,
+                    _challenge_payload(challenge.json()["challenge"]),
+                ),
+            },
+        ).json()
+
+        response = client.delete(
+            "/v1/extension/binding",
+            headers={"Authorization": f"Bearer {paired['access_token']}"},
+        )
+        assert response.status_code == 204
+
+        with Session(engine) as session:
+            device = session.scalar(select(ExtensionDeviceBinding))
+            assert device is not None and device.revoked_at is not None
+            tokens = session.scalars(
+                select(ExtensionToken).where(ExtensionToken.device_id == device.id)
+            ).all()
+            assert len(tokens) == 2
+            assert all(token.revoked_at is not None for token in tokens)
+        for token in (paired["access_token"], renewed["access_token"]):
+            assert client.get(
+                "/v1/extension/binding",
+                headers={"Authorization": f"Bearer {token}"},
+            ).status_code == 401
 
 
 def test_admin_lists_redacted_devices_and_revocation_invalidates_device_tokens() -> None:
@@ -173,10 +280,10 @@ def test_admin_lists_redacted_devices_and_revocation_invalidates_device_tokens()
         assert set(listed.json()[0]) == {
             "device_id",
             "label",
-            "browser",
+            "device_description",
             "extension_version",
             "created_at",
-            "last_used_at",
+            "last_session_issued_at",
             "status",
             "revoked_at",
         }
@@ -205,7 +312,9 @@ def test_public_device_routes_reject_internal_binding_identifiers() -> None:
             assert binding is not None
             internal_id = str(binding.id)
 
-        assert _challenge(client, internal_id).json() == {"detail": "device session invalid"}
+        internal_challenge = _challenge(client, internal_id)
+        assert internal_challenge.status_code == 201
+        assert internal_challenge.json()["device_id"] == internal_id
         challenge = _challenge(client, paired["device_id"])
         signature = sign_raw_p256(
             private_key, _challenge_payload(challenge.json()["challenge"])
@@ -344,7 +453,13 @@ def test_openapi_device_contracts_never_publish_key_or_token_secrets() -> None:
     pair_contract = schema["components"]["schemas"]["ExtensionPairResponse"]
     public_contract = json.dumps({"device": device_contract, "pair": pair_contract})
 
-    assert {"device_id", "label", "browser", "extension_version"} <= set(
+    assert {
+        "device_id",
+        "label",
+        "device_description",
+        "extension_version",
+        "last_session_issued_at",
+    } <= set(
         device_contract["properties"]
     )
     assert "device_id" in pair_contract["properties"]
@@ -370,8 +485,8 @@ def test_openapi_device_contracts_never_publish_key_or_token_secrets() -> None:
     }
     for path, method, statuses in (
         ("/v1/extension/pair", "post", ("401", "422")),
-        ("/v1/extension/session/challenge", "post", ("401", "422")),
-        ("/v1/extension/session/renew", "post", ("401", "422")),
+        ("/v1/extension/session/challenge", "post", ("401", "422", "503")),
+        ("/v1/extension/session/renew", "post", ("401", "422", "503")),
         (
             "/v1/workspaces/{workspace_id}/extension-devices",
             "get",

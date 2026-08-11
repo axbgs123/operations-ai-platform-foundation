@@ -21,7 +21,7 @@ from app.modules.imports.extension_auth import (
     ExtensionTokenService,
     IssuedExtensionToken,
 )
-from app.modules.imports.models import ExtensionDeviceBinding
+from app.modules.imports.models import ExtensionDeviceBinding, ExtensionToken
 from app.modules.workspace.models import MemberRole, Workspace, WorkspaceMember
 
 
@@ -84,10 +84,12 @@ return payload
         *,
         redis: RedisChallengeClient,
         now: Callable[[], datetime] | None = None,
+        challenge_key_namespace: str = "extension-device-challenge",
     ) -> None:
         self._session = session
         self._redis = redis
         self._now = now or (lambda: datetime.now(UTC))
+        self._challenge_key_namespace = challenge_key_namespace
 
     @staticmethod
     def _b64url_decode(value: str) -> bytes:
@@ -125,9 +127,8 @@ return payload
             fingerprint=hashlib.sha256(canonical).hexdigest(),
         )
 
-    @staticmethod
-    def _challenge_key(device_id: UUID, challenge_id: UUID) -> str:
-        return f"extension-device-challenge:{device_id}:{challenge_id}"
+    def _challenge_key(self, device_id: UUID, challenge_id: UUID) -> str:
+        return f"{self._challenge_key_namespace}:{device_id}:{challenge_id}"
 
     @staticmethod
     def _identity(binding: ExtensionDeviceBinding) -> ExtensionDeviceIdentity:
@@ -212,38 +213,41 @@ return payload
 
     def issue_challenge(self, *, device_id: UUID) -> DeviceChallenge:
         device = self._active_binding(device_id)
-        return self._issue_challenge(device)
+        if device is None:
+            raise DeviceChallengeUnavailable
+        return self._issue_challenge(device=device, public_device_id=device.device_id)
 
     def issue_public_challenge(self, *, device_id: UUID) -> DeviceChallenge:
         device = self._active_public_device(device_id)
-        return self._issue_challenge(device)
+        return self._issue_challenge(device=device, public_device_id=device_id)
 
     def _issue_challenge(
-        self, device: ExtensionDeviceBinding | None
+        self,
+        *,
+        device: ExtensionDeviceBinding | None,
+        public_device_id: UUID,
     ) -> DeviceChallenge:
-        if device is None:
-            raise DeviceChallengeUnavailable
         challenge_id = uuid4()
         payload = secrets.token_bytes(32)
         current = self._now()
         expires_at = current + self.challenge_lifetime
         stored = json.dumps(
             {
-                "device_id": str(device.id),
+                "device_id": str(device.id if device is not None else uuid4()),
                 "expires_at": expires_at.isoformat(),
                 "payload": _b64url_encode(payload),
             }
         )
         if not self._redis.set(
-            self._challenge_key(device.id, challenge_id),
+            self._challenge_key(public_device_id, challenge_id),
             stored,
             ex=int(self.challenge_lifetime.total_seconds()),
             nx=True,
         ):
-            raise DeviceChallengeUnavailable
+            raise RuntimeError("device challenge storage unavailable")
         return DeviceChallenge(
             id=challenge_id,
-            device_id=device.device_id,
+            device_id=public_device_id,
             expires_at=expires_at,
             signing_payload=payload,
         )
@@ -256,8 +260,11 @@ return payload
         signature: str,
     ) -> IssuedExtensionToken:
         device = self._active_binding(device_id)
+        if device is None:
+            raise DeviceChallengeUnavailable
         return self._renew_session(
             device=device,
+            public_device_id=device.device_id,
             challenge_id=challenge_id,
             signature=signature,
         )
@@ -272,6 +279,7 @@ return payload
         device = self._active_public_device(device_id)
         return self._renew_session(
             device=device,
+            public_device_id=device_id,
             challenge_id=challenge_id,
             signature=signature,
         )
@@ -280,15 +288,14 @@ return payload
         self,
         *,
         device: ExtensionDeviceBinding | None,
+        public_device_id: UUID,
         challenge_id: UUID,
         signature: str,
     ) -> IssuedExtensionToken:
-        if device is None:
-            raise DeviceChallengeUnavailable
         result = self._redis.eval(
             self._CONSUME_CHALLENGE,
             1,
-            self._challenge_key(device.id, challenge_id),
+            self._challenge_key(public_device_id, challenge_id),
         )
         if not result:
             raise DeviceChallengeUnavailable
@@ -296,7 +303,7 @@ return payload
             result = result.decode()
         try:
             challenge = json.loads(str(result))
-            if challenge["device_id"] != str(device.id):
+            if device is not None and challenge["device_id"] != str(device.id):
                 raise ValueError
             expires_at = datetime.fromisoformat(challenge["expires_at"])
             if expires_at <= self._now():
@@ -305,7 +312,9 @@ return payload
             raw_signature = self._b64url_decode(signature)
             if len(raw_signature) != 64:
                 raise ValueError
-            public_key = self._validate_public_key(device.public_key_jwk)
+            public_key = self._validate_public_key(
+                device.public_key_jwk if device is not None else _DECOY_PUBLIC_JWK
+            )
             x = int.from_bytes(self._b64url_decode(public_key.jwk["x"]), "big")
             y = int.from_bytes(self._b64url_decode(public_key.jwk["y"]), "big")
             verifier = ec.EllipticCurvePublicNumbers(x, y, ec.SECP256R1()).public_key()
@@ -317,6 +326,8 @@ return payload
                 payload,
                 ec.ECDSA(hashes.SHA256()),
             )
+            if device is None:
+                raise ValueError
         except (InvalidSignature, KeyError, TypeError, ValueError):
             raise DeviceChallengeUnavailable from None
         current = self._now()
@@ -372,9 +383,31 @@ return payload
     ) -> None:
         if device is None or device.workspace_id != workspace_id:
             raise DeviceChallengeUnavailable
+        revoked_at = self._now()
         if device.revoked_at is None:
-            device.revoked_at = self._now()
-            self._session.flush()
+            device.revoked_at = revoked_at
+        for token in self._session.scalars(
+            select(ExtensionToken).where(ExtensionToken.device_id == device.id)
+        ):
+            if token.revoked_at is None:
+                token.revoked_at = revoked_at
+        self._session.flush()
+
+    def revoke_authenticated_device(
+        self,
+        *,
+        workspace_id: UUID,
+        member_id: UUID,
+        device_id: UUID,
+    ) -> None:
+        device = self._session.get(ExtensionDeviceBinding, device_id)
+        if (
+            device is None
+            or device.workspace_id != workspace_id
+            or device.member_id != member_id
+        ):
+            raise DeviceChallengeUnavailable
+        self._revoke(device=device, workspace_id=workspace_id)
 
     def authenticate(self, access_token: str) -> AuthenticatedExtension | None:
         return ExtensionTokenService(self._session, now=self._now).authenticate(
@@ -384,6 +417,16 @@ return payload
 
 def _b64url_encode(value: bytes) -> str:
     return base64.urlsafe_b64encode(value).rstrip(b"=").decode()
+
+
+_decoy_private_key = ec.generate_private_key(ec.SECP256R1())
+_decoy_numbers = _decoy_private_key.public_key().public_numbers()
+_DECOY_PUBLIC_JWK = {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": _b64url_encode(_decoy_numbers.x.to_bytes(32, "big")),
+    "y": _b64url_encode(_decoy_numbers.y.to_bytes(32, "big")),
+}
 
 
 __all__ = [

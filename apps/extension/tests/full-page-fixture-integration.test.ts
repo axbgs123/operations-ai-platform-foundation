@@ -151,7 +151,7 @@ describe("synthetic long-page component integration", () => {
           },
           capture: async (slice: Omit<CaptureSlice, "dataUrl">) => {
             const dataUrl = `data:image/png;base64,${Buffer.from(
-              `slice-${slice.sequence}-${slice.scrollY}`,
+              `slice-${slice.scrollY}`,
             ).toString("base64")}`;
             screenshots.set(dataUrl, {
               width: viewportWidth,
@@ -207,13 +207,12 @@ describe("synthetic long-page component integration", () => {
       1_600,
       2_400,
       3_200,
-      3_200,
     ]);
     expect(stitchedResult).toMatchObject({
       complete: true,
       width: 1_280,
       height: 4_000,
-      croppedOverlapPixels: 800,
+      croppedOverlapPixels: 0,
     });
     expect(finalRows).toHaveLength(4_000);
     expect(Array.from(finalRows).every((value, row) => value === row)).toBe(true);
@@ -222,10 +221,10 @@ describe("synthetic long-page component integration", () => {
       capture_mode: "full-page",
       complete: true,
       stop_reason: "bottom",
-      slice_count: 6,
+      slice_count: 5,
     });
     expect(overlay.element.textContent).toContain("完整");
-    expect(overlay.element.textContent).toContain("采集 6 屏");
+    expect(overlay.element.textContent).toContain("采集 5 屏");
     expect(overlay.element.textContent).toContain("1280×4000");
     expect(overlay.element.textContent).toContain("遮挡敏感信息：关");
     expect(overlay.element.textContent).not.toContain("添加遮挡");

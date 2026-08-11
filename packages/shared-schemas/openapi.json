@@ -2168,6 +2168,8 @@
           "encoded-size",
           "canvas-failed",
           "dimension-mismatch",
+          "bottom-unstable",
+          "overlap-unverified",
           "visible",
           "region"
         ],
@@ -6076,13 +6078,13 @@
       },
       "ExtensionDeviceRead": {
         "properties": {
-          "browser": {
-            "title": "Browser",
-            "type": "string"
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
+            "type": "string"
+          },
+          "device_description": {
+            "title": "Device Description",
             "type": "string"
           },
           "device_id": {
@@ -6098,7 +6100,7 @@
             "title": "Label",
             "type": "string"
           },
-          "last_used_at": {
+          "last_session_issued_at": {
             "anyOf": [
               {
                 "format": "date-time",
@@ -6108,7 +6110,7 @@
                 "type": "null"
               }
             ],
-            "title": "Last Used At"
+            "title": "Last Session Issued At"
           },
           "revoked_at": {
             "anyOf": [
@@ -6134,10 +6136,10 @@
         "required": [
           "device_id",
           "label",
-          "browser",
+          "device_description",
           "extension_version",
           "created_at",
-          "last_used_at",
+          "last_session_issued_at",
           "status",
           "revoked_at"
         ],
@@ -15687,6 +15689,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Pair Extension",
@@ -15738,6 +15750,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Create Extension Session Challenge",
@@ -15789,6 +15811,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Renew Extension Session",

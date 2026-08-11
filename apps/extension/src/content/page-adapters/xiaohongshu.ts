@@ -1,11 +1,13 @@
 import type { DetectionInput, PageAdapter, PageDetection } from "./base";
-import { stableFingerprint, unsupported } from "./utils";
+import { createPageSignatureTracker, unsupported } from "./utils";
 
 const version = "xiaohongshu-visible-tab-v1";
 
-export const createXiaohongshuAdapter = (): PageAdapter => ({
-  platform: "xiaohongshu",
-  detect({ url }: DetectionInput): PageDetection {
+export const createXiaohongshuAdapter = (): PageAdapter => {
+  const signature = createPageSignatureTracker("xiaohongshu", version);
+  return {
+    platform: "xiaohongshu",
+    detect({ url, document }: DetectionInput): PageDetection {
     const parsed = new URL(url);
     if (
       parsed.hostname !== "creator.xiaohongshu.com" ||
@@ -17,9 +19,10 @@ export const createXiaohongshuAdapter = (): PageAdapter => ({
       supported: true,
       platform: "xiaohongshu",
       pageVersion: version,
-      signature: `xiaohongshu:${stableFingerprint([version, parsed.hostname, parsed.pathname])}`,
+      signature: signature(parsed, document),
       captureRegion: null,
       sensitiveRegions: [],
     };
-  },
-});
+    },
+  };
+};

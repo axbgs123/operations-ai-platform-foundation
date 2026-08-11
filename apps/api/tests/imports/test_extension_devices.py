@@ -64,11 +64,11 @@ def redis():
     from redis import Redis
 
     client = Redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
-    prefix = f"extension-device-test:{uuid4()}:*"
+    namespace = f"extension-device-test:{uuid4()}"
     try:
-        yield client
+        yield client, namespace
     finally:
-        keys = list(client.scan_iter(match=prefix))
+        keys = list(client.scan_iter(match=f"{namespace}:*"))
         if keys:
             client.delete(*keys)
 
@@ -88,7 +88,13 @@ def _workspace_member(session: Session) -> tuple[Workspace, WorkspaceMember]:
 
 
 def _service(session: Session, redis, now=None) -> ExtensionDeviceService:
-    return ExtensionDeviceService(session, redis=redis, now=now)
+    client, namespace = redis
+    return ExtensionDeviceService(
+        session,
+        redis=client,
+        now=now,
+        challenge_key_namespace=namespace,
+    )
 
 
 def test_device_challenge_is_single_use_and_renews_a_short_token(session, redis):

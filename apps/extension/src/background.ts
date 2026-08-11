@@ -1,7 +1,7 @@
 import { createSessionBindingStore, type ExtensionBinding } from "./auth/storage";
 import { createDeviceKeyStore } from "./auth/device-key-store";
 import { createLocalDeviceRegistrationStore } from "./auth/device-registration-store";
-import { createSessionManager } from "./auth/session-renewal";
+import { createSessionManager, sessionRenewalErrorCode } from "./auth/session-renewal";
 import { detectSupportedPage } from "./content/page-support";
 import { parseRuntimeMessage } from "./runtime/messages";
 import type { CaptureContext, CaptureMode, StartSafeCaptureMessage } from "./runtime/messages";
@@ -40,37 +40,104 @@ const isOk = (value: unknown) => typeof value === "object" && value !== null && 
 
 /** The single gesture coordinator used by both the popup and chrome.commands. */
 export function createCaptureCoordinator(dependencies: CaptureCoordinatorDependencies): CaptureCoordinator {
-  const fullPageSessions = new Map<number, string>();
+  type CaptureGeneration = { captureSessionId: string; generation: number };
+  const fullPageSessions = new Map<number, CaptureGeneration>();
+  const generations = new Map<number, number>();
   const uuid = dependencies.uuid ?? (() => crypto.randomUUID());
+
+  const nextGeneration = (tabId: number) => {
+    const generation = (generations.get(tabId) ?? 0) + 1;
+    generations.set(tabId, generation);
+    return generation;
+  };
+  const isCurrent = (tabId: number, generation: number) => generations.get(tabId) === generation;
+  const discardFullPage = async (tabId: number, session: CaptureGeneration) => {
+    if (fullPageSessions.get(tabId) === session) fullPageSessions.delete(tabId);
+    await dependencies.endFullPageCapture?.(tabId, session.captureSessionId);
+  };
+
   return {
     async startCapture(mode, tab) {
       if (!isSupportedTab(tab)) throw new Error("inactive-or-unsupported-tab");
-      const status = await dependencies.getPageStatus(tab.id);
+      const generation = nextGeneration(tab.id);
+      const previousSession = fullPageSessions.get(tab.id);
+      const session = mode === "full-page" ? { captureSessionId: uuid(), generation } : null;
+      if (session) fullPageSessions.set(tab.id, session);
+      else fullPageSessions.delete(tab.id);
+      if (previousSession) await discardFullPage(tab.id, previousSession);
+      if (!isCurrent(tab.id, generation)) {
+        if (session) await discardFullPage(tab.id, session);
+        throw new Error("capture-replaced");
+      }
+
+      let status: PageStatus;
+      try {
+        status = await dependencies.getPageStatus(tab.id);
+      } catch (error) {
+        if (session && fullPageSessions.get(tab.id) === session) {
+          try { await discardFullPage(tab.id, session); } catch { /* preserve the startup error */ }
+        }
+        throw error;
+      }
+      if (!isCurrent(tab.id, generation)) {
+        if (session) await discardFullPage(tab.id, session);
+        throw new Error("capture-replaced");
+      }
       if (!status.supported || !status.platform || !status.pageVersion || !status.pageSignature) {
+        if (session) await discardFullPage(tab.id, session);
         throw new Error("inactive-or-unsupported-tab");
       }
-      if (mode === "full-page") {
+      if (session) {
         if (!status.viewport || typeof status.scrollY !== "number" || !Number.isFinite(status.scrollY) || status.url !== tab.url) {
+          await discardFullPage(tab.id, session);
           throw new Error("capture-context-mismatch");
         }
-        const captureSessionId = uuid();
-        const armed = await dependencies.arm({
-          type: "ARM_FULL_PAGE_CAPTURE",
-          tabId: tab.id,
-          captureSessionId,
-          platform: status.platform,
-          pageVersion: status.pageVersion,
-          pageSignature: status.pageSignature,
-          url: tab.url,
-          viewport: status.viewport,
-          scrollY: status.scrollY,
-        });
-        if (!isOk(armed)) throw new Error("capture-not-armed");
-        fullPageSessions.set(tab.id, captureSessionId);
-        const started = await dependencies.startContent(tab.id, { type: "START_CAPTURE", mode, captureSessionId });
+        let armed: unknown;
+        try {
+          armed = await dependencies.arm({
+            type: "ARM_FULL_PAGE_CAPTURE",
+            tabId: tab.id,
+            captureSessionId: session.captureSessionId,
+            platform: status.platform,
+            pageVersion: status.pageVersion,
+            pageSignature: status.pageSignature,
+            url: tab.url,
+            viewport: status.viewport,
+            scrollY: status.scrollY,
+          });
+        } catch (error) {
+          if (fullPageSessions.get(tab.id) === session) {
+            try { await discardFullPage(tab.id, session); } catch { /* preserve the startup error */ }
+          }
+          throw error;
+        }
+        if (!isCurrent(tab.id, generation)) {
+          await discardFullPage(tab.id, session);
+          throw new Error("capture-replaced");
+        }
+        if (!isOk(armed)) {
+          await discardFullPage(tab.id, session);
+          throw new Error("capture-not-armed");
+        }
+        let started: unknown;
+        try {
+          started = await dependencies.startContent(tab.id, {
+            type: "START_CAPTURE",
+            mode,
+            captureSessionId: session.captureSessionId,
+          });
+        } catch (error) {
+          if (fullPageSessions.get(tab.id) === session) {
+            try { await discardFullPage(tab.id, session); } catch { /* preserve the startup error */ }
+          }
+          throw error;
+        }
+        if (!isCurrent(tab.id, generation)) {
+          await discardFullPage(tab.id, session);
+          throw new Error("capture-replaced");
+        }
         if (!isOk(started)) {
-          fullPageSessions.delete(tab.id);
-          await dependencies.endFullPageCapture?.(tab.id, captureSessionId);
+          await discardFullPage(tab.id, session);
           throw new Error("capture-start-failed");
         }
         return;
@@ -82,19 +149,22 @@ export function createCaptureCoordinator(dependencies: CaptureCoordinatorDepende
         pageVersion: status.pageVersion,
         pageSignature: status.pageSignature,
       });
+      if (!isCurrent(tab.id, generation)) throw new Error("capture-replaced");
       if (!isOk(armed)) throw new Error("capture-not-armed");
       const started = await dependencies.startContent(tab.id, { type: "START_CAPTURE", mode });
+      if (!isCurrent(tab.id, generation)) throw new Error("capture-replaced");
       if (!isOk(started)) throw new Error("capture-start-failed");
     },
     async cancel(reason) {
       void reason;
-      await Promise.all([...fullPageSessions.entries()].map(async ([tabId, captureSessionId]) => {
+      for (const tabId of generations.keys()) nextGeneration(tabId);
+      await Promise.all([...fullPageSessions.entries()].map(async ([tabId, session]) => {
         fullPageSessions.delete(tabId);
-        await dependencies.endFullPageCapture?.(tabId, captureSessionId);
+        await dependencies.endFullPageCapture?.(tabId, session.captureSessionId);
       }));
     },
     finishCapture(tabId, captureSessionId) {
-      if (fullPageSessions.get(tabId) === captureSessionId) {
+      if (fullPageSessions.get(tabId)?.captureSessionId === captureSessionId) {
         fullPageSessions.delete(tabId);
       }
     },
@@ -113,7 +183,7 @@ type BackgroundDependencies = {
   captureVisibleTab(windowId: number, options: { format: "png" }): Promise<string>;
   now?: () => number;
   loadBinding?(): Promise<ExtensionBinding | null>;
-  clearBinding?(): Promise<void>;
+  clearSessionBinding?(): Promise<void>;
   ensureSessionBinding?(): Promise<ExtensionBinding>;
   unlinkSession?(): Promise<void>;
   captureCoordinator?: CaptureCoordinator;
@@ -161,8 +231,11 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       if (sender.tab) return { ok: false, error: "unsupported-message" };
       try {
         return { ok: true, binding: await dependencies.ensureSessionBinding?.() };
-      } catch {
-        return { ok: false, error: "rebind-required" };
+      } catch (error) {
+        return {
+          ok: false,
+          error: sessionRenewalErrorCode(error) ?? "rebind-required",
+        };
       }
     }
 
@@ -181,6 +254,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
     }
 
     if (message.type === "START_SAFE_CAPTURE" && "tabId" in message) {
+      if (sender.tab) return { ok: false, error: "unsupported-message" };
       const active = await dependencies.queryActiveTab();
       const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
       if (
@@ -199,10 +273,12 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         pageSignature: message.pageSignature,
         url: active.url!,
       });
+      armedFullPageTabs.delete(message.tabId);
       return { ok: true };
     }
 
     if (message.type === "ARM_FULL_PAGE_CAPTURE") {
+      if (sender.tab) return { ok: false, error: "unsupported-message" };
       const active = await dependencies.queryActiveTab();
       const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
       if (
@@ -228,6 +304,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         lastCaptureAt: Number.NEGATIVE_INFINITY,
         inFlight: false,
       });
+      armedTabs.delete(message.tabId);
       return { ok: true };
     }
 
@@ -303,9 +380,16 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       if (!isActiveSupportedTab(tab, active)) {
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
-      const armed = armedTabs.get(tab.id!);
       const fullPageArmed = armedFullPageTabs.get(tab.id!);
-      const activeArm = armed ?? fullPageArmed;
+      const activeArm = message.captureSessionId === undefined
+        ? (fullPageArmed ? null : armedTabs.get(tab.id!))
+        : (fullPageArmed?.captureSessionId === message.captureSessionId ? fullPageArmed : null);
+      if (fullPageArmed && message.captureSessionId === undefined) {
+        return { ok: false, error: "capture-session-mismatch" };
+      }
+      if (message.captureSessionId !== undefined && !activeArm) {
+        return { ok: false, error: "capture-session-mismatch" };
+      }
       if (!activeArm || activeArm.expiresAt <= now()) {
         return { ok: false, error: "capture-not-armed" };
       }
@@ -317,9 +401,17 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       ) {
         return { ok: false, error: "capture-context-mismatch" };
       }
-      const binding = await dependencies.loadBinding?.();
+      let binding: ExtensionBinding | null | undefined;
+      try {
+        binding = await dependencies.loadBinding?.();
+      } catch (error) {
+        return {
+          ok: false,
+          error: sessionRenewalErrorCode(error) ?? "session-unavailable",
+        };
+      }
       if (!binding || Date.parse(binding.expiresAt) <= now()) {
-        await dependencies.clearBinding?.();
+        await dependencies.clearSessionBinding?.();
         return { ok: false, error: "rebind-required" };
       }
       return {
@@ -348,7 +440,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       ) {
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
-      await dependencies.clearBinding?.();
+      await dependencies.clearSessionBinding?.();
       return { ok: true };
     }
 
@@ -438,8 +530,8 @@ if (typeof chrome !== "undefined") {
     queryActiveTab: async () =>
       (await chrome.tabs.query({ active: true, currentWindow: true }))[0] ?? {},
     captureVisibleTab: (windowId, options) => chrome.tabs.captureVisibleTab(windowId, options),
-    loadBinding: () => sessionManager.ensureFreshBinding().catch(() => null),
-    clearBinding: () => sessionManager.unlink(),
+    loadBinding: () => sessionManager.ensureFreshBinding(),
+    clearSessionBinding: () => bindingStore.clear(),
     ensureSessionBinding: () => sessionManager.ensureFreshBinding(),
     unlinkSession: () => sessionManager.unlink(),
     captureCoordinator: coordinator,

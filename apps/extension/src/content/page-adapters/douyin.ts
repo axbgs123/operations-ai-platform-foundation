@@ -1,11 +1,13 @@
 import type { DetectionInput, PageAdapter, PageDetection } from "./base";
-import { stableFingerprint, unsupported } from "./utils";
+import { createPageSignatureTracker, unsupported } from "./utils";
 
 const version = "douyin-visible-tab-v1";
 
-export const createDouyinAdapter = (): PageAdapter => ({
-  platform: "douyin",
-  detect({ url }: DetectionInput): PageDetection {
+export const createDouyinAdapter = (): PageAdapter => {
+  const signature = createPageSignatureTracker("douyin", version);
+  return {
+    platform: "douyin",
+    detect({ url, document }: DetectionInput): PageDetection {
     const parsed = new URL(url);
     if (
       parsed.hostname !== "creator.douyin.com" ||
@@ -17,9 +19,10 @@ export const createDouyinAdapter = (): PageAdapter => ({
       supported: true,
       platform: "douyin",
       pageVersion: version,
-      signature: `douyin:${stableFingerprint([version, parsed.hostname, parsed.pathname])}`,
+      signature: signature(parsed, document),
       captureRegion: null,
       sensitiveRegions: [],
     };
-  },
-});
+    },
+  };
+};

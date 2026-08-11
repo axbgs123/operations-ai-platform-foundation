@@ -35,6 +35,7 @@ class IssuedExtensionToken:
 @dataclass(frozen=True)
 class AuthenticatedExtension:
     token_id: UUID
+    device_id: UUID | None
     workspace_id: UUID
     member_id: UUID
     client_id: str
@@ -181,6 +182,7 @@ class ExtensionTokenService:
         )
         return AuthenticatedExtension(
             token_id=record.id,
+            device_id=record.device_id,
             workspace_id=record.workspace_id,
             member_id=record.member_id,
             client_id=record.client_id,

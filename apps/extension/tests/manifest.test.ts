@@ -20,6 +20,7 @@ type Manifest = {
 const extensionRoot = resolve(import.meta.dirname, "..");
 const manifestPath = resolve(extensionRoot, "manifest.json");
 const metadataPath = resolve(extensionRoot, "src/build-metadata.ts");
+const installationGuidePath = resolve(extensionRoot, "../../docs/open-source/extension-installation.md");
 const distRoot = resolve(extensionRoot, "dist");
 
 async function readManifest(path = manifestPath): Promise<Manifest> {
@@ -139,6 +140,15 @@ describe("least-privilege Manifest V3", () => {
     );
     expect(packagedMetadata).toContain("creator.douyin.com");
     expect(packagedMetadata).toContain("creator.xiaohongshu.com");
+  });
+
+  it("keeps the installation handoff version and archive names aligned with the manifest", async () => {
+    const manifest = await readManifest();
+    const installationGuide = await readFile(installationGuidePath, "utf8");
+
+    expect(installationGuide).toContain(`当前扩展版本为 \`${manifest.version}\``);
+    expect(installationGuide).toContain(`operations-capture-extension-chrome-${manifest.version}.zip`);
+    expect(installationGuide).toContain(`版本为 \`${manifest.version}\``);
   });
 
   it("keeps packaged files free of secrets, accounts, screenshots, and server configuration", async () => {

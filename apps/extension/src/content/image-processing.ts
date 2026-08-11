@@ -1,4 +1,5 @@
 import type { Rect } from "./page-adapters/base";
+import { encodedDataUrlByteLength } from "../capture/data-url";
 
 export type ViewportMetrics = {
   width: number;
@@ -33,16 +34,15 @@ const canvas2d = (width: number, height: number) => {
   return { canvas, context };
 };
 
-const pngByteLength = (dataUrl: string) => {
-  const [prefix, encoded] = dataUrl.split(",", 2);
-  if (prefix !== "data:image/png;base64" || !encoded) throw new Error("invalid-png-output");
-  const padding = encoded.endsWith("==") ? 2 : encoded.endsWith("=") ? 1 : 0;
-  return Math.floor((encoded.length * 3) / 4) - padding;
-};
-
 const controlledPng = (canvas: HTMLCanvasElement) => {
   const output = canvas.toDataURL("image/png");
-  if (pngByteLength(output) > maxUploadBytes) throw new Error("image-exceeds-upload-limit");
+  let bytes: number;
+  try {
+    bytes = encodedDataUrlByteLength(output);
+  } catch {
+    throw new Error("invalid-png-output");
+  }
+  if (bytes > maxUploadBytes) throw new Error("image-exceeds-upload-limit");
   return output;
 };
 

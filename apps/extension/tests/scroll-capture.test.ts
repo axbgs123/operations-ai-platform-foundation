@@ -12,7 +12,7 @@ function createPage(overrides: Partial<ScrollCaptureDriverDependencies> = {}) {
   let now = 0;
   const stop = new AbortController();
   const scrollTo = vi.fn(({ top }: { top: number }) => { scrollY = top; });
-  const capture = vi.fn(async () => `data:image/png;base64,${capture.mock.calls.length}`);
+  const capture = vi.fn(async () => "data:image/png;base64,c2xpY2U=");
   const page = {
     getScrollY: () => scrollY,
     getMetrics: () => ({ scrollHeight: height, viewportWidth, viewportHeight: 100, devicePixelRatio: dpr }),
@@ -86,7 +86,24 @@ describe("ScrollCaptureDriver", () => {
     const result = await new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 });
 
     expect(result).toMatchObject({ complete: true, stopReason: "bottom" });
-    expect(result.slices.map(({ scrollY }) => scrollY)).toEqual([0, 800, 1_600, 2_400, 3_200, 3_200]);
+    expect(result.slices.map(({ scrollY }) => scrollY)).toEqual([0, 800, 1_600, 2_400, 3_200]);
+    expect(fixture.capture).toHaveBeenCalledTimes(6);
+  });
+
+  it("discards an animated duplicate bottom observation and reports a partial capture", async () => {
+    const fixture = createPage({
+      getMetrics: () => ({ scrollHeight: 100, viewportWidth: 100, viewportHeight: 100, devicePixelRatio: 1 }),
+    });
+    fixture.capture.mockImplementation(async () =>
+      `data:image/png;base64,${Buffer.from(`frame-${fixture.capture.mock.calls.length}`).toString("base64")}`);
+
+    await expect(new ScrollCaptureDriver(fixture.page).capture({ maxSlices: 30, timeoutMs: 20_000 }))
+      .resolves.toMatchObject({
+        complete: false,
+        partialReason: "bottom-unstable",
+        slices: [expect.objectContaining({ sequence: 0, scrollY: 0 })],
+      });
+    expect(fixture.capture).toHaveBeenCalledTimes(2);
   });
 
   it("spaces screenshots by at least 500ms and reports a time limit partial", async () => {

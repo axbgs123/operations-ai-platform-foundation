@@ -60,6 +60,8 @@ test("generates a server-expiring pairing code only for an editor", async () => 
   expect(await screen.findByText("ABCD2345")).toBeVisible();
   expect(screen.getByText(/5 分钟内有效/)).toBeVisible();
   expect(screen.getByText("保持连接，直到你或管理员解除")).toBeVisible();
+  expect(screen.getByText(/默认快捷键.*Command\/Ctrl \+ Shift \+ 8/)).toBeVisible();
+  expect(screen.getByText(/以扩展弹窗显示的实际分配结果为准/)).toBeVisible();
   expect(screen.getByText("http://127.0.0.1:51201")).toBeVisible();
   expect(createExtensionPairingCode).toHaveBeenCalledWith(
     "workspace-1",
@@ -292,6 +294,8 @@ test("shows no pairing-code write action to a viewer", () => {
 
   expect(screen.getByText("查看者只能查看扩展连接说明。请联系管理员或编辑者生成连接码。")).toBeVisible();
   expect(screen.getByText("保持连接，直到你或管理员解除")).toBeVisible();
+  expect(screen.getByText(/默认快捷键.*Command\/Ctrl \+ Shift \+ 8/)).toBeVisible();
+  expect(screen.getByText(/以扩展弹窗显示的实际分配结果为准/)).toBeVisible();
   expect(screen.queryByRole("button", { name: "连接扩展" })).toBeNull();
   expect(screen.queryByRole("button", { name: "生成连接码" })).toBeNull();
 });

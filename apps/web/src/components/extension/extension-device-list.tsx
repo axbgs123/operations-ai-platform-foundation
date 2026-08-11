@@ -184,12 +184,15 @@ export function ExtensionDeviceList({
         <div>
           <h2 className="text-lg font-semibold" id="extension-devices-heading">已连接的浏览器设备</h2>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            只显示设备名称、浏览器、扩展版本和使用时间；不会显示设备密钥、指纹或连接凭据。
+            只显示设备名称、设备描述、扩展版本和最近一次会话签发时间；不会显示设备密钥、指纹或连接凭据。
           </p>
         </div>
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold">
-          采集快捷键：<kbd>{captureShortcut()}</kbd>
-        </p>
+        <div className="max-w-sm rounded-lg bg-slate-50 px-3 py-2 text-sm">
+          <p className="font-semibold"><span>默认快捷键：</span><kbd>{captureShortcut()}</kbd></p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">
+            浏览器可能因自定义或快捷键冲突而显示不同按键；请以扩展弹窗显示的实际分配结果为准。
+          </p>
+        </div>
       </div>
       <div className="mt-4 md:hidden">
         <DesktopOnlyNotice
@@ -220,10 +223,10 @@ export function ExtensionDeviceList({
                 <div>
                   <h3 className="font-semibold">{device.label}</h3>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    {device.browser} · 扩展 {device.extension_version}
+                    {device.device_description} · 扩展 {device.extension_version}
                   </p>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    连接于 {displayDate(device.created_at)} · 最近使用 {displayDate(device.last_used_at)}
+                    连接于 {displayDate(device.created_at)} · 最近会话签发 {displayDate(device.last_session_issued_at)}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">

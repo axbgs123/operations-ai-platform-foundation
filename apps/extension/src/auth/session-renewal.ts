@@ -27,6 +27,21 @@ const defaultRequestTimeoutMs = 10_000;
 
 class TerminalSessionError extends Error {}
 
+export type SessionRenewalErrorCode = "rebind-required" | "session-unavailable";
+
+export class SessionRenewalError extends Error {
+  readonly code: SessionRenewalErrorCode;
+
+  constructor(code: SessionRenewalErrorCode) {
+    super(code);
+    this.name = "SessionRenewalError";
+    this.code = code;
+  }
+}
+
+export const sessionRenewalErrorCode = (error: unknown): SessionRenewalErrorCode | null =>
+  error instanceof SessionRenewalError ? error.code : null;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -71,11 +86,11 @@ export function createSessionManager(dependencies: SessionManagerDependencies): 
 
   const terminal = async (): Promise<never> => {
     await Promise.allSettled([dependencies.sessionStore.clear(), dependencies.registrations.clear(), dependencies.keyStore.clear()]);
-    throw new Error("rebind-required");
+    throw new SessionRenewalError("rebind-required");
   };
   const retryable = async (): Promise<never> => {
     await Promise.allSettled([dependencies.sessionStore.clear()]);
-    throw new Error("session-unavailable");
+    throw new SessionRenewalError("session-unavailable");
   };
   const requireCurrentGeneration = (startedGeneration: number) => {
     if (generation !== startedGeneration) throw new TerminalSessionError();

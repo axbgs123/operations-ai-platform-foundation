@@ -124,6 +124,19 @@ describe("persistent device sessions", () => {
     expect(await device.sign(new Uint8Array([1, 2, 3]))).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
+  it("serializes concurrent get-or-create calls so one persisted private key wins", async () => {
+    const keyStore = createMemoryDeviceKeyStore(cryptoApi);
+
+    const [first, second] = await Promise.all([
+      keyStore.getOrCreate(),
+      keyStore.getOrCreate(),
+    ]);
+
+    expect(second.deviceId).toBe(first.deviceId);
+    expect((await keyStore.load())?.deviceId).toBe(first.deviceId);
+    await expect(first.sign(new Uint8Array([7, 8, 9]))).resolves.toMatch(/^[A-Za-z0-9_-]+$/);
+  });
+
   it("rejects a persisted key whose public JWK does not verify its private signer", async () => {
     const state: MemoryDeviceKeyStoreState = { record: null };
     const keyStore = createMemoryDeviceKeyStore(cryptoApi, state);

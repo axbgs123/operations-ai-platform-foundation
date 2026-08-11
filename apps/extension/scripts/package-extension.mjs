@@ -63,8 +63,20 @@ const packageJson = JSON.parse(
   await readFile(resolve(root, "package.json"), "utf8"),
 );
 const builtManifest = JSON.parse(await readFile(resolve(dist, "manifest.json"), "utf8"));
-if (packageJson.version !== "0.3.0" || builtManifest.version !== packageJson.version) {
-  throw new Error("extension package and built manifest must both be version 0.3.0");
+const sourceManifest = JSON.parse(await readFile(resolve(root, "manifest.json"), "utf8"));
+const installationGuide = await readFile(
+  resolve(root, "../../docs/open-source/extension-installation.md"),
+  "utf8",
+);
+if (sourceManifest.version !== packageJson.version || builtManifest.version !== packageJson.version) {
+  throw new Error("extension package, source manifest, and built manifest versions must match");
+}
+if (
+  !installationGuide.includes(`当前扩展版本为 \`${packageJson.version}\``) ||
+  !installationGuide.includes(`operations-capture-extension-chrome-${packageJson.version}.zip`) ||
+  !installationGuide.includes(`版本为 \`${packageJson.version}\``)
+) {
+  throw new Error("extension installation guide must match the package version and Chrome archive name");
 }
 const sharedSchemasPackageJson = JSON.parse(
   await readFile(resolve(root, "../../packages/shared-schemas/package.json"), "utf8"),

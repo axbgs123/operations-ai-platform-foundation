@@ -23,13 +23,13 @@ vi.mock("@/lib/extension-device-api", () => ({
 }));
 
 const device = {
-  browser: "Chrome",
+  device_description: "Chrome",
   created_at: "2026-08-10T01:00:00.000Z",
   device_id: "device-1",
   extension_version: "0.3.0",
   fingerprint: "private-fingerprint",
   label: "运营电脑",
-  last_used_at: "2026-08-10T02:00:00.000Z",
+  last_session_issued_at: "2026-08-10T02:00:00.000Z",
   public_jwk: { kty: "EC", crv: "P-256", x: "private-x", y: "private-y" },
   revoked_at: null,
   status: "active" as const,
@@ -51,13 +51,15 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-test("shows the actual shortcut and only safe device fields before an admin revokes", async () => {
+test("labels the platform shortcut as a default and only safe device fields before an admin revokes", async () => {
   listExtensionDevices.mockResolvedValue([device]);
   revokeExtensionDevice.mockResolvedValue(undefined);
   const user = userEvent.setup();
   render(<ExtensionDeviceList role="admin" workspaceId="workspace-1" />);
 
-  expect(await screen.findByText("Command + Shift + 8")).toBeVisible();
+  expect(await screen.findByText("默认快捷键：")).toBeVisible();
+  expect(screen.getByText("Command + Shift + 8")).toBeVisible();
+  expect(screen.getByText(/浏览器可能因自定义或快捷键冲突而显示不同按键/)).toBeVisible();
   expect(screen.getByText("运营电脑")).toBeVisible();
   expect(screen.getByText("Chrome · 扩展 0.3.0")).toBeVisible();
   expect(document.body).not.toHaveTextContent("private-fingerprint");

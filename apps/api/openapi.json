@@ -2141,6 +2141,41 @@
         "title": "Capability",
         "type": "string"
       },
+      "CaptureMode": {
+        "enum": [
+          "full-page",
+          "visible",
+          "region"
+        ],
+        "title": "CaptureMode",
+        "type": "string"
+      },
+      "CaptureStopReason": {
+        "enum": [
+          "bottom",
+          "slice-limit",
+          "time-limit",
+          "cancelled",
+          "page-hidden",
+          "pagehide",
+          "window-blur",
+          "page-drift",
+          "capture-failed",
+          "empty",
+          "invalid-slice-order",
+          "pixel-limit",
+          "edge-limit",
+          "encoded-size",
+          "canvas-failed",
+          "dimension-mismatch",
+          "bottom-unstable",
+          "overlap-unverified",
+          "visible",
+          "region"
+        ],
+        "title": "CaptureStopReason",
+        "type": "string"
+      },
       "CaptureTaskStatus": {
         "enum": [
           "queued",
@@ -5842,10 +5877,17 @@
       "ExtensionCaptureRequest": {
         "additionalProperties": false,
         "properties": {
+          "capture_mode": {
+            "$ref": "#/components/schemas/CaptureMode"
+          },
           "collected_at": {
             "format": "date-time",
             "title": "Collected At",
             "type": "string"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
           },
           "page_identifier": {
             "maxLength": 160,
@@ -5867,6 +5909,15 @@
             "minLength": 20,
             "title": "Screenshot Data Url",
             "type": "string"
+          },
+          "slice_count": {
+            "maximum": 30.0,
+            "minimum": 0.0,
+            "title": "Slice Count",
+            "type": "integer"
+          },
+          "stop_reason": {
+            "$ref": "#/components/schemas/CaptureStopReason"
           }
         },
         "required": [
@@ -5874,13 +5925,22 @@
           "page_version",
           "page_identifier",
           "collected_at",
-          "screenshot_data_url"
+          "screenshot_data_url",
+          "capture_mode",
+          "complete",
+          "stop_reason",
+          "slice_count"
         ],
         "title": "ExtensionCaptureRequest",
         "type": "object"
       },
       "ExtensionCaptureTaskRead": {
         "properties": {
+          "capture_metadata": {
+            "additionalProperties": true,
+            "title": "Capture Metadata",
+            "type": "object"
+          },
           "error": {
             "anyOf": [
               {
@@ -5973,7 +6033,8 @@
           "error",
           "formal_snapshot_ids",
           "provider_mode",
-          "region"
+          "region",
+          "capture_metadata"
         ],
         "title": "ExtensionCaptureTaskRead",
         "type": "object"
@@ -6017,13 +6078,13 @@
       },
       "ExtensionDeviceRead": {
         "properties": {
-          "browser": {
-            "title": "Browser",
-            "type": "string"
-          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
+            "type": "string"
+          },
+          "device_description": {
+            "title": "Device Description",
             "type": "string"
           },
           "device_id": {
@@ -6039,7 +6100,7 @@
             "title": "Label",
             "type": "string"
           },
-          "last_used_at": {
+          "last_session_issued_at": {
             "anyOf": [
               {
                 "format": "date-time",
@@ -6049,7 +6110,7 @@
                 "type": "null"
               }
             ],
-            "title": "Last Used At"
+            "title": "Last Session Issued At"
           },
           "revoked_at": {
             "anyOf": [
@@ -6075,10 +6136,10 @@
         "required": [
           "device_id",
           "label",
-          "browser",
+          "device_description",
           "extension_version",
           "created_at",
-          "last_used_at",
+          "last_session_issued_at",
           "status",
           "revoked_at"
         ],
@@ -15628,6 +15689,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Pair Extension",
@@ -15679,6 +15750,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Create Extension Session Challenge",
@@ -15730,6 +15811,16 @@
               }
             },
             "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionSafeError"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Renew Extension Session",

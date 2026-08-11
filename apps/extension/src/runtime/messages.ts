@@ -35,7 +35,7 @@ export type EndFullPageCaptureMessage = {
   type: "END_FULL_PAGE_CAPTURE";
   captureSessionId: string;
 };
-export type GetCaptureBindingMessage = { type: "GET_CAPTURE_BINDING" } & CaptureContext;
+export type GetCaptureBindingMessage = { type: "GET_CAPTURE_BINDING"; captureSessionId?: string } & CaptureContext;
 export type ClearCaptureBindingMessage = { type: "CLEAR_CAPTURE_BINDING" } & CaptureContext;
 export type OpenReviewMessage = { type: "OPEN_REVIEW"; url: string };
 export type GetSessionBindingMessage = { type: "GET_SESSION_BINDING" };
@@ -151,7 +151,12 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
   }
   if (
     (value.type === "GET_CAPTURE_BINDING" || value.type === "CLEAR_CAPTURE_BINDING") &&
-    hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature"]) &&
+    (
+      hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature"]) ||
+      (value.type === "GET_CAPTURE_BINDING" &&
+        hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature", "captureSessionId"]) &&
+        typeof value.captureSessionId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value.captureSessionId))
+    ) &&
     (value.platform === "douyin" || value.platform === "xiaohongshu") &&
     typeof value.pageVersion === "string" &&
     value.pageVersion.length > 0 &&
@@ -165,6 +170,7 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
       platform: value.platform,
       pageVersion: value.pageVersion,
       pageSignature: value.pageSignature,
+      ...(typeof value.captureSessionId === "string" ? { captureSessionId: value.captureSessionId } : {}),
     };
   }
   if (

@@ -102,4 +102,47 @@ describe("platform page adapters", () => {
       platform: null,
     });
   });
+
+  it.each([
+    ["douyin", createDouyinAdapter, "https://creator.douyin.com/creator-micro/content/manage?tab=all"],
+    ["xiaohongshu", createXiaohongshuAdapter, "https://creator.xiaohongshu.com/publish/publish-manage?tab=all"],
+  ] as const)("detects same-route %s row replacement but ignores append-only lazy growth", (_platform, createAdapter, url) => {
+    const dom = new JSDOM(`<!doctype html><body>
+      <div data-account-id="fixture-account"></div>
+      <button aria-selected="true">全部作品</button>
+      <article data-content-id="row-1">第一条内容</article>
+      <article data-content-id="row-2">第二条内容</article>
+    </body>`);
+    const adapter = createAdapter();
+    const first = adapter.detect({ url, document: dom.window.document }).signature;
+
+    const appended = dom.window.document.createElement("article");
+    appended.dataset.contentId = "row-3";
+    appended.textContent = "延迟加载的新内容";
+    dom.window.document.body.append(appended);
+    expect(adapter.detect({ url, document: dom.window.document }).signature).toBe(first);
+
+    dom.window.document.querySelector<HTMLElement>('[data-content-id="row-1"]')!.textContent = "同路由替换后的内容";
+    expect(adapter.detect({ url, document: dom.window.document }).signature).not.toBe(first);
+  });
+
+  it("includes stable query and selected account/filter anchors in the signature", () => {
+    const dom = new JSDOM('<!doctype html><body><div data-account-id="account-a"></div><button aria-selected="true">全部</button></body>');
+    const adapter = createDouyinAdapter();
+    const first = adapter.detect({
+      url: "https://creator.douyin.com/creator-micro/content/manage?status=published",
+      document: dom.window.document,
+    }).signature;
+    dom.window.document.querySelector<HTMLElement>("[data-account-id]")!.dataset.accountId = "account-b";
+    const accountChanged = adapter.detect({
+      url: "https://creator.douyin.com/creator-micro/content/manage?status=published",
+      document: dom.window.document,
+    }).signature;
+    const queryChanged = adapter.detect({
+      url: "https://creator.douyin.com/creator-micro/content/manage?status=draft",
+      document: dom.window.document,
+    }).signature;
+    expect(accountChanged).not.toBe(first);
+    expect(queryChanged).not.toBe(accountChanged);
+  });
 });

@@ -23,6 +23,7 @@ export type PartialCaptureReason =
   | "pagehide"
   | "window-blur"
   | "page-drift"
+  | "bottom-unstable"
   | "capture-failed";
 
 export type FullPageCaptureResult = {
@@ -40,7 +41,8 @@ export type StitchedCapture = {
   height: number;
   complete: boolean;
   croppedOverlapPixels: number;
-  partialReason?: "empty" | "invalid-slice-order" | "pixel-limit" | "edge-limit" | "encoded-size" | "canvas-failed" | "dimension-mismatch";
+  sliceCount: number;
+  partialReason?: "empty" | "invalid-slice-order" | "pixel-limit" | "edge-limit" | "encoded-size" | "canvas-failed" | "dimension-mismatch" | "overlap-unverified";
 };
 
 export type StitchLimits = {
