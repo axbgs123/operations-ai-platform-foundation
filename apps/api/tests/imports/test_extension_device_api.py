@@ -108,6 +108,45 @@ def test_pair_registers_device_and_retries_are_idempotent_for_the_same_identity(
             )
 
 
+def test_pairing_infrastructure_failure_matches_the_documented_retryable_status() -> None:
+    """The pair route must not advertise 503 while returning 500 for the same outage."""
+
+    class UnavailablePairingService:
+        def __init__(self, _session):
+            pass
+
+        def redeem(self, *_args, **_kwargs):
+            raise RuntimeError("isolated pairing storage outage")
+
+    with configured_client() as (client, _):
+        workspace, login = _create_workspace_session(client)
+        code = client.post(
+            f"/v1/workspaces/{workspace['workspace_id']}/extension-pairing-codes",
+            headers={"X-CSRF-Token": login["csrf_token"]},
+        )
+        _, public_key = _public_key()
+        original = extension_router_module.ExtensionPairingService
+        try:
+            extension_router_module.ExtensionPairingService = UnavailablePairingService
+            response = client.post(
+                "/v1/extension/pair",
+                headers={"X-Extension-Client": CLIENT_ID},
+                json={
+                    "pairing_code": code.json()["pairing_code"],
+                    "client_id": CLIENT_ID,
+                    "device_id": str(uuid4()),
+                    "device_public_key_jwk": public_key,
+                    "device_label": "Chrome on macOS",
+                    "extension_version": "0.3.0",
+                },
+            )
+        finally:
+            extension_router_module.ExtensionPairingService = original
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "pairing unavailable"}
+
+
 def test_challenge_renewal_uses_one_time_signature_and_safe_failures() -> None:
     """Reusing a challenge or revealing a device lookup would weaken session renewal."""
     with configured_client() as (client, _):

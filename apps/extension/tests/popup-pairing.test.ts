@@ -171,6 +171,26 @@ describe("capture extension pairing popup", () => {
   });
 
   it.each([
+    ["rebind-required", "连接已失效，请重新输入连接码。", false],
+    ["session-unavailable", "连接暂时不可用；设备身份已保留，请稍后重试。", true],
+  ])("distinguishes %s renewal failures in the popup", async (code, message, identityPreserved) => {
+    const dom = popup();
+    const controller = createPopupController(dom.window.document, {
+      store: { load: async () => null, save: async () => undefined, clear: async () => undefined },
+      pair: vi.fn(),
+      revoke: vi.fn(),
+      getPageStatus: vi.fn(),
+      startSafeCapture: vi.fn(),
+      ensureFreshBinding: vi.fn().mockRejectedValue(Object.assign(new Error(code), { code })),
+    });
+
+    await controller.render();
+
+    expect(dom.window.document.querySelector("#status")?.textContent).toBe(message);
+    expect(dom.window.document.querySelector("#status")?.textContent?.includes("身份已保留")).toBe(identityPreserved);
+  });
+
+  it.each([
     ["fetch rejection", async () => { throw new Error("offline"); }],
     ["non-2xx response", async () => { throw new Error("503"); }],
     ["normal 204", async () => undefined],

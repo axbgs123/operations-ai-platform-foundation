@@ -501,7 +501,7 @@ def pair_extension(
             started_at=started_at,
             error_code="EXTENSION_PAIR_INTERNAL_FAILURE",
         )
-        raise HTTPException(status_code=500, detail="pairing unavailable") from error
+        raise HTTPException(status_code=503, detail="pairing unavailable") from error
     _emit_pairing_event(
         event="extension.pairing.succeeded",
         message_code="EXTENSION_PAIR_SUCCEEDED",

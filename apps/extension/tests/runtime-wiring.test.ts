@@ -20,6 +20,7 @@ const captureContext = {
 const armMessage = {
   type: "START_SAFE_CAPTURE" as const,
   tabId: 7,
+  armGeneration: 1,
   ...captureContext,
 };
 
@@ -111,6 +112,7 @@ describe("extension runtime message boundary", () => {
     const arm = {
       type: "ARM_FULL_PAGE_CAPTURE" as const,
       tabId: 7,
+      armGeneration: 1,
       captureSessionId: "ending-session",
       ...captureContext,
       url: supportedTab.url,
@@ -350,6 +352,7 @@ describe("extension runtime message boundary", () => {
     const arm = {
       type: "ARM_FULL_PAGE_CAPTURE" as const,
       tabId: 7,
+      armGeneration: 1,
       captureSessionId: "session-1",
       ...captureContext,
       url: supportedTab.url,
@@ -388,6 +391,7 @@ describe("extension runtime message boundary", () => {
     const fullArm = {
       type: "ARM_FULL_PAGE_CAPTURE" as const,
       tabId: 7,
+      armGeneration: 1,
       captureSessionId: "session-bound",
       ...captureContext,
       url: supportedTab.url,
@@ -422,20 +426,21 @@ describe("extension runtime message boundary", () => {
     const fullArm = {
       type: "ARM_FULL_PAGE_CAPTURE" as const,
       tabId: 7,
+      armGeneration: 2,
       captureSessionId: "full-replacement",
       ...captureContext,
       url: supportedTab.url,
       viewport: { width: 100, height: 100, devicePixelRatio: 1 },
       scrollY: 0,
     };
-    await handler(armMessage, {});
+    await handler({ ...armMessage, armGeneration: 1 }, {});
     await handler(fullArm, {});
     await expect(handler(
       { type: "CAPTURE_VISIBLE_TAB", pageSignature: captureContext.pageSignature },
       { tab: supportedTab },
     )).resolves.toEqual({ ok: false, error: "capture-not-armed" });
 
-    await handler(armMessage, {});
+    await handler({ ...armMessage, armGeneration: 3 }, {});
     await expect(handler(
       { type: "CAPTURE_FULL_PAGE_SLICE", captureSessionId: "full-replacement", sequence: 0, ...captureContext, url: supportedTab.url, viewport: fullArm.viewport, scrollY: 0 },
       { tab: supportedTab },
@@ -510,11 +515,109 @@ describe("extension runtime message boundary", () => {
     });
   });
 
+  it("keeps the newest real full-page arm when an older active-tab lookup completes late", async () => {
+    let resolveOldQuery!: (tab: typeof supportedTab) => void;
+    let queryCount = 0;
+    const queryActiveTab = vi.fn(() => {
+      queryCount += 1;
+      if (queryCount === 1) {
+        return new Promise<typeof supportedTab>((resolve) => { resolveOldQuery = resolve; });
+      }
+      return Promise.resolve(supportedTab);
+    });
+    const ids = ["old-real-arm", "new-real-arm"];
+    let handler!: ReturnType<typeof createBackgroundMessageHandler>;
+    const coordinator = createCaptureCoordinator({
+      getPageStatus: vi.fn().mockResolvedValue({
+        supported: true,
+        ...captureContext,
+        url: supportedTab.url,
+        viewport: { width: 100, height: 100, devicePixelRatio: 1 },
+        scrollY: 0,
+      }),
+      arm: (message) => handler(message, {}),
+      startContent: vi.fn().mockResolvedValue({ ok: true }),
+      endFullPageCapture: (tabId, captureSessionId) => handler(
+        { type: "END_FULL_PAGE_CAPTURE", captureSessionId },
+        { tab: { id: tabId } },
+      ),
+      uuid: () => ids.shift()!,
+    });
+    handler = createBackgroundMessageHandler({
+      queryActiveTab,
+      captureVisibleTab: vi.fn(),
+      now: () => 1_000,
+      loadBinding: vi.fn().mockResolvedValue({
+        ...storedBinding,
+        expiresAt: "2030-01-01T00:00:00Z",
+      }),
+      captureCoordinator: coordinator,
+    });
+
+    const oldStart = coordinator.startCapture("full-page", supportedTab);
+    await vi.waitFor(() => expect(queryActiveTab).toHaveBeenCalledOnce());
+    await coordinator.startCapture("full-page", supportedTab);
+    resolveOldQuery(supportedTab);
+    await expect(oldStart).rejects.toThrow("capture-replaced");
+
+    await expect(handler(
+      { type: "GET_CAPTURE_BINDING", captureSessionId: "new-real-arm", ...captureContext },
+      { tab: supportedTab },
+    )).resolves.toMatchObject({ ok: true });
+  });
+
+  it("keeps a newer visible arm when an older full-page active-tab lookup completes late", async () => {
+    let resolveOldQuery!: (tab: typeof supportedTab) => void;
+    let queryCount = 0;
+    const queryActiveTab = vi.fn(() => {
+      queryCount += 1;
+      if (queryCount === 1) {
+        return new Promise<typeof supportedTab>((resolve) => { resolveOldQuery = resolve; });
+      }
+      return Promise.resolve(supportedTab);
+    });
+    let handler!: ReturnType<typeof createBackgroundMessageHandler>;
+    const captureVisibleTab = vi.fn().mockResolvedValue("data:image/png;base64,U0FGRQ==");
+    const coordinator = createCaptureCoordinator({
+      getPageStatus: vi.fn().mockResolvedValue({
+        supported: true,
+        ...captureContext,
+        url: supportedTab.url,
+        viewport: { width: 100, height: 100, devicePixelRatio: 1 },
+        scrollY: 0,
+      }),
+      arm: (message) => handler(message, {}),
+      startContent: vi.fn().mockResolvedValue({ ok: true }),
+      endFullPageCapture: (tabId, captureSessionId) => handler(
+        { type: "END_FULL_PAGE_CAPTURE", captureSessionId },
+        { tab: { id: tabId } },
+      ),
+      uuid: () => "old-full-page",
+    });
+    handler = createBackgroundMessageHandler({
+      queryActiveTab,
+      captureVisibleTab,
+      now: () => 1_000,
+      captureCoordinator: coordinator,
+    });
+
+    const oldStart = coordinator.startCapture("full-page", supportedTab);
+    await vi.waitFor(() => expect(queryActiveTab).toHaveBeenCalledOnce());
+    await coordinator.startCapture("visible", supportedTab);
+    resolveOldQuery(supportedTab);
+    await expect(oldStart).rejects.toThrow("capture-replaced");
+
+    await expect(handler(
+      { type: "CAPTURE_VISIBLE_TAB", pageSignature: captureContext.pageSignature },
+      { tab: supportedTab },
+    )).resolves.toEqual({ ok: true, dataUrl: "data:image/png;base64,U0FGRQ==" });
+  });
+
   it("atomically reserves a full-page sequence and rejects a concurrent duplicate", async () => {
     let resolveCapture: ((value: string) => void) | undefined;
     const captureVisibleTab = vi.fn(() => new Promise<string>((resolve) => { resolveCapture = resolve; }));
     const handler = createBackgroundMessageHandler({ queryActiveTab: vi.fn().mockResolvedValue(supportedTab), captureVisibleTab, now: () => 1_000 });
-    const arm = { type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, captureSessionId: "session-1", ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
+    const arm = { type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, armGeneration: 1, captureSessionId: "session-1", ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
     const slice = { type: "CAPTURE_FULL_PAGE_SLICE" as const, captureSessionId: "session-1", sequence: 0, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
     await handler(arm, {});
     const first = handler(slice, { tab: supportedTab });
@@ -529,7 +632,7 @@ describe("extension runtime message boundary", () => {
     let now = 1_000;
     const captureVisibleTab = vi.fn(async () => { now = 21_001; return "data:image/png;base64,LATE"; });
     const handler = createBackgroundMessageHandler({ queryActiveTab: vi.fn().mockResolvedValue(supportedTab), captureVisibleTab, now: () => now });
-    const arm = { type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, captureSessionId: "session-1", ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
+    const arm = { type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, armGeneration: 1, captureSessionId: "session-1", ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
     const slice = { type: "CAPTURE_FULL_PAGE_SLICE" as const, captureSessionId: "session-1", sequence: 0, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 };
     await handler(arm, {});
     await expect(handler(slice, { tab: supportedTab })).resolves.toEqual({ ok: false, error: "capture-not-armed" });
@@ -542,12 +645,12 @@ describe("extension runtime message boundary", () => {
       .mockResolvedValueOnce("data:image/png;base64,NEW");
     const handler = createBackgroundMessageHandler({ queryActiveTab: vi.fn().mockResolvedValue(supportedTab), captureVisibleTab, now: () => 1_000 });
     const message = (captureSessionId: string) => ({ type: "CAPTURE_FULL_PAGE_SLICE" as const, captureSessionId, sequence: 0, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 });
-    const arm = (captureSessionId: string) => ({ type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, captureSessionId, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 });
-    await handler(arm("old"), {});
+    const arm = (captureSessionId: string, armGeneration: number) => ({ type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, armGeneration, captureSessionId, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 });
+    await handler(arm("old", 1), {});
     const old = handler(message("old"), { tab: supportedTab });
     await vi.waitFor(() => expect(captureVisibleTab).toHaveBeenCalledOnce());
     await handler({ type: "END_FULL_PAGE_CAPTURE", captureSessionId: "old" }, { tab: supportedTab });
-    await handler(arm("new"), {});
+    await handler(arm("new", 2), {});
     resolveOld?.("data:image/png;base64,OLD");
     await expect(old).resolves.toEqual({ ok: false, error: "capture-not-armed" });
     await expect(handler(message("new"), { tab: supportedTab })).resolves.toEqual({ ok: true, dataUrl: "data:image/png;base64,NEW" });
@@ -560,12 +663,12 @@ describe("extension runtime message boundary", () => {
       .mockResolvedValueOnce("data:image/png;base64,NEW");
     const handler = createBackgroundMessageHandler({ queryActiveTab: vi.fn().mockResolvedValue(supportedTab), captureVisibleTab, now: () => 1_000 });
     const message = (captureSessionId: string) => ({ type: "CAPTURE_FULL_PAGE_SLICE" as const, captureSessionId, sequence: 0, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 });
-    const arm = (captureSessionId: string) => ({ type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, captureSessionId, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 });
-    await handler(arm("old"), {});
+    const arm = (captureSessionId: string, armGeneration: number) => ({ type: "ARM_FULL_PAGE_CAPTURE" as const, tabId: 7, armGeneration, captureSessionId, ...captureContext, url: supportedTab.url, viewport: { width: 100, height: 100, devicePixelRatio: 1 }, scrollY: 420 });
+    await handler(arm("old", 1), {});
     const old = handler(message("old"), { tab: supportedTab });
     await vi.waitFor(() => expect(captureVisibleTab).toHaveBeenCalledOnce());
     await handler({ type: "END_FULL_PAGE_CAPTURE", captureSessionId: "old" }, { tab: supportedTab });
-    await handler(arm("new"), {});
+    await handler(arm("new", 2), {});
     rejectOld?.(new Error("old failed"));
     await expect(old).resolves.toEqual({ ok: false, error: "capture-not-armed" });
     await expect(handler(message("new"), { tab: supportedTab })).resolves.toEqual({ ok: true, dataUrl: "data:image/png;base64,NEW" });

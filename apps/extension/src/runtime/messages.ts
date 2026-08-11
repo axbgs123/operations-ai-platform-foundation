@@ -12,7 +12,7 @@ export type CaptureContext = {
 };
 export type StartSafeCaptureMessage =
   | { type: "START_SAFE_CAPTURE" }
-  | ({ type: "START_SAFE_CAPTURE"; tabId: number } & CaptureContext);
+  | ({ type: "START_SAFE_CAPTURE"; tabId: number; armGeneration: number } & CaptureContext);
 export type CaptureVisibleTabMessage = {
   type: "CAPTURE_VISIBLE_TAB";
   pageSignature: string;
@@ -26,6 +26,7 @@ export type FullPageCaptureMetadata = CaptureContext & {
 export type ArmFullPageCaptureMessage = {
   type: "ARM_FULL_PAGE_CAPTURE";
   tabId: number;
+  armGeneration: number;
 } & FullPageCaptureMetadata;
 export type CaptureFullPageSliceMessage = {
   type: "CAPTURE_FULL_PAGE_SLICE";
@@ -105,11 +106,13 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
   }
   if (
     value.type === "ARM_FULL_PAGE_CAPTURE" &&
-    hasExactKeys(value, ["type", "tabId", "captureSessionId", "platform", "pageVersion", "pageSignature", "url", "viewport", "scrollY"]) &&
-    Number.isSafeInteger(value.tabId) && Number(value.tabId) >= 0 && validFullPageMetadata(value)
+    hasExactKeys(value, ["type", "tabId", "armGeneration", "captureSessionId", "platform", "pageVersion", "pageSignature", "url", "viewport", "scrollY"]) &&
+    Number.isSafeInteger(value.tabId) && Number(value.tabId) >= 0 &&
+    Number.isSafeInteger(value.armGeneration) && Number(value.armGeneration) > 0 &&
+    validFullPageMetadata(value)
   ) {
     return {
-      type: "ARM_FULL_PAGE_CAPTURE", tabId: Number(value.tabId), captureSessionId: value.captureSessionId,
+      type: "ARM_FULL_PAGE_CAPTURE", tabId: Number(value.tabId), armGeneration: Number(value.armGeneration), captureSessionId: value.captureSessionId,
       platform: value.platform, pageVersion: value.pageVersion, pageSignature: value.pageSignature,
       url: value.url, viewport: value.viewport, scrollY: value.scrollY,
     };
@@ -128,9 +131,11 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
   if (value.type === "START_SAFE_CAPTURE") {
     if (hasExactKeys(value, ["type"])) return { type: "START_SAFE_CAPTURE" };
     if (
-      hasExactKeys(value, ["type", "tabId", "platform", "pageVersion", "pageSignature"]) &&
+      hasExactKeys(value, ["type", "tabId", "armGeneration", "platform", "pageVersion", "pageSignature"]) &&
       Number.isSafeInteger(value.tabId) &&
       Number(value.tabId) >= 0 &&
+      Number.isSafeInteger(value.armGeneration) &&
+      Number(value.armGeneration) > 0 &&
       (value.platform === "douyin" || value.platform === "xiaohongshu") &&
       typeof value.pageVersion === "string" &&
       value.pageVersion.length > 0 &&
@@ -142,6 +147,7 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
       return {
         type: "START_SAFE_CAPTURE",
         tabId: Number(value.tabId),
+        armGeneration: Number(value.armGeneration),
         platform: value.platform,
         pageVersion: value.pageVersion,
         pageSignature: value.pageSignature,

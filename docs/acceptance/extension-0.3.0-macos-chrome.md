@@ -30,7 +30,7 @@
 - `apps/extension/release/unpacked`：11 个文件，可直接由用户加载。
 - `apps/extension/release/operations-capture-extension-chrome-0.3.0.zip`
 - `apps/extension/release/operations-capture-extension-edge-0.3.0.zip`
-- 两个 ZIP 的 SHA-256：`005b113e9f6226500fafc5b8019d54bef6a2aa8412e35708131acb8c180a8fdd`
+- 两个 ZIP 的 SHA-256：`b5835ab196dc7ccd1e1f421e14f0f8e5b143f2e1610d43fd749e1dcbbce4446f`
 
 制品使用根文件 allowlist 和 `assets/*.js` allowlist；拒绝符号链接、source map、日志、远程脚本、`eval`/`new Function`、常见令牌/私钥、截图、测试目录、fixture、IndexedDB 数据和环境文件。离线制品验证结果为 `release_artifact=clean`。
 

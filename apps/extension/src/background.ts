@@ -25,7 +25,7 @@ export interface CaptureCoordinator {
 
 type CaptureCoordinatorDependencies = {
   getPageStatus(tabId: number): Promise<PageStatus>;
-  arm(message: StartSafeCaptureMessage | { type: "ARM_FULL_PAGE_CAPTURE"; tabId: number; captureSessionId: string } & CaptureContext & { url: string; viewport: { width: number; height: number; devicePixelRatio: number }; scrollY: number }): Promise<unknown>;
+  arm(message: StartSafeCaptureMessage | { type: "ARM_FULL_PAGE_CAPTURE"; tabId: number; armGeneration: number; captureSessionId: string } & CaptureContext & { url: string; viewport: { width: number; height: number; devicePixelRatio: number }; scrollY: number }): Promise<unknown>;
   startContent(tabId: number, message: { type: "START_CAPTURE"; mode: CaptureMode; captureSessionId?: string }): Promise<unknown>;
   endFullPageCapture?(tabId: number, captureSessionId: string): Promise<unknown>;
   uuid?: () => string;
@@ -97,6 +97,7 @@ export function createCaptureCoordinator(dependencies: CaptureCoordinatorDepende
           armed = await dependencies.arm({
             type: "ARM_FULL_PAGE_CAPTURE",
             tabId: tab.id,
+            armGeneration: generation,
             captureSessionId: session.captureSessionId,
             platform: status.platform,
             pageVersion: status.pageVersion,
@@ -145,6 +146,7 @@ export function createCaptureCoordinator(dependencies: CaptureCoordinatorDepende
       const armed = await dependencies.arm({
         type: "START_SAFE_CAPTURE",
         tabId: tab.id,
+        armGeneration: generation,
         platform: status.platform,
         pageVersion: status.pageVersion,
         pageSignature: status.pageSignature,
@@ -221,6 +223,7 @@ const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
 export function createBackgroundMessageHandler(dependencies: BackgroundDependencies) {
   const armedTabs = new Map<number, ArmedCapture>();
   const armedFullPageTabs = new Map<number, ArmedFullPageCapture>();
+  const latestArmGenerations = new Map<number, number>();
   const now = dependencies.now ?? Date.now;
 
   return async (rawMessage: unknown, sender: MessageSender): Promise<unknown> => {
@@ -255,7 +258,13 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
 
     if (message.type === "START_SAFE_CAPTURE" && "tabId" in message) {
       if (sender.tab) return { ok: false, error: "unsupported-message" };
+      const latestGeneration = latestArmGenerations.get(message.tabId) ?? 0;
+      if (message.armGeneration < latestGeneration) return { ok: false, error: "capture-replaced" };
+      latestArmGenerations.set(message.tabId, message.armGeneration);
       const active = await dependencies.queryActiveTab();
+      if (latestArmGenerations.get(message.tabId) !== message.armGeneration) {
+        return { ok: false, error: "capture-replaced" };
+      }
       const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
       if (
         active.id !== message.tabId ||
@@ -279,7 +288,13 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
 
     if (message.type === "ARM_FULL_PAGE_CAPTURE") {
       if (sender.tab) return { ok: false, error: "unsupported-message" };
+      const latestGeneration = latestArmGenerations.get(message.tabId) ?? 0;
+      if (message.armGeneration < latestGeneration) return { ok: false, error: "capture-replaced" };
+      latestArmGenerations.set(message.tabId, message.armGeneration);
       const active = await dependencies.queryActiveTab();
+      if (latestArmGenerations.get(message.tabId) !== message.armGeneration) {
+        return { ok: false, error: "capture-replaced" };
+      }
       const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
       if (
         active.id !== message.tabId ||

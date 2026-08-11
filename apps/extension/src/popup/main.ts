@@ -184,7 +184,13 @@ export function createPopupController(
       binding = dependencies.ensureFreshBinding
         ? await dependencies.ensureFreshBinding()
         : await dependencies.store.load();
-    } catch {
+    } catch (error) {
+      const code = typeof error === "object" && error !== null && "code" in error
+        ? error.code
+        : null;
+      if (code === "rebind-required") {
+        return renderUnpaired("连接已失效，请重新输入连接码。");
+      }
       return renderUnpaired("连接暂时不可用；设备身份已保留，请稍后重试。");
     }
     if (!binding) return renderUnpaired();
@@ -314,7 +320,7 @@ export async function armAndStartSafeCapture(
   arm: (message: StartSafeCaptureMessage) => Promise<unknown>,
   startContent: (message: StartSafeCaptureMessage) => Promise<unknown>,
 ): Promise<void> {
-  const response = await arm({ type: "START_SAFE_CAPTURE", tabId, ...context });
+  const response = await arm({ type: "START_SAFE_CAPTURE", tabId, armGeneration: 1, ...context });
   if (
     typeof response !== "object" ||
     response === null ||
@@ -362,7 +368,10 @@ if (typeof chrome !== "undefined") {
     ensureFreshBinding: async () => {
       const response = await chrome.runtime.sendMessage({ type: "GET_SESSION_BINDING" });
       if (!response || typeof response !== "object" || !("ok" in response) || response.ok !== true || !("binding" in response)) {
-        throw new Error("rebind-required");
+        const code = response && typeof response === "object" && "error" in response && response.error === "session-unavailable"
+          ? "session-unavailable"
+          : "rebind-required";
+        throw Object.assign(new Error(code), { code });
       }
       return response.binding as ExtensionBinding;
     },
