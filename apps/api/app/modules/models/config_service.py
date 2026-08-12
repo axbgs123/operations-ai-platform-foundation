@@ -159,9 +159,8 @@ class ModelConfigService:
                 raise ValueError("unsupported Qianwen region")
             if provider_workspace_id is None and config is not None:
                 provider_workspace_id = config.provider_workspace_id
-            if provider_workspace_id is None:
-                raise ValueError("Qianwen Provider Workspace ID is required")
-            validate_provider_workspace_id(provider_workspace_id)
+            if provider_workspace_id is not None:
+                validate_provider_workspace_id(provider_workspace_id)
         else:
             if region is not None or provider_workspace_id is not None:
                 raise ValueError(

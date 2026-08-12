@@ -92,7 +92,6 @@ def build_cover_adapter_for_run(
         or config.model_id != run.model_id
         or config.region != run.region
         or config.region is None
-        or config.provider_workspace_id is None
         or config.encryption_key_version != cipher.version
         or model_configuration_version(config)
         != run.configuration_version

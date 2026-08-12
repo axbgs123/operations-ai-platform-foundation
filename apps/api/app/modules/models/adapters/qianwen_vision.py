@@ -64,7 +64,7 @@ class QianwenVisionAdapter:
         model_config_id: UUID,
         expected_platform: Platform,
         region: QianwenRegion,
-        provider_workspace_id: str,
+        provider_workspace_id: str | None,
         api_key: SecretStr,
         model_id: str = QIANWEN_OCR_MODEL_ID,
         contract_version: str = "qwen-ocr-advanced-v1",

@@ -10,16 +10,25 @@ Task 1 使用阿里云百炼 OpenAI 兼容 Chat Completions HTTP 合同，并固
 `qwen3.5-plus-2026-04-20`。在受控真实 API 验收完成前，Catalog 状态固定为
 `experimental`，不得由客户端提升为 `verified`。
 
-仅允许以下地域和端点模板：
+2026-08-12 起，新建配置默认使用千问 AI 平台的固定官方端点：
+
+```text
+https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+```
+
+新建配置不再要求 Provider Workspace ID。客户端仍不能提交 `base_url`，因此 IP、
+localhost、非官方域名、URL 凭据、路径和 fragment 均不能进入模型调用配置。
+
+为兼容已经保存的旧版百炼配置，以下地域端点模板继续作为只读兼容路径：
 
 ```text
 https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions
 https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions
 ```
 
-`WorkspaceId` 必须匹配 `llm-[a-z0-9]{4,64}`。服务端从枚举地域和该标识构造端点；
-API 不接受 `base_url`，因此 IP、localhost、非官方域名、URL 凭据、路径和 fragment
-均不能进入模型调用配置。
+旧版 `WorkspaceId` 必须匹配 `llm-[a-z0-9]{4,64}`，服务端从枚举地域和该标识构造
+端点。当前千问 AI 平台控制台中显示的 `ws-...` 业务空间标识不是新建配置的必填项，
+也不会被当成旧版 `llm-...` 路由标识。
 
 结构化文本请求固定：
 
@@ -54,8 +63,12 @@ Mock 或其他 Provider。
 
 日志只允许记录 provider、model ID、Provider request ID、token 数量、延迟、
 attempt 和稳定安全错误码。不得记录 prompt、inputs、输出、API Key、标题、正文、
-图片或文档内容。Provider Workspace ID 是私有配置标识，不出现在公开响应、导出或
-备份中。
+图片或文档内容。历史 Provider Workspace ID 是私有配置标识，不出现在公开响应、
+导出或备份中。
+
+管理员连接测试固定调用官方 `GET /compatible-mode/v1/files?limit=1`，不传模型、
+Prompt、运营正文或图片。实现只检查鉴权状态与最小 JSON 外形并丢弃正文。连接成功
+仅证明密钥和固定端点可通信，不代表任何具体模型、地域能力、效果或费用合同已验证。
 
 ## 稳定错误合同
 

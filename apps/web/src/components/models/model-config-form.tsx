@@ -59,11 +59,8 @@ export function ModelConfigForm({
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
   const [modelId, setModelId] = useState("");
-  const [region, setRegion] = useState<"cn-beijing" | "ap-southeast-1">(
-    "cn-beijing",
-  );
+  const region = "cn-beijing" as const;
   const [apiKey, setApiKey] = useState("");
-  const [providerWorkspaceId, setProviderWorkspaceId] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [policyCapability, setPolicyCapability] = useState<
@@ -99,9 +96,6 @@ export function ModelConfigForm({
   }, [suppliedRole, workspaceId]);
 
   const selected = catalog?.models.find((item) => item.model_id === modelId);
-  const selectedConfig = configs.find(
-    (item) => item.provider === "qianwen" && item.model_id === modelId,
-  );
   const canManage = role === "admin";
   const displayInternalState = (value: string) => {
     return modelStateLabel(value, copyMode);
@@ -120,7 +114,7 @@ export function ModelConfigForm({
           provider: "qianwen",
           model_id: selected.model_id,
           region,
-          provider_workspace_id: providerWorkspaceId.trim() || null,
+          provider_workspace_id: null,
           capabilities: [selected.capability],
           status: "experimental",
           api_key: apiKey,
@@ -131,8 +125,7 @@ export function ModelConfigForm({
         saved,
       ]);
       setApiKey("");
-      setProviderWorkspaceId("");
-      setMessage("配置已安全保存；密钥输入已清空");
+      setMessage("配置已安全保存；密钥输入已清空，现在可以测试连接");
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "保存失败");
     } finally {
@@ -203,11 +196,17 @@ export function ModelConfigForm({
         },
       );
       setMessage(
-        result.result === "not_run"
+        result.result === "passed"
+          ? copyMode === "simple"
+            ? "连接成功：模型服务密钥与千问官方接口可以正常通信；尚未调用具体模型。"
+            : "Connection succeeded: the API Key can authenticate with the Qianwen endpoint; no model was invoked."
+          : result.result === "not_run"
           ? `未运行：${result.safe_error_code
             ? modelSafeErrorLabel(result.safe_error_code, copyMode)
             : copyMode === "simple" ? "尚未获得真实调用授权" : "未授权"}`
-          : `验证状态：${modelValidationLabel(result.result, copyMode)}`,
+          : `连接失败：${result.safe_error_code
+            ? modelSafeErrorLabel(result.safe_error_code, copyMode)
+            : modelValidationLabel(result.result, copyMode)}`,
       );
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "验证发起失败");
@@ -250,7 +249,7 @@ export function ModelConfigForm({
       <GuidedPageHeader
         context={{
           simple: "真实调用可能产生费用；没有设置每日上限时，系统不会允许调用。",
-          professional: "数据将发送到所选地域的阿里云百炼服务；调用可能产生费用。Embedding 当前固定内部合同为 qianwen-text-embedding-v4-d1024-v1，上游尚无已确认日期快照。",
+          professional: "配置使用千问 AI 平台官方固定接口；连接测试只验证 API Key，不调用模型。真实模型调用可能产生费用。Embedding 当前固定内部合同为 qianwen-text-embedding-v4-d1024-v1，上游尚无已确认日期快照。",
         }}
         pageId="settingsModels"
         secondaryActions={(
@@ -300,52 +299,11 @@ export function ModelConfigForm({
               ))}
             </select>
           </label>
-          <label className="text-sm">
-            地域
-            <select
-              aria-label="地域"
-              className={formControlClasses}
-              onChange={(event) =>
-                setRegion(
-                  event.target.value as
-                    | "cn-beijing"
-                    | "ap-southeast-1",
-                )
-              }
-              value={region}
-            >
-              {(catalog?.regions ?? []).map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm sm:col-span-2">
+          <p className="rounded-xl border border-[var(--border)] bg-slate-50 p-4 text-sm text-[var(--text-secondary)] sm:col-span-2">
             {copyMode === "simple"
-              ? "模型服务工作空间 ID"
-              : "Provider Workspace ID"}
-            <input
-              aria-label={copyMode === "simple"
-                ? "模型服务工作空间 ID"
-                : "Provider Workspace ID"}
-              autoComplete="off"
-              className={formControlClasses}
-              onChange={(event) => setProviderWorkspaceId(event.target.value)}
-              pattern="llm-[a-z0-9]{4,64}"
-              placeholder={selectedConfig
-                ? "留空沿用已保存的工作空间 ID"
-                : "例如：llm-xxxxxxxx"}
-              required={!selectedConfig}
-              spellCheck={false}
-              value={providerWorkspaceId}
-            />
-            <span className="mt-2 block text-[var(--text-secondary)]">
-              {copyMode === "simple"
-                ? "填写阿里云百炼提供的 llm- 开头标识，不是本平台的团队 ID；保存后不会回显。"
-                : "Use the llm- identifier from Alibaba Cloud Model Studio, not this product's workspace ID. It is not returned after saving."}
-            </span>
-          </label>
+              ? "使用千问 AI 平台官方固定接口，不需要填写业务空间 ID。"
+              : "Uses the fixed Qianwen AI Platform endpoint; no Provider Workspace ID or custom Base URL is accepted."}
+          </p>
           <label className="text-sm sm:col-span-2">
             {copyMode === "simple" ? "模型服务密钥" : "API Key"}
             <input

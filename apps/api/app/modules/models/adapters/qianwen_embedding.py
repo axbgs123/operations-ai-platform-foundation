@@ -64,7 +64,7 @@ class QianwenRiskEmbedder:
         workspace_id: UUID,
         model_config_id: UUID,
         region: QianwenRegion,
-        provider_workspace_id: str,
+        provider_workspace_id: str | None,
         api_key: SecretStr,
         model_id: str = QIANWEN_EMBEDDING_MODEL_ID,
         contract_version: str = QIANWEN_EMBEDDING_CONTRACT_VERSION,

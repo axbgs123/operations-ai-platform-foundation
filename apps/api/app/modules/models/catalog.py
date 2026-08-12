@@ -26,6 +26,10 @@ QIANWEN_IMAGE_MODEL_ID: Literal["qwen-image-2.0-pro-2026-06-22"] = (
 QIANWEN_IMAGE_CONTRACT_VERSION = (
     "qianwen-image-2.0-pro-2026-06-22-cover-layer-v1"
 )
+QIANWEN_PLATFORM_COMPATIBLE_BASE_URL = (
+    "https://dashscope.aliyuncs.com/compatible-mode/v1"
+)
+QIANWEN_PLATFORM_DASHSCOPE_BASE_URL = "https://dashscope.aliyuncs.com/api/v1"
 _PROVIDER_WORKSPACE_ID = re.compile(r"^llm-[a-z0-9]{4,64}$")
 
 
@@ -175,12 +179,14 @@ def validate_provider_workspace_id(provider_workspace_id: str) -> str:
 
 def build_qianwen_endpoint(
     region: QianwenRegion,
-    provider_workspace_id: str,
+    provider_workspace_id: str | None,
 ) -> str:
     try:
         safe_region = QianwenRegion(region)
     except ValueError as error:
         raise ValueError("unsupported Qianwen region") from error
+    if provider_workspace_id is None:
+        return f"{QIANWEN_PLATFORM_COMPATIBLE_BASE_URL}/chat/completions"
     safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
     return (
         f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
@@ -190,12 +196,17 @@ def build_qianwen_endpoint(
 
 def build_qianwen_ocr_endpoint(
     region: QianwenRegion,
-    provider_workspace_id: str,
+    provider_workspace_id: str | None,
 ) -> str:
     try:
         safe_region = QianwenRegion(region)
     except ValueError as error:
         raise ValueError("unsupported Qianwen region") from error
+    if provider_workspace_id is None:
+        return (
+            f"{QIANWEN_PLATFORM_DASHSCOPE_BASE_URL}/services/aigc/"
+            "multimodal-generation/generation"
+        )
     safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
     return (
         f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
@@ -205,12 +216,14 @@ def build_qianwen_ocr_endpoint(
 
 def build_qianwen_embedding_endpoint(
     region: QianwenRegion,
-    provider_workspace_id: str,
+    provider_workspace_id: str | None,
 ) -> str:
     try:
         safe_region = QianwenRegion(region)
     except ValueError as error:
         raise ValueError("unsupported Qianwen region") from error
+    if provider_workspace_id is None:
+        return f"{QIANWEN_PLATFORM_COMPATIBLE_BASE_URL}/embeddings"
     safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
     return (
         f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
@@ -220,14 +233,36 @@ def build_qianwen_embedding_endpoint(
 
 def build_qianwen_image_endpoint(
     region: QianwenRegion,
-    provider_workspace_id: str,
+    provider_workspace_id: str | None,
 ) -> str:
     try:
         safe_region = QianwenRegion(region)
     except ValueError as error:
         raise ValueError("unsupported Qianwen region") from error
+    if provider_workspace_id is None:
+        return (
+            f"{QIANWEN_PLATFORM_DASHSCOPE_BASE_URL}/services/aigc/"
+            "multimodal-generation/generation"
+        )
     safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
     return (
         f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
         "api/v1/services/aigc/multimodal-generation/generation"
+    )
+
+
+def build_qianwen_files_endpoint(
+    region: QianwenRegion,
+    provider_workspace_id: str | None,
+) -> str:
+    try:
+        safe_region = QianwenRegion(region)
+    except ValueError as error:
+        raise ValueError("unsupported Qianwen region") from error
+    if provider_workspace_id is None:
+        return f"{QIANWEN_PLATFORM_COMPATIBLE_BASE_URL}/files?limit=1"
+    safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
+    return (
+        f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
+        "compatible-mode/v1/files?limit=1"
     )

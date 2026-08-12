@@ -13,6 +13,7 @@ from app.core.database import Base
 from app.core.database import get_session
 from app.core.security import WorkspaceContext
 from app.main import app
+import app.modules.models.router as models_router
 from app.modules.models.capabilities import Capability
 from app.modules.models.models import (
     ModelConfig,
@@ -535,6 +536,45 @@ def test_validation_is_not_run_without_explicit_external_authorization() -> None
         ) is not None
 
 
+def test_authorized_connection_validation_records_safe_success() -> None:
+    factory, workspace, config, member_id = _environment()
+    probed: list[UUID] = []
+
+    with factory() as session:
+        service = ControlledValidationService(
+            session,
+            _context(workspace.id, member_id),
+            real_calls_authorized=True,
+            connection_probe=lambda target: probed.append(target.id),
+            clock=lambda: NOW,
+        )
+        run = service.create(
+            ControlledValidationRequest(
+                model_config_id=config.id,
+                region="cn-beijing",
+                capability=Capability.TEXT,
+                model_id=config.model_id,
+                max_calls=1,
+                max_input_tokens=100,
+                max_output_tokens=100,
+                max_images=0,
+                max_cost_microunits=1000,
+                confirm_real_call=True,
+            )
+        )
+
+        assert probed == [config.id]
+        assert run.result is ValidationResult.PASSED
+        assert run.safe_error_code is None
+        assert run.evidence == {
+            "analytics_eligible": False,
+            "external_network_accessed": True,
+            "real_api_key_used": True,
+            "model_invoked": False,
+            "cost_microunits": 0,
+        }
+
+
 def test_non_admin_cannot_create_validation() -> None:
     factory, workspace, config, member_id = _environment()
     with factory() as session:
@@ -604,14 +644,21 @@ def _api_config() -> dict[str, object]:
         "provider": "qianwen",
         "model_id": "qwen3.5-plus-2026-04-20",
         "region": "cn-beijing",
-        "provider_workspace_id": "llm-abcd1234",
+        "provider_workspace_id": None,
         "capabilities": ["text"],
         "status": "experimental",
         "api_key": "synthetic-key-never-real",
     }
 
 
-def test_admin_usage_api_returns_safe_policy_summary_and_not_run_validation() -> None:
+def test_admin_usage_api_returns_safe_policy_summary_and_connection_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        models_router,
+        "probe_qianwen_connection",
+        lambda **kwargs: None,
+    )
     with _client() as (client, _):
         workspace_id, csrf = _login_admin(client, "用量 API 工作区")
         created_config = client.post(
@@ -663,15 +710,13 @@ def test_admin_usage_api_returns_safe_policy_summary_and_not_run_validation() ->
             },
         )
         assert validation.status_code == 201, validation.text
-        assert validation.json()["result"] == "not_run"
-        assert (
-            validation.json()["safe_error_code"]
-            == "explicit_user_authorization_missing"
-        )
+        assert validation.json()["result"] == "passed"
+        assert validation.json()["safe_error_code"] is None
+        assert validation.json()["evidence"]["model_invoked"] is False
+        assert validation.json()["evidence"]["cost_microunits"] == 0
         assert validation.json()["experimental"] is True
         for forbidden in (
             "synthetic-key-never-real",
-            "llm-abcd1234",
             "provider_workspace_id",
             "encrypted_api_key",
             '"prompt":',

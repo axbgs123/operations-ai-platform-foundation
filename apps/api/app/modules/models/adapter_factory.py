@@ -134,7 +134,7 @@ def create_workspace_model_adapter(
             "MODEL_CAPABILITY_UNAVAILABLE",
             "固定模型能力当前不可用。",
         )
-    if config.region is None or config.provider_workspace_id is None:
+    if config.region is None:
         raise ModelSelectionError(
             "MODEL_CONFIGURATION_REQUIRED",
             "模型配置不可用，请重新创建任务。",

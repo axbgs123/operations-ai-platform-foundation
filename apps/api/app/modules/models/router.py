@@ -21,7 +21,9 @@ from app.modules.models.config_service import (
     ModelConfigurationRequired,
     SecretCipher,
 )
+from app.modules.models.connection_test import probe_qianwen_connection
 from app.modules.models.models import (
+    ModelConfig,
     ModelContractValidationRun,
     ModelUsageAttempt,
     ModelUsagePolicy,
@@ -547,11 +549,26 @@ def create_model_validation(
         csrf_token,
         mutation=True,
     )
+    cipher = SecretCipher(
+        get_settings().model_secret_encryption_key.get_secret_value()
+    )
+    config_service = ModelConfigService(session, context, cipher=cipher)
+
+    def connection_probe(config: ModelConfig) -> str | None:
+        if config.region is None:
+            return "MODEL_CONFIGURATION_REQUIRED"
+        return probe_qianwen_connection(
+            api_key=config_service.decrypt_key(config.id),
+            region=QianwenRegion(config.region),
+            provider_workspace_id=config.provider_workspace_id,
+        )
+
     try:
         run = ControlledValidationService(
             session,
             context,
-            real_calls_authorized=False,
+            real_calls_authorized=True,
+            connection_probe=connection_probe,
         ).create(data)
     except LookupError as error:
         raise HTTPException(status_code=404, detail="model config not found") from error

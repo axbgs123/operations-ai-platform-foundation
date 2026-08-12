@@ -8,16 +8,21 @@
 ## 安全配置与权限
 
 管理员在工作区设置页 `/workspaces/{workspaceId}/settings/models` 从服务端 Catalog
-选择固定模型与地域。页面不接受任意 Provider、模型、capability 或 `base_url`。
-Provider Workspace ID 和 API Key 只在写入请求中提交，读取响应不返回它们、密文或
-任何密钥片段；API Key 成功保存后从组件内存清除，也不写浏览器持久化存储。不要把
-密钥放入聊天、Issue、日志、命令行、测试 Fixture 或 `.env`。
+选择固定模型。当前千问 AI 平台配置只需填写 API Key，服务端固定使用官方
+`dashscope.aliyuncs.com` 接口，不要求用户寻找或填写业务空间 ID，也不接受任意
+Provider、模型、capability 或 `base_url`。为兼容历史配置，数据库中已有且符合
+`llm-...` 格式的旧版 Provider Workspace ID 仍可继续使用其地域端点，但新页面不会
+再创建这类配置。
+
+API Key 只在写入请求中提交，读取响应不返回它、密文或任何密钥片段；成功保存后从
+组件内存清除，也不写浏览器持久化存储。不要把密钥放入聊天、Issue、日志、命令行、
+测试 Fixture 或 `.env`。
 
 admin 可创建、更新、轮换或禁用配置，设置预算并发起单能力受控验证；editor 和
 viewer 只能读取安全状态，demo 只展示 Mock。所有操作重新校验工作区，跨工作区资源
-返回 404。北京和新加坡的密钥及 Provider Workspace ID 不可混用。
+返回 404。旧版地域端点配置仍保持原有地域隔离。
 
-密钥轮换、地域、Provider Workspace ID 或状态变化会形成新的
+密钥轮换、地域、历史 Provider Workspace ID 或状态变化会形成新的
 `configuration_version`。旧任务必须继续使用冻结版本或安全失败，不会静默切换新
 配置。禁用配置后，新任务在调用 Provider 前失败；已经发出的请求仍按真实结果结算。
 千问失败不会静默降级为 Mock。需要回滚时，管理员应显式禁用千问配置并选择 Mock。
@@ -43,9 +48,15 @@ CNY microunits，并冻结 `pricing_version`。`estimated` 表示供应商未返
 Embedding 100,000,000 token、OCR 10,000 张、生成 1,000 张、费用
 100,000,000 CNY microunits。政策字段的 `0` 表示禁止，不表示无限。
 
-## 受控真实 API 验收
+## 连接测试与受控真实 API 验收
 
-真实验收只能由 admin 对单一地域、capability、精确模型和配置版本主动发起，必须
+管理员可点击“测试连接（不调用模型）”。该动作只向服务端固定的千问文件列表接口
+发送一次无正文的只读请求，用于判断 API Key 是否能通过官方接口鉴权；响应正文会被
+立即丢弃，不进入 API 响应、日志或数据库。测试不会发送 Prompt、运营数据或图片，
+不会调用文本、OCR、Embedding 或图片模型，因此成功只表示“密钥与接口可通信”，
+不能证明某个模型可用、效果合格或已完成真实模型验收。
+
+真实模型验收只能由 admin 对单一地域、capability、精确模型和配置版本主动发起，必须
 设置最大调用次数、token/图片数、费用上限并确认真实调用。服务端只在调用边界解密
 已保存凭据，使用人工合成输入，记录安全 request ID、延迟、usage、费用和稳定错误
 码，不保存输入输出正文。北京与新加坡、不同能力和不同模型必须分别验证；页面不提供
@@ -58,7 +69,7 @@ Embedding 100,000,000 token、OCR 10,000 张、生成 1,000 张、费用
 
 ## 隐私、备份与运维
 
-模型配置、API Key 及密文、Provider Workspace ID、内部 reservation、验证输入输出、
+模型配置、API Key 及密文、历史 Provider Workspace ID、内部 reservation、验证输入输出、
 临时对象和签名 URL 均不进入工作区备份。恢复后的工作区不会继承来源工作区的真实
 Provider 权限或费用政策，必须重新配置。用量记录只保留必要关联 ID、模型/地域/版本、
 计数、费用、延迟、安全 request ID 和稳定错误码。

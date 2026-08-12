@@ -267,7 +267,7 @@ class QianwenCoverImageAdapter:
         *,
         api_key: SecretStr,
         region: QianwenRegion,
-        provider_workspace_id: str,
+        provider_workspace_id: str | None,
         prepared_images: tuple[QianwenPreparedImage, ...] = (),
         model_id: str = QIANWEN_IMAGE_MODEL_ID,
         transport: httpx.AsyncBaseTransport | None = None,

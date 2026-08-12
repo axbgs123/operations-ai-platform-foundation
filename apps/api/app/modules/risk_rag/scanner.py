@@ -784,7 +784,6 @@ def build_default_pipeline(
                 config is None
                 or config.workspace_id != scan_input.workspace_id
                 or config.region is None
-                or config.provider_workspace_id is None
                 or active.contract_version is None
                 or active.config_version is None
             ):

@@ -71,6 +71,25 @@ def test_qianwen_config_derives_catalog_capability_and_status() -> None:
     session.close()
 
 
+def test_qianwen_ai_platform_config_does_not_require_legacy_workspace_id() -> None:
+    session, service, _ = _service()
+
+    config = service.save(
+        provider="qianwen",
+        model_id=QIANWEN_TEXT_MODEL_ID,
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.EXPERIMENTAL,
+        api_key="sk-ws-synthetic-qianwen-never-real",
+        region=QianwenRegion.CN_BEIJING,
+        provider_workspace_id=None,
+    )
+
+    assert config.region == "cn-beijing"
+    assert config.provider_workspace_id is None
+    assert service.public(config).credential_configured is True
+    session.close()
+
+
 @pytest.mark.parametrize(
     ("capabilities", "status"),
     [

@@ -122,6 +122,6 @@ export const OPERATOR_COPY_CATALOG: Record<OperatorPageId, OperatorPageCopy> = {
   },
   settingsModels: {
     title: "模型配置",
-    purpose: copy("配置要使用的千问能力和每日费用上限；真实调用前请先确认地域和预算。", "管理固定 Catalog、地域、实验状态、API Key、用量政策和受控真实验收。"),
+    purpose: copy("配置千问模型服务密钥和每日费用上限；保存后可以先做一次不调用模型的连接测试。", "管理固定 Catalog、实验状态、API Key、用量政策、无模型调用的连接测试和受控真实验收。"),
   },
 };

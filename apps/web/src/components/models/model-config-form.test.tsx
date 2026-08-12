@@ -154,18 +154,14 @@ test("admin sees only catalog choices and clears the key after save", async () =
     "qwen3.5-plus-2026-04-20",
   );
   expect(screen.queryByLabelText(/base_url/i)).not.toBeInTheDocument();
-  const providerWorkspaceId = screen.getByLabelText("Provider Workspace ID");
-  expect(providerWorkspaceId).toBeRequired();
+  expect(screen.queryByLabelText("Provider Workspace ID")).not.toBeInTheDocument();
   expect(screen.getByText("experimental")).toBeInTheDocument();
-  expect(screen.getByText(/数据将发送到所选地域/)).toBeInTheDocument();
+  expect(screen.getByText(/千问 AI 平台官方固定接口/)).toBeInTheDocument();
   expect(screen.getByText(/调用可能产生费用/)).toBeInTheDocument();
   expect(screen.getByText("工作区用量政策（UTC 日界线）")).toBeInTheDocument();
 
   const key = screen.getByLabelText("API Key");
   expect(key).toHaveAttribute("autocomplete", "new-password");
-  fireEvent.change(providerWorkspaceId, {
-    target: { value: "llm-synthetic1234" },
-  });
   fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
   fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
 
@@ -177,14 +173,13 @@ test("admin sees only catalog choices and clears the key after save", async () =
       provider: "qianwen",
       model_id: "qwen3.5-plus-2026-04-20",
       region: "cn-beijing",
-      provider_workspace_id: "llm-synthetic1234",
+      provider_workspace_id: null,
       api_key: "synthetic-one-time-key",
     }),
   );
-  expect(providerWorkspaceId).toHaveValue("");
   expect(key).toHaveValue("");
   expect(
-    screen.getByRole("button", { name: "运行受控合同验证" }),
+    screen.getByRole("button", { name: "测试连接（不调用模型）" }),
   ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "禁用配置" }));
   await waitFor(() =>
@@ -208,7 +203,7 @@ test("viewer receives safe status without credential controls", async () => {
 
   expect(await screen.findByText("模型配置")).toBeInTheDocument();
   expect(screen.getByText(
-    "配置要使用的千问能力和每日费用上限；真实调用前请先确认地域和预算。",
+    "配置千问模型服务密钥和每日费用上限；保存后可以先做一次不调用模型的连接测试。",
   )).toBeVisible();
   expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
   expect(
@@ -224,7 +219,7 @@ test("easy mode explains secret storage, real provider cost, and trial status", 
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
   expect(await screen.findByText(
-    "配置要使用的千问能力和每日费用上限；真实调用前请先确认地域和预算。",
+    "配置千问模型服务密钥和每日费用上限；保存后可以先做一次不调用模型的连接测试。",
   )).toBeVisible();
   expect(screen.getByText(
     "密钥保存后不会再次显示；更换密钥需要重新输入。",
@@ -320,12 +315,12 @@ test("easy mode translates loaded model and validation states without exposing s
 
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
-  expect(await screen.findByText("验证：尚未验收")).toBeVisible();
-  expect(screen.getByText("验收提示：尚未确认进行真实调用")).toBeVisible();
+  expect(await screen.findByText("连接状态：尚未测试连接")).toBeVisible();
+  expect(screen.getByText("连接提示：尚未执行连接测试")).toBeVisible();
   expect(screen.getByText("当前配置不可用")).toBeVisible();
-  expect(screen.getByText("验证：验收未通过")).toBeVisible();
+  expect(screen.getByText("连接状态：连接未通过")).toBeVisible();
   expect(screen.getByText(
-    "验收提示：模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+    "连接提示：模型服务结果暂时无法确认，请勿直接重复提交",
   )).toBeVisible();
   expect(screen.queryByText("not_run")).not.toBeInTheDocument();
   expect(screen.queryByText(/explicit_user_authorization_missing/)).not.toBeInTheDocument();
@@ -355,7 +350,7 @@ test("professional mode preserves loaded model states and safe error codes", asy
 
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
-  expect(await screen.findByText("验证：not_run")).toBeVisible();
+  expect(await screen.findByText("Connection status：not_run")).toBeVisible();
   expect(screen.getByText("状态码：explicit_user_authorization_missing")).toBeVisible();
   expect(screen.getAllByText("experimental")).toHaveLength(2);
   expect(screen.getByLabelText("Provider")).toHaveValue("qianwen");
@@ -368,24 +363,39 @@ test("easy mode translates provider post-actions and uncertain validation outcom
   });
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
-  const providerWorkspaceId = await screen.findByLabelText(
-    "模型服务工作空间 ID",
-  );
   const key = await screen.findByLabelText("模型服务密钥");
-  fireEvent.change(providerWorkspaceId, {
-    target: { value: "llm-synthetic1234" },
-  });
   fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
   fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
-  await screen.findByRole("button", { name: "运行受控合同验证" });
+  await screen.findByRole("button", { name: "测试连接（不调用模型）" });
 
-  fireEvent.click(screen.getByRole("button", { name: "运行受控合同验证" }));
+  fireEvent.click(screen.getByRole("button", { name: "测试连接（不调用模型）" }));
   expect(await screen.findByText(
-    "未运行：模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+    "未运行：模型服务结果暂时无法确认，请勿直接重复提交",
   )).toBeVisible();
 
   fireEvent.click(screen.getByRole("button", { name: "禁用配置" }));
   expect(await screen.findByText(
     "配置已禁用；新任务不会调用该模型服务",
+  )).toBeVisible();
+});
+
+test("connection test explains successful authentication without claiming a model call", async () => {
+  createModelValidation.mockResolvedValueOnce({
+    result: "passed",
+    safe_error_code: null,
+  });
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  const key = await screen.findByLabelText("模型服务密钥");
+  fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
+  const testConnection = await screen.findByRole("button", {
+    name: "测试连接（不调用模型）",
+  });
+
+  fireEvent.click(testConnection);
+
+  expect(await screen.findByText(
+    "连接成功：模型服务密钥与千问官方接口可以正常通信；尚未调用具体模型。",
   )).toBeVisible();
 });

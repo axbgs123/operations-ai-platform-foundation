@@ -957,11 +957,13 @@ class ControlledValidationService:
         context: WorkspaceContext,
         *,
         real_calls_authorized: bool,
+        connection_probe: Callable[[ModelConfig], str | None] | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._session = session
         self._context = context
         self._real_calls_authorized = real_calls_authorized
+        self._connection_probe = connection_probe
         self._clock = clock
 
     def create(
@@ -985,10 +987,17 @@ class ControlledValidationService:
             or request.capability not in catalog.capabilities
         ):
             raise ValueError("validation target does not match model config")
-        if self._real_calls_authorized:
+        if self._real_calls_authorized and self._connection_probe is None:
             raise UsageGovernanceError(
                 "CONTROLLED_VALIDATION_RUNNER_REQUIRED"
             )
+        safe_error_code = (
+            self._connection_probe(config)
+            if self._real_calls_authorized
+            and self._connection_probe is not None
+            else "explicit_user_authorization_missing"
+        )
+        was_probed = self._real_calls_authorized
         run = ModelContractValidationRun(
             workspace_id=self._context.workspace_id,
             model_config_id=config.id,
@@ -1003,12 +1012,19 @@ class ControlledValidationService:
             max_output_tokens=request.max_output_tokens,
             max_images=request.max_images,
             max_cost_microunits=request.max_cost_microunits,
-            result=ModelValidationResult.NOT_RUN,
-            safe_error_code="explicit_user_authorization_missing",
+            result=(
+                ModelValidationResult.PASSED
+                if was_probed and safe_error_code is None
+                else ModelValidationResult.FAILED
+                if was_probed
+                else ModelValidationResult.NOT_RUN
+            ),
+            safe_error_code=safe_error_code,
             evidence={
                 "analytics_eligible": False,
-                "external_network_accessed": False,
-                "real_api_key_used": False,
+                "external_network_accessed": was_probed,
+                "real_api_key_used": was_probed,
+                "model_invoked": False,
                 "cost_microunits": 0,
             },
             created_by=_require_member(self._context),

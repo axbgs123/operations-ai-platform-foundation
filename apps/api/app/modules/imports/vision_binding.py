@@ -127,7 +127,6 @@ def create_bound_vision_adapter(
         or config.model_id != binding.model_id
         or model_configuration_version(config) != binding.config_version
         or config.region is None
-        or config.provider_workspace_id is None
         or Capability.VISION.value not in config.capabilities
     ):
         raise ValueError("frozen vision configuration is unavailable")

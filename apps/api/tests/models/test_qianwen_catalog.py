@@ -47,6 +47,12 @@ def test_endpoint_is_constructed_from_region_and_workspace_id(
     assert build_qianwen_endpoint(region, "llm-abcd1234") == expected
 
 
+def test_qianwen_ai_platform_endpoint_does_not_require_legacy_workspace_id() -> None:
+    assert build_qianwen_endpoint(QianwenRegion.CN_BEIJING, None) == (
+        "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+    )
+
+
 @pytest.mark.parametrize(
     "workspace_id",
     [

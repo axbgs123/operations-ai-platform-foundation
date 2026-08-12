@@ -503,7 +503,7 @@ def test_pairing_internal_failure_logs_a_safe_stable_event(
         finally:
             client.close()
 
-    assert response.status_code == 500
+    assert response.status_code == 503
     event = next(
         json.loads(record.message)
         for record in caplog.records

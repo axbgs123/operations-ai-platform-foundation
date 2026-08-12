@@ -48,7 +48,7 @@ class ModelConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ),
         CheckConstraint(
             "provider <> 'qianwen' OR "
-            "(region IS NOT NULL AND provider_workspace_id IS NOT NULL)",
+            "region IS NOT NULL",
             name="ck_model_configs_qianwen_endpoint_fields",
         ),
         Index("ix_model_configs_workspace_id", "workspace_id"),

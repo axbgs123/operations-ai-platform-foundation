@@ -45,7 +45,6 @@ def _load_embedder(session: Session, job_id: UUID):
     if (
         config.provider != "qianwen"
         or config.region is None
-        or config.provider_workspace_id is None
     ):
         raise ValueError("embedding model config is unsupported")
     cipher = SecretCipher(

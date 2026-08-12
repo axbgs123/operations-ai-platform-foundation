@@ -146,7 +146,7 @@ class QianwenProvider:
         *,
         api_key: SecretStr,
         region: QianwenRegion,
-        provider_workspace_id: str,
+        provider_workspace_id: str | None,
         model_id: str = QIANWEN_TEXT_MODEL_ID,
         transport: httpx.AsyncBaseTransport | None = None,
         timeout_seconds: float = 30.0,

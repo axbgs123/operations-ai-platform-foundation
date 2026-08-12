@@ -17,16 +17,21 @@ const easyModelStates: Record<string, string> = {
 };
 
 const easyValidationStates: Record<string, string> = {
-  failed: "验收未通过",
-  not_run: "尚未验收",
-  passed: "验收通过",
-  provider_outcome_unknown: "模型服务结果暂时无法确认",
+  failed: "连接未通过",
+  not_run: "尚未测试连接",
+  passed: "连接成功（未调用模型）",
+  provider_outcome_unknown: "连接结果暂时无法确认",
 };
 
 const easySafeErrors: Record<string, string> = {
   configuration_required: "还没有完成所需配置",
-  explicit_user_authorization_missing: "尚未确认进行真实调用",
-  provider_outcome_unknown: "模型服务是否已经计费暂时无法确认，请勿直接重复提交",
+  explicit_user_authorization_missing: "尚未执行连接测试",
+  MODEL_AUTHENTICATION_FAILED: "模型服务密钥无效，或没有访问千问接口的权限",
+  MODEL_INVALID_RESPONSE: "千问接口返回了无法识别的结果",
+  MODEL_PROVIDER_UNAVAILABLE: "暂时无法连接千问官方接口，请稍后重试",
+  MODEL_RATE_LIMITED: "千问接口当前调用过于频繁，请稍后重试",
+  MODEL_TIMEOUT: "连接千问接口超时，请检查网络后重试",
+  provider_outcome_unknown: "模型服务结果暂时无法确认，请勿直接重复提交",
 };
 
 export function modelStateLabel(value: string, mode: CopyMode): string {
@@ -35,7 +40,11 @@ export function modelStateLabel(value: string, mode: CopyMode): string {
 }
 
 export function modelValidationLabel(value: string, mode: CopyMode): string {
-  if (mode === "professional") return value;
+  if (mode === "professional") {
+    return value === "passed"
+      ? "connection_passed_model_not_invoked"
+      : value;
+  }
   return easyValidationStates[value] ?? "需要管理员检查验收状态";
 }
 
@@ -86,12 +95,13 @@ export function ModelStatus({
               凭据：{config.credential_configured ? "已加密配置" : "未配置"}
             </div>
             <div>
-              验证：{modelValidationLabel(config.last_validation_status, copyMode)}
+              {copyMode === "simple" ? "连接状态" : "Connection status"}：
+              {modelValidationLabel(config.last_validation_status, copyMode)}
             </div>
           </dl>
           {config.safe_error_code ? (
             <p className="mt-3 text-xs text-[var(--text-secondary)]">
-              {copyMode === "simple" ? "验收提示" : "状态码"}：
+              {copyMode === "simple" ? "连接提示" : "状态码"}：
               {modelSafeErrorLabel(config.safe_error_code, copyMode)}
             </p>
           ) : null}
@@ -102,7 +112,7 @@ export function ModelStatus({
                 onClick={() => onValidate(config)}
                 type="button"
               >
-                运行受控合同验证
+                测试连接（不调用模型）
               </button>
               {onStatusChange ? (
                 <button
