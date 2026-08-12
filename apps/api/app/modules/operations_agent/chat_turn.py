@@ -155,14 +155,17 @@ class AgentChatTurnService:
         key = idempotency_key.strip()
         if not key or len(key) > 160:
             raise ValueError("invalid turn idempotency key")
-        assistant_key = f"chat-turn:{key}:assistant"
-        if self._chats.message_by_key(assistant_key) is not None:
-            return self._chats.read(chat_id)
         user = self._chats.append_user_message(
             chat_id,
             content=content,
             idempotency_key=f"chat-turn:{key}:user",
         )
+        assistant_key = f"chat-turn:{key}:assistant"
+        existing_assistant = self._chats.message_by_key(assistant_key)
+        if existing_assistant is not None:
+            if existing_assistant.session_id != chat_id:
+                raise ValueError("idempotency key conflict")
+            return self._chats.read(chat_id)
         history = self._bounded_history(chat_id)
         try:
             intent = await self._intent_provider.classify(

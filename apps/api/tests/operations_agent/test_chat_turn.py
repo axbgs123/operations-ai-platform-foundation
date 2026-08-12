@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
+import pytest
+
 from app.core.security import WorkspaceContext
 from app.modules.generation import models as generation_models  # noqa: F401
 from app.modules.operations_agent.chat_turn import (
@@ -108,6 +110,40 @@ def test_turn_is_idempotent_and_does_not_call_provider_twice() -> None:
     assert [item.id for item in first_result.messages] == [
         item.id for item in second_result.messages
     ]
+
+
+def test_turn_idempotency_key_cannot_be_reused_with_different_content() -> None:
+    session, workspace, first, _ = _environment()
+    chat_service = _service(session, workspace, first)
+    chat = chat_service.create(idempotency_key="turn-conflict-chat")
+    service = AgentChatTurnService(
+        session,
+        _context(workspace.id, first.id),
+        intent_provider=StubIntentProvider(
+            AgentChatIntent(
+                intent="greeting",
+                reply="你好",
+                objective=None,
+                needs_account=False,
+            )
+        ),
+    )
+    asyncio.run(
+        service.send(
+            chat.id,
+            content="你好",
+            idempotency_key="turn-conflict",
+        )
+    )
+
+    with pytest.raises(ValueError, match="idempotency"):
+        asyncio.run(
+            service.send(
+                chat.id,
+                content="不同内容",
+                idempotency_key="turn-conflict",
+            )
+        )
 
 
 def test_provider_failure_keeps_user_message_and_adds_safe_error() -> None:
