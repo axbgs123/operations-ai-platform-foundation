@@ -211,7 +211,7 @@ test("returns a remembered valid member to the original workspace", async () => 
 
   render(<EnterPage />);
 
-  expect(screen.getByRole("status")).toHaveTextContent(
+  expect(await screen.findByRole("status")).toHaveTextContent(
     "正在返回上次团队",
   );
   await waitFor(() => {
