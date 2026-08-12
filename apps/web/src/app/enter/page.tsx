@@ -1,19 +1,79 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   enterWorkspace,
   onboardWorkspaceOwner,
 } from "@/lib/workspace-api";
+import {
+  loadWorkbenchContext,
+  WorkbenchApiError,
+} from "@/lib/workbench-api";
+import {
+  clearWorkspaceSessionRecovery,
+  readWorkspaceSessionRecovery,
+  restoreWorkspaceCsrf,
+  type WorkspaceSessionRecoveryRecord,
+  writeWorkspaceSessionRecovery,
+} from "@/lib/workspace-session-recovery";
 
 type EntryMode = "create" | "join";
+type ResumeState = "entry" | "checking" | "retry";
 
 export default function EnterPage() {
   const [mode, setMode] = useState<EntryMode>("create");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [resumeState, setResumeState] = useState<ResumeState>("entry");
+  const [recoveryRecord, setRecoveryRecord] =
+    useState<WorkspaceSessionRecoveryRecord | null>(null);
   const pendingRef = useRef(false);
+
+  const invalidateRecovery = useCallback(() => {
+    clearWorkspaceSessionRecovery(window.localStorage);
+    window.sessionStorage.removeItem("workspace_csrf");
+    setRecoveryRecord(null);
+    setResumeState("entry");
+  }, []);
+
+  const resumeWorkspace = useCallback(async (
+    record: WorkspaceSessionRecoveryRecord,
+    signal?: AbortSignal,
+  ) => {
+    setResumeState("checking");
+    restoreWorkspaceCsrf(window.sessionStorage, record);
+    try {
+      const context = await loadWorkbenchContext(record.workspaceId, signal);
+      if (
+        context.workspace_id !== record.workspaceId
+        || context.member_id !== record.memberId
+      ) {
+        invalidateRecovery();
+        return;
+      }
+      window.location.assign(`/workspaces/${record.workspaceId}`);
+    } catch (resumeError) {
+      if (signal?.aborted) return;
+      if (
+        resumeError instanceof WorkbenchApiError
+        && (resumeError.status === 401 || resumeError.status === 404)
+      ) {
+        invalidateRecovery();
+        return;
+      }
+      setResumeState("retry");
+    }
+  }, [invalidateRecovery]);
+
+  useEffect(() => {
+    const stored = readWorkspaceSessionRecovery(window.localStorage);
+    if (stored === null) return;
+    setRecoveryRecord(stored);
+    const controller = new AbortController();
+    void resumeWorkspace(stored, controller.signal);
+    return () => controller.abort();
+  }, [resumeWorkspace]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,6 +95,11 @@ export default function EnterPage() {
             )
           : await enterWorkspace(String(form.get("code") ?? ""), displayName);
       sessionStorage.setItem("workspace_csrf", session.csrf_token);
+      writeWorkspaceSessionRecovery(window.localStorage, {
+        workspaceId: session.workspace_id,
+        memberId: session.member_id,
+        csrfToken: session.csrf_token,
+      });
       window.location.assign(`/workspaces/${session.workspace_id}`);
     } catch {
       setError(
@@ -46,6 +111,61 @@ export default function EnterPage() {
       pendingRef.current = false;
       setPending(false);
     }
+  }
+
+  if (resumeState === "checking") {
+    return (
+      <main className="min-h-screen bg-[var(--canvas)] px-4 py-10 text-[var(--text-primary)] sm:px-6 sm:py-16">
+        <section
+          aria-labelledby="workspace-resume-title"
+          className="mx-auto max-w-lg rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8"
+          role="status"
+        >
+          <h1 className="text-2xl font-semibold" id="workspace-resume-title">
+            正在返回上次团队
+          </h1>
+          <p
+            className="mt-3 text-sm leading-6 text-[var(--text-secondary)]"
+          >
+            正在确认这台浏览器中保存的团队会话，请稍候。
+          </p>
+        </section>
+      </main>
+    );
+  }
+
+  if (resumeState === "retry" && recoveryRecord !== null) {
+    return (
+      <main className="min-h-screen bg-[var(--canvas)] px-4 py-10 text-[var(--text-primary)] sm:px-6 sm:py-16">
+        <section
+          aria-labelledby="workspace-retry-title"
+          className="mx-auto max-w-lg rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8"
+        >
+          <h1 className="text-2xl font-semibold" id="workspace-retry-title">
+            暂时无法确认上次团队
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+            团队记录仍保留在这台浏览器中，请检查连接后重试。
+          </p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            <button
+              className="rounded-xl bg-[var(--brand)] px-4 py-3 font-semibold text-white"
+              onClick={() => void resumeWorkspace(recoveryRecord)}
+              type="button"
+            >
+              返回上次团队
+            </button>
+            <button
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 font-semibold"
+              onClick={() => setResumeState("entry")}
+              type="button"
+            >
+              使用其他方式进入
+            </button>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (

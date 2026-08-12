@@ -19,6 +19,7 @@ import {
   WorkbenchApiError,
   type WorkbenchContext,
 } from "@/lib/workbench-api";
+import { clearWorkspaceSessionRecovery } from "@/lib/workspace-session-recovery";
 
 import { MobileDrawer } from "./mobile-drawer";
 import {
@@ -270,6 +271,8 @@ function WorkspaceShellContextLoader({
         if (error instanceof WorkbenchApiError && error.status === 401) {
           clearNavigationPreferences(window.localStorage);
           clearExperiencePreferences(window.localStorage);
+          clearWorkspaceSessionRecovery(window.localStorage);
+          window.sessionStorage.removeItem("workspace_csrf");
         }
         setState(
           error instanceof WorkbenchApiError && error.status === 401

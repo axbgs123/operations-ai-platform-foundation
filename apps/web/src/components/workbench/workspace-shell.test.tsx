@@ -30,6 +30,10 @@ import {
   WorkspaceShellLoader,
   useWorkbenchShellContext,
 } from "./workspace-shell";
+import {
+  readWorkspaceSessionRecovery,
+  writeWorkspaceSessionRecovery,
+} from "@/lib/workspace-session-recovery";
 
 
 const navigationState = vi.hoisted(() => ({
@@ -96,6 +100,7 @@ beforeEach(() => {
   navigationState.search = "";
   navigationState.replace.mockReset();
   localStorage.clear();
+  sessionStorage.clear();
   setMobileViewport(false);
 });
 
@@ -859,6 +864,15 @@ describe("workbench context loading", () => {
   });
 
   test("does not render private children when the session has expired", async () => {
+    writeWorkspaceSessionRecovery(localStorage, {
+      workspaceId: "019fee9a-cb94-79b3-a0f0-3d6116c33d1d",
+      memberId: "019fee9a-cb95-70ab-8b01-123456789abc",
+      csrfToken: "csrf-token-with-sufficient-length",
+    });
+    sessionStorage.setItem(
+      "workspace_csrf",
+      "csrf-token-with-sufficient-length",
+    );
     localStorage.setItem("operations-ai:sidebar:member-admin", "collapsed");
     localStorage.setItem(
       "operations-ai:navigation:member-admin:operations",
@@ -895,6 +909,8 @@ describe("workbench context loading", () => {
     expect(
       localStorage.getItem("operations-ai:page-guidance:member-admin"),
     ).toBeNull();
+    expect(readWorkspaceSessionRecovery(localStorage)).toBeNull();
+    expect(sessionStorage.getItem("workspace_csrf")).toBeNull();
     expect(localStorage.getItem("unrelated-preference")).toBe("keep");
   });
 

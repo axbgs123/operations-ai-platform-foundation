@@ -8,24 +8,68 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import {
+  readWorkspaceSessionRecovery,
+  writeWorkspaceSessionRecovery,
+} from "@/lib/workspace-session-recovery";
+
 import EnterPage from "./page";
 
-const { enterWorkspaceMock, onboardWorkspaceOwnerMock } = vi.hoisted(() => ({
-  enterWorkspaceMock: vi.fn(),
-  onboardWorkspaceOwnerMock: vi.fn(),
-}));
+const {
+  enterWorkspaceMock,
+  loadWorkbenchContextMock,
+  onboardWorkspaceOwnerMock,
+  WorkbenchApiErrorMock,
+} = vi.hoisted(() => {
+  class WorkbenchApiErrorMock extends Error {
+    constructor(readonly status: number) {
+      super("workbench request failed");
+    }
+  }
+  return {
+    enterWorkspaceMock: vi.fn(),
+    loadWorkbenchContextMock: vi.fn(),
+    onboardWorkspaceOwnerMock: vi.fn(),
+    WorkbenchApiErrorMock,
+  };
+});
 
 vi.mock("@/lib/workspace-api", () => ({
   enterWorkspace: enterWorkspaceMock,
   onboardWorkspaceOwner: onboardWorkspaceOwnerMock,
 }));
 
+vi.mock("@/lib/workbench-api", () => ({
+  loadWorkbenchContext: loadWorkbenchContextMock,
+  WorkbenchApiError: WorkbenchApiErrorMock,
+}));
+
 const locationAssignMock = vi.fn();
+const ownerWorkspaceId = "019fee9a-cb94-79b3-a0f0-3d6116c33d1d";
+const ownerMemberId = "019fee9a-cb95-70ab-8b01-123456789abc";
+const editorWorkspaceId = "019fee9a-cb96-7448-842b-123456789abc";
+const editorMemberId = "019fee9a-cb97-7448-842b-123456789abc";
+const rememberedSession = {
+  workspaceId: ownerWorkspaceId,
+  memberId: ownerMemberId,
+  csrfToken: "csrf-token-with-sufficient-length",
+};
+const rememberedContext = {
+  workspace_id: ownerWorkspaceId,
+  workspace_name: "原来的团队",
+  member_id: ownerMemberId,
+  member_display_name: "原管理员",
+  role: "admin" as const,
+  accounts: [],
+  failed_task_count: 0,
+};
 
 beforeEach(() => {
   enterWorkspaceMock.mockReset();
+  loadWorkbenchContextMock.mockReset();
   onboardWorkspaceOwnerMock.mockReset();
   locationAssignMock.mockReset();
+  localStorage.clear();
   sessionStorage.clear();
   vi.stubGlobal("location", { assign: locationAssignMock });
 });
@@ -86,9 +130,9 @@ test("uses the approved light workbench tokens for the entry surface and text", 
 test("creates the first owner without sending an invite code", async () => {
   const user = userEvent.setup();
   onboardWorkspaceOwnerMock.mockResolvedValue({
-    workspace_id: "workspace-owner",
-    member_id: "member-owner",
-    csrf_token: "csrf-owner",
+    workspace_id: ownerWorkspaceId,
+    member_id: ownerMemberId,
+    csrf_token: "csrf-owner-with-sufficient-length",
   });
   render(<EnterPage />);
 
@@ -103,18 +147,26 @@ test("creates the first owner without sending an invite code", async () => {
     );
   });
   expect(enterWorkspaceMock).not.toHaveBeenCalled();
-  expect(sessionStorage.getItem("workspace_csrf")).toBe("csrf-owner");
+  expect(sessionStorage.getItem("workspace_csrf")).toBe(
+    "csrf-owner-with-sufficient-length",
+  );
+  expect(readWorkspaceSessionRecovery(localStorage)).toEqual({
+    version: 1,
+    workspaceId: ownerWorkspaceId,
+    memberId: ownerMemberId,
+    csrfToken: "csrf-owner-with-sufficient-length",
+  });
   expect(locationAssignMock).toHaveBeenCalledWith(
-    "/workspaces/workspace-owner",
+    `/workspaces/${ownerWorkspaceId}`,
   );
 });
 
 test("keeps invite joining independent from owner onboarding", async () => {
   const user = userEvent.setup();
   enterWorkspaceMock.mockResolvedValue({
-    workspace_id: "workspace-invite",
-    member_id: "member-editor",
-    csrf_token: "csrf-editor",
+    workspace_id: editorWorkspaceId,
+    member_id: editorMemberId,
+    csrf_token: "csrf-editor-with-sufficient-length",
   });
   render(<EnterPage />);
 
@@ -139,10 +191,91 @@ test("keeps invite joining independent from owner onboarding", async () => {
     );
   });
   expect(onboardWorkspaceOwnerMock).not.toHaveBeenCalled();
-  expect(sessionStorage.getItem("workspace_csrf")).toBe("csrf-editor");
-  expect(locationAssignMock).toHaveBeenCalledWith(
-    "/workspaces/workspace-invite",
+  expect(sessionStorage.getItem("workspace_csrf")).toBe(
+    "csrf-editor-with-sufficient-length",
   );
+  expect(readWorkspaceSessionRecovery(localStorage)).toEqual({
+    version: 1,
+    workspaceId: editorWorkspaceId,
+    memberId: editorMemberId,
+    csrfToken: "csrf-editor-with-sufficient-length",
+  });
+  expect(locationAssignMock).toHaveBeenCalledWith(
+    `/workspaces/${editorWorkspaceId}`,
+  );
+});
+
+test("returns a remembered valid member to the original workspace", async () => {
+  writeWorkspaceSessionRecovery(localStorage, rememberedSession);
+  loadWorkbenchContextMock.mockResolvedValue(rememberedContext);
+
+  render(<EnterPage />);
+
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "正在返回上次团队",
+  );
+  await waitFor(() => {
+    expect(locationAssignMock).toHaveBeenCalledWith(
+      `/workspaces/${ownerWorkspaceId}`,
+    );
+  });
+  expect(sessionStorage.getItem("workspace_csrf")).toBe(
+    rememberedSession.csrfToken,
+  );
+});
+
+test.each([401, 404])(
+  "clears a remembered session after a %s response",
+  async (status) => {
+    writeWorkspaceSessionRecovery(localStorage, rememberedSession);
+    sessionStorage.setItem("workspace_csrf", rememberedSession.csrfToken);
+    loadWorkbenchContextMock.mockRejectedValue(new WorkbenchApiErrorMock(status));
+
+    render(<EnterPage />);
+
+    expect(
+      await screen.findByRole("heading", { name: "进入你的运营工作区" }),
+    ).toBeVisible();
+    expect(readWorkspaceSessionRecovery(localStorage)).toBeNull();
+    expect(sessionStorage.getItem("workspace_csrf")).toBeNull();
+  },
+);
+
+test("rejects a remembered session whose member identity does not match", async () => {
+  writeWorkspaceSessionRecovery(localStorage, rememberedSession);
+  loadWorkbenchContextMock.mockResolvedValue({
+    ...rememberedContext,
+    member_id: editorMemberId,
+  });
+
+  render(<EnterPage />);
+
+  expect(
+    await screen.findByRole("heading", { name: "进入你的运营工作区" }),
+  ).toBeVisible();
+  expect(readWorkspaceSessionRecovery(localStorage)).toBeNull();
+  expect(locationAssignMock).not.toHaveBeenCalled();
+});
+
+test("keeps recovery state and offers a retry after a connection failure", async () => {
+  const user = userEvent.setup();
+  writeWorkspaceSessionRecovery(localStorage, rememberedSession);
+  loadWorkbenchContextMock
+    .mockRejectedValueOnce(new TypeError("network unavailable"))
+    .mockResolvedValueOnce(rememberedContext);
+
+  render(<EnterPage />);
+
+  const retry = await screen.findByRole("button", {
+    name: "返回上次团队",
+  });
+  expect(readWorkspaceSessionRecovery(localStorage)).not.toBeNull();
+  await user.click(retry);
+  await waitFor(() => {
+    expect(locationAssignMock).toHaveBeenCalledWith(
+      `/workspaces/${ownerWorkspaceId}`,
+    );
+  });
 });
 
 test("locks the create mode while pending and restores it after a safe failure", async () => {
