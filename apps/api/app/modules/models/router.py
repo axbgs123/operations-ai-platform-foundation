@@ -22,6 +22,9 @@ from app.modules.models.config_service import (
     SecretCipher,
 )
 from app.modules.models.connection_test import probe_qianwen_connection
+from app.modules.models.openai_compatible_connection import (
+    probe_openai_compatible_connection,
+)
 from app.modules.models.models import (
     ModelConfig,
     ModelContractValidationRun,
@@ -559,13 +562,25 @@ def create_model_validation(
     config_service = ModelConfigService(session, context, cipher=cipher)
 
     def connection_probe(config: ModelConfig) -> str | None:
-        if config.region is None:
-            return "MODEL_CONFIGURATION_REQUIRED"
-        return probe_qianwen_connection(
-            api_key=config_service.decrypt_key(config.id),
-            region=QianwenRegion(config.region),
-            provider_workspace_id=config.provider_workspace_id,
-        )
+        if config.provider == "qianwen":
+            if config.region is None:
+                return "MODEL_CONFIGURATION_REQUIRED"
+            return probe_qianwen_connection(
+                api_key=config_service.decrypt_key(config.id),
+                region=QianwenRegion(config.region),
+                provider_workspace_id=config.provider_workspace_id,
+            )
+        if (
+            config.provider == "openai_compatible"
+            and config.endpoint_base_url is not None
+        ):
+            return probe_openai_compatible_connection(
+                api_key=config_service.decrypt_key(config.id),
+                base_url=config.endpoint_base_url,
+                model_id=config.model_id,
+                app_env=get_settings().app_env,
+            )
+        return "MODEL_CONFIGURATION_REQUIRED"
 
     try:
         run = ControlledValidationService(

@@ -119,7 +119,7 @@ class ControlledValidationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     model_config_id: UUID
-    region: Literal["cn-beijing", "ap-southeast-1"]
+    region: Literal["cn-beijing", "ap-southeast-1", "provider-managed"]
     capability: Capability
     model_id: str = Field(min_length=1, max_length=160)
     max_calls: int = Field(ge=1, le=5)
@@ -980,11 +980,23 @@ class ControlledValidationService:
         )
         if config is None:
             raise LookupError("model config not found")
-        catalog = get_catalog_entry(config.provider, config.model_id)
+        try:
+            catalog = get_catalog_entry(config.provider, config.model_id)
+        except LookupError:
+            catalog = None
+        expected_region = config.region or "provider-managed"
+        configured_capabilities = frozenset(
+            Capability(value) for value in config.capabilities
+        )
         if (
             config.model_id != request.model_id
-            or config.region != request.region
-            or request.capability not in catalog.capabilities
+            or expected_region != request.region
+            or request.capability
+            not in (
+                catalog.capabilities
+                if catalog is not None
+                else configured_capabilities
+            )
         ):
             raise ValueError("validation target does not match model config")
         if self._real_calls_authorized and self._connection_probe is None:
@@ -1004,7 +1016,11 @@ class ControlledValidationService:
             region=request.region,
             capability=request.capability.value,
             model_id=request.model_id,
-            contract_version=catalog.contract_version,
+            contract_version=(
+                catalog.contract_version
+                if catalog is not None
+                else "openai-compatible-chat-json-v1"
+            ),
             configuration_version=model_configuration_version(config),
             validation_suite_version=VALIDATION_SUITE_VERSION,
             max_calls=request.max_calls,

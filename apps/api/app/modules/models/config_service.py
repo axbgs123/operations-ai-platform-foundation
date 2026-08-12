@@ -193,7 +193,16 @@ class ModelConfigService:
             if parsed.scheme not in {"http", "https"} or not parsed.hostname:
                 raise ValueError("OpenAI-compatible base URL is invalid")
         else:
-            raise ValueError("unsupported model provider")
+            if (
+                region is not None
+                or provider_workspace_id is not None
+                or display_name is not None
+                or base_url is not None
+            ):
+                raise ValueError(
+                    "provider-specific endpoint fields are not supported"
+                )
+            self._validate_status(provider, model_id, status)
         capability_values = sorted(
             capability.value for capability in capabilities
         )
