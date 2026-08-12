@@ -79,11 +79,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("offers persistent, accessible create-team and join-team paths", () => {
+test("offers persistent, accessible create-team and join-team paths", async () => {
   render(<EnterPage />);
 
   expect(
-    screen.getByRole("heading", { name: "进入你的运营工作区" }),
+    await screen.findByRole("heading", { name: "进入你的运营工作区" }),
   ).toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "创建团队" }),
@@ -103,11 +103,11 @@ test("offers persistent, accessible create-team and join-team paths", () => {
   ).toBeInTheDocument();
 });
 
-test("uses the approved light workbench tokens for the entry surface and text", () => {
+test("uses the approved light workbench tokens for the entry surface and text", async () => {
   render(<EnterPage />);
 
   const main = screen.getByRole("main");
-  const entryCard = screen.getByRole("region", {
+  const entryCard = await screen.findByRole("region", {
     name: "进入你的运营工作区",
   });
   expect(main).toHaveClass(
@@ -136,7 +136,7 @@ test("creates the first owner without sending an invite code", async () => {
   });
   render(<EnterPage />);
 
-  await user.type(screen.getByLabelText("团队名称"), "C哥内容团队");
+  await user.type(await screen.findByLabelText("团队名称"), "C哥内容团队");
   await user.type(screen.getByLabelText("我的名称"), "小白");
   await user.click(screen.getByRole("button", { name: "创建团队并进入" }));
 
@@ -171,7 +171,7 @@ test("keeps invite joining independent from owner onboarding", async () => {
   render(<EnterPage />);
 
   await user.click(
-    screen.getByRole("button", { name: "加入团队", pressed: false }),
+    await screen.findByRole("button", { name: "加入团队", pressed: false }),
   );
   expect(screen.getByLabelText("邀请码")).toBeInTheDocument();
   expect(screen.getByLabelText("我的名称")).toBeInTheDocument();
@@ -211,9 +211,12 @@ test("returns a remembered valid member to the original workspace", async () => 
 
   render(<EnterPage />);
 
-  expect(await screen.findByRole("status")).toHaveTextContent(
+  expect(screen.getByRole("status")).toHaveTextContent(
     "正在返回上次团队",
   );
+  expect(
+    screen.queryByRole("heading", { name: "进入你的运营工作区" }),
+  ).not.toBeInTheDocument();
   await waitFor(() => {
     expect(locationAssignMock).toHaveBeenCalledWith(
       `/workspaces/${ownerWorkspaceId}`,
@@ -289,7 +292,10 @@ test("locks the create mode while pending and restores it after a safe failure",
   );
   render(<EnterPage />);
 
-  await user.type(screen.getByLabelText("团队名称"), "合成测试团队");
+  await user.type(
+    await screen.findByLabelText("团队名称"),
+    "合成测试团队",
+  );
   await user.type(screen.getByLabelText("我的名称"), "测试管理员");
   const submit = screen.getByRole("button", { name: "创建团队并进入" });
   const createMode = screen.getByRole("button", {

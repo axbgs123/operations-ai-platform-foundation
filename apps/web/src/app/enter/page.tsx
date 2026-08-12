@@ -25,7 +25,7 @@ export default function EnterPage() {
   const [mode, setMode] = useState<EntryMode>("create");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [resumeState, setResumeState] = useState<ResumeState>("entry");
+  const [resumeState, setResumeState] = useState<ResumeState>("checking");
   const [recoveryRecord, setRecoveryRecord] =
     useState<WorkspaceSessionRecoveryRecord | null>(null);
   const pendingRef = useRef(false);
@@ -67,17 +67,20 @@ export default function EnterPage() {
   }, [invalidateRecovery]);
 
   useEffect(() => {
-    const stored = readWorkspaceSessionRecovery(window.localStorage);
-    if (stored === null) return;
-    const record: WorkspaceSessionRecoveryRecord = stored;
     const controller = new AbortController();
-    async function resumeAfterHydration() {
+    async function initializeEntry() {
+      const stored = readWorkspaceSessionRecovery(window.localStorage);
       await Promise.resolve();
       if (controller.signal.aborted) return;
+      if (stored === null) {
+        setResumeState("entry");
+        return;
+      }
+      const record: WorkspaceSessionRecoveryRecord = stored;
       setRecoveryRecord(record);
       await resumeWorkspace(record, controller.signal);
     }
-    void resumeAfterHydration();
+    void initializeEntry();
     return () => controller.abort();
   }, [resumeWorkspace]);
 
