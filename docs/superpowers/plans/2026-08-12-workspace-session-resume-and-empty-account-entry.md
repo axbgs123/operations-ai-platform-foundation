@@ -53,7 +53,7 @@ test("round-trips a valid versioned recovery record", () => {
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
-Run: `pnpm --filter @operations-ai/web test -- src/lib/workspace-session-recovery.test.ts`
+Run: `pnpm --filter web test:run -- src/lib/workspace-session-recovery.test.ts`
 
 Expected: FAIL because `workspace-session-recovery.ts` does not exist.
 
@@ -63,7 +63,7 @@ Use one constant key, `operations-ai:workspace-session-recovery:v1`. Parse JSON 
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 
-Run: `pnpm --filter @operations-ai/web test -- src/lib/workspace-session-recovery.test.ts`
+Run: `pnpm --filter web test:run -- src/lib/workspace-session-recovery.test.ts`
 
 Expected: all recovery storage tests PASS with no console warnings.
 
@@ -116,7 +116,7 @@ Require a `401` from `loadWorkbenchContext` to clear both the versioned recovery
 
 - [ ] **Step 3: Run focused tests and verify RED**
 
-Run: `pnpm --filter @operations-ai/web test -- src/app/enter/page.test.tsx src/components/workbench/workspace-shell.test.tsx`
+Run: `pnpm --filter web test:run -- src/app/enter/page.test.tsx src/components/workbench/workspace-shell.test.tsx`
 
 Expected: FAIL because `/enter` does not read or validate recovery state and the shell does not clear it.
 
@@ -132,7 +132,7 @@ In the existing `401` branch, call `clearWorkspaceSessionRecovery(window.localSt
 
 - [ ] **Step 6: Run focused tests and verify GREEN**
 
-Run: `pnpm --filter @operations-ai/web test -- src/app/enter/page.test.tsx src/components/workbench/workspace-shell.test.tsx`
+Run: `pnpm --filter web test:run -- src/app/enter/page.test.tsx src/components/workbench/workspace-shell.test.tsx`
 
 Expected: all new and existing entry/shell tests PASS.
 
@@ -166,7 +166,7 @@ expect(screen.getByRole("link", { name: "创建账号" })).toHaveAttribute(
 
 - [ ] **Step 2: Run focused test and verify RED**
 
-Run: `pnpm --filter @operations-ai/web test -- src/components/workbench/workbench-overview.test.tsx`
+Run: `pnpm --filter web test:run -- src/components/workbench/workbench-overview.test.tsx`
 
 Expected: FAIL because the current action is named “配置平台账号” and links to `/settings`.
 
@@ -176,7 +176,7 @@ Change only the non-Viewer empty-state action label and href. Keep the top `Scop
 
 - [ ] **Step 4: Run focused test and verify GREEN**
 
-Run: `pnpm --filter @operations-ai/web test -- src/components/workbench/workbench-overview.test.tsx`
+Run: `pnpm --filter web test:run -- src/components/workbench/workbench-overview.test.tsx`
 
 Expected: the overview tests PASS.
 
@@ -201,10 +201,10 @@ git commit -m "fix: link empty overview to account creation"
 Run:
 
 ```bash
-pnpm --filter @operations-ai/web test
-pnpm --filter @operations-ai/web lint
-pnpm --filter @operations-ai/web typecheck
-pnpm --filter @operations-ai/web build
+pnpm --filter web test:run
+pnpm --filter web lint
+pnpm --filter web typecheck
+pnpm --filter web build
 git diff --check
 ```
 
