@@ -300,6 +300,7 @@ class ModelUsageSummaryRead(BaseModel):
     estimated_cost_microunits: int
     settled_cost_microunits: int
     unknown_reserved_cost_microunits: int
+    unknown_pricing_attempts: int
     currency: Literal["CNY"] = "CNY"
     sample_status: Literal["insufficient_sample", "available"]
 
@@ -319,6 +320,7 @@ class ModelUsageAttemptRead(BaseModel):
     contract_version: str
     configuration_version: str
     pricing_version: str
+    cost_known: bool
     usage_basis: Literal["estimated", "settled", "unknown"]
     status: str
     input_tokens: int
@@ -507,6 +509,9 @@ def get_model_usage_summary(
             row.settled_cost_microunits or 0 for row in attempts
         ),
         unknown_reserved_cost_microunits=int(unknown_reserved or 0),
+        unknown_pricing_attempts=sum(
+            1 for row in attempts if not row.cost_known
+        ),
         sample_status=(
             "available" if len(attempts) >= 10 else "insufficient_sample"
         ),

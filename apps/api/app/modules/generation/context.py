@@ -28,6 +28,7 @@ from app.modules.generation.schemas import (
     ViralReferenceSnapshot,
 )
 from app.modules.models.models import ModelConfig, ModelConfigStatus
+from app.modules.models.capabilities import Capability
 from app.modules.models.catalog import get_catalog_entry
 from app.modules.style_facts.fact_models import (
     FactConflictStatus,
@@ -307,6 +308,13 @@ class GenerationContextBuilder:
             ):
                 raise ValueError("model config is not generation eligible")
             contract_version = catalog.contract_version
+        elif config.provider == "openai_compatible":
+            if (
+                set(config.capabilities) != {Capability.TEXT.value}
+                or config.status is not ModelConfigStatus.COMMUNITY
+            ):
+                raise ValueError("model config is not generation eligible")
+            contract_version = "openai-compatible-chat-json-v1"
         return ModelSnapshot(
             config_id=config.id,
             provider=config.provider,

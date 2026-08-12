@@ -341,6 +341,66 @@ def test_reservation_settlement_and_unknown_are_auditable_per_attempt() -> None:
     assert columns.isdisjoint(forbidden)
 
 
+def test_unknown_provider_price_keeps_token_limits_without_fake_cost() -> None:
+    factory, workspace, config, member_id = _environment()
+    config.provider = "openai_compatible"
+    config.model_id = "community-model"
+    config.region = None
+    config.status = ModelConfigStatus.COMMUNITY
+    with factory() as session:
+        stored = session.get(ModelConfig, config.id)
+        assert stored is not None
+        stored.provider = config.provider
+        stored.model_id = config.model_id
+        stored.region = None
+        stored.status = config.status
+        ModelUsagePolicyService(
+            session,
+            _context(workspace.id, member_id),
+            clock=lambda: NOW,
+        ).save(_policy())
+        session.commit()
+
+    governor = ModelUsageGovernor(
+        session_factory=factory,
+        workspace_id=workspace.id,
+        model_config_id=config.id,
+        actor_id=member_id,
+        task_id=uuid4(),
+        provider="openai_compatible",
+        model_id="community-model",
+        region="provider-managed",
+        capability=Capability.TEXT,
+        operation=ProviderOperation.TEXT_GENERATION,
+        contract_version="openai-compatible-chat-json-v1",
+        configuration_version="config-v1",
+        lease_backend=InMemoryUsageLeaseBackend(),
+        clock=lambda: NOW,
+        cost_known=False,
+    )
+    handle = governor.begin_attempt(
+        1,
+        UsageEstimate(input_tokens=100, output_tokens=20),
+    )
+    governor.finish_attempt(
+        handle,
+        outcome=UsageAttemptOutcome.SUCCEEDED,
+        actual=UsageEstimate(input_tokens=80, output_tokens=10),
+        latency_ms=12,
+    )
+
+    with factory() as session:
+        reservation = session.scalar(select(ModelUsageReservation))
+        attempt = session.scalar(select(ModelUsageAttempt))
+    assert reservation is not None and attempt is not None
+    assert reservation.cost_known is False
+    assert reservation.reserved_cost_microunits == 0
+    assert reservation.pricing_version == "provider-managed-unknown"
+    assert attempt.cost_known is False
+    assert attempt.estimated_cost_microunits == 0
+    assert attempt.settled_cost_microunits is None
+
+
 def test_known_unbilled_failure_releases_budget_but_cancel_does_not() -> None:
     factory, workspace, config, member_id = _environment()
     with factory() as session:
@@ -689,6 +749,7 @@ def test_admin_usage_api_returns_safe_policy_summary_and_connection_validation(
             "estimated_cost_microunits": 0,
             "settled_cost_microunits": 0,
             "unknown_reserved_cost_microunits": 0,
+            "unknown_pricing_attempts": 0,
             "currency": "CNY",
             "sample_status": "insufficient_sample",
         }

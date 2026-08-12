@@ -4173,7 +4173,7 @@ export interface components {
              * Region
              * @enum {string}
              */
-            region: "cn-beijing" | "ap-southeast-1";
+            region: "cn-beijing" | "ap-southeast-1" | "provider-managed";
         };
         /** CoverAttemptRead */
         CoverAttemptRead: {
@@ -5902,8 +5902,12 @@ export interface components {
              * Format: password
              */
             api_key: string;
+            /** Base Url */
+            base_url?: string | null;
             /** Capabilities */
             capabilities: components["schemas"]["Capability"][];
+            /** Display Name */
+            display_name?: string | null;
             /** Model Id */
             model_id: string;
             /** Provider */
@@ -5927,6 +5931,10 @@ export interface components {
              * Format: date-time
              */
             credential_updated_at: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Endpoint Host */
+            endpoint_host: string | null;
             /** Experimental */
             experimental: boolean;
             /**
@@ -5990,6 +5998,8 @@ export interface components {
             configuration_version: string;
             /** Contract Version */
             contract_version: string;
+            /** Cost Known */
+            cost_known: boolean;
             /**
              * Created At
              * Format: date-time
@@ -6150,6 +6160,8 @@ export interface components {
             sample_status: "insufficient_sample" | "available";
             /** Settled Cost Microunits */
             settled_cost_microunits: number;
+            /** Unknown Pricing Attempts */
+            unknown_pricing_attempts: number;
             /** Unknown Reserved Cost Microunits */
             unknown_reserved_cost_microunits: number;
             /** Utc Day */

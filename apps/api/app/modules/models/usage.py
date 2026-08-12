@@ -34,6 +34,7 @@ from app.modules.workspace.permissions import Permission, require_permission
 
 
 PRICING_VERSION = "aliyun-public-2026-07-29-v1"
+UNKNOWN_PRICING_VERSION = "provider-managed-unknown"
 VALIDATION_SUITE_VERSION = "qianwen-controlled-contract-v1"
 _SAFE_REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
@@ -222,7 +223,8 @@ def create_model_usage_governor(
 ) -> ModelUsageGovernor:
     from redis import Redis
 
-    if model_config.region is None:
+    cost_known = model_config.provider == "qianwen"
+    if model_config.region is None and cost_known:
         raise UsageGovernanceError("MODEL_CONFIGURATION_REQUIRED")
     return ModelUsageGovernor(
         session_factory=session_factory,
@@ -232,7 +234,7 @@ def create_model_usage_governor(
         task_id=task_id,
         provider=model_config.provider,
         model_id=model_config.model_id,
-        region=model_config.region,
+        region=model_config.region or "provider-managed",
         capability=capability,
         operation=operation,
         contract_version=contract_version,
@@ -243,6 +245,7 @@ def create_model_usage_governor(
                 Redis.from_url(redis_url, decode_responses=True),
             )
         ),
+        cost_known=cost_known,
     )
 
 
@@ -569,6 +572,7 @@ class ModelUsageGovernor:
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
         mock_mode: bool = False,
         lease_ttl_seconds: int = 60,
+        cost_known: bool = True,
     ) -> None:
         self._factory = session_factory
         self._workspace_id = workspace_id
@@ -586,6 +590,7 @@ class ModelUsageGovernor:
         self._clock = clock
         self._mock_mode = mock_mode
         self._lease_ttl = lease_ttl_seconds
+        self._cost_known = cost_known
 
     def begin_attempt(
         self,
@@ -605,10 +610,14 @@ class ModelUsageGovernor:
                 provider_attempt_number=provider_attempt_number,
             )
         now = _aware(self._clock())
-        estimated_cost = estimate_cost_microunits(
-            model_id=self._model_id,
-            region=self._region,
-            estimate=estimate,
+        estimated_cost = (
+            estimate_cost_microunits(
+                model_id=self._model_id,
+                region=self._region,
+                estimate=estimate,
+            )
+            if self._cost_known
+            else 0
         )
         with self._factory() as session:
             policy = _current_policy(
@@ -642,7 +651,12 @@ class ModelUsageGovernor:
                 contract_version=self._contract_version,
                 configuration_version=self._configuration_version,
                 policy_version=policy.version,
-                pricing_version=PRICING_VERSION,
+                pricing_version=(
+                    PRICING_VERSION
+                    if self._cost_known
+                    else UNKNOWN_PRICING_VERSION
+                ),
+                cost_known=self._cost_known,
                 estimated_usage=estimate.model_dump(),
                 reserved_cost_microunits=estimated_cost,
                 status=ModelUsageReservationStatus.RESERVED,
@@ -742,10 +756,14 @@ class ModelUsageGovernor:
             if outcome is UsageAttemptOutcome.SUCCEEDED:
                 usage = actual or handle.estimate
                 usage_basis = "settled" if actual is not None else "estimated"
-                settled_cost = estimate_cost_microunits(
-                    model_id=self._model_id,
-                    region=self._region,
-                    estimate=usage,
+                settled_cost = (
+                    estimate_cost_microunits(
+                        model_id=self._model_id,
+                        region=self._region,
+                        estimate=usage,
+                    )
+                    if self._cost_known
+                    else None
                 )
                 reservation.status = ModelUsageReservationStatus.SETTLED
             elif outcome is UsageAttemptOutcome.FAILED_UNBILLED:
@@ -762,7 +780,7 @@ class ModelUsageGovernor:
                         region=self._region,
                         estimate=usage,
                     )
-                    if actual is not None
+                    if actual is not None and self._cost_known
                     else None
                 )
                 reservation.status = ModelUsageReservationStatus.UNKNOWN
@@ -781,7 +799,12 @@ class ModelUsageGovernor:
                     operation=self._operation.value,
                     contract_version=self._contract_version,
                     configuration_version=self._configuration_version,
-                    pricing_version=PRICING_VERSION,
+                    pricing_version=(
+                        PRICING_VERSION
+                        if self._cost_known
+                        else UNKNOWN_PRICING_VERSION
+                    ),
+                    cost_known=self._cost_known,
                     usage_basis=usage_basis,
                     status=ModelUsageAttemptStatus(outcome.value),
                     input_tokens=usage.input_tokens,
@@ -915,7 +938,7 @@ class ModelUsageGovernor:
                 for row in rows
             ),
         )
-        checks = (
+        checks = [
             (
                 len(rows) + 1,
                 policy.daily_request_limit,
@@ -940,12 +963,15 @@ class ModelUsageGovernor:
                 totals.generated_images + estimate.generated_images,
                 policy.daily_generated_image_limit,
             ),
-            (
-                sum(row.reserved_cost_microunits for row in rows)
-                + estimated_cost,
-                policy.daily_cost_limit_microunits,
-            ),
-        )
+        ]
+        if self._cost_known:
+            checks.append(
+                (
+                    sum(row.reserved_cost_microunits for row in rows)
+                    + estimated_cost,
+                    policy.daily_cost_limit_microunits,
+                )
+            )
         if any(value > limit for value, limit in checks):
             raise UsageGovernanceError("MODEL_USAGE_BUDGET_EXCEEDED")
 

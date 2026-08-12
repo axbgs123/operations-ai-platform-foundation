@@ -7,8 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 
+from app.core.config import get_settings
+
 from app.modules.models.adapters.mock import MockProvider
 from app.modules.models.adapters.qianwen import QianwenProvider
+from app.modules.models.adapters.openai_compatible import (
+    OpenAICompatibleTextProvider,
+)
 from app.modules.models.usage import (
     AttemptGovernor,
     ProviderOperation,
@@ -24,6 +29,7 @@ from app.modules.models.config_service import (
     model_configuration_version,
 )
 from app.modules.models.models import ModelConfig, ModelConfigStatus
+from app.modules.models.openai_compatible_endpoint import Resolver
 
 
 @dataclass(frozen=True)
@@ -36,7 +42,7 @@ class ModelBinding:
 
 @dataclass(frozen=True)
 class BoundModelAdapter:
-    adapter: MockProvider | QianwenProvider
+    adapter: MockProvider | QianwenProvider | OpenAICompatibleTextProvider
     binding: ModelBinding
 
 
@@ -67,6 +73,8 @@ def create_workspace_model_adapter(
     transport: httpx.AsyncBaseTransport | None = None,
     usage_governor: AttemptGovernor | None = None,
     usage_context: UsageGovernanceContext | None = None,
+    app_env: str | None = None,
+    compatible_resolver: Resolver | None = None,
 ) -> BoundModelAdapter:
     if mock_mode:
         binding = ModelBinding(
@@ -102,22 +110,24 @@ def create_workspace_model_adapter(
             "MODEL_CAPABILITY_UNAVAILABLE",
             "固定模型配置当前不可用。",
         )
-    if config.provider != "qianwen":
+    if config.provider not in {"qianwen", "openai_compatible"}:
         raise ModelSelectionError(
             "MODEL_CAPABILITY_UNAVAILABLE",
             "固定模型 Provider 不受支持。",
         )
     try:
         catalog = get_catalog_entry(config.provider, config.model_id)
-    except LookupError as error:
-        raise ModelSelectionError(
-            "MODEL_CONFIGURATION_REQUIRED",
-            "模型配置不可用，请重新创建任务。",
-        ) from error
+    except LookupError:
+        catalog = None
+    contract_version = (
+        catalog.contract_version
+        if catalog is not None
+        else "openai-compatible-chat-json-v1"
+    )
     binding = ModelBinding(
         provider=config.provider,
         model_id=config.model_id,
-        contract_version=catalog.contract_version,
+        contract_version=contract_version,
         configuration_version=model_configuration_version(config),
     )
     if binding != expected:
@@ -126,15 +136,25 @@ def create_workspace_model_adapter(
             "模型配置不可用，请重新创建任务。",
         )
     if (
-        required_capability not in catalog.capabilities
+        required_capability
+        not in (
+            catalog.capabilities
+            if catalog is not None
+            else frozenset({Capability.TEXT})
+        )
         or required_capability.value not in config.capabilities
-        or config.status.value != catalog.adapter_status.value
+        or config.status.value
+        != (
+            catalog.adapter_status.value
+            if catalog is not None
+            else ModelConfigStatus.COMMUNITY.value
+        )
     ):
         raise ModelSelectionError(
             "MODEL_CAPABILITY_UNAVAILABLE",
             "固定模型能力当前不可用。",
         )
-    if config.region is None:
+    if config.provider == "qianwen" and config.region is None:
         raise ModelSelectionError(
             "MODEL_CONFIGURATION_REQUIRED",
             "模型配置不可用，请重新创建任务。",
@@ -155,21 +175,35 @@ def create_workspace_model_adapter(
                 task_id=usage_context.task_id,
                 capability=required_capability,
                 operation=usage_context.operation,
-                contract_version=catalog.contract_version,
+                contract_version=contract_version,
                 configuration_version=(
                     binding.configuration_version or "legacy"
                 ),
             )
         api_key = SecretStr(cipher.decrypt(config.encrypted_api_key))
-        region = QianwenRegion(config.region)
-        adapter = QianwenProvider(
-            api_key=api_key,
-            region=region,
-            provider_workspace_id=config.provider_workspace_id,
-            model_id=config.model_id,
-            transport=transport,
-            usage_governor=usage_governor,
-        )
+        if config.provider == "qianwen":
+            assert config.region is not None
+            region = QianwenRegion(config.region)
+            adapter = QianwenProvider(
+                api_key=api_key,
+                region=region,
+                provider_workspace_id=config.provider_workspace_id,
+                model_id=config.model_id,
+                transport=transport,
+                usage_governor=usage_governor,
+            )
+        else:
+            if config.endpoint_base_url is None:
+                raise ValueError("compatible provider endpoint missing")
+            adapter = OpenAICompatibleTextProvider(
+                api_key=api_key,
+                model_id=config.model_id,
+                base_url=config.endpoint_base_url,
+                app_env=app_env or get_settings().app_env,
+                transport=transport,
+                resolver=compatible_resolver,
+                usage_governor=usage_governor,
+            )
     except ValueError as error:
         raise ModelSelectionError(
             "MODEL_CONFIGURATION_REQUIRED",

@@ -3740,7 +3740,8 @@
           "region": {
             "enum": [
               "cn-beijing",
-              "ap-southeast-1"
+              "ap-southeast-1",
+              "provider-managed"
             ],
             "title": "Region",
             "type": "string"
@@ -8193,6 +8194,19 @@
             "type": "string",
             "writeOnly": true
           },
+          "base_url": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
           "capabilities": {
             "items": {
               "$ref": "#/components/schemas/Capability"
@@ -8201,6 +8215,19 @@
             "title": "Capabilities",
             "type": "array",
             "uniqueItems": true
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
           },
           "model_id": {
             "maxLength": 160,
@@ -8273,6 +8300,28 @@
             "title": "Credential Updated At",
             "type": "string"
           },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "endpoint_host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Endpoint Host"
+          },
           "experimental": {
             "title": "Experimental",
             "type": "boolean"
@@ -8336,6 +8385,8 @@
           "provider",
           "model_id",
           "region",
+          "display_name",
+          "endpoint_host",
           "capability",
           "status",
           "experimental",
@@ -8430,6 +8481,10 @@
           "contract_version": {
             "title": "Contract Version",
             "type": "string"
+          },
+          "cost_known": {
+            "title": "Cost Known",
+            "type": "boolean"
           },
           "created_at": {
             "format": "date-time",
@@ -8566,6 +8621,7 @@
           "contract_version",
           "configuration_version",
           "pricing_version",
+          "cost_known",
           "usage_basis",
           "status",
           "input_tokens",
@@ -8802,6 +8858,10 @@
             "title": "Settled Cost Microunits",
             "type": "integer"
           },
+          "unknown_pricing_attempts": {
+            "title": "Unknown Pricing Attempts",
+            "type": "integer"
+          },
           "unknown_reserved_cost_microunits": {
             "title": "Unknown Reserved Cost Microunits",
             "type": "integer"
@@ -8824,6 +8884,7 @@
           "estimated_cost_microunits",
           "settled_cost_microunits",
           "unknown_reserved_cost_microunits",
+          "unknown_pricing_attempts",
           "sample_status"
         ],
         "title": "ModelUsageSummaryRead",

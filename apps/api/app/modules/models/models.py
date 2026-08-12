@@ -226,6 +226,7 @@ class ModelUsageReservation(UUIDPrimaryKeyMixin, Base):
     )
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
     operation_version: Mapped[int] = mapped_column(Integer, default=1)
+    cost_known: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),
         default_factory=utc_now,
@@ -298,6 +299,7 @@ class ModelUsageAttempt(UUIDPrimaryKeyMixin, Base):
         nullable=True,
         default=None,
     )
+    cost_known: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),
         default_factory=utc_now,

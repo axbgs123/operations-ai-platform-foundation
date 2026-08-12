@@ -38,7 +38,11 @@ from app.modules.analysis.schemas import (
 from app.modules.models.adapter_factory import ModelBinding
 from app.modules.models.capabilities import Capability
 from app.modules.models.catalog import get_catalog_entry
-from app.modules.models.config_service import ModelConfigService, SecretCipher
+from app.modules.models.config_service import (
+    ModelConfigurationRequired,
+    ModelConfigService,
+    SecretCipher,
+)
 from app.modules.models.adapters.qianwen import (
     ModelProviderError,
     safe_model_error_message,
@@ -95,21 +99,34 @@ def resolve_analysis_model_binding(
             contract_version="mock-structured-v1",
             configuration_version="mock-static-v1",
         )
-    config = ModelConfigService(
+    config_service = ModelConfigService(
         session,
         context,
         cipher=cipher,
-    ).resolve({Capability.TEXT}, provider="qianwen")
-    if config.provider != "qianwen":
-        raise ValueError("selected text model Provider is not supported")
+    )
+    try:
+        config = config_service.resolve(
+            {Capability.TEXT},
+            provider="qianwen",
+        )
+    except ModelConfigurationRequired:
+        config = config_service.resolve(
+            {Capability.TEXT},
+            provider="openai_compatible",
+        )
     try:
         catalog = get_catalog_entry(config.provider, config.model_id)
-    except LookupError as error:
-        raise ValueError("selected text model is not in the Catalog") from error
+    except LookupError:
+        catalog = None
+    contract_version = (
+        catalog.contract_version
+        if catalog is not None
+        else "openai-compatible-chat-json-v1"
+    )
     return config.id, ModelBinding(
         provider=config.provider,
         model_id=config.model_id,
-        contract_version=catalog.contract_version,
+        contract_version=contract_version,
         configuration_version=config.updated_at.isoformat(),
     )
 
