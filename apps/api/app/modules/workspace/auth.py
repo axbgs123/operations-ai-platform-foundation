@@ -134,17 +134,22 @@ class InviteAuthService:
         self._session.flush()
         return self._create_session(member)
 
-    def _create_session(self, member: WorkspaceMember) -> AuthenticatedSession:
+    def _create_session(
+        self,
+        member: WorkspaceMember,
+        *,
+        expires_at: datetime | None = None,
+    ) -> AuthenticatedSession:
         session_token = secrets.token_urlsafe(32)
         csrf_token = secrets.token_urlsafe(32)
-        expires_at = self._now() + self._session_lifetime
+        resolved_expires_at = expires_at or self._now() + self._session_lifetime
         self._session.add(
             WorkspaceSession(
                 workspace_id=member.workspace_id,
                 member_id=member.id,
                 token_hash=self._digest(session_token),
                 csrf_hash=self._digest(csrf_token),
-                expires_at=expires_at,
+                expires_at=resolved_expires_at,
             )
         )
         self._session.add(
@@ -165,7 +170,7 @@ class InviteAuthService:
             member_id=member.id,
             session_token=session_token,
             csrf_token=csrf_token,
-            expires_at=expires_at,
+            expires_at=resolved_expires_at,
             context=context,
         )
 
@@ -275,6 +280,39 @@ class InviteAuthService:
             member_id=member.id,
             role=cast(WorkspaceRole, member.role.value),
         )
+
+    def resume(self, session_token: str) -> AuthenticatedSession | None:
+        now = self._now()
+        stored_session = self._authentication.get_session_by_token_hash(
+            self._digest(session_token)
+        )
+        if (
+            stored_session is None
+            or stored_session.revoked_at is not None
+            or stored_session.expires_at <= now
+        ):
+            return None
+        member = self._authentication.get_member(stored_session.member_id)
+        if member is None or member.revoked_at is not None:
+            return None
+        workspace = self._session.get(Workspace, stored_session.workspace_id)
+        if workspace is None or workspace.status != "active":
+            return None
+        if not self._authentication.consume_active_session(
+            stored_session.id,
+            now=now,
+        ):
+            return None
+        self._session.add(
+            AuditLog(
+                workspace_id=stored_session.workspace_id,
+                member_id=stored_session.member_id,
+                action="session.resumed",
+                resource_type="workspace_session",
+                resource_id=stored_session.id,
+            )
+        )
+        return self._create_session(member, expires_at=stored_session.expires_at)
 
     def validate_csrf(self, session_token: str, csrf_token: str) -> bool:
         stored_session = self._authentication.get_session_by_token_hash(

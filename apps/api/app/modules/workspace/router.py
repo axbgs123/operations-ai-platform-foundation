@@ -1,5 +1,5 @@
 from collections import defaultdict, deque
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -48,10 +48,15 @@ def _render_session(
     response: Response,
     authenticated: AuthenticatedSession,
 ) -> SessionCreated:
+    remaining_seconds = max(
+        0,
+        int((authenticated.expires_at - datetime.now(UTC)).total_seconds()),
+    )
     response.set_cookie(
         key="session",
         value=authenticated.session_token,
-        max_age=14 * 24 * 60 * 60,
+        max_age=remaining_seconds,
+        expires=authenticated.expires_at,
         httponly=True,
         secure=get_settings().app_env != "development",
         samesite="lax",
@@ -149,6 +154,36 @@ def create_invite_session(
     except InviteRateLimitExceeded as error:
         raise HTTPException(status_code=429, detail="too many attempts") from error
 
+    session.commit()
+    return _render_session(response, authenticated)
+
+
+@router.post(
+    "/sessions/current/resume",
+    response_model=SessionCreated,
+    status_code=201,
+    responses={204: {"description": "No active browser session"}},
+)
+def resume_current_session(
+    request: Request,
+    response: Response,
+    session: DatabaseSession,
+    resume_marker: Annotated[
+        str,
+        Header(alias="X-Workspace-Resume"),
+    ],
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> SessionCreated | Response:
+    if (
+        request.headers.get("origin") != get_settings().web_origin
+        or resume_marker != "resume"
+    ):
+        raise HTTPException(status_code=403, detail="resume validation failed")
+    if session_token is None:
+        return Response(status_code=204)
+    authenticated = InviteAuthService(session).resume(session_token)
+    if authenticated is None:
+        raise HTTPException(status_code=401, detail="invalid session")
     session.commit()
     return _render_session(response, authenticated)
 

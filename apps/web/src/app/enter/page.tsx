@@ -5,6 +5,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   enterWorkspace,
   onboardWorkspaceOwner,
+  resumeWorkspaceSession,
 } from "@/lib/workspace-api";
 import {
   loadWorkbenchContext,
@@ -19,7 +20,32 @@ import {
 } from "@/lib/workspace-session-recovery";
 
 type EntryMode = "create" | "join";
-type ResumeState = "entry" | "checking" | "retry";
+type ResumeState = "entry" | "checking" | "retry" | "cookie-retry";
+const COOKIE_MIGRATION_LOCK = "operations-ai:workspace-session-migration:v1";
+
+function waitForConcurrentRecovery(
+  signal?: AbortSignal,
+): Promise<WorkspaceSessionRecoveryRecord | null> {
+  const existing = readWorkspaceSessionRecovery(window.localStorage);
+  if (existing !== null || signal?.aborted) return Promise.resolve(existing);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("storage", handleStorage);
+      signal?.removeEventListener("abort", finish);
+      resolve(readWorkspaceSessionRecovery(window.localStorage));
+    };
+    const handleStorage = () => {
+      if (readWorkspaceSessionRecovery(window.localStorage) !== null) finish();
+    };
+    const timer = window.setTimeout(finish, 1000);
+    window.addEventListener("storage", handleStorage);
+    signal?.addEventListener("abort", finish, { once: true });
+  });
+}
 
 export default function EnterPage() {
   const [mode, setMode] = useState<EntryMode>("create");
@@ -66,6 +92,56 @@ export default function EnterPage() {
     }
   }, [invalidateRecovery]);
 
+  const resumeCookieWorkspace = useCallback(async (signal?: AbortSignal) => {
+    setResumeState("checking");
+    try {
+      const migrate = async () => {
+        const existing = readWorkspaceSessionRecovery(window.localStorage);
+        if (existing !== null) {
+          setRecoveryRecord(existing);
+          await resumeWorkspace(existing, signal);
+          return;
+        }
+        const session = await resumeWorkspaceSession(signal);
+        if (signal?.aborted) return;
+        if (session === undefined) {
+          setResumeState("entry");
+          return;
+        }
+        if (session === null) {
+          const recovered = await waitForConcurrentRecovery(signal);
+          if (signal?.aborted) return;
+          if (recovered !== null) {
+            setRecoveryRecord(recovered);
+            await resumeWorkspace(recovered, signal);
+            return;
+          }
+          setResumeState("entry");
+          return;
+        }
+        window.sessionStorage.setItem("workspace_csrf", session.csrf_token);
+        writeWorkspaceSessionRecovery(window.localStorage, {
+          workspaceId: session.workspace_id,
+          memberId: session.member_id,
+          csrfToken: session.csrf_token,
+        });
+        window.location.assign(`/workspaces/${session.workspace_id}`);
+      };
+      if (navigator.locks !== undefined) {
+        await navigator.locks.request(
+          COOKIE_MIGRATION_LOCK,
+          { mode: "exclusive", signal },
+          migrate,
+        );
+      } else {
+        await migrate();
+      }
+    } catch {
+      if (signal?.aborted) return;
+      setResumeState("cookie-retry");
+    }
+  }, [resumeWorkspace]);
+
   useEffect(() => {
     const controller = new AbortController();
     async function initializeEntry() {
@@ -73,7 +149,7 @@ export default function EnterPage() {
       await Promise.resolve();
       if (controller.signal.aborted) return;
       if (stored === null) {
-        setResumeState("entry");
+        await resumeCookieWorkspace(controller.signal);
         return;
       }
       const record: WorkspaceSessionRecoveryRecord = stored;
@@ -82,7 +158,7 @@ export default function EnterPage() {
     }
     void initializeEntry();
     return () => controller.abort();
-  }, [resumeWorkspace]);
+  }, [resumeCookieWorkspace, resumeWorkspace]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -172,6 +248,34 @@ export default function EnterPage() {
               使用其他方式进入
             </button>
           </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (resumeState === "cookie-retry") {
+    return (
+      <main className="min-h-screen bg-[var(--canvas)] px-4 py-10 text-[var(--text-primary)] sm:px-6 sm:py-16">
+        <section
+          aria-labelledby="workspace-cookie-retry-title"
+          className="mx-auto max-w-lg rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8"
+        >
+          <h1
+            className="text-2xl font-semibold"
+            id="workspace-cookie-retry-title"
+          >
+            暂时无法返回上次团队
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+            你的团队会话仍然保留。请检查本地服务后重试，不需要重新创建团队。
+          </p>
+          <button
+            className="mt-6 rounded-xl bg-[var(--brand)] px-4 py-3 font-semibold text-white"
+            onClick={() => void resumeCookieWorkspace()}
+            type="button"
+          >
+            重新返回上次团队
+          </button>
         </section>
       </main>
     );

@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -9,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_session
 from app.main import app
+from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.router import invite_attempts
 
 
@@ -82,6 +84,150 @@ def test_invite_login_sets_http_only_cookie_and_logout_requires_csrf() -> None:
             headers={"X-CSRF-Token": csrf_token},
         )
         assert logout_response.status_code == 204
+
+
+def test_current_cookie_can_resume_a_pre_recovery_workspace_session() -> None:
+    with configured_client() as client:
+        workspace_id, original_csrf = create_and_login_admin(client)
+        previous_session_value = client.cookies.get("session")
+
+        response = client.post(
+            "/v1/sessions/current/resume",
+            headers={
+                "Origin": "http://localhost:3000",
+                "X-Workspace-Resume": "resume",
+            },
+        )
+
+        assert response.status_code == 201
+        payload = response.json()
+        assert payload["workspace_id"] == workspace_id
+        assert payload["member_id"]
+        assert payload["csrf_token"] != original_csrf
+        assert client.cookies.get("session") != previous_session_value
+        assert "expires=" in response.headers["set-cookie"].lower()
+
+        assert (
+            client.post(
+                f"/v1/workspaces/{workspace_id}/members/codes",
+                json={"role": "viewer"},
+                headers={"X-CSRF-Token": original_csrf},
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                f"/v1/workspaces/{workspace_id}/members/codes",
+                json={"role": "viewer"},
+                headers={"X-CSRF-Token": payload["csrf_token"]},
+            ).status_code
+            == 201
+        )
+
+        with TestClient(app) as replay_client:
+            replay_client.cookies.set("session", previous_session_value)
+            assert (
+                replay_client.post(
+                    "/v1/sessions/current/resume",
+                    headers={
+                        "Origin": "http://localhost:3000",
+                        "X-Workspace-Resume": "resume",
+                    },
+                ).status_code
+                == 401
+            )
+            assert (
+                replay_client.get(
+                    f"/v1/workspaces/{workspace_id}/workbench/context"
+                ).status_code
+                == 401
+            )
+
+
+def test_current_session_resume_requires_a_valid_cookie() -> None:
+    with configured_client() as client:
+        safe_headers = {
+            "Origin": "http://localhost:3000",
+            "X-Workspace-Resume": "resume",
+        }
+        assert (
+            client.post(
+                "/v1/sessions/current/resume",
+                headers=safe_headers,
+            ).status_code
+            == 204
+        )
+        client.cookies.set("session", "invalid-session-token")
+        assert (
+            client.post(
+                "/v1/sessions/current/resume",
+                headers=safe_headers,
+            ).status_code
+            == 401
+        )
+
+
+def test_current_session_resume_rejects_ambient_or_hostile_origins() -> None:
+    with configured_client() as client:
+        create_and_login_admin(client)
+        assert client.post("/v1/sessions/current/resume").status_code == 422
+        assert (
+            client.post(
+                "/v1/sessions/current/resume",
+                headers={
+                    "Origin": "http://hostile.localhost:3000",
+                    "X-Workspace-Resume": "resume",
+                },
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                "/v1/sessions/current/resume",
+                headers={
+                    "Origin": "http://localhost:3000",
+                    "X-Workspace-Resume": "wrong",
+                },
+            ).status_code
+            == 403
+        )
+
+
+def test_resumed_session_preserves_original_expiry_and_cannot_be_replayed() -> None:
+    start = datetime(2026, 8, 12, 6, 0, tzinfo=UTC)
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    with Session(engine, expire_on_commit=False) as session:
+        issued = InviteAuthService(
+            session,
+            now=lambda: start,
+            session_lifetime=timedelta(minutes=10),
+        ).create_owner_session(
+            workspace_name="历史团队",
+            display_name="管理员",
+        )
+        session.commit()
+
+        resumed = InviteAuthService(
+            session,
+            now=lambda: start + timedelta(minutes=7),
+        ).resume(issued.session_token)
+        session.commit()
+
+        assert resumed is not None
+        assert resumed.expires_at == issued.expires_at
+        assert resumed.expires_at == start + timedelta(minutes=10)
+        assert (
+            InviteAuthService(
+                session,
+                now=lambda: start + timedelta(minutes=7),
+            ).resume(issued.session_token)
+            is None
+        )
 
 
 def test_member_code_and_role_changes_require_admin_csrf_and_workspace_scope() -> None:
@@ -223,6 +369,7 @@ def test_local_web_origin_can_use_cookie_authenticated_api() -> None:
             headers={
                 "Origin": "http://localhost:3000",
                 "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "x-workspace-resume",
             },
         )
 
@@ -231,6 +378,9 @@ def test_local_web_origin_can_use_cookie_authenticated_api() -> None:
             "http://localhost:3000"
         )
         assert response.headers["access-control-allow-credentials"] == "true"
+        assert "x-workspace-resume" in response.headers[
+            "access-control-allow-headers"
+        ].lower()
 
 
 def test_only_the_published_extension_origin_can_preflight_pairing() -> None:

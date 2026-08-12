@@ -1,7 +1,9 @@
 from typing import Generic, TypeVar
 from uuid import UUID
 
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
@@ -96,3 +98,21 @@ class AuthenticationRepository:
 
     def get_member(self, member_id: UUID) -> WorkspaceMember | None:
         return self._session.get(WorkspaceMember, member_id)
+
+    def consume_active_session(
+        self,
+        session_id: UUID,
+        *,
+        now: datetime,
+    ) -> bool:
+        result = self._session.execute(
+            update(WorkspaceSession)
+            .where(
+                WorkspaceSession.id == session_id,
+                WorkspaceSession.revoked_at.is_(None),
+                WorkspaceSession.expires_at > now,
+            )
+            .values(revoked_at=now)
+            .returning(WorkspaceSession.id)
+        )
+        return result.scalar_one_or_none() is not None

@@ -16568,6 +16568,67 @@
         ]
       }
     },
+    "/v1/sessions/current/resume": {
+      "post": {
+        "operationId": "resume_current_session_v1_sessions_current_resume_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Workspace-Resume",
+            "required": true,
+            "schema": {
+              "title": "X-Workspace-Resume",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionCreated"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "204": {
+            "description": "No active browser session"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resume Current Session",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
     "/v1/sessions/invite": {
       "post": {
         "operationId": "create_invite_session_v1_sessions_invite_post",

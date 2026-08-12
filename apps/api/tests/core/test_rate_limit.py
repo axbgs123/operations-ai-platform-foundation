@@ -15,6 +15,7 @@ from app.core.rate_limit import (
     build_subject_key,
     category_for_request,
     resolve_client_source,
+    should_skip_rate_limit,
 )
 
 
@@ -131,6 +132,7 @@ def test_redis_backend_uses_atomic_lua_script() -> None:
     ("method", "path", "expected"),
     [
         ("POST", "/v1/sessions/invite", RateLimitCategory.AUTH),
+        ("POST", "/v1/sessions/current/resume", RateLimitCategory.AUTH),
         ("POST", "/v1/workspaces/onboard", RateLimitCategory.AUTH),
         ("POST", "/v1/contents/abc/analysis-runs", RateLimitCategory.AI),
         ("POST", "/v1/workspaces/a/risk-scans", RateLimitCategory.AI),
@@ -159,3 +161,14 @@ def test_authenticated_subject_is_workspace_and_member_scoped_without_secrets() 
     key = build_subject_key(category=RateLimitCategory.AI, source=subject)
     assert "workspace-a" not in key
     assert "member-b" not in key
+
+
+def test_no_cookie_resume_probe_skips_shared_ip_quota_but_session_rotation_does_not() -> None:
+    path = "/v1/sessions/current/resume"
+    assert should_skip_rate_limit(path, {})
+    assert should_skip_rate_limit(path, {"cookie": "theme=light"})
+    assert not should_skip_rate_limit(
+        path,
+        {"cookie": "session=synthetic-session-value"},
+    )
+    assert not should_skip_rate_limit("/v1/sessions/invite", {})

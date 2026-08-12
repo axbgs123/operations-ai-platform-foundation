@@ -213,6 +213,7 @@ def category_for_request(method: str, path: str) -> RateLimitCategory | None:
         normalized
         in {
             "/v1/sessions/invite",
+            "/v1/sessions/current/resume",
             "/v1/workspaces/onboard",
             "/v1/extension/pair",
             "/v1/extension/session/challenge",
@@ -256,6 +257,17 @@ def category_for_request(method: str, path: str) -> RateLimitCategory | None:
     ):
         return RateLimitCategory.DESTRUCTIVE
     return None
+
+
+def should_skip_rate_limit(path: str, headers: dict[str, str]) -> bool:
+    if path.lower() != "/v1/sessions/current/resume":
+        return False
+    cookie = SimpleCookie()
+    try:
+        cookie.load(headers.get("cookie", ""))
+    except Exception:
+        return False
+    return "session" not in cookie
 
 
 def default_rate_limiter() -> RateLimiter:
@@ -384,6 +396,9 @@ class RateLimitMiddleware:
             key.decode("latin-1").lower(): value.decode("latin-1")
             for key, value in scope.get("headers", ())
         }
+        if should_skip_rate_limit(path, headers):
+            await self.app(scope, receive, send)
+            return
         peer_ip = scope.get("client", ("unknown", 0))[0]
         settings = get_settings()
         trusted_proxies = frozenset(

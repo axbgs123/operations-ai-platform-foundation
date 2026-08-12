@@ -47,6 +47,26 @@ export function onboardWorkspaceOwner(
   });
 }
 
+export async function resumeWorkspaceSession(
+  signal?: AbortSignal,
+): Promise<SessionCreated | null | undefined> {
+  const response = await fetch(`${API_URL}/v1/sessions/current/resume`, {
+    method: "POST",
+    credentials: "include",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      "X-Workspace-Resume": "resume",
+    },
+  });
+  if (response.status === 204) return undefined;
+  if (response.status === 401) return null;
+  if (!response.ok) {
+    throw new Error("暂时无法确认上次团队");
+  }
+  return response.json() as Promise<SessionCreated>;
+}
+
 export function listWorkspaceMembers(workspaceId: string) {
   return request<WorkspaceMemberManagement[]>(
     `/v1/workspaces/${workspaceId}/members`,

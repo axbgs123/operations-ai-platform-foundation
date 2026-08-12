@@ -19,6 +19,7 @@ const {
   enterWorkspaceMock,
   loadWorkbenchContextMock,
   onboardWorkspaceOwnerMock,
+  resumeWorkspaceSessionMock,
   WorkbenchApiErrorMock,
 } = vi.hoisted(() => {
   class WorkbenchApiErrorMock extends Error {
@@ -30,6 +31,7 @@ const {
     enterWorkspaceMock: vi.fn(),
     loadWorkbenchContextMock: vi.fn(),
     onboardWorkspaceOwnerMock: vi.fn(),
+    resumeWorkspaceSessionMock: vi.fn(),
     WorkbenchApiErrorMock,
   };
 });
@@ -37,6 +39,7 @@ const {
 vi.mock("@/lib/workspace-api", () => ({
   enterWorkspace: enterWorkspaceMock,
   onboardWorkspaceOwner: onboardWorkspaceOwnerMock,
+  resumeWorkspaceSession: resumeWorkspaceSessionMock,
 }));
 
 vi.mock("@/lib/workbench-api", () => ({
@@ -68,6 +71,8 @@ beforeEach(() => {
   enterWorkspaceMock.mockReset();
   loadWorkbenchContextMock.mockReset();
   onboardWorkspaceOwnerMock.mockReset();
+  resumeWorkspaceSessionMock.mockReset();
+  resumeWorkspaceSessionMock.mockResolvedValue(undefined);
   locationAssignMock.mockReset();
   localStorage.clear();
   sessionStorage.clear();
@@ -225,6 +230,119 @@ test("returns a remembered valid member to the original workspace", async () => 
   expect(sessionStorage.getItem("workspace_csrf")).toBe(
     rememberedSession.csrfToken,
   );
+});
+
+test("migrates a valid cookie-only session created before recovery storage existed", async () => {
+  resumeWorkspaceSessionMock.mockResolvedValue({
+    workspace_id: ownerWorkspaceId,
+    member_id: ownerMemberId,
+    csrf_token: "migrated-csrf-token-with-sufficient-length",
+  });
+
+  render(<EnterPage />);
+
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "正在返回上次团队",
+  );
+  await waitFor(() => {
+    expect(locationAssignMock).toHaveBeenCalledWith(
+      `/workspaces/${ownerWorkspaceId}`,
+    );
+  });
+  expect(readWorkspaceSessionRecovery(localStorage)).toEqual({
+    version: 1,
+    workspaceId: ownerWorkspaceId,
+    memberId: ownerMemberId,
+    csrfToken: "migrated-csrf-token-with-sufficient-length",
+  });
+  expect(sessionStorage.getItem("workspace_csrf")).toBe(
+    "migrated-csrf-token-with-sufficient-length",
+  );
+});
+
+test("serializes cookie migration with the browser lock manager", async () => {
+  const requestLock = vi.fn(
+    async (
+      _name: string,
+      _options: LockOptions,
+      callback: () => Promise<void>,
+    ) => callback(),
+  );
+  vi.stubGlobal("navigator", { locks: { request: requestLock } });
+  resumeWorkspaceSessionMock.mockResolvedValue({
+    workspace_id: ownerWorkspaceId,
+    member_id: ownerMemberId,
+    csrf_token: "locked-csrf-token-with-sufficient-length",
+  });
+
+  render(<EnterPage />);
+
+  await waitFor(() => {
+    expect(requestLock).toHaveBeenCalledTimes(1);
+    expect(locationAssignMock).toHaveBeenCalledWith(
+      `/workspaces/${ownerWorkspaceId}`,
+    );
+  });
+  expect(requestLock.mock.calls[0]?.[0]).toBe(
+    "operations-ai:workspace-session-migration:v1",
+  );
+  expect(requestLock.mock.calls[0]?.[1]).toMatchObject({ mode: "exclusive" });
+});
+
+test("keeps create and join hidden when cookie-only migration is temporarily unavailable", async () => {
+  const user = userEvent.setup();
+  resumeWorkspaceSessionMock
+    .mockRejectedValueOnce(new Error("temporarily unavailable"))
+    .mockResolvedValueOnce({
+      workspace_id: ownerWorkspaceId,
+      member_id: ownerMemberId,
+      csrf_token: "retried-csrf-token-with-sufficient-length",
+    });
+
+  render(<EnterPage />);
+
+  const retry = await screen.findByRole("button", {
+    name: "重新返回上次团队",
+  });
+  expect(
+    screen.queryByRole("heading", { name: "进入你的运营工作区" }),
+  ).not.toBeInTheDocument();
+  await user.click(retry);
+  await waitFor(() => {
+    expect(locationAssignMock).toHaveBeenCalledWith(
+      `/workspaces/${ownerWorkspaceId}`,
+    );
+  });
+});
+
+test("a losing concurrent migration tab follows the recovery record written by the winner", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  resumeWorkspaceSessionMock.mockResolvedValue(null);
+  loadWorkbenchContextMock.mockResolvedValue(rememberedContext);
+
+  render(<EnterPage />);
+
+  await waitFor(() => {
+    expect(resumeWorkspaceSessionMock).toHaveBeenCalledTimes(1);
+  });
+  window.setTimeout(() => {
+    writeWorkspaceSessionRecovery(localStorage, rememberedSession);
+    window.dispatchEvent(new StorageEvent("storage"));
+  }, 25);
+  await vi.advanceTimersByTimeAsync(25);
+
+  await waitFor(() => {
+    expect(locationAssignMock).toHaveBeenCalledWith(
+      `/workspaces/${ownerWorkspaceId}`,
+    );
+  });
+  expect(
+    screen.queryByRole("heading", { name: "进入你的运营工作区" }),
+  ).not.toBeInTheDocument();
+  expect(sessionStorage.getItem("workspace_csrf")).toBe(
+    rememberedSession.csrfToken,
+  );
+  vi.useRealTimers();
 });
 
 test.each([401, 404])(

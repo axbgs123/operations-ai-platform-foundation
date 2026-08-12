@@ -61,6 +61,7 @@ app.add_middleware(
         "X-CSRF-Token",
         "X-Extension-Client",
         "X-Request-ID",
+        "X-Workspace-Resume",
     ],
     expose_headers=["X-Request-ID", "Retry-After"],
 )
