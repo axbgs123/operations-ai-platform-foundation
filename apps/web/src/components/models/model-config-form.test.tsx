@@ -154,7 +154,8 @@ test("admin sees only catalog choices and clears the key after save", async () =
     "qwen3.5-plus-2026-04-20",
   );
   expect(screen.queryByLabelText(/base_url/i)).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Provider Workspace ID")).not.toBeInTheDocument();
+  const providerWorkspaceId = screen.getByLabelText("Provider Workspace ID");
+  expect(providerWorkspaceId).toBeRequired();
   expect(screen.getByText("experimental")).toBeInTheDocument();
   expect(screen.getByText(/数据将发送到所选地域/)).toBeInTheDocument();
   expect(screen.getByText(/调用可能产生费用/)).toBeInTheDocument();
@@ -162,6 +163,9 @@ test("admin sees only catalog choices and clears the key after save", async () =
 
   const key = screen.getByLabelText("API Key");
   expect(key).toHaveAttribute("autocomplete", "new-password");
+  fireEvent.change(providerWorkspaceId, {
+    target: { value: "llm-synthetic1234" },
+  });
   fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
   fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
 
@@ -173,9 +177,11 @@ test("admin sees only catalog choices and clears the key after save", async () =
       provider: "qianwen",
       model_id: "qwen3.5-plus-2026-04-20",
       region: "cn-beijing",
+      provider_workspace_id: "llm-synthetic1234",
       api_key: "synthetic-one-time-key",
     }),
   );
+  expect(providerWorkspaceId).toHaveValue("");
   expect(key).toHaveValue("");
   expect(
     screen.getByRole("button", { name: "运行受控合同验证" }),
@@ -362,7 +368,13 @@ test("easy mode translates provider post-actions and uncertain validation outcom
   });
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
+  const providerWorkspaceId = await screen.findByLabelText(
+    "模型服务工作空间 ID",
+  );
   const key = await screen.findByLabelText("模型服务密钥");
+  fireEvent.change(providerWorkspaceId, {
+    target: { value: "llm-synthetic1234" },
+  });
   fireEvent.change(key, { target: { value: "synthetic-one-time-key" } });
   fireEvent.click(screen.getByRole("button", { name: "保存或替换密钥" }));
   await screen.findByRole("button", { name: "运行受控合同验证" });

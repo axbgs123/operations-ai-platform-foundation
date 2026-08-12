@@ -63,6 +63,7 @@ export function ModelConfigForm({
     "cn-beijing",
   );
   const [apiKey, setApiKey] = useState("");
+  const [providerWorkspaceId, setProviderWorkspaceId] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [policyCapability, setPolicyCapability] = useState<
@@ -98,6 +99,9 @@ export function ModelConfigForm({
   }, [suppliedRole, workspaceId]);
 
   const selected = catalog?.models.find((item) => item.model_id === modelId);
+  const selectedConfig = configs.find(
+    (item) => item.provider === "qianwen" && item.model_id === modelId,
+  );
   const canManage = role === "admin";
   const displayInternalState = (value: string) => {
     return modelStateLabel(value, copyMode);
@@ -116,7 +120,7 @@ export function ModelConfigForm({
           provider: "qianwen",
           model_id: selected.model_id,
           region,
-          provider_workspace_id: null,
+          provider_workspace_id: providerWorkspaceId.trim() || null,
           capabilities: [selected.capability],
           status: "experimental",
           api_key: apiKey,
@@ -127,6 +131,7 @@ export function ModelConfigForm({
         saved,
       ]);
       setApiKey("");
+      setProviderWorkspaceId("");
       setMessage("配置已安全保存；密钥输入已清空");
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "保存失败");
@@ -315,6 +320,31 @@ export function ModelConfigForm({
                 </option>
               ))}
             </select>
+          </label>
+          <label className="text-sm sm:col-span-2">
+            {copyMode === "simple"
+              ? "模型服务工作空间 ID"
+              : "Provider Workspace ID"}
+            <input
+              aria-label={copyMode === "simple"
+                ? "模型服务工作空间 ID"
+                : "Provider Workspace ID"}
+              autoComplete="off"
+              className={formControlClasses}
+              onChange={(event) => setProviderWorkspaceId(event.target.value)}
+              pattern="llm-[a-z0-9]{4,64}"
+              placeholder={selectedConfig
+                ? "留空沿用已保存的工作空间 ID"
+                : "例如：llm-xxxxxxxx"}
+              required={!selectedConfig}
+              spellCheck={false}
+              value={providerWorkspaceId}
+            />
+            <span className="mt-2 block text-[var(--text-secondary)]">
+              {copyMode === "simple"
+                ? "填写阿里云百炼提供的 llm- 开头标识，不是本平台的团队 ID；保存后不会回显。"
+                : "Use the llm- identifier from Alibaba Cloud Model Studio, not this product's workspace ID. It is not returned after saving."}
+            </span>
           </label>
           <label className="text-sm sm:col-span-2">
             {copyMode === "simple" ? "模型服务密钥" : "API Key"}
