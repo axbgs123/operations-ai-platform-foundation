@@ -103,9 +103,9 @@ export function WorkbenchOverview({
           action={effectiveRole !== "viewer" ? (
             <Link
               className="inline-flex rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white"
-              href={`/workspaces/${workspaceId}/settings`}
+              href={`/workspaces/${workspaceId}/accounts?action=create`}
             >
-              配置平台账号
+              创建账号
             </Link>
           ) : undefined}
           description={effectiveRole === "viewer"

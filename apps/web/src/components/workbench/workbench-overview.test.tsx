@@ -229,9 +229,32 @@ test("does not offer account configuration to an empty viewer workspace", () => 
     "viewer",
   );
 
-  expect(screen.queryByRole("link", { name: "配置平台账号" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "创建账号" })).not.toBeInTheDocument();
   expect(screen.getByText(
     "这里还没有平台账号；需要添加时，请联系管理员或编辑者。",
   )).toBeVisible();
   expect(document.body).not.toHaveTextContent("创建抖音或小红书账号后");
 });
+
+test.each(["admin", "editor"] as const)(
+  "offers %s a direct account creation action in an empty overview",
+  (role) => {
+    renderInWorkspace(
+      <WorkbenchOverview
+        role={role}
+        state="empty"
+        workspaceId="workspace-1"
+      />,
+      role,
+    );
+
+    const createLinks = screen.getAllByRole("link", { name: "创建账号" });
+    expect(createLinks).toHaveLength(2);
+    for (const link of createLinks) {
+      expect(link).toHaveAttribute(
+        "href",
+        "/workspaces/workspace-1/accounts?action=create",
+      );
+    }
+  },
+);
