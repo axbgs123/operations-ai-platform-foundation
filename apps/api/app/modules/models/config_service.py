@@ -2,6 +2,7 @@ from collections.abc import Iterable
 import base64
 import hashlib
 from datetime import datetime
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -38,6 +39,8 @@ class ModelConfigRead(BaseModel):
     provider: str
     model_id: str
     region: QianwenRegion | None
+    display_name: str | None
+    endpoint_host: str | None
     capability: Capability
     status: AdapterStatus
     experimental: bool
@@ -88,6 +91,7 @@ def model_configuration_version(config: ModelConfig) -> str:
         (
             f"{config.id}:{config.provider}:{config.model_id}:"
             f"{config.region}:{config.provider_workspace_id}:"
+            f"{config.display_name}:{config.endpoint_base_url}:"
             f"{config.configuration_revision}"
         ).encode()
     ).hexdigest()
@@ -133,6 +137,8 @@ class ModelConfigService:
         api_key: str,
         region: QianwenRegion | None = None,
         provider_workspace_id: str | None = None,
+        display_name: str | None = None,
+        base_url: str | None = None,
     ) -> ModelConfig:
         require_permission(self._context.role, Permission.MANAGE_MODELS)
         config = self._session.scalar(
@@ -143,6 +149,10 @@ class ModelConfigService:
             )
         )
         if provider == "qianwen":
+            if display_name is not None or base_url is not None:
+                raise ValueError(
+                    "display name and base URL are OpenAI-compatible-only fields"
+                )
             try:
                 catalog_entry = get_catalog_entry(provider, model_id)
             except LookupError as error:
@@ -161,12 +171,29 @@ class ModelConfigService:
                 provider_workspace_id = config.provider_workspace_id
             if provider_workspace_id is not None:
                 validate_provider_workspace_id(provider_workspace_id)
-        else:
+        elif provider == "openai_compatible":
             if region is not None or provider_workspace_id is not None:
                 raise ValueError(
                     "region and Provider Workspace ID are Qianwen-only fields"
                 )
-            self._validate_status(provider, model_id, status)
+            if (
+                capabilities != frozenset({Capability.TEXT})
+                or status is not AdapterStatus.COMMUNITY
+            ):
+                raise ValueError(
+                    "OpenAI-compatible configuration must use community text contract"
+                )
+            display_name = (display_name or "").strip()
+            base_url = (base_url or "").strip().rstrip("/")
+            if not display_name or len(display_name) > 80:
+                raise ValueError("OpenAI-compatible display name is invalid")
+            if not model_id.strip() or len(model_id) > 160:
+                raise ValueError("OpenAI-compatible model ID is invalid")
+            parsed = urlsplit(base_url)
+            if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                raise ValueError("OpenAI-compatible base URL is invalid")
+        else:
+            raise ValueError("unsupported model provider")
         capability_values = sorted(
             capability.value for capability in capabilities
         )
@@ -182,6 +209,8 @@ class ModelConfigService:
                 model_id=model_id,
                 region=region.value if region is not None else None,
                 provider_workspace_id=provider_workspace_id,
+                display_name=display_name,
+                endpoint_base_url=base_url,
                 capabilities=capability_values,
                 status=ModelConfigStatus(status.value),
                 encrypted_api_key=encrypted_api_key,
@@ -210,6 +239,8 @@ class ModelConfigService:
         endpoint_changed = (
             config.region != (region.value if region is not None else None)
             or config.provider_workspace_id != provider_workspace_id
+            or config.display_name != display_name
+            or config.endpoint_base_url != base_url
             or config.capabilities != capability_values
             or config.status.value != status.value
         )
@@ -226,6 +257,8 @@ class ModelConfigService:
         config.status = ModelConfigStatus(status.value)
         config.region = region.value if region is not None else None
         config.provider_workspace_id = provider_workspace_id
+        config.display_name = display_name
+        config.endpoint_base_url = base_url
         config.encryption_key_version = self._cipher.version
         self._session.flush()
         return config
@@ -264,6 +297,13 @@ class ModelConfigService:
                 if config.region is not None
                 else None
             ),
+            display_name=config.display_name,
+            endpoint_host=(
+                urlsplit(config.endpoint_base_url).hostname
+                if self._context.role == "admin"
+                and config.endpoint_base_url is not None
+                else None
+            ),
             capability=capability,
             status=AdapterStatus(config.status.value),
             experimental=config.status is ModelConfigStatus.EXPERIMENTAL,
@@ -273,7 +313,11 @@ class ModelConfigService:
             contract_version=(
                 catalog.contract_version
                 if catalog is not None
-                else "mock-structured-v1"
+                else (
+                    "openai-compatible-chat-json-v1"
+                    if config.provider == "openai_compatible"
+                    else "mock-structured-v1"
+                )
             ),
             last_validation_status=(
                 validation.result.value if validation is not None else "not_run"
@@ -333,6 +377,14 @@ class ModelConfigService:
             }:
                 raise ValueError(
                     "status must match the Provider Catalog or be incompatible"
+                )
+        elif config.provider == "openai_compatible":
+            if status not in {
+                AdapterStatus.COMMUNITY,
+                AdapterStatus.INCOMPATIBLE,
+            }:
+                raise ValueError(
+                    "OpenAI-compatible status must be community or incompatible"
                 )
         else:
             self._validate_status(config.provider, config.model_id, status)

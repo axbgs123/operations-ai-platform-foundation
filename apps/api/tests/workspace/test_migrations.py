@@ -465,7 +465,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260812_0038",
+                expected_head="20260812_0039",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",

@@ -73,6 +73,16 @@ class ModelConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
         default=None,
     )
+    display_name: Mapped[str | None] = mapped_column(
+        String(80),
+        nullable=True,
+        default=None,
+    )
+    endpoint_base_url: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )
     encryption_key_version: Mapped[str] = mapped_column(String(20), default="v1")
     credential_updated_at: Mapped[datetime] = mapped_column(
         UTCDateTime(),

@@ -358,6 +358,8 @@ def test_public_config_exposes_safe_governance_metadata_only() -> None:
         "provider": "qianwen",
         "model_id": QIANWEN_TEXT_MODEL_ID,
         "region": "cn-beijing",
+        "display_name": None,
+        "endpoint_host": None,
         "capability": "text",
         "status": "experimental",
         "experimental": True,

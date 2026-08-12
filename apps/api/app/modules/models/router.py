@@ -60,6 +60,8 @@ class ModelConfigCreate(BaseModel):
     model_id: str = Field(min_length=1, max_length=160)
     region: QianwenRegion | None = None
     provider_workspace_id: str | None = Field(default=None, min_length=1, max_length=80)
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    base_url: str | None = Field(default=None, min_length=1, max_length=500)
     capabilities: frozenset[Capability] = Field(min_length=1)
     status: AdapterStatus
     api_key: SecretStr
@@ -187,6 +189,8 @@ def create_model_config(
             api_key=data.api_key.get_secret_value(),
             region=data.region,
             provider_workspace_id=data.provider_workspace_id,
+            display_name=data.display_name,
+            base_url=data.base_url,
         )
     except PermissionDenied as error:
         raise HTTPException(status_code=403, detail="permission denied") from error
