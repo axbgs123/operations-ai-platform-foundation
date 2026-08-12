@@ -1,17 +1,20 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import Home from "./page";
 
-describe("Home", () => {
-  it("identifies the product and the mock experience", () => {
-    render(<Home />);
+const redirect = vi.hoisted(() => vi.fn());
 
-    expect(
-      screen.getByRole("heading", {
-        name: "运营内容智能分析与生成平台",
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Mock 模式")).toBeInTheDocument();
+vi.mock("next/navigation", () => ({ redirect }));
+
+describe("Home", () => {
+  beforeEach(() => {
+    redirect.mockReset();
+  });
+
+  it("routes the product root through the recoverable workspace entry", () => {
+    Home();
+
+    expect(redirect).toHaveBeenCalledOnce();
+    expect(redirect).toHaveBeenCalledWith("/enter");
   });
 });
