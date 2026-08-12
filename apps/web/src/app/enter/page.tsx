@@ -69,12 +69,13 @@ export default function EnterPage() {
   useEffect(() => {
     const stored = readWorkspaceSessionRecovery(window.localStorage);
     if (stored === null) return;
+    const record: WorkspaceSessionRecoveryRecord = stored;
     const controller = new AbortController();
     async function resumeAfterHydration() {
       await Promise.resolve();
       if (controller.signal.aborted) return;
-      setRecoveryRecord(stored);
-      await resumeWorkspace(stored, controller.signal);
+      setRecoveryRecord(record);
+      await resumeWorkspace(record, controller.signal);
     }
     void resumeAfterHydration();
     return () => controller.abort();
