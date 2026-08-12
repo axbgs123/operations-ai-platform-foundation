@@ -14,6 +14,9 @@ export type AgentRunData = components["schemas"]["AgentRunRead"];
 export type AgentConfirmationData =
   components["schemas"]["AgentConfirmationRead"];
 export type AgentPlanCreate = components["schemas"]["AgentPlanCreate"];
+export type AgentChatData = components["schemas"]["AgentChatRead"];
+export type AgentChatSummaryData = components["schemas"]["AgentChatSummaryRead"];
+export type AgentChatTurnCreate = components["schemas"]["AgentChatTurnCreate"];
 export type AgentAccount = {
   account_id: string;
   name: string;
@@ -36,6 +39,104 @@ export class AgentApiError extends Error {
 
 function csrfHeaders(csrfToken: string): { "X-CSRF-Token": string } {
   return { "X-CSRF-Token": csrfToken };
+}
+
+export async function loadAgentChats(
+  workspaceId: string,
+  signal?: AbortSignal,
+): Promise<AgentChatSummaryData[]> {
+  const { data, response } = await createApiClient(API_URL).GET(
+    "/v1/workspaces/{workspace_id}/agent/chats",
+    {
+      params: {
+        path: { workspace_id: workspaceId },
+        query: { page: 1, page_size: 100 },
+      },
+      signal,
+    },
+  );
+  if (!response.ok || !data) throw new AgentApiError(response.status);
+  return data.items;
+}
+
+export async function loadAgentChat(
+  workspaceId: string,
+  chatId: string,
+  signal?: AbortSignal,
+): Promise<AgentChatData> {
+  const { data, response } = await createApiClient(API_URL).GET(
+    "/v1/workspaces/{workspace_id}/agent/chats/{chat_id}",
+    {
+      params: {
+        path: { workspace_id: workspaceId, chat_id: chatId },
+        query: { after_sequence: 0, limit: 200 },
+      },
+      signal,
+    },
+  );
+  if (!response.ok || !data) throw new AgentApiError(response.status);
+  return data;
+}
+
+export async function createAgentChat(
+  workspaceId: string,
+  csrfToken: string,
+): Promise<AgentChatSummaryData> {
+  const { data, response } = await createApiClient(API_URL).POST(
+    "/v1/workspaces/{workspace_id}/agent/chats",
+    {
+      params: {
+        path: { workspace_id: workspaceId },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "Idempotency-Key": createIdempotencyKey("agent-chat"),
+        },
+      },
+    },
+  );
+  if (!response.ok || !data) throw new AgentApiError(response.status);
+  return data;
+}
+
+export async function sendAgentChatTurn(
+  workspaceId: string,
+  chatId: string,
+  body: AgentChatTurnCreate,
+  csrfToken: string,
+): Promise<AgentChatData> {
+  const { data, response } = await createApiClient(API_URL).POST(
+    "/v1/workspaces/{workspace_id}/agent/chats/{chat_id}/turns",
+    {
+      params: {
+        path: { workspace_id: workspaceId, chat_id: chatId },
+        header: {
+          "X-CSRF-Token": csrfToken,
+          "Idempotency-Key": createIdempotencyKey("agent-chat-turn"),
+        },
+      },
+      body,
+    },
+  );
+  if (!response.ok || !data) throw new AgentApiError(response.status);
+  return data;
+}
+
+export async function archiveAgentChat(
+  workspaceId: string,
+  chatId: string,
+  csrfToken: string,
+): Promise<AgentChatSummaryData> {
+  const { data, response } = await createApiClient(API_URL).POST(
+    "/v1/workspaces/{workspace_id}/agent/chats/{chat_id}/archive",
+    {
+      params: {
+        path: { workspace_id: workspaceId, chat_id: chatId },
+        header: csrfHeaders(csrfToken),
+      },
+    },
+  );
+  if (!response.ok || !data) throw new AgentApiError(response.status);
+  return data;
 }
 
 export async function loadAgentBriefing(

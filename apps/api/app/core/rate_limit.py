@@ -225,9 +225,15 @@ def category_for_request(method: str, path: str) -> RateLimitCategory | None:
     if (
         any(
             marker in normalized
-            for marker in ("/analysis", "/generation", "/risk-scans")
+            for marker in (
+                "/analysis",
+                "/generation",
+                "/risk-scans",
+                "/agent/chats/",
+            )
         )
         and method != "GET"
+        and ("/agent/chats/" not in normalized or normalized.endswith("/turns"))
     ):
         return RateLimitCategory.AI
     if (

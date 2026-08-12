@@ -47,6 +47,8 @@ RUNTIME_REQUIRED_TABLES = {
     "agent_confirmations",
     "agent_artifacts",
     "agent_events",
+    "agent_chat_sessions",
+    "agent_chat_messages",
 }
 
 

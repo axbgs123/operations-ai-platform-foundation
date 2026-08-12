@@ -142,6 +142,11 @@ def test_redis_backend_uses_atomic_lua_script() -> None:
         ("POST", "/v1/workspaces/a/zip-restores", RateLimitCategory.EXPORT),
         (
             "POST",
+            "/v1/workspaces/a/agent/chats/b/turns",
+            RateLimitCategory.AI,
+        ),
+        (
+            "POST",
             "/v1/workspaces/a/deletion-confirmations",
             RateLimitCategory.DESTRUCTIVE,
         ),

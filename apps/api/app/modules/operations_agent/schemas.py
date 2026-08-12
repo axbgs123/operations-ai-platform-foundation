@@ -271,3 +271,57 @@ class AgentConfirmationDecision(BaseModel):
     confirmation_id: UUID
     decision: Literal["approve", "reject"]
     action_fingerprint: Fingerprint
+
+
+class AgentChatMessageCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class AgentChatTurnCreate(AgentChatMessageCreate):
+    account_id: UUID | None = None
+    platform: Platform | None = None
+
+    @model_validator(mode="after")
+    def require_complete_scope(self) -> "AgentChatTurnCreate":
+        if (self.account_id is None) != (self.platform is None):
+            raise ValueError("account_id and platform must be provided together")
+        return self
+
+
+class AgentChatMessageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid", frozen=True)
+
+    id: UUID
+    sequence_no: int = Field(ge=1)
+    role: Literal["user", "assistant", "system_event"]
+    kind: Literal["text", "plan", "run", "confirmation", "artifact", "safe_error"]
+    content: str = Field(min_length=1, max_length=4000)
+    plan_id: UUID | None
+    run_id: UUID | None
+    created_at: datetime
+
+
+class AgentChatSummaryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid", frozen=True)
+
+    id: UUID
+    title: str = Field(min_length=1, max_length=120)
+    status: Literal["active", "archived"]
+    created_at: datetime
+    updated_at: datetime
+
+
+class AgentChatListRead(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    items: tuple[AgentChatSummaryRead, ...]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=1, le=100)
+
+
+class AgentChatRead(AgentChatSummaryRead):
+    workspace_id: UUID
+    owner_member_id: UUID
+    messages: tuple[AgentChatMessageRead, ...]

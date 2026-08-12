@@ -90,6 +90,8 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "agent_confirmations",
                 "agent_artifacts",
                 "agent_events",
+                "agent_chat_sessions",
+                "agent_chat_messages",
             } <= tables
 
         agent_run_columns = {
@@ -465,7 +467,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260812_0040",
+                expected_head="20260812_0041",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -498,9 +500,11 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "agent_runs",
                     "agent_run_steps",
                     "agent_confirmations",
-                    "agent_artifacts",
-                    "agent_events",
-                },
+                        "agent_artifacts",
+                        "agent_events",
+                        "agent_chat_sessions",
+                        "agent_chat_messages",
+                    },
             )
             extensions = set(
                 connection.execute(

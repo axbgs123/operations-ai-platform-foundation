@@ -10,6 +10,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
 )
@@ -103,6 +104,34 @@ agent_tool_risk_type = _enum_type(AgentToolRisk, "agent_tool_risk")
 agent_artifact_kind_type = _enum_type(
     AgentArtifactKind,
     "agent_artifact_kind",
+)
+
+
+class AgentChatStatus(StrEnum):
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class AgentChatRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM_EVENT = "system_event"
+
+
+class AgentChatMessageKind(StrEnum):
+    TEXT = "text"
+    PLAN = "plan"
+    RUN = "run"
+    CONFIRMATION = "confirmation"
+    ARTIFACT = "artifact"
+    SAFE_ERROR = "safe_error"
+
+
+agent_chat_status_type = _enum_type(AgentChatStatus, "agent_chat_status")
+agent_chat_role_type = _enum_type(AgentChatRole, "agent_chat_role")
+agent_chat_message_kind_type = _enum_type(
+    AgentChatMessageKind,
+    "agent_chat_message_kind",
 )
 
 
@@ -434,6 +463,99 @@ class AgentEvent(UUIDPrimaryKeyMixin, Base):
     actor_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("workspace_members.id", ondelete="SET NULL"),
+        default=None,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(),
+        init=False,
+        default_factory=utc_now,
+    )
+
+
+class AgentChatSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "agent_chat_sessions"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "idempotency_key",
+            name="uq_agent_chat_sessions_workspace_idempotency",
+        ),
+        Index(
+            "ix_agent_chat_sessions_owner_updated",
+            "workspace_id",
+            "owner_member_id",
+            "updated_at",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    owner_member_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="CASCADE"),
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(String(120), default="新对话")
+    status: Mapped[AgentChatStatus] = mapped_column(
+        agent_chat_status_type,
+        default=AgentChatStatus.ACTIVE,
+    )
+    archived_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(),
+        default=None,
+    )
+
+
+class AgentChatMessage(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "agent_chat_messages"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "idempotency_key",
+            name="uq_agent_chat_messages_workspace_idempotency",
+        ),
+        UniqueConstraint(
+            "workspace_id",
+            "session_id",
+            "sequence_no",
+            name="uq_agent_chat_messages_session_sequence",
+        ),
+        Index(
+            "ix_agent_chat_messages_session_sequence",
+            "session_id",
+            "sequence_no",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
+    )
+    session_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("agent_chat_sessions.id", ondelete="CASCADE"),
+    )
+    owner_member_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="CASCADE"),
+    )
+    sequence_no: Mapped[int] = mapped_column(Integer)
+    idempotency_key: Mapped[str] = mapped_column(String(200))
+    role: Mapped[AgentChatRole] = mapped_column(agent_chat_role_type)
+    kind: Mapped[AgentChatMessageKind] = mapped_column(
+        agent_chat_message_kind_type
+    )
+    content: Mapped[str] = mapped_column(Text)
+    plan_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("agent_plans.id", ondelete="SET NULL"),
+        default=None,
+    )
+    run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("agent_runs.id", ondelete="SET NULL"),
         default=None,
     )
     created_at: Mapped[datetime] = mapped_column(

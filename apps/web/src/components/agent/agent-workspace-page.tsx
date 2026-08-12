@@ -1,24 +1,33 @@
 "use client";
 
 import { useEffect, useState, type ReactElement } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
   approveAgentPlan,
+  archiveAgentChat,
   AgentApiError,
+  createAgentChat,
   createAgentPlan,
   decideAgentConfirmation,
   loadAgentBriefing,
+  loadAgentChat,
+  loadAgentChats,
   loadAgentConfirmations,
   loadAgentPlan,
   loadAgentRun,
   loadAgentRuns,
   recordBriefingDecision,
   rejectAgentPlan,
+  sendAgentChatTurn,
   startAgentRun,
   type AgentWorkspaceFixture,
+  type AgentChatData,
+  type AgentChatSummaryData,
 } from "@/lib/agent-api";
 
 import { AgentWorkspace } from "./agent-workspace";
+import { AgentChatWorkspace } from "./agent-chat-workspace";
 import { ErrorState, Skeleton } from "@/components/workbench/ui";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
 
@@ -33,7 +42,13 @@ export function AgentWorkspacePage({
   workspaceId: string;
 }): ReactElement {
   const context = useWorkbenchShellContext();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [fixture, setFixture] = useState<AgentWorkspaceFixture>();
+  const [chats, setChats] = useState<AgentChatSummaryData[]>([]);
+  const [chat, setChat] = useState<AgentChatData>();
+  const [view, setView] = useState<"chat" | "tasks">("chat");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -63,8 +78,9 @@ export function AgentWorkspacePage({
       loadAgentBriefing(workspaceId, controller.signal),
       loadAgentConfirmations(workspaceId, controller.signal),
       initialRun(),
+      loadAgentChats(workspaceId, controller.signal),
     ])
-      .then(async ([briefing, confirmationList, run]) => {
+      .then(async ([briefing, confirmationList, run, chatList]) => {
         let plan;
         try {
           plan = run
@@ -89,12 +105,19 @@ export function AgentWorkspacePage({
           plan,
           run,
         });
+        setChats(chatList);
+        const requestedChat = searchParams.get("chat");
+        const selected = chatList.find((item) => item.id === requestedChat)
+          ?? chatList[0];
+        if (selected) {
+          setChat(await loadAgentChat(workspaceId, selected.id, controller.signal));
+        }
       })
       .catch(() => {
         if (!controller.signal.aborted) setFailed(true);
       });
     return () => controller.abort();
-  }, [context, workspaceId]);
+  }, [context, searchParams, workspaceId]);
 
   if (!context) return <Skeleton label="正在读取工作区" />;
   if (failed) {
@@ -107,7 +130,7 @@ export function AgentWorkspacePage({
   }
   if (!fixture) return <Skeleton label="正在读取运营智能体" />;
 
-  return (
+  const taskWorkspace = (
     <AgentWorkspace
       actions={{
         createPlan: async (body) => {
@@ -154,5 +177,65 @@ export function AgentWorkspacePage({
       role={context.role}
       workspaceId={workspaceId}
     />
+  );
+
+  return (
+    <div className="space-y-4">
+      <div aria-label="智能体工作方式" className="inline-flex rounded-xl border border-[var(--border)] bg-white p-1">
+        <button
+          aria-pressed={view === "chat"}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === "chat" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)]"}`}
+          onClick={() => setView("chat")}
+          type="button"
+        >
+          对话
+        </button>
+        <button
+          aria-pressed={view === "tasks"}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === "tasks" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)]"}`}
+          onClick={() => setView("tasks")}
+          type="button"
+        >
+          任务与执行
+        </button>
+      </div>
+      {view === "chat" ? (
+        <AgentChatWorkspace
+          key={chat?.id ?? "new-chat"}
+          accounts={context.accounts}
+          actions={{
+            archiveChat: (chatId) => archiveAgentChat(workspaceId, chatId, csrf()),
+            createChat: () => createAgentChat(workspaceId, csrf()),
+            loadChat: (chatId) => loadAgentChat(workspaceId, chatId),
+            sendTurn: async (chatId, body) => {
+              const updated = await sendAgentChatTurn(
+                workspaceId,
+                chatId,
+                body,
+                csrf(),
+              );
+              const planId = [...updated.messages]
+                .reverse()
+                .find((message) => message.plan_id)?.plan_id;
+              if (planId) {
+                const plan = await loadAgentPlan(workspaceId, planId);
+                setFixture((current) => current ? { ...current, plan } : current);
+              }
+              return updated;
+            },
+          }}
+          initialChat={chat}
+          initialChats={chats}
+          onOpenTasks={() => setView("tasks")}
+          onSelectedChatChange={(chatId) => {
+            const query = new URLSearchParams(searchParams.toString());
+            if (chatId) query.set("chat", chatId);
+            else query.delete("chat");
+            router.replace(`${pathname}${query.size ? `?${query}` : ""}`);
+          }}
+          role={context.role}
+        />
+      ) : taskWorkspace}
+    </div>
   );
 }

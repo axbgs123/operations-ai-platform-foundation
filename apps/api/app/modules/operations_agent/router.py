@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
@@ -9,6 +9,29 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import get_session
 from app.core.security import WorkspaceContext
 from app.modules.operations_agent.briefing import BriefingService
+from app.modules.operations_agent.chat_service import AgentChatService
+from app.modules.operations_agent.chat_turn import (
+    AgentChatTurnService,
+    ChatIntentProvider,
+    DeterministicChatIntentProvider,
+    StructuredChatIntentProvider,
+    UnavailableChatIntentProvider,
+)
+from app.modules.models.adapter_factory import (
+    ModelBinding,
+    UsageGovernanceContext,
+    create_workspace_model_adapter,
+)
+from app.modules.models.capabilities import Capability
+from app.modules.models.catalog import get_catalog_entry
+from app.modules.models.config_service import (
+    ModelConfigurationRequired,
+    ModelConfigService,
+    SecretCipher,
+    model_configuration_version,
+)
+from app.modules.models.adapter_factory import ModelSelectionError
+from app.modules.models.usage import ProviderOperation
 from app.modules.models.models import ModelConfig, ModelUsageAttempt
 from app.modules.operations_agent.executor import (
     AgentConfirmationStale,
@@ -39,6 +62,12 @@ from app.modules.operations_agent.schemas import (
     AgentUsageRead,
     BriefingDecisionCreate,
     DailyBriefingRead,
+    AgentChatListRead,
+    AgentChatMessageCreate,
+    AgentChatMessageRead,
+    AgentChatRead,
+    AgentChatSummaryRead,
+    AgentChatTurnCreate,
 )
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.permissions import (
@@ -123,6 +152,252 @@ def _service(
             mutation=mutation,
         ),
     )
+
+
+def _chat_service(
+    session: Session,
+    *,
+    workspace_id: UUID,
+    session_token: str | None,
+    csrf_token: str | None,
+    mutation: bool,
+) -> AgentChatService:
+    return AgentChatService(
+        session,
+        _authorized_context(
+            session,
+            workspace_id=workspace_id,
+            session_token=session_token,
+            csrf_token=csrf_token,
+            mutation=mutation,
+        ),
+    )
+
+
+def _chat_intent_provider(
+    session: Session,
+    context: WorkspaceContext,
+    *,
+    chat_id: UUID,
+) -> DeterministicChatIntentProvider | StructuredChatIntentProvider:
+    settings = get_settings()
+    if settings.app_mock_mode:
+        return DeterministicChatIntentProvider()
+    cipher = SecretCipher(
+        settings.model_secret_encryption_key.get_secret_value()
+    )
+    config = ModelConfigService(
+        session,
+        context,
+        cipher=cipher,
+    ).resolve({Capability.TEXT})
+    try:
+        catalog = get_catalog_entry(config.provider, config.model_id)
+    except LookupError:
+        catalog = None
+    expected = ModelBinding(
+        provider=config.provider,
+        model_id=config.model_id,
+        contract_version=(
+            catalog.contract_version
+            if catalog is not None
+            else "openai-compatible-chat-json-v1"
+        ),
+        configuration_version=model_configuration_version(config),
+    )
+    bound = create_workspace_model_adapter(
+        session=session,
+        workspace_id=context.workspace_id,
+        model_config_id=config.id,
+        required_capability=Capability.TEXT,
+        cipher=cipher,
+        mock_mode=False,
+        expected=expected,
+        usage_context=UsageGovernanceContext(
+            session_factory=sessionmaker(bind=session.get_bind()),
+            redis_url=settings.redis_url,
+            actor_id=context.member_id,
+            task_id=chat_id,
+            operation=ProviderOperation.TEXT_GENERATION,
+        ),
+    )
+    return StructuredChatIntentProvider(bound.adapter)
+
+
+@router.post("/chats", response_model=AgentChatSummaryRead, status_code=201)
+def create_chat(
+    workspace_id: UUID,
+    idempotency_key: IdempotencyKey,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> AgentChatSummaryRead:
+    service = _chat_service(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+        mutation=True,
+    )
+    try:
+        chat = service.create(idempotency_key=idempotency_key)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    session.commit()
+    return AgentChatSummaryRead.model_validate(chat)
+
+
+@router.get("/chats", response_model=AgentChatListRead)
+def list_chats(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 30,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> AgentChatListRead:
+    service = _chat_service(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=None,
+        mutation=False,
+    )
+    return AgentChatListRead(
+        items=tuple(
+            AgentChatSummaryRead.model_validate(item)
+            for item in service.list(page=page, page_size=page_size)
+        ),
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/chats/{chat_id}", response_model=AgentChatRead)
+def read_chat(
+    workspace_id: UUID,
+    chat_id: UUID,
+    session: DatabaseSession,
+    after_sequence: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 100,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> AgentChatRead:
+    service = _chat_service(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=None,
+        mutation=False,
+    )
+    try:
+        detail = service.read(
+            chat_id,
+            after_sequence=after_sequence,
+            limit=limit,
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail="chat not found") from error
+    return AgentChatRead.model_validate(detail)
+
+
+@router.post(
+    "/chats/{chat_id}/messages",
+    response_model=AgentChatMessageRead,
+    status_code=201,
+)
+def append_chat_message(
+    workspace_id: UUID,
+    chat_id: UUID,
+    data: AgentChatMessageCreate,
+    idempotency_key: IdempotencyKey,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> AgentChatMessageRead:
+    service = _chat_service(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+        mutation=True,
+    )
+    try:
+        message = service.append_user_message(
+            chat_id,
+            content=data.content,
+            idempotency_key=idempotency_key,
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail="chat not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    session.commit()
+    return AgentChatMessageRead.model_validate(message)
+
+
+@router.post("/chats/{chat_id}/archive", response_model=AgentChatSummaryRead)
+def archive_chat(
+    workspace_id: UUID,
+    chat_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> AgentChatSummaryRead:
+    service = _chat_service(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+        mutation=True,
+    )
+    try:
+        chat = service.archive(chat_id)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail="chat not found") from error
+    session.commit()
+    return AgentChatSummaryRead.model_validate(chat)
+
+
+@router.post("/chats/{chat_id}/turns", response_model=AgentChatRead)
+async def send_chat_turn(
+    workspace_id: UUID,
+    chat_id: UUID,
+    data: AgentChatTurnCreate,
+    idempotency_key: IdempotencyKey,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> AgentChatRead:
+    context = _authorized_context(
+        session,
+        workspace_id=workspace_id,
+        session_token=session_token,
+        csrf_token=csrf_token,
+        mutation=True,
+    )
+    try:
+        try:
+            provider: ChatIntentProvider = _chat_intent_provider(
+                session, context, chat_id=chat_id
+            )
+        except (ModelConfigurationRequired, ModelSelectionError) as error:
+            provider = UnavailableChatIntentProvider(error)
+        detail = await AgentChatTurnService(
+            session,
+            context,
+            intent_provider=provider,
+        ).send(
+            chat_id,
+            content=data.content,
+            idempotency_key=idempotency_key,
+            account_id=data.account_id,
+            platform=data.platform,
+        )
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail="chat not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    session.commit()
+    return AgentChatRead.model_validate(detail)
 
 
 @router.get("/briefing", response_model=DailyBriefingRead)
