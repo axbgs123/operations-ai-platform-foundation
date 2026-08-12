@@ -1,5 +1,7 @@
 # Operations Agent Implementation Plan
 
+> **Deferred UI follow-up (2026-08-12):** The user wants the operations agent to use a Codex-like conversational interface with durable chat history. This is recorded only and is not part of the currently executed plan. Do not implement it until the Qianwen API configuration fix has passed a controlled real-connection validation. When started, chat history must remain an interaction record rather than execution truth; plans, runs, steps, confirmations, and artifacts remain authoritative.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a governed operations agent that identifies one highest-value account problem, presents an immutable plan for approval, executes existing analysis and generation capabilities through a versioned tool registry, and returns a fact-checked, risk-checked optimization draft without publishing to social platforms.
