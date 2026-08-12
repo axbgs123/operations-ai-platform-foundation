@@ -10,7 +10,8 @@
 管理员在工作区设置页 `/workspaces/{workspaceId}/settings/models` 从服务端 Catalog
 选择固定模型。当前千问 AI 平台配置只需填写 API Key，服务端固定使用官方
 `dashscope.aliyuncs.com` 接口，不要求用户寻找或填写业务空间 ID，也不接受任意
-Provider、模型、capability 或 `base_url`。为兼容历史配置，数据库中已有且符合
+千问配置中的 Provider、模型、capability 或 `base_url`。需要使用其他文本模型时，
+应切换到页面独立的“OpenAI 兼容”入口，不能把自定义地址伪装成千问地址。为兼容历史配置，数据库中已有且符合
 `llm-...` 格式的旧版 Provider Workspace ID 仍可继续使用其地域端点，但新页面不会
 再创建这类配置。
 

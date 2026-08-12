@@ -58,7 +58,13 @@ export function ModelConfigForm({
   );
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
+  const [providerMode, setProviderMode] = useState<
+    "qianwen" | "openai_compatible"
+  >("qianwen");
   const [modelId, setModelId] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [compatibleModelId, setCompatibleModelId] = useState("");
   const region = "cn-beijing" as const;
   const [apiKey, setApiKey] = useState("");
   const [message, setMessage] = useState("");
@@ -103,22 +109,34 @@ export function ModelConfigForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selected || !canManage) return;
+    if (!canManage || (providerMode === "qianwen" && !selected)) return;
     setPending(true);
     setMessage("");
     try {
       const saved = await saveModelConfig(
         workspaceId,
         sessionStorage.getItem("workspace_csrf") ?? "",
-        {
-          provider: "qianwen",
-          model_id: selected.model_id,
-          region,
-          provider_workspace_id: null,
-          capabilities: [selected.capability],
-          status: "experimental",
-          api_key: apiKey,
-        },
+        providerMode === "qianwen"
+          ? {
+              provider: "qianwen",
+              model_id: selected!.model_id,
+              region,
+              provider_workspace_id: null,
+              capabilities: [selected!.capability],
+              status: "experimental",
+              api_key: apiKey,
+            }
+          : {
+              provider: "openai_compatible",
+              display_name: displayName,
+              base_url: baseUrl,
+              model_id: compatibleModelId,
+              region: null,
+              provider_workspace_id: null,
+              capabilities: ["text"],
+              status: "community",
+              api_key: apiKey,
+            },
       );
       setConfigs((current) => [
         ...current.filter((item) => item.id !== saved.id),
@@ -184,7 +202,10 @@ export function ModelConfigForm({
         sessionStorage.getItem("workspace_csrf") ?? "",
         {
           model_config_id: config.id,
-          region: config.region ?? "cn-beijing",
+          region:
+            config.provider === "openai_compatible"
+              ? "provider-managed"
+              : config.region ?? "cn-beijing",
           capability: config.capability,
           model_id: config.model_id,
           max_calls: 1,
@@ -198,8 +219,10 @@ export function ModelConfigForm({
       setMessage(
         result.result === "passed"
           ? copyMode === "simple"
-            ? "连接成功：模型服务密钥与千问官方接口可以正常通信；尚未调用具体模型。"
-            : "Connection succeeded: the API Key can authenticate with the Qianwen endpoint; no model was invoked."
+            ? config.provider === "openai_compatible"
+              ? "连接成功：密钥、服务地址和模型名称均可用；尚未发送生成内容。"
+              : "连接成功：模型服务密钥与千问官方接口可以正常通信；尚未调用具体模型。"
+            : "Connection succeeded: credentials and endpoint are reachable; no generation request was sent."
           : result.result === "not_run"
           ? `未运行：${result.safe_error_code
             ? modelSafeErrorLabel(result.safe_error_code, copyMode)
@@ -219,7 +242,11 @@ export function ModelConfigForm({
     setPending(true);
     setMessage("");
     const nextStatus =
-      config.status === "incompatible" ? "experimental" : "incompatible";
+      config.status === "incompatible"
+        ? config.provider === "openai_compatible"
+          ? "community"
+          : "experimental"
+        : "incompatible";
     try {
       const saved = await updateModelConfigStatus(
         workspaceId,
@@ -248,8 +275,8 @@ export function ModelConfigForm({
     <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] sm:p-8">
       <GuidedPageHeader
         context={{
-          simple: "真实调用可能产生费用；没有设置每日上限时，系统不会允许调用。",
-          professional: "配置使用千问 AI 平台官方固定接口；连接测试只验证 API Key，不调用模型。真实模型调用可能产生费用。Embedding 当前固定内部合同为 qianwen-text-embedding-v4-d1024-v1，上游尚无已确认日期快照。",
+          simple: "可以使用千问官方服务，也可以接入支持 OpenAI 格式的文本模型。连接测试不会发送生成内容。",
+          professional: "支持千问 AI 平台官方固定接口与工作区自带 OpenAI-compatible Chat Completions 文本模型；连接测试只请求模型列表，不发送 Prompt。真实调用可能产生费用。",
         }}
         pageId="settingsModels"
         secondaryActions={(
@@ -262,6 +289,7 @@ export function ModelConfigForm({
       <div className="mt-6">
         <ModelStatus
           configs={configs}
+          pending={pending}
           onStatusChange={canManage ? changeStatus : undefined}
           onValidate={canManage ? validate : undefined}
         />
@@ -275,32 +303,67 @@ export function ModelConfigForm({
         </p>
       ) : (
         <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
-          <label className="text-sm">
-            {copyMode === "simple" ? "模型服务" : "Provider"}
-            <input
-              aria-label={copyMode === "simple" ? "模型服务" : "Provider"}
-              className={formControlClasses}
-              disabled
-              value="qianwen"
-            />
-          </label>
-          <label className="text-sm">
-            {copyMode === "simple" ? "模型能力" : "精确模型"}
-            <select
-              aria-label={copyMode === "simple" ? "模型能力" : "精确模型"}
-              className={formControlClasses}
-              onChange={(event) => setModelId(event.target.value)}
-              value={modelId}
+          <div
+            aria-label="模型接入方式"
+            className="grid grid-cols-2 gap-2 sm:col-span-2"
+            role="group"
+          >
+            <button
+              aria-pressed={providerMode === "qianwen"}
+              className={providerMode === "qianwen" ? "rounded-xl bg-[var(--brand)] px-4 py-3 font-semibold text-white" : "rounded-xl border border-[var(--border)] px-4 py-3 font-semibold"}
+              onClick={() => setProviderMode("qianwen")}
+              type="button"
             >
-              {(catalog?.models ?? []).map((model) => (
-                <option key={model.model_id} value={model.model_id}>
-                  {displayText(modelChoiceCopy(model.capability, model.model_id), copyMode)}
-                </option>
-              ))}
-            </select>
-          </label>
+              千问官方
+            </button>
+            <button
+              aria-pressed={providerMode === "openai_compatible"}
+              className={providerMode === "openai_compatible" ? "rounded-xl bg-[var(--brand)] px-4 py-3 font-semibold text-white" : "rounded-xl border border-[var(--border)] px-4 py-3 font-semibold"}
+              onClick={() => setProviderMode("openai_compatible")}
+              type="button"
+            >
+              OpenAI 兼容
+            </button>
+          </div>
+          {providerMode === "qianwen" ? (
+            <>
+              <label className="text-sm sm:col-span-2">
+                {copyMode === "simple" ? "模型能力" : "精确模型"}
+                <select
+                  aria-label={copyMode === "simple" ? "模型能力" : "精确模型"}
+                  className={formControlClasses}
+                  onChange={(event) => setModelId(event.target.value)}
+                  value={modelId}
+                >
+                  {(catalog?.models ?? []).map((model) => (
+                    <option key={model.model_id} value={model.model_id}>
+                      {displayText(modelChoiceCopy(model.capability, model.model_id), copyMode)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          ) : (
+            <>
+              <label className="text-sm">
+                配置名称
+                <input aria-label="配置名称" className={formControlClasses} maxLength={80} onChange={(event) => setDisplayName(event.target.value)} required value={displayName} />
+              </label>
+              <label className="text-sm">
+                模型名称
+                <input aria-label="模型名称" className={formControlClasses} maxLength={160} onChange={(event) => setCompatibleModelId(event.target.value)} required value={compatibleModelId} />
+              </label>
+              <label className="text-sm sm:col-span-2">
+                服务地址
+                <input aria-label="服务地址" className={formControlClasses} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://你的模型服务地址/v1" required type="url" value={baseUrl} />
+                <span className="mt-2 block text-[var(--text-secondary)]">只支持 OpenAI 格式的文本接口；正式环境必须使用 HTTPS。</span>
+              </label>
+            </>
+          )}
           <p className="rounded-xl border border-[var(--border)] bg-slate-50 p-4 text-sm text-[var(--text-secondary)] sm:col-span-2">
-            {copyMode === "simple"
+            {providerMode === "openai_compatible"
+              ? "费用由模型供应商结算，平台只限制调用次数和文字量。"
+              : copyMode === "simple"
               ? "使用千问 AI 平台官方固定接口，不需要填写业务空间 ID。"
               : "Uses the fixed Qianwen AI Platform endpoint; no Provider Workspace ID or custom Base URL is accepted."}
           </p>
@@ -326,7 +389,11 @@ export function ModelConfigForm({
             disabled={pending || !selected}
             type="submit"
           >
-            {pending ? "正在保存…" : "保存或替换密钥"}
+            {pending
+              ? "正在保存…"
+              : providerMode === "openai_compatible"
+                ? "保存兼容模型配置"
+                : "保存或替换密钥"}
           </button>
         </form>
       )}

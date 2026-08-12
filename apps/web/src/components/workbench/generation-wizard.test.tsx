@@ -88,6 +88,8 @@ const fixture: GenerationWizardFixture = {
     {
       id: "model-1",
       provider: "mock-contract",
+      display_name: null,
+      endpoint_host: null,
       model_id: "mock-text-v1",
       region: null,
       capability: "text",

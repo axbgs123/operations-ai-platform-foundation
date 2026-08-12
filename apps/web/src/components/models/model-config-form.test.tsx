@@ -144,12 +144,15 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-test("admin sees only catalog choices and clears the key after save", async () => {
+test("admin keeps the fixed catalog flow and clears the key after save", async () => {
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
   expect(await screen.findByText("模型配置")).toBeInTheDocument();
-  expect(screen.getByLabelText("Provider")).toHaveValue("qianwen");
+  expect(screen.getByRole("button", { name: "千问官方" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   expect(screen.getByLabelText("精确模型")).toHaveValue(
     "qwen3.5-plus-2026-04-20",
   );
@@ -203,7 +206,7 @@ test("viewer receives safe status without credential controls", async () => {
 
   expect(await screen.findByText("模型配置")).toBeInTheDocument();
   expect(screen.getByText(
-    "配置千问模型服务密钥和每日费用上限；保存后可以先做一次不调用模型的连接测试。",
+    "选择千问官方服务，或接入团队自己的兼容文本模型；保存后先测试连接。",
   )).toBeVisible();
   expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
   expect(
@@ -219,19 +222,22 @@ test("easy mode explains secret storage, real provider cost, and trial status", 
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
   expect(await screen.findByText(
-    "配置千问模型服务密钥和每日费用上限；保存后可以先做一次不调用模型的连接测试。",
+    "选择千问官方服务，或接入团队自己的兼容文本模型；保存后先测试连接。",
   )).toBeVisible();
   expect(screen.getByText(
     "密钥保存后不会再次显示；更换密钥需要重新输入。",
   )).toBeVisible();
   expect(screen.getByText(
-    "真实调用可能产生费用；没有设置每日上限时，系统不会允许调用。",
+    "可以使用千问官方服务，也可以接入支持 OpenAI 格式的文本模型。连接测试不会发送生成内容。",
   )).toBeVisible();
   expect(screen.getByText(
     "试用状态，真实效果和费用尚未完成验收",
   )).toBeVisible();
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-  expect(screen.getByLabelText("模型服务")).toHaveValue("qianwen");
+  expect(screen.getByRole("button", { name: "千问官方" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   expect(screen.getByLabelText("模型服务密钥")).toHaveAttribute("type", "password");
   expect(screen.queryByLabelText("Provider")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("API Key")).not.toBeInTheDocument();
@@ -247,8 +253,8 @@ test("uses the shared light form tokens for model credentials and usage policy",
     <ModelConfigForm role="admin" workspaceId="workspace-1" />,
   );
 
-  const provider = await screen.findByLabelText("模型服务");
-  expect(provider).toHaveClass(
+  const model = await screen.findByLabelText("模型能力");
+  expect(model).toHaveClass(
     "border-[var(--border)]",
     "bg-[var(--surface)]",
     "text-[var(--text-primary)]",
@@ -353,7 +359,10 @@ test("professional mode preserves loaded model states and safe error codes", asy
   expect(await screen.findByText("Connection status：not_run")).toBeVisible();
   expect(screen.getByText("状态码：explicit_user_authorization_missing")).toBeVisible();
   expect(screen.getAllByText("experimental")).toHaveLength(2);
-  expect(screen.getByLabelText("Provider")).toHaveValue("qianwen");
+  expect(screen.getByRole("button", { name: "千问官方" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
 test("easy mode translates provider post-actions and uncertain validation outcomes", async () => {
@@ -397,5 +406,76 @@ test("connection test explains successful authentication without claiming a mode
 
   expect(await screen.findByText(
     "连接成功：模型服务密钥与千问官方接口可以正常通信；尚未调用具体模型。",
+  )).toBeVisible();
+});
+
+test("admin can configure and test a self-hosted compatible text model", async () => {
+  saveModelConfig.mockResolvedValueOnce({
+    id: "config-compatible-1",
+    provider: "openai_compatible",
+    display_name: "团队文本模型",
+    endpoint_host: "models.example.com",
+    model_id: "team-chat-v1",
+    capability: "text",
+    region: null,
+    status: "community",
+    experimental: false,
+    credential_configured: true,
+    credential_updated_at: "2026-08-12T00:00:00Z",
+    configuration_version: "compatible-v1",
+    contract_version: "openai-compatible-chat-json-v1",
+    last_validation_status: "not_run",
+    last_validated_at: null,
+    safe_error_code: "explicit_user_authorization_missing",
+  });
+  createModelValidation.mockResolvedValueOnce({
+    result: "passed",
+    safe_error_code: null,
+  });
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  await screen.findByText("模型配置");
+  fireEvent.click(screen.getByRole("button", { name: "OpenAI 兼容" }));
+  expect(screen.getByLabelText("配置名称")).toBeVisible();
+  expect(screen.getByLabelText("服务地址")).toBeVisible();
+  expect(screen.getByLabelText("模型名称")).toBeVisible();
+  expect(screen.getByText("费用由模型供应商结算，平台只限制调用次数和文字量。")).toBeVisible();
+  expect(document.body.textContent).not.toMatch(/base_url|provider_workspace_id/);
+
+  fireEvent.change(screen.getByLabelText("配置名称"), {
+    target: { value: "团队文本模型" },
+  });
+  fireEvent.change(screen.getByLabelText("服务地址"), {
+    target: { value: "https://models.example.com/v1" },
+  });
+  fireEvent.change(screen.getByLabelText("模型名称"), {
+    target: { value: "team-chat-v1" },
+  });
+  const key = screen.getByLabelText("模型服务密钥");
+  fireEvent.change(key, { target: { value: "synthetic-compatible-key" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存兼容模型配置" }));
+
+  await waitFor(() => expect(saveModelConfig).toHaveBeenCalledWith(
+    "workspace-1",
+    "csrf-token",
+    expect.objectContaining({
+      provider: "openai_compatible",
+      display_name: "团队文本模型",
+      base_url: "https://models.example.com/v1",
+      model_id: "team-chat-v1",
+      capabilities: ["text"],
+      status: "community",
+      api_key: "synthetic-compatible-key",
+    }),
+  ));
+  expect(key).toHaveValue("");
+  fireEvent.click(screen.getByRole("button", { name: "测试连接（不调用模型）" }));
+  await waitFor(() => expect(createModelValidation).toHaveBeenCalledWith(
+    "workspace-1",
+    "csrf-token",
+    expect.objectContaining({ region: "provider-managed" }),
+  ));
+  expect(await screen.findByText(
+    "连接成功：密钥、服务地址和模型名称均可用；尚未发送生成内容。",
   )).toBeVisible();
 });

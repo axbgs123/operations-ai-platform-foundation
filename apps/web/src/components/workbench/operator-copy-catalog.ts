@@ -122,6 +122,6 @@ export const OPERATOR_COPY_CATALOG: Record<OperatorPageId, OperatorPageCopy> = {
   },
   settingsModels: {
     title: "模型配置",
-    purpose: copy("配置千问模型服务密钥和每日费用上限；保存后可以先做一次不调用模型的连接测试。", "管理固定 Catalog、实验状态、API Key、用量政策、无模型调用的连接测试和受控真实验收。"),
+    purpose: copy("选择千问官方服务，或接入团队自己的兼容文本模型；保存后先测试连接。", "管理固定 Catalog、OpenAI-compatible 文本端点、API Key、用量政策和无 Prompt 连接测试。"),
   },
 };

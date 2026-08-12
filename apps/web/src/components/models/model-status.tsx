@@ -31,6 +31,8 @@ const easySafeErrors: Record<string, string> = {
   MODEL_PROVIDER_UNAVAILABLE: "暂时无法连接千问官方接口，请稍后重试",
   MODEL_RATE_LIMITED: "千问接口当前调用过于频繁，请稍后重试",
   MODEL_TIMEOUT: "连接千问接口超时，请检查网络后重试",
+  MODEL_ENDPOINT_UNSAFE: "服务地址不安全，请使用公开的 HTTPS 地址",
+  MODEL_NOT_FOUND: "服务可以连接，但没有找到填写的模型名称",
   provider_outcome_unknown: "模型服务结果暂时无法确认，请勿直接重复提交",
 };
 
@@ -57,10 +59,12 @@ export function ModelStatus({
   configs,
   onStatusChange,
   onValidate,
+  pending = false,
 }: {
   configs: ModelConfig[];
   onStatusChange?: (config: ModelConfig) => void;
   onValidate?: (config: ModelConfig) => void;
+  pending?: boolean;
 }) {
   const { copyMode } = useExperiencePreferences();
   if (configs.length === 0) {
@@ -80,7 +84,7 @@ export function ModelStatus({
           key={config.id}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <strong>{displayText(modelChoiceCopy(config.capability, config.model_id), copyMode)}</strong>
+            <strong>{config.display_name ?? displayText(modelChoiceCopy(config.capability, config.model_id), copyMode)}</strong>
             <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
               {modelStateLabel(
                 config.experimental ? "experimental" : config.status,
@@ -90,7 +94,11 @@ export function ModelStatus({
           </div>
           <dl className="mt-3 grid gap-2 text-sm text-[var(--text-secondary)] sm:grid-cols-2">
             <div>能力：{displayText(modelCapabilityCopy(config.capability), copyMode)}</div>
-            <div>地域：{config.region ?? "不适用"}</div>
+            <div>
+              {config.provider === "openai_compatible"
+                ? `服务地址：${config.endpoint_host ?? "仅管理员可见"}`
+                : `地域：${config.region ?? "不适用"}`}
+            </div>
             <div>
               凭据：{config.credential_configured ? "已加密配置" : "未配置"}
             </div>
@@ -109,6 +117,7 @@ export function ModelStatus({
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"
+                disabled={pending}
                 onClick={() => onValidate(config)}
                 type="button"
               >
@@ -117,6 +126,7 @@ export function ModelStatus({
               {onStatusChange ? (
                 <button
                   className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"
+                  disabled={pending}
                   onClick={() => onStatusChange(config)}
                   type="button"
                 >
