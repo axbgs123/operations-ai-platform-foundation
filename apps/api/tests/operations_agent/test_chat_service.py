@@ -76,6 +76,37 @@ def test_chat_history_is_private_ordered_and_idempotent() -> None:
         _service(session, workspace, second).read(chat.id)
 
 
+def test_chat_history_survives_a_fresh_database_session() -> None:
+    session, workspace, first, _ = _environment()
+    service = _service(session, workspace, first)
+    chat = service.create(idempotency_key="chat-restart")
+    message = service.append_user_message(
+        chat.id,
+        content="服务重启后继续读取",
+        idempotency_key="message-restart",
+    )
+    workspace_id = workspace.id
+    member_id = first.id
+    chat_id = chat.id
+    message_id = message.id
+    engine = session.get_bind()
+    session.commit()
+    session.close()
+
+    with Session(engine, expire_on_commit=False) as restarted_session:
+        detail = AgentChatService(
+            restarted_session,
+            WorkspaceContext(
+                workspace_id=workspace_id,
+                member_id=member_id,
+                role="editor",
+            ),
+        ).read(chat_id)
+
+    assert [item.id for item in detail.messages] == [message_id]
+    assert detail.messages[0].content == "服务重启后继续读取"
+
+
 def test_archived_chat_is_readable_but_cannot_accept_new_messages() -> None:
     session, workspace, first, _ = _environment()
     service = _service(session, workspace, first)

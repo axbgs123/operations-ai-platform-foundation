@@ -4,6 +4,7 @@ import asyncio
 from dataclasses import dataclass
 
 import pytest
+from sqlalchemy.orm import Session
 
 from app.core.security import WorkspaceContext
 from app.modules.generation import models as generation_models  # noqa: F401
@@ -41,6 +42,26 @@ class StubIntentProvider:
             raise self.error
         assert self.intent is not None
         return self.intent
+
+
+@dataclass
+class TransactionCheckingProvider:
+    session: Session
+
+    async def classify(
+        self,
+        *,
+        history: tuple[dict[str, str], ...],
+        message: str,
+    ) -> AgentChatIntent:
+        del history, message
+        assert not self.session.in_transaction()
+        return AgentChatIntent(
+            intent="greeting",
+            reply="你好，我可以帮你分析账号运营问题。",
+            objective=None,
+            needs_account=False,
+        )
 
 
 def test_greeting_is_persisted_as_a_normal_assistant_reply() -> None:
@@ -170,6 +191,30 @@ def test_provider_failure_keeps_user_message_and_adds_safe_error() -> None:
     ]
     assert "private detail" not in detail.messages[-1].content
     assert "暂时没有回复" in detail.messages[-1].content
+
+
+def test_user_message_commits_before_external_provider_is_called() -> None:
+    session, workspace, first, _ = _environment()
+    chat_service = _service(session, workspace, first)
+    chat = chat_service.create(idempotency_key="turn-transaction-chat")
+    service = AgentChatTurnService(
+        session,
+        _context(workspace.id, first.id),
+        intent_provider=TransactionCheckingProvider(session),
+    )
+
+    detail = asyncio.run(
+        service.send(
+            chat.id,
+            content="你好",
+            idempotency_key="turn-transaction",
+        )
+    )
+
+    assert [item.role.value for item in detail.messages] == [
+        "user",
+        "assistant",
+    ]
 
 
 def test_create_plan_without_verified_scope_is_downgraded_to_clarify() -> None:

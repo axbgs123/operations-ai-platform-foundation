@@ -8,6 +8,7 @@ from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.observability import OperationalTask, SQLAlchemyOperationsStore
@@ -202,8 +203,23 @@ class BriefingService:
             ),
             data_cutoff_at=data_cutoff_at,
         )
-        self._session.add(briefing)
-        self._session.flush()
+        try:
+            with self._session.begin_nested():
+                self._session.add(briefing)
+                self._session.flush()
+        except IntegrityError:
+            concurrent = self._session.scalar(
+                select(AgentBriefing).where(
+                    AgentBriefing.workspace_id
+                    == self._context.workspace_id,
+                    AgentBriefing.input_fingerprint == fingerprint,
+                    AgentBriefing.algorithm_version
+                    == BRIEFING_ALGORITHM_VERSION,
+                )
+            )
+            if concurrent is None:
+                raise
+            return self._read(concurrent)
         return self._read(briefing)
 
     def current_input_fingerprint(

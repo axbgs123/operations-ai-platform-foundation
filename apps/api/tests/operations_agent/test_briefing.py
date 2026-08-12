@@ -1,5 +1,8 @@
-from uuid import UUID
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
+from uuid import UUID, uuid4
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import pytest
@@ -7,7 +10,7 @@ import pytest
 from app.core.security import WorkspaceContext
 from app.modules.models.models import ModelConfig, ModelConfigStatus
 from app.modules.operations_agent.briefing import BriefingService
-from app.modules.operations_agent.models import AgentEvent
+from app.modules.operations_agent.models import AgentBriefing, AgentEvent
 from app.modules.risk_rag.models import (
     RiskScan,
     RiskScanNode,
@@ -112,6 +115,51 @@ def test_briefing_reuses_same_record_until_confirmed_input_changes() -> None:
             changed.json()["input_fingerprint"]
             != first.json()["input_fingerprint"]
         )
+
+
+def test_briefing_recovers_when_a_concurrent_request_inserts_same_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace_id = uuid4()
+    member_id = uuid4()
+    session = MagicMock(spec=Session)
+    winner = AgentBriefing(
+        workspace_id=workspace_id,
+        input_fingerprint="f" * 64,
+        algorithm_version="operations-briefing-v1",
+        tool_catalog_version="operations-agent-tools-v1",
+        candidates=[],
+        priority_candidate=None,
+        data_cutoff_at=datetime.now(UTC),
+    )
+    session.scalar.side_effect = [None, winner]
+    session.flush.side_effect = IntegrityError(
+        "concurrent briefing insert",
+        {},
+        RuntimeError("unique violation"),
+    )
+    service = BriefingService(
+        session,
+        WorkspaceContext(
+            workspace_id=workspace_id,
+            member_id=member_id,
+            role="admin",
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_input_state",
+        lambda: ({}, datetime.now(UTC), [], []),
+    )
+    monkeypatch.setattr(service, "_preferences", lambda: (set(), set()))
+    monkeypatch.setattr(service, "_build_candidates", lambda *_: [])
+    monkeypatch.setattr(service, "_read", lambda briefing: briefing)
+    monkeypatch.setattr(service, "_state_fingerprint", lambda **_: "f" * 64)
+
+    result = service.generate()
+
+    assert result is winner
+    assert session.scalar.call_count == 2
 
 
 def test_model_configuration_revision_invalidates_cached_briefing() -> None:

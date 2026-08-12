@@ -167,6 +167,7 @@ class AgentChatTurnService:
                 raise ValueError("idempotency key conflict")
             return self._chats.read(chat_id)
         history = self._bounded_history(chat_id)
+        self._session.commit()
         try:
             intent = await self._intent_provider.classify(
                 history=history,

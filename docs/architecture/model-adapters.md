@@ -40,6 +40,35 @@ Mock 不进入真实费用汇总。
 `explicit_user_authorization_missing`；这不阻断 Mock/Fake 工程回归，但 Catalog
 继续保持 `experimental`。
 
+## 自带 OpenAI 兼容文本模型
+
+工作区管理员也可以配置 `provider=openai_compatible`，用于团队自建或自行购买的
+OpenAI Chat Completions 兼容文本服务。当前合同只覆盖 `GET /models` 和结构化
+`POST /chat/completions`，不承诺兼容视觉、OCR、Embedding、图片生成、流式响应或
+供应商专有功能。模型密钥只在服务端加密保存，读取接口不返回密钥、密文或完整端点。
+
+服务地址在保存和每次请求前都经过 SSRF 防护：正式环境只允许公开 HTTPS 地址，拒绝
+私网、回环、云元数据、URL 凭据、危险路径和重定向；开发环境仅显式允许 localhost。
+“测试连接”只请求 `/models` 并核对模型 ID，不发送 Prompt 或运营数据。结构化生成
+仍执行严格 JSON Schema 校验、工作区用量治理和安全错误映射，失败不会静默切换到
+Mock 或千问。第三方价格未知，因此费用记为未知并由使用者直接向供应商结算，不能
+把未知费用展示为 0 元。配置说明见
+[接入自有 OpenAI 兼容文本模型](../open-source/openai-compatible-model-configuration.md)。
+
+## 运营智能体对话投影
+
+运营智能体在原“任务与执行”工作台之外新增“对话”入口。聊天会话和消息按工作区与
+成员双重隔离并持久化；刷新或服务重启后可以继续读取。模型只返回严格的问候、澄清、
+解释状态或创建计划意图，不能自行选择账号、调用任意工具、批准计划、发布内容或声称
+操作已经完成。用户明确提出目标时，服务端仍调用原有 `PlanService` 创建可检查计划，
+之后的批准、运行、确认、风控与结果继续由原 `AgentExecutor` 状态机负责。
+
+用户消息先独立提交并释放数据库事务，再调用外部模型；模型失败时保留消息并追加安全
+错误，日志不记录聊天正文。聊天历史最多向模型发送最近 12 条、合计 12,000 字。当前
+JSON/ZIP 备份不导出聊天正文，跨机器迁移聊天历史尚未实现；本机数据库正常重启不受
+此限制。完整使用边界见
+[运营智能体对话与原任务执行](../open-source/operations-agent-chat.md)。
+
 ## 千问 Embedding 与索引代际
 
 RiskRAG 千问向量固定 `text-embedding-v4`、内部合同

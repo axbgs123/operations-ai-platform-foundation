@@ -129,6 +129,22 @@ test("editor completes the governed optimization loop", async ({ page, request }
 
     await page.goto(`/workspaces/${workspace.workspace_id}/agent`);
     await expect(
+      page.getByRole("heading", { name: "今天想解决什么运营问题？" }),
+    ).toBeVisible();
+    await page.getByRole("textbox", { name: "给运营智能体发消息" }).fill("你好");
+    await page.getByRole("button", { name: "发送" }).click();
+    await expect(
+      page.getByText(/你好，我可以帮你分析账号表现/),
+    ).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "打开会话：你好" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/你好，我可以帮你分析账号表现/),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "任务与执行" }).click();
+    await expect(
       page.getByRole("heading", { name: "今天建议先处理" }),
     ).toBeVisible();
     await expect(page.getByLabel("执行账号")).toHaveValue(account.id);
