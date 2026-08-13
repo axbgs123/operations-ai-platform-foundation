@@ -19,11 +19,18 @@ from app.core.database import get_session
 from app.core.security import WorkspaceContext
 from app.core.storage import Storage, get_storage
 from app.modules.content.account_models import Platform
+from app.modules.content.service import ContentService
 from app.modules.hotspots.models import (
     CaptureCompleteness,
     HotspotCaptureTask,
     HotspotEntry,
     HotspotSnapshot,
+    HotspotResearch,
+)
+from app.modules.hotspots.research import (
+    HotspotCreativeCandidate,
+    HotspotResearchConflict,
+    HotspotResearchService,
 )
 from app.modules.hotspots.service import (
     HotspotConflict,
@@ -32,10 +39,17 @@ from app.modules.hotspots.service import (
 )
 from app.modules.hotspots.tasks import get_hotspot_enqueuer
 from app.modules.imports.vision_binding import resolve_vision_binding
-from app.modules.imports.extension_auth import AuthenticatedExtension, ExtensionTokenService
+from app.modules.imports.extension_auth import (
+    AuthenticatedExtension,
+    ExtensionTokenService,
+)
 from app.modules.imports.models import ExtensionTokenScope
 from app.modules.metrics.models import ContentType
 from app.modules.models.config_service import SecretCipher
+from app.modules.models.adapters.qianwen import (
+    ModelProviderError,
+    safe_model_error_message,
+)
 from app.modules.workspace.auth import InviteAuthService
 from app.modules.workspace.permissions import (
     Permission,
@@ -136,6 +150,43 @@ class HotspotSnapshotRead(BaseModel):
     entries: list[HotspotEntryRead]
 
 
+class HotspotResearchCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    account_id: UUID
+
+
+class HotspotResearchRead(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID
+    workspace_id: UUID
+    snapshot_id: UUID
+    account_id: UUID
+    platform: Platform
+    status: str
+    query: str
+    provider_mode: str
+    model_id: str
+    configuration_version: str
+    search_contract_version: str
+    generation_contract_version: str
+    sources: list[dict[str, object]]
+    summary: str | None
+    key_points: list[str]
+    candidates: list[HotspotCreativeCandidate]
+    safe_error_code: str | None
+    created_at: datetime
+    completed_at: datetime | None
+    saved_content_id: UUID | None
+
+
+class HotspotCandidateSave(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_index: int = Field(ge=0, le=4)
+
+
 def _context(
     session: Session,
     workspace_id: UUID,
@@ -177,7 +228,10 @@ def _capture_read(task: HotspotCaptureTask) -> HotspotCaptureRead:
         collected_at=task.collected_at,
         completeness=task.completeness,
         status=task.status.value,
-        candidates=[HotspotEntryCandidate.model_validate(item) for item in task.candidate_entries],
+        candidates=[
+            HotspotEntryCandidate.model_validate(item)
+            for item in task.candidate_entries
+        ],
         expires_at=task.expires_at,
         provider_mode="mock" if task.provider == "mock" else "qianwen",
         model_id=task.model_id,
@@ -217,6 +271,34 @@ def _snapshot_read(session: Session, snapshot: HotspotSnapshot) -> HotspotSnapsh
             )
             for item in entries
         ],
+    )
+
+
+def _research_read(item: HotspotResearch) -> HotspotResearchRead:
+    return HotspotResearchRead(
+        id=item.id,
+        workspace_id=item.workspace_id,
+        snapshot_id=item.snapshot_id,
+        account_id=item.account_id,
+        platform=item.platform,
+        status=item.status.value,
+        query=item.query,
+        provider_mode=item.provider,
+        model_id=item.model_id,
+        configuration_version=item.configuration_version,
+        search_contract_version=item.search_contract_version,
+        generation_contract_version=item.generation_contract_version,
+        sources=item.source_entries,
+        summary=item.summary,
+        key_points=item.key_points,
+        candidates=[
+            HotspotCreativeCandidate.model_validate(candidate)
+            for candidate in item.creative_candidates
+        ],
+        safe_error_code=item.safe_error_code,
+        created_at=item.created_at,
+        completed_at=item.completed_at,
+        saved_content_id=item.saved_content_id,
     )
 
 
@@ -483,12 +565,144 @@ def list_hotspot_snapshots(
 ) -> list[HotspotSnapshotRead]:
     context = _context(session, workspace_id, session_token, mutation=False)
     _require(context, Permission.READ_CONTENT)
-    query = select(HotspotSnapshot).where(
-        HotspotSnapshot.workspace_id == workspace_id
-    )
+    query = select(HotspotSnapshot).where(HotspotSnapshot.workspace_id == workspace_id)
     if target_platform is not None:
         query = query.where(HotspotSnapshot.target_platform == target_platform)
     snapshots = session.scalars(
-        query.order_by(desc(HotspotSnapshot.confirmed_at), desc(HotspotSnapshot.id)).limit(100)
+        query.order_by(
+            desc(HotspotSnapshot.confirmed_at), desc(HotspotSnapshot.id)
+        ).limit(100)
     ).all()
     return [_snapshot_read(session, snapshot) for snapshot in snapshots]
+
+
+@router.post(
+    "/snapshots/{snapshot_id}/research",
+    response_model=HotspotResearchRead,
+    status_code=201,
+)
+async def research_hotspot_snapshot(
+    workspace_id: UUID,
+    snapshot_id: UUID,
+    data: HotspotResearchCreate,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> HotspotResearchRead:
+    context = _context(session, workspace_id, session_token, csrf_token, mutation=True)
+    _require(context, Permission.WRITE_CONTENT)
+    if not idempotency_key:
+        raise HTTPException(status_code=400, detail="Idempotency-Key required")
+    try:
+        item = await HotspotResearchService(session, context).research(
+            snapshot_id=snapshot_id,
+            account_id=data.account_id,
+            idempotency_key=idempotency_key,
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=404, detail="hotspot snapshot or account not found"
+        ) from error
+    except HotspotResearchConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ModelProviderError as error:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": error.code.value,
+                "message": safe_model_error_message(error.code),
+            },
+        ) from error
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return _research_read(item)
+
+
+@router.get("/research", response_model=list[HotspotResearchRead])
+def list_hotspot_research(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    account_id: UUID | None = None,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> list[HotspotResearchRead]:
+    context = _context(session, workspace_id, session_token, mutation=False)
+    _require(context, Permission.READ_CONTENT)
+    try:
+        return [
+            _research_read(item)
+            for item in HotspotResearchService(session, context).list_research(
+                account_id=account_id
+            )
+        ]
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail="hotspot account not found") from error
+
+
+@router.get("/research/{research_id}", response_model=HotspotResearchRead)
+def read_hotspot_research(
+    workspace_id: UUID,
+    research_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> HotspotResearchRead:
+    context = _context(session, workspace_id, session_token, mutation=False)
+    _require(context, Permission.READ_CONTENT)
+    try:
+        return _research_read(
+            HotspotResearchService(session, context).read(research_id)
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=404, detail="hotspot research not found"
+        ) from error
+
+
+@router.post(
+    "/research/{research_id}/save-candidate",
+    response_model=HotspotResearchRead,
+)
+def save_hotspot_candidate(
+    workspace_id: UUID,
+    research_id: UUID,
+    data: HotspotCandidateSave,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> HotspotResearchRead:
+    context = _context(session, workspace_id, session_token, csrf_token, mutation=True)
+    _require(context, Permission.WRITE_CONTENT)
+    service = HotspotResearchService(session, context)
+    try:
+        item = service.lock_for_candidate_save(research_id)
+        if item.saved_content_id is not None:
+            return _research_read(item)
+        if item.status.value != "succeeded":
+            raise ValueError("successful hotspot research required")
+        candidate = HotspotCreativeCandidate.model_validate(
+            item.creative_candidates[data.candidate_index]
+        )
+        content = ContentService(session, context).create(
+            account_id=item.account_id,
+            platform=item.platform,
+            content_type=(
+                ContentType.VIDEO
+                if item.platform is Platform.DOUYIN
+                else ContentType.IMAGE_TEXT
+            ),
+            title=candidate.titles[0],
+            body=candidate.copy_draft,
+            column_campaign_id=None,
+            work_url=None,
+        )
+        item.saved_content_id = content.id
+        session.commit()
+        return _research_read(item)
+    except LookupError as error:
+        raise HTTPException(
+            status_code=404, detail="hotspot research not found"
+        ) from error
+    except (IndexError, ValueError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error

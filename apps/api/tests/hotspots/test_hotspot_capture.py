@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_session
 from app.main import app
+from app.modules.exports.deletion import PRIVATE_WORKSPACE_TABLES
 from app.modules.hotspots.models import HotspotCaptureTask
 from app.modules.hotspots.service import extract_candidates, normalize_source_url
 from app.modules.imports.extension_auth import ExtensionTokenService
@@ -93,9 +94,16 @@ def test_candidate_extraction_and_source_url_are_deterministic() -> None:
             "ocr_text_index": 1,
         },
     ]
-    assert normalize_source_url(
-        "https://Example.com/rank?q=1#section"
-    ) == ("https://example.com/rank?q=1", "example.com")
+    assert normalize_source_url("https://Example.com/rank?q=1#section") == (
+        "https://example.com/rank?q=1",
+        "example.com",
+    )
+    assert {
+        "hotspot_capture_tasks",
+        "hotspot_snapshots",
+        "hotspot_entries",
+        "hotspot_research",
+    }.issubset(PRIVATE_WORKSPACE_TABLES)
 
 
 def test_hotspot_capture_requires_review_and_creates_immutable_snapshot() -> None:
@@ -175,11 +183,7 @@ def test_hotspot_capture_requires_review_and_creates_immutable_snapshot() -> Non
         changed_confirmation = client.post(
             f"/v1/workspaces/{workspace_id}/hotspots/captures/{capture['id']}/confirm",
             headers={"X-CSRF-Token": csrf},
-            json={
-                "entries": [
-                    {"rank": 1, "topic": "被替换的热点", "selected": True}
-                ]
-            },
+            json={"entries": [{"rank": 1, "topic": "被替换的热点", "selected": True}]},
         )
         assert changed_confirmation.status_code == 409
 
@@ -307,3 +311,87 @@ def test_extension_can_stage_but_cannot_confirm_hotspot_capture() -> None:
             json={"entries": [{"topic": "由 Web 人工确认"}]},
         )
         assert web_confirmation.status_code == 200
+
+
+def test_confirmed_hotspot_can_be_researched_with_citations_for_matching_account() -> (
+    None
+):
+    with _client() as (client, engine):
+        workspace_id, csrf = _login_admin(client, "热点研究工作区")
+        staged = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/captures",
+            headers={"X-CSRF-Token": csrf, "Idempotency-Key": "research-capture"},
+            json=_payload(),
+        ).json()
+        snapshot = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/captures/{staged['id']}/confirm",
+            headers={"X-CSRF-Token": csrf},
+            json={"entries": [{"rank": 1, "topic": "合成 AI 热点", "selected": True}]},
+        ).json()
+        account = client.post(
+            f"/v1/workspaces/{workspace_id}/accounts",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "platform": "douyin",
+                "name": "合成 AI 账号",
+                "objectives": ["reach"],
+                "metric_weights": {"views": 1},
+                "benchmark_sample_size": 30,
+            },
+        ).json()
+        wrong_account = client.post(
+            f"/v1/workspaces/{workspace_id}/accounts",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "platform": "xiaohongshu",
+                "name": "平台不匹配账号",
+                "objectives": ["reach"],
+                "metric_weights": {"views": 1},
+                "benchmark_sample_size": 30,
+            },
+        ).json()
+
+        researched = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/snapshots/{snapshot['id']}/research",
+            headers={"X-CSRF-Token": csrf, "Idempotency-Key": "research-1"},
+            json={"account_id": account["id"]},
+        )
+        assert researched.status_code == 201, researched.text
+        result = researched.json()
+        assert result["status"] == "succeeded"
+        assert result["provider_mode"] == "mock"
+        assert result["sources"][0]["url"].startswith("https://")
+        assert result["candidates"][0]["source_urls"] == [result["sources"][0]["url"]]
+        assert "Mock" in result["summary"]
+
+        repeated = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/snapshots/{snapshot['id']}/research",
+            headers={"X-CSRF-Token": csrf, "Idempotency-Key": "research-1"},
+            json={"account_id": account["id"]},
+        )
+        assert repeated.json()["id"] == result["id"]
+
+        mismatch = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/snapshots/{snapshot['id']}/research",
+            headers={"X-CSRF-Token": csrf, "Idempotency-Key": "research-wrong"},
+            json={"account_id": wrong_account["id"]},
+        )
+        assert mismatch.status_code == 404
+
+        listed = client.get(f"/v1/workspaces/{workspace_id}/hotspots/research")
+        assert listed.status_code == 200
+        assert [item["id"] for item in listed.json()] == [result["id"]]
+
+        saved = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/research/{result['id']}/save-candidate",
+            headers={"X-CSRF-Token": csrf},
+            json={"candidate_index": 0},
+        )
+        assert saved.status_code == 200, saved.text
+        assert saved.json()["saved_content_id"] is not None
+        repeated_save = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/research/{result['id']}/save-candidate",
+            headers={"X-CSRF-Token": csrf},
+            json={"candidate_index": 0},
+        )
+        assert repeated_save.json()["saved_content_id"] == saved.json()["saved_content_id"]

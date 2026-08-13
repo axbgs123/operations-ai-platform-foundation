@@ -51,6 +51,7 @@ RUNTIME_REQUIRED_TABLES = {
     "agent_chat_messages",
     "hotspot_capture_tasks",
     "hotspot_snapshots",
+    "hotspot_research",
     "hotspot_entries",
 }
 

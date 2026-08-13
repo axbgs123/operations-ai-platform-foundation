@@ -9,13 +9,14 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    Text,
     String,
     UniqueConstraint,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.database import Base, UTCDateTime, UUIDPrimaryKeyMixin
+from app.core.database import Base, UTCDateTime, UUIDPrimaryKeyMixin, utc_now
 from app.modules.content.account_models import Platform, platform_type
 
 
@@ -73,18 +74,14 @@ class HotspotCaptureTask(UUIDPrimaryKeyMixin, Base):
     source_host: Mapped[str] = mapped_column(String(253))
     page_title: Mapped[str] = mapped_column(String(300))
     collected_at: Mapped[datetime] = mapped_column(UTCDateTime())
-    completeness: Mapped[CaptureCompleteness] = mapped_column(
-        capture_completeness_enum
-    )
+    completeness: Mapped[CaptureCompleteness] = mapped_column(capture_completeness_enum)
     idempotency_key: Mapped[str] = mapped_column(String(160))
     request_fingerprint: Mapped[str] = mapped_column(String(64))
     image_sha256: Mapped[str] = mapped_column(String(64))
     object_key: Mapped[str] = mapped_column(String(500))
     mime_type: Mapped[str] = mapped_column(String(40))
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime())
-    status: Mapped[HotspotCaptureStatus] = mapped_column(
-        hotspot_capture_status_enum
-    )
+    status: Mapped[HotspotCaptureStatus] = mapped_column(hotspot_capture_status_enum)
     model_id: Mapped[str] = mapped_column(String(160))
     contract_version: Mapped[str] = mapped_column(String(120))
     configuration_version: Mapped[str] = mapped_column(String(100))
@@ -139,9 +136,7 @@ class HotspotSnapshot(UUIDPrimaryKeyMixin, Base):
     page_title: Mapped[str] = mapped_column(String(300))
     collected_at: Mapped[datetime] = mapped_column(UTCDateTime())
     confirmed_at: Mapped[datetime] = mapped_column(UTCDateTime())
-    completeness: Mapped[CaptureCompleteness] = mapped_column(
-        capture_completeness_enum
-    )
+    completeness: Mapped[CaptureCompleteness] = mapped_column(capture_completeness_enum)
     ocr_model_id: Mapped[str] = mapped_column(String(160))
     ocr_contract_version: Mapped[str] = mapped_column(String(120))
     entry_count: Mapped[int] = mapped_column(Integer)
@@ -167,3 +162,88 @@ class HotspotEntry(UUIDPrimaryKeyMixin, Base):
     rank: Mapped[int | None] = mapped_column(Integer, default=None)
     heat: Mapped[str | None] = mapped_column(String(80), default=None)
     selected: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class HotspotResearchStatus(StrEnum):
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+hotspot_research_status_enum = Enum(
+    HotspotResearchStatus,
+    name="hotspot_research_status",
+    native_enum=False,
+    values_callable=lambda members: [member.value for member in members],
+)
+
+
+class HotspotResearch(UUIDPrimaryKeyMixin, Base):
+    """Immutable, citation-bearing research bound to one confirmed snapshot."""
+
+    __tablename__ = "hotspot_research"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "created_by",
+            "idempotency_key",
+            name="uq_hotspot_research_idempotency",
+        ),
+        Index("ix_hotspot_research_workspace_created", "workspace_id", "created_at"),
+        Index("ix_hotspot_research_snapshot", "snapshot_id"),
+        Index("ix_hotspot_research_account", "account_id"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    snapshot_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("hotspot_snapshots.id", ondelete="RESTRICT"),
+    )
+    account_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("platform_accounts.id", ondelete="RESTRICT"),
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    created_by: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("workspace_members.id", ondelete="RESTRICT"),
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(160))
+    input_fingerprint: Mapped[str] = mapped_column(String(64))
+    status: Mapped[HotspotResearchStatus] = mapped_column(hotspot_research_status_enum)
+    query: Mapped[str] = mapped_column(Text)
+    provider: Mapped[str] = mapped_column(String(80))
+    model_id: Mapped[str] = mapped_column(String(160))
+    configuration_version: Mapped[str] = mapped_column(String(100))
+    search_contract_version: Mapped[str] = mapped_column(String(120))
+    generation_contract_version: Mapped[str] = mapped_column(String(120))
+    model_config_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("model_configs.id", ondelete="RESTRICT"),
+        default=None,
+    )
+    source_entries: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, default_factory=list
+    )
+    summary: Mapped[str | None] = mapped_column(Text, default=None)
+    key_points: Mapped[list[str]] = mapped_column(JSON, default_factory=list)
+    creative_candidates: Mapped[list[dict[str, object]]] = mapped_column(
+        JSON, default_factory=list
+    )
+    style_profile_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("account_style_profiles.id", ondelete="SET NULL"),
+        default=None,
+    )
+    confirmed_fact_ids: Mapped[list[str]] = mapped_column(JSON, default_factory=list)
+    viral_asset_ids: Mapped[list[str]] = mapped_column(JSON, default_factory=list)
+    safe_error_code: Mapped[str | None] = mapped_column(String(100), default=None)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default_factory=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), default=None)
+    saved_content_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("contents.id", ondelete="SET NULL"),
+        default=None,
+    )

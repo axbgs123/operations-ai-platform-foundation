@@ -44,6 +44,8 @@ from app.modules.generation.text_service import (
     persist_text_generation_success,
 )
 from app.modules.generation.tasks import build_text_adapter_for_run
+from app.modules.hotspots.models import HotspotEntry, HotspotSnapshot
+from app.modules.hotspots.research import HotspotResearchService
 from app.modules.operations_agent.executor import ToolInvocation, ToolObservation
 from app.modules.operations_agent.models import (
     AgentArtifact,
@@ -113,6 +115,14 @@ class ReadConfirmedViralAssetsInput(AccountToolInput):
     viral_asset_ids: tuple[UUID, ...] = Field(default=(), max_length=3)
 
 
+class ReadConfirmedHotspotsInput(AccountToolInput):
+    snapshot_id: UUID | None = None
+
+
+class ResearchConfirmedHotspotInput(AccountToolInput):
+    snapshot_id: UUID
+
+
 class GenerateOptimizationDraftInput(ContentToolInput):
     confirmed_fact_ids: tuple[UUID, ...] = Field(default=(), max_length=100)
     style_profile_id: UUID | None = None
@@ -126,9 +136,7 @@ class GenerateOptimizationDraftInput(ContentToolInput):
 class DomainToolOutput(ImmutableToolSchema):
     safe_summary: str = Field(min_length=1, max_length=500)
     artifact_refs: tuple[str, ...] = Field(default=(), max_length=32)
-    approval_exclusion_refs: tuple[str, ...] = Field(
-        default=(), max_length=32
-    )
+    approval_exclusion_refs: tuple[str, ...] = Field(default=(), max_length=32)
     evidence_refs: tuple[str, ...] = Field(default=(), max_length=32)
     publication_performed: Literal[False] = False
 
@@ -204,6 +212,20 @@ def build_domain_tool_registry() -> AgentToolRegistry:
                 risk=AgentToolRisk.READ_ONLY,
                 permission=Permission.READ_CONTENT,
                 input_model=ReadConfirmedViralAssetsInput,
+            ),
+            _contract(
+                name="read_confirmed_hotspots",
+                risk=AgentToolRisk.READ_ONLY,
+                permission=Permission.READ_CONTENT,
+                input_model=ReadConfirmedHotspotsInput,
+            ),
+            _contract(
+                name="research_confirmed_hotspot",
+                risk=AgentToolRisk.DRAFT_WRITE,
+                permission=Permission.WRITE_CONTENT,
+                input_model=ResearchConfirmedHotspotInput,
+                uses_external_api=True,
+                retry_policy="manual",
             ),
             _contract(
                 name="generate_optimization_draft",
@@ -315,9 +337,7 @@ class DomainToolRunner:
             status="success",
             safe_summary=str(payload["safe_summary"]),
             artifact_refs=tuple(payload["artifact_refs"]),
-            approval_exclusion_refs=tuple(
-                payload["approval_exclusion_refs"]
-            ),
+            approval_exclusion_refs=tuple(payload["approval_exclusion_refs"]),
             evidence_refs=tuple(payload["evidence_refs"]),
         )
 
@@ -391,22 +411,28 @@ class DomainToolRunner:
         arguments: BaseModel,
     ) -> ReadAccountStateOutput:
         del context, arguments
-        content_count = session.scalar(
-            select(func.count(Content.id)).where(
-                Content.workspace_id == invocation.workspace_id,
-                Content.account_id == invocation.account_id,
-                Content.deleted_at.is_(None),
+        content_count = (
+            session.scalar(
+                select(func.count(Content.id)).where(
+                    Content.workspace_id == invocation.workspace_id,
+                    Content.account_id == invocation.account_id,
+                    Content.deleted_at.is_(None),
+                )
             )
-        ) or 0
-        pending_count = session.scalar(
-            select(func.count(AnalysisRun.id)).where(
-                AnalysisRun.workspace_id == invocation.workspace_id,
-                AnalysisRun.account_id == invocation.account_id,
-                AnalysisRun.status.in_(
-                    (AnalysisRunStatus.PENDING, AnalysisRunStatus.RUNNING)
-                ),
+            or 0
+        )
+        pending_count = (
+            session.scalar(
+                select(func.count(AnalysisRun.id)).where(
+                    AnalysisRun.workspace_id == invocation.workspace_id,
+                    AnalysisRun.account_id == invocation.account_id,
+                    AnalysisRun.status.in_(
+                        (AnalysisRunStatus.PENDING, AnalysisRunStatus.RUNNING)
+                    ),
+                )
             )
-        ) or 0
+            or 0
+        )
         return ReadAccountStateOutput(
             account_id=invocation.account_id,
             content_count=content_count,
@@ -432,9 +458,7 @@ class DomainToolRunner:
         )
         if run.status is AnalysisRunStatus.PENDING:
             if not created_by_agent:
-                raise RuntimeError(
-                    "existing pending analysis requires separate review"
-                )
+                raise RuntimeError("existing pending analysis requires separate review")
             if not begin_analysis_attempt(session, run.id):
                 raise RuntimeError("analysis is already owned by another worker")
             bundle = AnalysisEvidenceBundle.model_validate(run.evidence_bundle)
@@ -511,8 +535,7 @@ class DomainToolRunner:
             resource_ids=ids,
             evidence_refs=tuple(f"fact_item:{item_id}" for item_id in ids),
             safe_summary=(
-                f"工作区有 {len(ids)} 条已确认事实；"
-                "未明确选择前不会自动写入账号草稿。"
+                f"工作区有 {len(ids)} 条已确认事实；未明确选择前不会自动写入账号草稿。"
             ),
         )
 
@@ -566,6 +589,72 @@ class DomainToolRunner:
         )
 
     @staticmethod
+    def _handle_read_confirmed_hotspots(
+        session: Session,
+        context: WorkspaceContext,
+        invocation: ToolInvocation,
+        arguments: BaseModel,
+    ) -> ResourceToolOutput:
+        del context
+        query = select(HotspotSnapshot).where(
+            HotspotSnapshot.workspace_id == invocation.workspace_id,
+            HotspotSnapshot.target_platform == Platform(invocation.platform),
+        )
+        snapshot_id = getattr(arguments, "snapshot_id")
+        if snapshot_id is not None:
+            query = query.where(HotspotSnapshot.id == snapshot_id)
+        snapshots = list(
+            session.scalars(
+                query.order_by(HotspotSnapshot.confirmed_at.desc()).limit(20)
+            )
+        )
+        if snapshot_id is not None and not snapshots:
+            raise AgentResourceScopeError("confirmed hotspot snapshot not found")
+        ids = tuple(item.id for item in snapshots)
+        entry_count = (
+            session.scalar(
+                select(func.count(HotspotEntry.id)).where(
+                    HotspotEntry.snapshot_id.in_(ids),
+                    HotspotEntry.selected.is_(True),
+                )
+            )
+            if ids
+            else 0
+        )
+        return ResourceToolOutput(
+            resource_ids=ids,
+            evidence_refs=tuple(f"hotspot_snapshot:{item_id}" for item_id in ids),
+            safe_summary=f"已读取 {len(ids)} 份确认热点，共 {entry_count or 0} 条可用线索。",
+        )
+
+    @staticmethod
+    def _handle_research_confirmed_hotspot(
+        session: Session,
+        context: WorkspaceContext,
+        invocation: ToolInvocation,
+        arguments: BaseModel,
+    ) -> ResourceToolOutput:
+        item = asyncio.run(
+            HotspotResearchService(session, context).research(
+                snapshot_id=getattr(arguments, "snapshot_id"),
+                account_id=invocation.account_id,
+                idempotency_key=f"agent-hotspot:{invocation.run_id}:{invocation.step_id}",
+            )
+        )
+        if item.status.value != "succeeded":
+            raise RuntimeError("hotspot research did not succeed")
+        return ResourceToolOutput(
+            resource_ids=(item.id,),
+            artifact_refs=(f"hotspot_research:{item.id}",),
+            approval_exclusion_refs=(f"hotspot_research:{item.id}",),
+            evidence_refs=(
+                f"hotspot_snapshot:{item.snapshot_id}",
+                *(f"source_url:{source['url']}" for source in item.source_entries),
+            ),
+            safe_summary="已完成原生联网核实并生成带来源的热点创作候选，尚未发布。",
+        )
+
+    @staticmethod
     def _artifact_ids(
         session: Session,
         *,
@@ -602,8 +691,7 @@ class DomainToolRunner:
                     .where(
                         ModelConfig.workspace_id == invocation.workspace_id,
                         ModelConfig.provider == "mock",
-                        ModelConfig.status
-                        != ModelConfigStatus.INCOMPATIBLE,
+                        ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
                     )
                     .order_by(ModelConfig.id)
                 )
@@ -659,12 +747,9 @@ class DomainToolRunner:
                 confirmed_fact_item_ids=fact_ids,
                 style_profile_id=style_id,
                 style_switches=StyleInheritanceSelection(
-                    title=bool(style_id)
-                    and getattr(arguments, "preserve_title_style"),
-                    copy=bool(style_id)
-                    and getattr(arguments, "preserve_copy_style"),
-                    cover=bool(style_id)
-                    and getattr(arguments, "preserve_cover_style"),
+                    title=bool(style_id) and getattr(arguments, "preserve_title_style"),
+                    copy=bool(style_id) and getattr(arguments, "preserve_copy_style"),
+                    cover=bool(style_id) and getattr(arguments, "preserve_cover_style"),
                 ),
                 viral_library_item_ids=viral_ids,
                 user_prompt=getattr(arguments, "user_instruction"),
@@ -686,18 +771,14 @@ class DomainToolRunner:
                     f"cover_recommendation:{run.id}",
                 ),
                 evidence_refs=(f"content:{content.id}",),
-                safe_summary=(
-                    "已复用同一生成上下文的成功草稿，尚未发布。"
-                ),
+                safe_summary=("已复用同一生成上下文的成功草稿，尚未发布。"),
             )
         if not created_by_agent:
             raise RuntimeError(
                 "existing pending text generation requires separate review"
             )
         if not begin_text_generation_attempt(session, run.id):
-            raise RuntimeError(
-                "text generation is already owned by another worker"
-            )
+            raise RuntimeError("text generation is already owned by another worker")
         adapter = build_text_adapter_for_run(
             session=session,
             run=run,
@@ -709,16 +790,12 @@ class DomainToolRunner:
         generation_context = generation.context
         session.commit()
         try:
-            generated = asyncio.run(
-                generate_text(generation_context, adapter)
-            )
+            generated = asyncio.run(generate_text(generation_context, adapter))
             run = persist_text_generation_success(
                 session,
                 run.id,
                 generated,
-                provider_mode=(
-                    "mock" if settings.app_mock_mode else "real"
-                ),
+                provider_mode=("mock" if settings.app_mock_mode else "real"),
             )
         except ModelProviderError as error:
             persist_text_generation_failure(
@@ -812,9 +889,7 @@ class DomainToolRunner:
                 else "mock-risk-embedding-v1"
             ),
             embedding_dimension=(
-                active_filter.embedding_dimension
-                if active_filter is not None
-                else 3
+                active_filter.embedding_dimension if active_filter is not None else 3
             ),
             rag_model_version="mock-risk-rag-v1",
             scanner_version="operations-agent-scanner-v1",
@@ -861,8 +936,7 @@ class DomainToolRunner:
         event = session.scalar(
             select(AgentEvent).where(
                 AgentEvent.workspace_id == invocation.workspace_id,
-                AgentEvent.idempotency_key
-                == f"agent-summary:{invocation.run_id}",
+                AgentEvent.idempotency_key == f"agent-summary:{invocation.run_id}",
             )
         )
         if event is None:

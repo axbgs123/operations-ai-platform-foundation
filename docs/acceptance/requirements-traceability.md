@@ -201,13 +201,13 @@
 ## AC-17
 
 - 原始需求文字：运营智能体每天提出一项可解释建议，锁定单个平台账号，先展示计划再执行，并在权限、事实、风控和 Provider 边界内生成可人工复核的结果。
-- 对应模块：规范路由 `/agent`；成员私有持久化聊天、严格意图编排、Daily Briefing、固定工具目录、Plan approval、持久化 Run/Step/Confirmation/Artifact、Worker fencing。
-- 精确自动测试：`apps/api/tests/operations_agent/`；`tests/e2e/operations-agent.spec.ts`；32 条双平台固定评估用例。E2E 同时验证发送“你好”、刷新恢复历史，再切换到原“任务与执行”完成九步闭环。
-- 人工验收步骤：Editor 在“对话”中发送问题并恢复历史；切换到“任务与执行”查看每日建议，选择账号与目标，核对并批准计划，观察九步进度、风险免责声明和无发布/支付入口。
+- 对应模块：规范路由 `/agent`、`/hotspots`；成员私有持久化聊天、严格意图编排、Daily Briefing、固定工具目录、热点截图人工确认、模型原生联网研究、Plan approval、持久化 Run/Step/Confirmation/Artifact、Worker fencing。
+- 精确自动测试：`apps/api/tests/operations_agent/`、`apps/api/tests/hotspots/test_hotspot_capture.py`、`apps/api/tests/models/test_native_web_search.py`；`tests/e2e/operations-agent.spec.ts`；32 条双平台固定评估用例。E2E 同时验证发送“你好”、刷新恢复历史，再切换到原“任务与执行”完成九步闭环。
+- 人工验收步骤：Editor 在“对话”中发送问题并恢复历史；切换到“任务与执行”查看每日建议；在公开热点榜用扩展截图、人工确认并选择同平台账号，核对联网引用和候选草稿；确认没有发布或支付入口。
 - 证据路径：`docs/acceptance/operations-agent-evaluation.md`；`scripts/verify-fresh-install.sh` 的重启前后 ID 对比。
 - 当前结果：`partial`。
-- 已知限制：真实千问、真实第三方兼容模型、真实平台页面和独立非开发者智能体测试均 `not_run`；聊天正文尚未进入 JSON/ZIP 跨机器恢复；自动发布、支付和外部趋势检索未实现。
-- 最后验证日期：2026-08-12。
+- 已知限制：真实千问原生联网、真实第三方兼容模型、真实平台页面和独立非开发者智能体测试均 `not_run`；通用兼容模型不会被假定具备联网能力；聊天正文尚未进入 JSON/ZIP 跨机器恢复；自动抓榜、定时搜索、发布和支付未实现。
+- 最后验证日期：2026-08-13。
 - 验证环境：隔离 PostgreSQL/Redis/MinIO、Mock Provider、Chromium、人工合成数据。
 
 ## 状态汇总与不可越界结论
@@ -218,7 +218,7 @@
 - 真实千问 API 尚未运行，Catalog 仍为 `experimental`。
 - 真实抖音/小红书页面尚未验证；Windows/Edge 真实运行仍为 `not_run`。
 - 运营智能体独立非开发者测试为 `not_run`；原因：`independent_non_developer_agent_session_pending`。
-- 自动发布、支付调用和外部热点/趋势自动搜索均未实现。
+- 自动抓取热点榜、定时趋势搜索、自动发布和支付调用均未实现；当前热点流程要求用户截图并人工确认。
 - `text-embedding-v4 没有确认的日期快照`，不得声称固定日期模型可重复。
 - 自动联网检索、Facts 细粒度账号/栏目范围、完整八阶段生命周期、文本生成与正式 `content_id` 关联均为 `partial`。
 - 自动化结果不代表生产平台过审率、真实模型质量或正式发布结论。

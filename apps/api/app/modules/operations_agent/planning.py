@@ -64,6 +64,8 @@ _PLANNING_PREREQUISITES: Mapping[str, tuple[str, ...]] = {
     "read_confirmed_facts": ("read_account_state",),
     "read_account_style": ("read_account_state",),
     "read_confirmed_viral_assets": ("read_account_state",),
+    "read_confirmed_hotspots": ("read_account_state",),
+    "research_confirmed_hotspot": ("read_confirmed_hotspots",),
     "generate_optimization_draft": (
         "run_content_analysis",
         "read_confirmed_facts",
@@ -199,21 +201,16 @@ class PlanValidator:
             or plan.platform is not request.platform
             or plan.account_id != request.account_id
             or plan.candidate_id != request.candidate_id
-            or plan.input_fingerprint
-            != request.briefing_input_fingerprint
+            or plan.input_fingerprint != request.briefing_input_fingerprint
             or plan.tool_catalog_version != self._registry.catalog_version
         ):
             raise InvalidAgentPlan("plan changed server-controlled scope")
-        allowed = {
-            (tool.name, tool.version): tool for tool in request.allowed_tools
-        }
+        allowed = {(tool.name, tool.version): tool for tool in request.allowed_tools}
         previous_names: set[str] = set()
         for step in plan.steps:
             summary = allowed.get((step.tool_name, step.tool_version))
             if summary is None:
-                raise InvalidAgentPlan(
-                    f"unknown agent tool {step.tool_name!r}"
-                )
+                raise InvalidAgentPlan(f"unknown agent tool {step.tool_name!r}")
             try:
                 validated = self._registry.validate_call(
                     step.tool_name,
@@ -249,9 +246,7 @@ class PlanValidator:
             result: dict[str, object] = {}
             for key, value in pairs:
                 if key in result:
-                    raise InvalidAgentPlan(
-                        f"duplicate JSON key {key!r} is not allowed"
-                    )
+                    raise InvalidAgentPlan(f"duplicate JSON key {key!r} is not allowed")
                 result[key] = value
             return result
 
@@ -349,9 +344,7 @@ class PlanService:
                 account_id=data.account_id,
             ),
         )
-        plan_fingerprint = _fingerprint(
-            stored_document.model_dump(mode="json")
-        )
+        plan_fingerprint = _fingerprint(stored_document.model_dump(mode="json"))
         plan = AgentPlan(
             workspace_id=self._context.workspace_id,
             briefing_id=briefing.id,
@@ -430,37 +423,48 @@ class PlanService:
         artifacts = list(
             self._session.scalars(
                 select(AgentArtifact).where(
-                    AgentArtifact.workspace_id
-                    == self._context.workspace_id,
+                    AgentArtifact.workspace_id == self._context.workspace_id,
                     AgentArtifact.run_id == run_id,
                 )
             )
         )
         additional = self._artifact_ref_ids(additional_artifact_refs)
-        analysis_ids = frozenset(
-            artifact.resource_id
-            for artifact in artifacts
-            if artifact.kind is AgentArtifactKind.ANALYSIS
-            and artifact.safe_metadata.get("approval_exclusion") is True
-        ) | additional[AgentArtifactKind.ANALYSIS]
-        scan_ids = frozenset(
-            artifact.resource_id
-            for artifact in artifacts
-            if artifact.kind is AgentArtifactKind.RISK_SCAN
-            and artifact.safe_metadata.get("approval_exclusion") is True
-        ) | additional[AgentArtifactKind.RISK_SCAN]
-        generation_ids = frozenset(
-            artifact.resource_id
-            for artifact in artifacts
-            if artifact.kind is AgentArtifactKind.TEXT_DRAFT
-            and artifact.safe_metadata.get("approval_exclusion") is True
-        ) | additional[AgentArtifactKind.TEXT_DRAFT]
-        export_ids = frozenset(
-            artifact.resource_id
-            for artifact in artifacts
-            if artifact.kind is AgentArtifactKind.EXPORT
-            and artifact.safe_metadata.get("approval_exclusion") is True
-        ) | additional[AgentArtifactKind.EXPORT]
+        analysis_ids = (
+            frozenset(
+                artifact.resource_id
+                for artifact in artifacts
+                if artifact.kind is AgentArtifactKind.ANALYSIS
+                and artifact.safe_metadata.get("approval_exclusion") is True
+            )
+            | additional[AgentArtifactKind.ANALYSIS]
+        )
+        scan_ids = (
+            frozenset(
+                artifact.resource_id
+                for artifact in artifacts
+                if artifact.kind is AgentArtifactKind.RISK_SCAN
+                and artifact.safe_metadata.get("approval_exclusion") is True
+            )
+            | additional[AgentArtifactKind.RISK_SCAN]
+        )
+        generation_ids = (
+            frozenset(
+                artifact.resource_id
+                for artifact in artifacts
+                if artifact.kind is AgentArtifactKind.TEXT_DRAFT
+                and artifact.safe_metadata.get("approval_exclusion") is True
+            )
+            | additional[AgentArtifactKind.TEXT_DRAFT]
+        )
+        export_ids = (
+            frozenset(
+                artifact.resource_id
+                for artifact in artifacts
+                if artifact.kind is AgentArtifactKind.EXPORT
+                and artifact.safe_metadata.get("approval_exclusion") is True
+            )
+            | additional[AgentArtifactKind.EXPORT]
+        )
         stored = StoredAgentPlanDocument.model_validate(plan.document)
         creator_context = self._creator_context(plan)
         current_briefing_fingerprint = BriefingService(
@@ -481,8 +485,7 @@ class PlanService:
             ),
         )
         if (
-            _fingerprint(current.model_dump(mode="json"))
-            != plan.plan_fingerprint
+            _fingerprint(current.model_dump(mode="json")) != plan.plan_fingerprint
             or plan.tool_catalog_version != self._registry.catalog_version
         ):
             raise AgentApprovalStale(
@@ -516,8 +519,7 @@ class PlanService:
             if kind in collected:
                 collected[kind].add(resource_id)
         return {
-            kind: frozenset(resource_ids)
-            for kind, resource_ids in collected.items()
+            kind: frozenset(resource_ids) for kind, resource_ids in collected.items()
         }
 
     def _ensure_current(self, plan: AgentPlan) -> None:
@@ -526,15 +528,11 @@ class PlanService:
         current = StoredAgentPlanDocument(
             plan=stored.plan,
             approval_snapshot=self._approval_snapshot(
-                briefing_input_fingerprint=(
-                    latest_briefing.input_fingerprint
-                ),
+                briefing_input_fingerprint=(latest_briefing.input_fingerprint),
                 account_id=plan.account_id,
             ),
         )
-        current_fingerprint = _fingerprint(
-            current.model_dump(mode="json")
-        )
+        current_fingerprint = _fingerprint(current.model_dump(mode="json"))
         if (
             current_fingerprint != plan.plan_fingerprint
             or plan.tool_catalog_version != self._registry.catalog_version
@@ -603,8 +601,7 @@ class PlanService:
             self._session.scalars(
                 select(ObjectiveProfile)
                 .where(
-                    ObjectiveProfile.workspace_id
-                    == self._context.workspace_id,
+                    ObjectiveProfile.workspace_id == self._context.workspace_id,
                     ObjectiveProfile.account_id == account_id,
                 )
                 .order_by(ObjectiveProfile.id)
@@ -614,8 +611,7 @@ class PlanService:
             self._session.scalars(
                 select(BenchmarkProfile)
                 .where(
-                    BenchmarkProfile.workspace_id
-                    == self._context.workspace_id,
+                    BenchmarkProfile.workspace_id == self._context.workspace_id,
                     BenchmarkProfile.account_id == account_id,
                 )
                 .order_by(BenchmarkProfile.id)
@@ -625,8 +621,7 @@ class PlanService:
             self._session.scalars(
                 select(ColumnCampaign)
                 .where(
-                    ColumnCampaign.workspace_id
-                    == self._context.workspace_id,
+                    ColumnCampaign.workspace_id == self._context.workspace_id,
                     ColumnCampaign.account_id == account_id,
                 )
                 .order_by(ColumnCampaign.id)
@@ -670,9 +665,7 @@ class PlanService:
         configs = list(
             self._session.scalars(
                 select(ModelConfig)
-                .where(
-                    ModelConfig.workspace_id == self._context.workspace_id
-                )
+                .where(ModelConfig.workspace_id == self._context.workspace_id)
                 .order_by(ModelConfig.id)
             )
         )
@@ -703,11 +696,7 @@ class PlanService:
         )
         if excluded_scan_ids:
             query = query.where(RiskScan.id.not_in(excluded_scan_ids))
-        scans = list(
-            self._session.scalars(
-                query.order_by(RiskScan.id)
-            )
-        )
+        scans = list(self._session.scalars(query.order_by(RiskScan.id)))
         return _fingerprint(
             [
                 {
@@ -747,9 +736,7 @@ class PlanService:
     def _primary(briefing: AgentBriefing) -> BriefingCandidateRead:
         if briefing.priority_candidate is None:
             raise InvalidAgentPlan("briefing has no actionable candidate")
-        return BriefingCandidateRead.model_validate(
-            briefing.priority_candidate
-        )
+        return BriefingCandidateRead.model_validate(briefing.priority_candidate)
 
     def _plan(self, plan_id: UUID) -> AgentPlan:
         plan = self._session.scalar(
@@ -808,11 +795,7 @@ class PlanService:
                 )
             )
             config = next(
-                (
-                    item
-                    for item in configs
-                    if "text" in item.capabilities
-                ),
+                (item for item in configs if "text" in item.capabilities),
                 None,
             )
             if config is not None:

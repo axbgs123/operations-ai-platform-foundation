@@ -92,6 +92,10 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "agent_events",
                 "agent_chat_sessions",
                 "agent_chat_messages",
+                "hotspot_capture_tasks",
+                "hotspot_snapshots",
+                "hotspot_entries",
+                "hotspot_research",
             } <= tables
 
         agent_run_columns = {
@@ -467,7 +471,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260813_0043",
+                expected_head="20260813_0044",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -504,6 +508,10 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                         "agent_events",
                         "agent_chat_sessions",
                         "agent_chat_messages",
+                        "hotspot_capture_tasks",
+                        "hotspot_snapshots",
+                        "hotspot_entries",
+                        "hotspot_research",
                     },
             )
             extensions = set(

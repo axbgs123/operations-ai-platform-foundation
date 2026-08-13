@@ -2,7 +2,7 @@ import type { CopyMode } from "./experience-preferences";
 
 export const OPERATOR_PAGE_IDS = [
   "overview", "contents", "contentDetail", "imports", "analysis",
-  "accounts", "accountDashboard", "columns", "agent", "generation", "preflight",
+  "accounts", "accountDashboard", "columns", "agent", "hotspots", "generation", "preflight",
   "viralLibrary", "styles", "styleProfile", "facts", "exports", "jobs",
   "riskKnowledge", "trash", "settings", "settingsMembers",
   "settingsModels",
@@ -69,6 +69,17 @@ export const OPERATOR_COPY_CATALOG: Record<OperatorPageId, OperatorPageCopy> = {
     safety: copy(
       "智能体不会替你发布内容或付款，也不会跳过事实和风险检查。",
       "当前工具目录不包含发布、支付或任意网页操作；受保护写入要求发起成员确认。",
+    ),
+  },
+  hotspots: {
+    title: "热点创作",
+    purpose: copy(
+      "把扩展截图识别出的热点先人工确认，再联网查证并生成带来源的选题和文案草稿。",
+      "将已确认的同平台热点快照绑定到账号，使用已验证的模型原生联网能力生成带引用的研究记录与创作候选。",
+    ),
+    safety: copy(
+      "截图和联网结果都可能有误；保存后仍要核对事实并完成发布前检查。",
+      "截图 OCR 与网页均视为不可信输入；未知引用会被拒绝，草稿仍受事实核验、RiskRAG 和人工复核约束。",
     ),
   },
   generation: {

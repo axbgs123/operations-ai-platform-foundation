@@ -7654,6 +7654,22 @@
         "title": "HeaderMappingUpdate",
         "type": "object"
       },
+      "HotspotCandidateSave": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_index": {
+            "maximum": 4.0,
+            "minimum": 0.0,
+            "title": "Candidate Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "candidate_index"
+        ],
+        "title": "HotspotCandidateSave",
+        "type": "object"
+      },
       "HotspotCaptureCreate": {
         "additionalProperties": false,
         "properties": {
@@ -7826,6 +7842,71 @@
         "title": "HotspotConfirmation",
         "type": "object"
       },
+      "HotspotCreativeCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "account_fit": {
+            "maxLength": 600,
+            "minLength": 1,
+            "title": "Account Fit",
+            "type": "string"
+          },
+          "angle": {
+            "maxLength": 600,
+            "minLength": 1,
+            "title": "Angle",
+            "type": "string"
+          },
+          "caveats": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Caveats",
+            "type": "array"
+          },
+          "copy_draft": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Copy Draft",
+            "type": "string"
+          },
+          "source_urls": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "minItems": 1,
+            "title": "Source Urls",
+            "type": "array"
+          },
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 3,
+            "title": "Titles",
+            "type": "array"
+          },
+          "topic": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "account_fit",
+          "angle",
+          "titles",
+          "copy_draft",
+          "source_urls"
+        ],
+        "title": "HotspotCreativeCandidate",
+        "type": "object"
+      },
       "HotspotEntryCandidate": {
         "additionalProperties": false,
         "properties": {
@@ -7987,6 +8068,174 @@
           "position"
         ],
         "title": "HotspotEntryRead",
+        "type": "object"
+      },
+      "HotspotResearchCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account_id"
+        ],
+        "title": "HotspotResearchCreate",
+        "type": "object"
+      },
+      "HotspotResearchRead": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "format": "uuid",
+            "title": "Account Id",
+            "type": "string"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/HotspotCreativeCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "configuration_version": {
+            "title": "Configuration Version",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "generation_contract_version": {
+            "title": "Generation Contract Version",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "key_points": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Key Points",
+            "type": "array"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "platform": {
+            "$ref": "#/components/schemas/Platform"
+          },
+          "provider_mode": {
+            "title": "Provider Mode",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "safe_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safe Error Code"
+          },
+          "saved_content_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Content Id"
+          },
+          "search_contract_version": {
+            "title": "Search Contract Version",
+            "type": "string"
+          },
+          "snapshot_id": {
+            "format": "uuid",
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "workspace_id": {
+            "format": "uuid",
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workspace_id",
+          "snapshot_id",
+          "account_id",
+          "platform",
+          "status",
+          "query",
+          "provider_mode",
+          "model_id",
+          "configuration_version",
+          "search_contract_version",
+          "generation_contract_version",
+          "sources",
+          "summary",
+          "key_points",
+          "candidates",
+          "safe_error_code",
+          "created_at",
+          "completed_at",
+          "saved_content_id"
+        ],
+        "title": "HotspotResearchRead",
         "type": "object"
       },
       "HotspotSnapshotRead": {
@@ -24409,6 +24658,250 @@
         ]
       }
     },
+    "/v1/workspaces/{workspace_id}/hotspots/research": {
+      "get": {
+        "operationId": "list_hotspot_research_v1_workspaces__workspace_id__hotspots_research_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "account_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/HotspotResearchRead"
+                  },
+                  "title": "Response List Hotspot Research V1 Workspaces  Workspace Id  Hotspots Research Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Hotspot Research",
+        "tags": [
+          "hotspots"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/hotspots/research/{research_id}": {
+      "get": {
+        "operationId": "read_hotspot_research_v1_workspaces__workspace_id__hotspots_research__research_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "research_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Research Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotResearchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Hotspot Research",
+        "tags": [
+          "hotspots"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/hotspots/research/{research_id}/save-candidate": {
+      "post": {
+        "operationId": "save_hotspot_candidate_v1_workspaces__workspace_id__hotspots_research__research_id__save_candidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "research_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Research Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HotspotCandidateSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotResearchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Hotspot Candidate",
+        "tags": [
+          "hotspots"
+        ]
+      }
+    },
     "/v1/workspaces/{workspace_id}/hotspots/snapshots": {
       "get": {
         "operationId": "list_hotspot_snapshots_v1_workspaces__workspace_id__hotspots_snapshots_get",
@@ -24483,6 +24976,117 @@
           }
         },
         "summary": "List Hotspot Snapshots",
+        "tags": [
+          "hotspots"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/hotspots/snapshots/{snapshot_id}/research": {
+      "post": {
+        "operationId": "research_hotspot_snapshot_v1_workspaces__workspace_id__hotspots_snapshots__snapshot_id__research_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "snapshot_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Snapshot Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HotspotResearchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotspotResearchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Research Hotspot Snapshot",
         "tags": [
           "hotspots"
         ]

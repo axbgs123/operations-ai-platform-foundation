@@ -23,6 +23,7 @@ AGENT_TABLES = {
 HOTSPOT_TABLES = {
     "hotspot_capture_tasks",
     "hotspot_snapshots",
+    "hotspot_research",
     "hotspot_entries",
 }
 

@@ -99,6 +99,12 @@ export const WORKBENCH_NAV_CATEGORIES: readonly WorkbenchNavigationCategory[] = 
         allowedRoles: ALL_ROLES,
       },
       {
+        label: "热点创作",
+        href: "/hotspots",
+        icon: "generation",
+        allowedRoles: ALL_ROLES,
+      },
+      {
         label: "生成中心",
         href: "/generation",
         icon: "generation",

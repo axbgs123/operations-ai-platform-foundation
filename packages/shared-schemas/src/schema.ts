@@ -1877,6 +1877,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/hotspots/research": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Hotspot Research */
+        get: operations["list_hotspot_research_v1_workspaces__workspace_id__hotspots_research_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/hotspots/research/{research_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Hotspot Research */
+        get: operations["read_hotspot_research_v1_workspaces__workspace_id__hotspots_research__research_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/hotspots/research/{research_id}/save-candidate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save Hotspot Candidate */
+        post: operations["save_hotspot_candidate_v1_workspaces__workspace_id__hotspots_research__research_id__save_candidate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/hotspots/snapshots": {
         parameters: {
             query?: never;
@@ -1888,6 +1939,23 @@ export interface paths {
         get: operations["list_hotspot_snapshots_v1_workspaces__workspace_id__hotspots_snapshots_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/hotspots/snapshots/{snapshot_id}/research": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Research Hotspot Snapshot */
+        post: operations["research_hotspot_snapshot_v1_workspaces__workspace_id__hotspots_snapshots__snapshot_id__research_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5929,6 +5997,11 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** HotspotCandidateSave */
+        HotspotCandidateSave: {
+            /** Candidate Index */
+            candidate_index: number;
+        };
         /** HotspotCaptureCreate */
         HotspotCaptureCreate: {
             /**
@@ -5995,6 +6068,23 @@ export interface components {
             /** Entries */
             entries: components["schemas"]["HotspotEntryConfirm"][];
         };
+        /** HotspotCreativeCandidate */
+        HotspotCreativeCandidate: {
+            /** Account Fit */
+            account_fit: string;
+            /** Angle */
+            angle: string;
+            /** Caveats */
+            caveats?: string[];
+            /** Copy Draft */
+            copy_draft: string;
+            /** Source Urls */
+            source_urls: string[];
+            /** Titles */
+            titles: string[];
+            /** Topic */
+            topic: string;
+        };
         /** HotspotEntryCandidate */
         HotspotEntryCandidate: {
             /** Heat */
@@ -6042,6 +6132,73 @@ export interface components {
             selected: boolean;
             /** Topic */
             topic: string;
+        };
+        /** HotspotResearchCreate */
+        HotspotResearchCreate: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+        };
+        /** HotspotResearchRead */
+        HotspotResearchRead: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Candidates */
+            candidates: components["schemas"]["HotspotCreativeCandidate"][];
+            /** Completed At */
+            completed_at: string | null;
+            /** Configuration Version */
+            configuration_version: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Generation Contract Version */
+            generation_contract_version: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key Points */
+            key_points: string[];
+            /** Model Id */
+            model_id: string;
+            platform: components["schemas"]["Platform"];
+            /** Provider Mode */
+            provider_mode: string;
+            /** Query */
+            query: string;
+            /** Safe Error Code */
+            safe_error_code: string | null;
+            /** Saved Content Id */
+            saved_content_id: string | null;
+            /** Search Contract Version */
+            search_contract_version: string;
+            /**
+             * Snapshot Id
+             * Format: uuid
+             */
+            snapshot_id: string;
+            /** Sources */
+            sources: {
+                [key: string]: unknown;
+            }[];
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: string | null;
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** HotspotSnapshotRead */
         HotspotSnapshotRead: {
@@ -13156,6 +13313,115 @@ export interface operations {
             };
         };
     };
+    list_hotspot_research_v1_workspaces__workspace_id__hotspots_research_get: {
+        parameters: {
+            query?: {
+                account_id?: string | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotResearchRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_hotspot_research_v1_workspaces__workspace_id__hotspots_research__research_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                research_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotResearchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_hotspot_candidate_v1_workspaces__workspace_id__hotspots_research__research_id__save_candidate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                research_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotCandidateSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotResearchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_hotspot_snapshots_v1_workspaces__workspace_id__hotspots_snapshots_get: {
         parameters: {
             query?: {
@@ -13178,6 +13444,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HotspotSnapshotRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    research_hotspot_snapshot_v1_workspaces__workspace_id__hotspots_snapshots__snapshot_id__research_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                snapshot_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotResearchCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotResearchRead"];
                 };
             };
             /** @description Validation Error */

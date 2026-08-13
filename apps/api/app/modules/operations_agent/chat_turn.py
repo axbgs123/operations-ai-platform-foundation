@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from app.core.security import WorkspaceContext
 from app.modules.content.account_models import Platform
@@ -15,6 +16,8 @@ from app.modules.models.adapters.qianwen import (
     safe_model_error_message,
 )
 from app.modules.models.config_service import ModelConfigurationRequired
+from app.modules.hotspots.models import HotspotSnapshot
+from app.modules.hotspots.research import HotspotResearchService
 from app.modules.operations_agent.chat_service import (
     AgentChatDetail,
     AgentChatService,
@@ -32,7 +35,7 @@ from app.modules.operations_agent.schemas import AgentPlanCreate
 
 
 CHAT_INTENT_PROMPT = """你是运营工作台的意图分类器，只返回严格 JSON。
-你只能判断用户是在问候、需要澄清、希望创建处理计划，还是解释当前状态。
+你只能判断用户是在问候、需要澄清、希望创建处理计划、解释当前状态，还是希望使用已确认热点进行联网研究和创作。
 你不能选择账号、调用工具、访问网址、批准计划或声称已经执行操作。
 回复使用简洁中文，不承诺平台结果。"""
 
@@ -40,7 +43,9 @@ CHAT_INTENT_PROMPT = """你是运营工作台的意图分类器，只返回严�
 class AgentChatIntent(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
-    intent: Literal["greeting", "clarify", "create_plan", "explain_state"]
+    intent: Literal[
+        "greeting", "clarify", "create_plan", "explain_state", "research_hotspot"
+    ]
     reply: str = Field(min_length=1, max_length=1000)
     objective: str | None = Field(default=None, max_length=1000)
     needs_account: bool
@@ -97,6 +102,13 @@ class DeterministicChatIntentProvider:
                 ),
                 objective=None,
                 needs_account=False,
+            )
+        if any(word in normalized for word in ("热点", "热榜", "联网核实", "热点生成")):
+            return AgentChatIntent(
+                intent="research_hotspot",
+                reply="我会读取该平台最新的已确认热点，联网核实后生成带来源的候选。",
+                objective=message.strip(),
+                needs_account=True,
             )
         if any(
             word in normalized
@@ -173,7 +185,7 @@ class AgentChatTurnService:
                 history=history,
                 message=user.content,
             )
-            self._append_intent_result(
+            await self._append_intent_result(
                 chat_id,
                 intent=intent,
                 assistant_key=assistant_key,
@@ -186,6 +198,8 @@ class AgentChatTurnService:
             ModelSelectionError,
             ModelConfigurationRequired,
             TimeoutError,
+            LookupError,
+            PermissionError,
             ValueError,
         ) as error:
             self._chats.append_message(
@@ -197,7 +211,7 @@ class AgentChatTurnService:
             )
         return self._chats.read(chat_id)
 
-    def _append_intent_result(
+    async def _append_intent_result(
         self,
         chat_id: UUID,
         *,
@@ -207,6 +221,15 @@ class AgentChatTurnService:
         platform: Platform | None,
         turn_key: str,
     ) -> None:
+        if intent.intent == "research_hotspot":
+            await self._append_hotspot_result(
+                chat_id,
+                assistant_key=assistant_key,
+                account_id=account_id,
+                platform=platform,
+                turn_key=turn_key,
+            )
+            return
         if intent.intent != "create_plan":
             self._chats.append_message(
                 chat_id,
@@ -278,14 +301,68 @@ class AgentChatTurnService:
             return
         self._chats.append_message(
             chat_id,
-            content=(
-                "我已经生成一份处理计划。请先检查步骤，"
-                "批准后系统才会开始执行。"
-            ),
+            content=("我已经生成一份处理计划。请先检查步骤，批准后系统才会开始执行。"),
             idempotency_key=assistant_key,
             role=AgentChatRole.ASSISTANT,
             kind=AgentChatMessageKind.PLAN,
             plan_id=plan.id,
+        )
+
+    async def _append_hotspot_result(
+        self,
+        chat_id: UUID,
+        *,
+        assistant_key: str,
+        account_id: UUID | None,
+        platform: Platform | None,
+        turn_key: str,
+    ) -> None:
+        if account_id is None or platform is None:
+            self._chats.append_message(
+                chat_id,
+                content="请先选择一个平台账号，我才能匹配同平台热点。",
+                idempotency_key=assistant_key,
+                role=AgentChatRole.ASSISTANT,
+                kind=AgentChatMessageKind.TEXT,
+            )
+            return
+        snapshot = self._session.scalar(
+            select(HotspotSnapshot)
+            .where(
+                HotspotSnapshot.workspace_id == self._context.workspace_id,
+                HotspotSnapshot.target_platform == platform,
+            )
+            .order_by(HotspotSnapshot.confirmed_at.desc(), HotspotSnapshot.id.desc())
+            .limit(1)
+        )
+        if snapshot is None:
+            self._chats.append_message(
+                chat_id,
+                content="当前平台还没有已确认热点。请先用扩展截图，并在“热点创作”中确认识别结果。",
+                idempotency_key=assistant_key,
+                role=AgentChatRole.ASSISTANT,
+                kind=AgentChatMessageKind.TEXT,
+            )
+            return
+        result = await HotspotResearchService(self._session, self._context).research(
+            snapshot_id=snapshot.id,
+            account_id=account_id,
+            idempotency_key=f"chat-hotspot:{turn_key}",
+        )
+        sources = "\n".join(
+            f"- {source['title']}：{source['url']}"
+            for source in result.source_entries[:5]
+        )
+        self._chats.append_message(
+            chat_id,
+            content=(
+                f"热点联网核实和创作候选已完成（研究记录 {result.id}）。\n\n"
+                f"{result.summary}\n\n来源：\n{sources}\n\n"
+                "请到“热点创作”查看完整标题、文案候选并保存草稿。"
+            ),
+            idempotency_key=assistant_key,
+            role=AgentChatRole.ASSISTANT,
+            kind=AgentChatMessageKind.ARTIFACT,
         )
 
     def _bounded_history(
@@ -293,26 +370,16 @@ class AgentChatTurnService:
         chat_id: UUID,
     ) -> tuple[dict[str, str], ...]:
         messages = list(self._chats.read(chat_id, limit=200).messages[-12:])
-        while (
-            messages
-            and sum(len(item.content) for item in messages) > 12_000
-        ):
+        while messages and sum(len(item.content) for item in messages) > 12_000:
             messages.pop(0)
         return tuple(
-            {"role": item.role.value, "content": item.content}
-            for item in messages
+            {"role": item.role.value, "content": item.content} for item in messages
         )
 
     @staticmethod
     def _safe_model_failure(error: Exception) -> str:
         if isinstance(error, ModelProviderError):
-            return (
-                f"{safe_model_error_message(error.code)}"
-                "你的消息已经保存。"
-            )
+            return f"{safe_model_error_message(error.code)}你的消息已经保存。"
         if isinstance(error, (ModelConfigurationRequired, ModelSelectionError)):
             return "模型尚未正确配置。你的消息已经保存，请管理员检查模型设置。"
-        return (
-            "模型暂时没有回复。你的消息已经保存，"
-            "请检查模型连接或稍后重试。"
-        )
+        return "模型暂时没有回复。你的消息已经保存，请检查模型连接或稍后重试。"

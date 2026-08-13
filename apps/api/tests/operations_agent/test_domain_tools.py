@@ -34,10 +34,12 @@ EXPECTED_TOOLS = {
     "scan_optimization_draft",
     "save_agent_summary",
     "create_agent_export",
+    "read_confirmed_hotspots",
+    "research_confirmed_hotspot",
 }
 
 
-def test_domain_catalog_exposes_only_the_nine_governed_tools() -> None:
+def test_domain_catalog_exposes_only_the_governed_tools() -> None:
     registry = build_domain_tool_registry()
 
     assert registry.catalog_version == "operations-agent-tools-v1"

@@ -11,6 +11,7 @@ from app.modules.generation import models as generation_models  # noqa: F401
 from app.modules.operations_agent.chat_turn import (
     AgentChatIntent,
     AgentChatTurnService,
+    DeterministicChatIntentProvider,
 )
 from tests.operations_agent.test_chat_service import _environment, _service
 
@@ -245,3 +246,44 @@ def test_create_plan_without_verified_scope_is_downgraded_to_clarify() -> None:
     assert detail.messages[-1].kind.value == "text"
     assert detail.messages[-1].plan_id is None
     assert "选择" in detail.messages[-1].content
+
+
+def test_deterministic_chat_recognizes_hotspot_research_intent() -> None:
+    intent = asyncio.run(
+        DeterministicChatIntentProvider().classify(
+            history=(),
+            message="用最新热榜给我生成三个选题",
+        )
+    )
+
+    assert intent.intent == "research_hotspot"
+    assert intent.needs_account is True
+
+
+def test_hotspot_chat_requires_an_explicit_account_scope() -> None:
+    session, workspace, first, _ = _environment()
+    chat_service = _service(session, workspace, first)
+    chat = chat_service.create(idempotency_key="turn-hotspot-chat")
+    service = AgentChatTurnService(
+        session,
+        _context(workspace.id, first.id),
+        intent_provider=StubIntentProvider(
+            AgentChatIntent(
+                intent="research_hotspot",
+                reply="开始核实热点。",
+                objective="根据热点生成选题",
+                needs_account=True,
+            )
+        ),
+    )
+
+    detail = asyncio.run(
+        service.send(
+            chat.id,
+            content="根据热点生成选题",
+            idempotency_key="turn-hotspot-no-scope",
+        )
+    )
+
+    assert detail.messages[-1].kind.value == "text"
+    assert "选择一个平台账号" in detail.messages[-1].content
