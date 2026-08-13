@@ -1980,6 +1980,23 @@ export interface paths {
         patch: operations["update_model_config_status_v1_workspaces__workspace_id__model_configs__config_id__patch"];
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/model-configs/{config_id}/native-web-search-verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Native Web Search */
+        post: operations["verify_native_web_search_v1_workspaces__workspace_id__model_configs__config_id__native_web_search_verification_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/model-usage/attempts": {
         parameters: {
             query?: never;
@@ -6149,6 +6166,13 @@ export interface components {
             last_validation_status: string;
             /** Model Id */
             model_id: string;
+            /** Native Web Search Checked At */
+            native_web_search_checked_at: string | null;
+            /** Native Web Search Contract Version */
+            native_web_search_contract_version: string | null;
+            /** Native Web Search Safe Error Code */
+            native_web_search_safe_error_code: string | null;
+            native_web_search_status: components["schemas"]["NativeWebSearchStatus"];
             /** Provider */
             provider: string;
             region: components["schemas"]["QianwenRegion"] | null;
@@ -6432,6 +6456,40 @@ export interface components {
              * Format: uuid
              */
             workspace_id: string;
+        };
+        /**
+         * NativeWebSearchStatus
+         * @enum {string}
+         */
+        NativeWebSearchStatus: "unknown" | "supported" | "unsupported" | "failed";
+        /** NativeWebSearchVerificationRead */
+        NativeWebSearchVerificationRead: {
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /** Contract Version */
+            contract_version: string | null;
+            /**
+             * Model Config Id
+             * Format: uuid
+             */
+            model_config_id: string;
+            /** Real Model Invoked */
+            real_model_invoked: boolean;
+            /** Safe Error Code */
+            safe_error_code: string | null;
+            /** Source Count */
+            source_count: number;
+            /** Source Hosts */
+            source_hosts: string[];
+            status: components["schemas"]["NativeWebSearchStatus"];
+        };
+        /** NativeWebSearchVerificationRequest */
+        NativeWebSearchVerificationRequest: {
+            /** Confirm Real Call */
+            confirm_real_call: boolean;
         };
         /** NextExperiment */
         NextExperiment: {
@@ -13083,6 +13141,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ModelConfigRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_native_web_search_v1_workspaces__workspace_id__model_configs__config_id__native_web_search_verification_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                config_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeWebSearchVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeWebSearchVerificationRead"];
                 };
             };
             /** @description Validation Error */

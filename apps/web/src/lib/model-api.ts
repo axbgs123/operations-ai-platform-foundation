@@ -11,6 +11,8 @@ export type ModelUsagePolicyInput =
 export type ModelUsageSummary =
   components["schemas"]["ModelUsageSummaryRead"];
 export type ModelValidation = components["schemas"]["ModelValidationRead"];
+export type NativeWebSearchVerification =
+  components["schemas"]["NativeWebSearchVerificationRead"];
 
 async function modelRequest<T>(
   path: string,
@@ -114,6 +116,21 @@ export function createModelValidation(
       method: "POST",
       headers: { "X-CSRF-Token": csrfToken },
       body: JSON.stringify(data),
+    },
+  );
+}
+
+export function verifyNativeWebSearch(
+  workspaceId: string,
+  configId: string,
+  csrfToken: string,
+) {
+  return modelRequest<NativeWebSearchVerification>(
+    `/v1/workspaces/${workspaceId}/model-configs/${configId}/native-web-search-verification`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({ confirm_real_call: true }),
     },
   );
 }

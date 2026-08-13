@@ -20,6 +20,7 @@ from app.modules.models.capabilities import (
     select_compatible_model,
 )
 from app.modules.models.catalog import (
+    QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
     QianwenRegion,
     get_catalog_entry,
     validate_provider_workspace_id,
@@ -28,6 +29,7 @@ from app.modules.models.models import (
     ModelConfig,
     ModelConfigStatus,
     ModelContractValidationRun,
+    NativeWebSearchStatus,
 )
 from app.modules.workspace.permissions import Permission, require_permission
 
@@ -51,6 +53,10 @@ class ModelConfigRead(BaseModel):
     last_validation_status: str
     last_validated_at: datetime | None
     safe_error_code: str | None
+    native_web_search_status: NativeWebSearchStatus
+    native_web_search_checked_at: datetime | None
+    native_web_search_contract_version: str | None
+    native_web_search_safe_error_code: str | None
 
 
 class ModelConfigurationRequired(LookupError):
@@ -123,9 +129,7 @@ class ModelConfigService:
             status is AdapterStatus.VERIFIED
             and (provider, model_id) not in self._verified_adapters
         ):
-            raise ValueError(
-                "verified status requires a passing adapter contract"
-            )
+            raise ValueError("verified status requires a passing adapter contract")
 
     def save(
         self,
@@ -199,13 +203,9 @@ class ModelConfigService:
                 or display_name is not None
                 or base_url is not None
             ):
-                raise ValueError(
-                    "provider-specific endpoint fields are not supported"
-                )
+                raise ValueError("provider-specific endpoint fields are not supported")
             self._validate_status(provider, model_id, status)
-        capability_values = sorted(
-            capability.value for capability in capabilities
-        )
+        capability_values = sorted(capability.value for capability in capabilities)
         normalized_api_key = api_key.strip()
         created = False
         if config is None:
@@ -255,13 +255,17 @@ class ModelConfigService:
         )
         if not created:
             if normalized_api_key:
-                config.encrypted_api_key = self._cipher.encrypt(
-                    normalized_api_key
-                )
+                config.encrypted_api_key = self._cipher.encrypt(normalized_api_key)
                 config.credential_updated_at = utc_now()
                 config.configuration_revision += 1
             elif endpoint_changed:
                 config.configuration_revision += 1
+        if created or normalized_api_key or endpoint_changed:
+            config.native_web_search_status = NativeWebSearchStatus.UNKNOWN.value
+            config.native_web_search_checked_at = None
+            config.native_web_search_contract_version = None
+            config.native_web_search_configuration_version = None
+            config.native_web_search_safe_error_code = None
         config.capabilities = capability_values
         config.status = ModelConfigStatus(status.value)
         config.region = region.value if region is not None else None
@@ -285,8 +289,7 @@ class ModelConfigService:
         validation = self._session.scalar(
             select(ModelContractValidationRun)
             .where(
-                ModelContractValidationRun.workspace_id
-                == self._context.workspace_id,
+                ModelContractValidationRun.workspace_id == self._context.workspace_id,
                 ModelContractValidationRun.model_config_id == config.id,
                 ModelContractValidationRun.configuration_version
                 == model_configuration_version(config),
@@ -297,14 +300,35 @@ class ModelConfigService:
             )
             .limit(1)
         )
+        current_configuration_version = model_configuration_version(config)
+        if config.provider == "openai_compatible":
+            native_search_status = NativeWebSearchStatus.UNSUPPORTED
+            native_search_checked_at = None
+            native_search_contract_version = None
+            native_search_error = "NATIVE_WEB_SEARCH_NOT_ADAPTED"
+        elif (
+            config.native_web_search_configuration_version
+            != current_configuration_version
+            or config.native_web_search_contract_version
+            != QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION
+        ):
+            native_search_status = NativeWebSearchStatus.UNKNOWN
+            native_search_checked_at = None
+            native_search_contract_version = None
+            native_search_error = None
+        else:
+            native_search_status = NativeWebSearchStatus(
+                config.native_web_search_status
+            )
+            native_search_checked_at = config.native_web_search_checked_at
+            native_search_contract_version = config.native_web_search_contract_version
+            native_search_error = config.native_web_search_safe_error_code
         return ModelConfigRead(
             id=config.id,
             provider=config.provider,
             model_id=config.model_id,
             region=(
-                QianwenRegion(config.region)
-                if config.region is not None
-                else None
+                QianwenRegion(config.region) if config.region is not None else None
             ),
             display_name=config.display_name,
             endpoint_host=(
@@ -318,7 +342,7 @@ class ModelConfigService:
             experimental=config.status is ModelConfigStatus.EXPERIMENTAL,
             credential_configured=bool(config.encrypted_api_key),
             credential_updated_at=config.credential_updated_at,
-            configuration_version=model_configuration_version(config),
+            configuration_version=current_configuration_version,
             contract_version=(
                 catalog.contract_version
                 if catalog is not None
@@ -339,6 +363,10 @@ class ModelConfigService:
                 if validation is not None
                 else "explicit_user_authorization_missing"
             ),
+            native_web_search_status=native_search_status,
+            native_web_search_checked_at=native_search_checked_at,
+            native_web_search_contract_version=native_search_contract_version,
+            native_web_search_safe_error_code=native_search_error,
         )
 
     def decrypt_key(self, config_id: UUID) -> SecretStr:
@@ -355,12 +383,40 @@ class ModelConfigService:
             raise ValueError("model API key uses an unsupported key version")
         return SecretStr(self._cipher.decrypt(config.encrypted_api_key))
 
+    def record_native_web_search_result(
+        self,
+        config_id: UUID,
+        *,
+        status: NativeWebSearchStatus,
+        contract_version: str,
+        checked_at: datetime,
+        safe_error_code: str | None,
+    ) -> ModelConfig:
+        require_permission(self._context.role, Permission.MANAGE_MODELS)
+        config = self._session.scalar(
+            select(ModelConfig).where(
+                ModelConfig.id == config_id,
+                ModelConfig.workspace_id == self._context.workspace_id,
+            )
+        )
+        if config is None:
+            raise LookupError("model config not found")
+        config.native_web_search_status = status.value
+        config.native_web_search_checked_at = checked_at
+        config.native_web_search_contract_version = contract_version
+        config.native_web_search_configuration_version = model_configuration_version(
+            config
+        )
+        config.native_web_search_safe_error_code = safe_error_code
+        self._session.flush()
+        return config
+
     def list_public(self) -> list[ModelConfigRead]:
         require_permission(self._context.role, Permission.READ_CONTENT)
         rows = self._session.scalars(
-            select(ModelConfig).where(
-                ModelConfig.workspace_id == self._context.workspace_id
-            ).order_by(ModelConfig.provider, ModelConfig.model_id, ModelConfig.id)
+            select(ModelConfig)
+            .where(ModelConfig.workspace_id == self._context.workspace_id)
+            .order_by(ModelConfig.provider, ModelConfig.model_id, ModelConfig.id)
         )
         return [self.public(row) for row in rows]
 
@@ -412,21 +468,17 @@ class ModelConfigService:
         required = frozenset(required_capabilities)
         require_permission(self._context.role, Permission.READ_CONTENT)
         filters = [
-                ModelConfig.workspace_id == self._context.workspace_id,
-                ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
+            ModelConfig.workspace_id == self._context.workspace_id,
+            ModelConfig.status != ModelConfigStatus.INCOMPATIBLE,
         ]
         if provider is not None:
             filters.append(ModelConfig.provider == provider)
-        rows = list(
-            self._session.scalars(select(ModelConfig).where(*filters))
-        )
+        rows = list(self._session.scalars(select(ModelConfig).where(*filters)))
         descriptors = [
             ModelDescriptor(
                 provider=row.provider,
                 model_id=row.model_id,
-                capabilities=frozenset(
-                    Capability(value) for value in row.capabilities
-                ),
+                capabilities=frozenset(Capability(value) for value in row.capabilities),
                 status=AdapterStatus(row.status.value),
             )
             for row in rows

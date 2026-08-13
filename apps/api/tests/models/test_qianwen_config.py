@@ -13,12 +13,18 @@ from app.core.security import WorkspaceContext
 from app.main import app
 from app.modules.models.capabilities import AdapterStatus, Capability
 from app.modules.models.catalog import QIANWEN_TEXT_MODEL_ID, QianwenRegion
+from app.modules.models.catalog import QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION
 from app.modules.models.config_service import (
     ModelConfigService,
     SecretCipher,
     model_configuration_version,
 )
-from app.modules.models.models import ModelConfig
+from app.modules.models.models import ModelConfig, NativeWebSearchStatus
+from app.modules.models.native_search import (
+    NativeSearchSource,
+    NativeWebSearchResult,
+    QianwenNativeWebSearchProvider,
+)
 from app.modules.workspace.models import Workspace
 from app.modules.workspace.permissions import PermissionDenied
 from app.modules.workspace.router import invite_attempts
@@ -87,6 +93,41 @@ def test_qianwen_ai_platform_config_does_not_require_legacy_workspace_id() -> No
     assert config.region == "cn-beijing"
     assert config.provider_workspace_id is None
     assert service.public(config).credential_configured is True
+    session.close()
+
+
+def test_native_search_verification_is_bound_to_current_configuration() -> None:
+    session, service, _ = _service()
+    config = service.save(
+        provider="qianwen",
+        model_id=QIANWEN_TEXT_MODEL_ID,
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.EXPERIMENTAL,
+        api_key="sk-synthetic-qianwen-never-real",
+        region=QianwenRegion.CN_BEIJING,
+    )
+    version = model_configuration_version(config)
+    config.native_web_search_status = NativeWebSearchStatus.SUPPORTED.value
+    config.native_web_search_contract_version = QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION
+    config.native_web_search_configuration_version = version
+    config.native_web_search_checked_at = config.credential_updated_at
+    session.flush()
+
+    public = service.public(config)
+    assert public.native_web_search_status is NativeWebSearchStatus.SUPPORTED
+    assert public.native_web_search_checked_at is not None
+
+    service.save(
+        provider="qianwen",
+        model_id=QIANWEN_TEXT_MODEL_ID,
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.EXPERIMENTAL,
+        api_key="sk-rotated-synthetic-qianwen-never-real",
+        region=QianwenRegion.CN_BEIJING,
+    )
+    refreshed = service.public(config)
+    assert refreshed.native_web_search_status is NativeWebSearchStatus.UNKNOWN
+    assert refreshed.native_web_search_checked_at is None
     session.close()
 
 
@@ -225,6 +266,83 @@ def test_qianwen_api_hides_secrets_and_private_provider_workspace_id() -> None:
             assert "sk-synthetic" not in stored.encrypted_api_key
 
 
+def test_admin_verifies_qianwen_native_search_with_real_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_search(
+        provider: QianwenNativeWebSearchProvider,
+        query: str,
+    ) -> NativeWebSearchResult:
+        del provider
+        assert "阿里云百炼" in query
+        return NativeWebSearchResult(
+            contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
+            summary="合成验证摘要",
+            key_points=("合成要点",),
+            sources=(
+                NativeSearchSource(
+                    title="阿里云百炼联网搜索",
+                    url="https://help.aliyun.com/zh/model-studio/web-search/",
+                    host="help.aliyun.com",
+                ),
+            ),
+        )
+
+    monkeypatch.setattr(QianwenNativeWebSearchProvider, "search", fake_search)
+    with _client() as (client, _):
+        workspace_id, csrf = _create_and_login_admin(
+            client,
+            "千问联网验证合成工作区",
+        )
+        created = client.post(
+            f"/v1/workspaces/{workspace_id}/model-configs",
+            headers={"X-CSRF-Token": csrf},
+            json=_qianwen_payload(),
+        )
+        config_id = created.json()["id"]
+
+        verified = client.post(
+            f"/v1/workspaces/{workspace_id}/model-configs/{config_id}/native-web-search-verification",
+            headers={"X-CSRF-Token": csrf},
+            json={"confirm_real_call": True},
+        )
+
+        assert verified.status_code == 200, verified.text
+        assert verified.json() == {
+            "model_config_id": config_id,
+            "status": "supported",
+            "checked_at": verified.json()["checked_at"],
+            "contract_version": QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
+            "source_count": 1,
+            "source_hosts": ["help.aliyun.com"],
+            "safe_error_code": None,
+            "real_model_invoked": True,
+        }
+        listed = client.get(f"/v1/workspaces/{workspace_id}/model-configs").json()
+        assert listed[0]["native_web_search_status"] == "supported"
+
+
+def test_native_search_verification_requires_explicit_confirmation() -> None:
+    with _client() as (client, _):
+        workspace_id, csrf = _create_and_login_admin(
+            client,
+            "联网确认合成工作区",
+        )
+        config_id = client.post(
+            f"/v1/workspaces/{workspace_id}/model-configs",
+            headers={"X-CSRF-Token": csrf},
+            json=_qianwen_payload(),
+        ).json()["id"]
+
+        response = client.post(
+            f"/v1/workspaces/{workspace_id}/model-configs/{config_id}/native-web-search-verification",
+            headers={"X-CSRF-Token": csrf},
+            json={"confirm_real_call": False},
+        )
+
+        assert response.status_code == 422
+
+
 def test_viewer_cannot_create_config_and_cross_workspace_returns_404() -> None:
     with _client() as (client, _):
         workspace_a, admin_csrf = _create_and_login_admin(
@@ -254,6 +372,12 @@ def test_viewer_cannot_create_config_and_cross_workspace_returns_404() -> None:
         )
         assert denied.status_code == 403
         assert "sk-synthetic" not in denied.text
+        search_denied = client.post(
+            f"/v1/workspaces/{workspace_a}/model-configs/{config_id}/native-web-search-verification",
+            headers={"X-CSRF-Token": viewer["csrf_token"]},
+            json={"confirm_real_call": True},
+        )
+        assert search_denied.status_code == 403
 
         workspace_b, csrf_b = _create_and_login_admin(
             client,
@@ -372,6 +496,10 @@ def test_public_config_exposes_safe_governance_metadata_only() -> None:
         "last_validation_status": "not_run",
         "last_validated_at": None,
         "safe_error_code": "explicit_user_authorization_missing",
+        "native_web_search_status": "unknown",
+        "native_web_search_checked_at": None,
+        "native_web_search_contract_version": None,
+        "native_web_search_safe_error_code": None,
     }
     serialized = service.public(config).model_dump_json()
     assert "synthetic-key-never-real" not in serialized
@@ -424,10 +552,7 @@ def test_blank_key_retains_ciphertext_and_new_key_rotates_configuration() -> Non
     assert rotated.encrypted_api_key != first_ciphertext
     assert rotated.configuration_revision == 2
     assert model_configuration_version(rotated) != first_version
-    assert (
-        service.decrypt_key(rotated.id).get_secret_value()
-        == "synthetic-key-two"
-    )
+    assert service.decrypt_key(rotated.id).get_secret_value() == "synthetic-key-two"
     session.close()
 
 
@@ -454,9 +579,7 @@ def test_catalog_api_exposes_only_server_allowlisted_qianwen_choices() -> None:
             "Catalog 安全选项工作区",
         )
 
-        response = client.get(
-            f"/v1/workspaces/{workspace_id}/model-configs/catalog"
-        )
+        response = client.get(f"/v1/workspaces/{workspace_id}/model-configs/catalog")
 
         assert response.status_code == 200, response.text
         assert response.json() == {
@@ -489,9 +612,7 @@ def test_catalog_api_exposes_only_server_allowlisted_qianwen_choices() -> None:
                 {
                     "model_id": "text-embedding-v4",
                     "capability": "embedding",
-                    "contract_version": (
-                        "qianwen-text-embedding-v4-d1024-v1"
-                    ),
+                    "contract_version": ("qianwen-text-embedding-v4-d1024-v1"),
                     "experimental": True,
                     "upstream_snapshot_immutable": False,
                 },

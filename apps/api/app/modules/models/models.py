@@ -29,6 +29,13 @@ class ModelConfigStatus(StrEnum):
     INCOMPATIBLE = "incompatible"
 
 
+class NativeWebSearchStatus(StrEnum):
+    UNKNOWN = "unknown"
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    FAILED = "failed"
+
+
 model_config_status_type = Enum(
     ModelConfigStatus,
     name="model_config_status",
@@ -47,8 +54,7 @@ class ModelConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="uq_model_config_workspace_provider_model",
         ),
         CheckConstraint(
-            "provider <> 'qianwen' OR "
-            "region IS NOT NULL",
+            "provider <> 'qianwen' OR region IS NOT NULL",
             name="ck_model_configs_qianwen_endpoint_fields",
         ),
         Index("ix_model_configs_workspace_id", "workspace_id"),
@@ -89,6 +95,22 @@ class ModelConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default_factory=utc_now,
     )
     configuration_revision: Mapped[int] = mapped_column(default=1)
+    native_web_search_status: Mapped[str] = mapped_column(
+        String(24),
+        default=NativeWebSearchStatus.UNKNOWN.value,
+    )
+    native_web_search_checked_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), nullable=True, default=None
+    )
+    native_web_search_contract_version: Mapped[str | None] = mapped_column(
+        String(120), nullable=True, default=None
+    )
+    native_web_search_configuration_version: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, default=None
+    )
+    native_web_search_safe_error_code: Mapped[str | None] = mapped_column(
+        String(80), nullable=True, default=None
+    )
 
 
 class ModelUsageReservationStatus(StrEnum):
@@ -335,9 +357,7 @@ class ModelContractValidationRun(UUIDPrimaryKeyMixin, Base):
     max_output_tokens: Mapped[int] = mapped_column(BigInteger)
     max_images: Mapped[int] = mapped_column(Integer)
     max_cost_microunits: Mapped[int] = mapped_column(BigInteger)
-    result: Mapped[ModelValidationResult] = mapped_column(
-        model_validation_result_type
-    )
+    result: Mapped[ModelValidationResult] = mapped_column(model_validation_result_type)
     evidence: Mapped[dict[str, int | str | bool | None]] = mapped_column(JSON)
     created_by: Mapped[UUID] = mapped_column(Uuid(as_uuid=True))
     started_at: Mapped[datetime] = mapped_column(UTCDateTime())

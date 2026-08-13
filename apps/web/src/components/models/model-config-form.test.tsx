@@ -46,9 +46,10 @@ const { listModelConfigs, saveModelConfig, updateModelConfigStatus } = vi.hoiste
   saveModelConfig: vi.fn(),
   updateModelConfigStatus: vi.fn(),
 }));
-const { saveModelUsagePolicy, createModelValidation } = vi.hoisted(() => ({
+const { saveModelUsagePolicy, createModelValidation, verifyNativeWebSearch } = vi.hoisted(() => ({
   saveModelUsagePolicy: vi.fn(),
   createModelValidation: vi.fn(),
+  verifyNativeWebSearch: vi.fn(),
 }));
 
 vi.mock("@/lib/model-api", () => ({
@@ -78,6 +79,7 @@ vi.mock("@/lib/model-api", () => ({
   updateModelConfigStatus,
   saveModelUsagePolicy,
   createModelValidation,
+  verifyNativeWebSearch,
 }));
 
 beforeEach(() => {
@@ -109,6 +111,10 @@ beforeEach(() => {
     last_validation_status: "not_run",
     last_validated_at: null,
     safe_error_code: "explicit_user_authorization_missing",
+    native_web_search_status: "unknown",
+    native_web_search_checked_at: null,
+    native_web_search_contract_version: null,
+    native_web_search_safe_error_code: null,
   });
   saveModelUsagePolicy.mockReset();
   updateModelConfigStatus.mockImplementation(
@@ -138,6 +144,17 @@ beforeEach(() => {
   createModelValidation.mockResolvedValue({
     result: "not_run",
     safe_error_code: "explicit_user_authorization_missing",
+  });
+  verifyNativeWebSearch.mockReset();
+  verifyNativeWebSearch.mockResolvedValue({
+    model_config_id: "config-1",
+    status: "supported",
+    checked_at: "2026-08-13T00:00:00Z",
+    contract_version: "qianwen-responses-native-search-v1",
+    source_count: 2,
+    source_hosts: ["help.aliyun.com"],
+    safe_error_code: null,
+    real_model_invoked: true,
   });
   sessionStorage.setItem("workspace_csrf", "csrf-token");
 });
@@ -407,6 +424,52 @@ test("connection test explains successful authentication without claiming a mode
   expect(await screen.findByText(
     "连接成功：模型服务密钥与千问官方接口可以正常通信；尚未调用具体模型。",
   )).toBeVisible();
+});
+
+test("admin explicitly confirms a real native web search call", async () => {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  listModelConfigs.mockResolvedValueOnce([
+    {
+      id: "config-native-search",
+      provider: "qianwen",
+      model_id: "qwen3.5-plus-2026-04-20",
+      capability: "text",
+      region: "cn-beijing",
+      status: "experimental",
+      experimental: true,
+      credential_configured: true,
+      credential_updated_at: "2026-08-13T00:00:00Z",
+      configuration_version: "config-v1",
+      contract_version: "qianwen-chat-json-v1",
+      last_validation_status: "passed",
+      last_validated_at: "2026-08-13T00:00:00Z",
+      safe_error_code: null,
+      native_web_search_status: "unknown",
+      native_web_search_checked_at: null,
+      native_web_search_contract_version: null,
+      native_web_search_safe_error_code: null,
+    },
+  ]);
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  const button = await screen.findByRole("button", {
+    name: "测试模型联网（会真实调用）",
+  });
+  fireEvent.click(button);
+
+  expect(confirm).toHaveBeenCalledWith(
+    "这会真实调用一次模型自带的联网搜索，费用由你的模型供应商收取。是否继续？",
+  );
+  await waitFor(() => expect(verifyNativeWebSearch).toHaveBeenCalledWith(
+    "workspace-1",
+    "config-native-search",
+    "csrf-token",
+  ));
+  expect(await screen.findByText(
+    "模型联网可用：已收到 2 个可验证来源。",
+  )).toBeVisible();
+  expect(screen.getByText("模型联网：可用")).toBeVisible();
+  confirm.mockRestore();
 });
 
 test("admin can configure and test a self-hosted compatible text model", async () => {

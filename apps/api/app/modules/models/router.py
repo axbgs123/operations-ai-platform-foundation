@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_session
+from app.core.database import SessionFactory, uuid7
 from app.modules.models.capabilities import AdapterStatus, Capability
 from app.modules.models.catalog import (
     ProviderCatalogEntry,
@@ -20,6 +21,7 @@ from app.modules.models.config_service import (
     ModelConfigService,
     ModelConfigurationRequired,
     SecretCipher,
+    model_configuration_version,
 )
 from app.modules.models.connection_test import probe_qianwen_connection
 from app.modules.models.openai_compatible_connection import (
@@ -32,12 +34,20 @@ from app.modules.models.models import (
     ModelUsagePolicy,
     ModelUsageReservation,
     ModelUsageReservationStatus,
+    NativeWebSearchStatus,
 )
+from app.modules.models.native_search import QianwenNativeWebSearchProvider
+from app.modules.models.catalog import QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION
 from app.modules.models.usage import (
     ControlledValidationRequest,
     ControlledValidationService,
     ModelUsagePolicyInput,
     ModelUsagePolicyService,
+    ProviderOperation,
+    create_model_usage_governor,
+)
+from app.modules.models.adapters.qianwen import (
+    ModelProviderError,
 )
 from app.modules.workspace.permissions import Permission, require_permission
 from app.modules.workspace.auth import InviteAuthService
@@ -74,6 +84,25 @@ class ModelConfigStatusUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: AdapterStatus
+
+
+class NativeWebSearchVerificationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    confirm_real_call: bool
+
+
+class NativeWebSearchVerificationRead(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_config_id: UUID
+    status: NativeWebSearchStatus
+    checked_at: datetime
+    contract_version: str | None
+    source_count: int
+    source_hosts: tuple[str, ...]
+    safe_error_code: str | None
+    real_model_invoked: bool
 
 
 class ModelCatalogItem(BaseModel):
@@ -176,13 +205,19 @@ def create_model_config(
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> ModelConfigRead:
-    service = _service(
+    context = _workspace_context(
         session,
         workspace_id,
         session_token,
         csrf_token,
         mutation=True,
     )
+    try:
+        require_permission(context.role, Permission.MANAGE_MODELS)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    key = get_settings().model_secret_encryption_key.get_secret_value()
+    service = ModelConfigService(session, context, cipher=SecretCipher(key))
     try:
         config = service.save(
             provider=data.provider,
@@ -263,13 +298,19 @@ def update_model_config_status(
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> ModelConfigRead:
-    service = _service(
+    context = _workspace_context(
         session,
         workspace_id,
         session_token,
         csrf_token,
         mutation=True,
     )
+    try:
+        require_permission(context.role, Permission.MANAGE_MODELS)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    key = get_settings().model_secret_encryption_key.get_secret_value()
+    service = ModelConfigService(session, context, cipher=SecretCipher(key))
     try:
         config = service.set_status(config_id, data.status)
     except PermissionDenied as error:
@@ -280,6 +321,133 @@ def update_model_config_status(
         raise HTTPException(status_code=422, detail=str(error)) from error
     session.commit()
     return service.public(config)
+
+
+@router.post(
+    "/{config_id}/native-web-search-verification",
+    response_model=NativeWebSearchVerificationRead,
+)
+async def verify_native_web_search(
+    workspace_id: UUID,
+    config_id: UUID,
+    data: NativeWebSearchVerificationRequest,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> NativeWebSearchVerificationRead:
+    if not data.confirm_real_call:
+        raise HTTPException(
+            status_code=422,
+            detail="confirm_real_call must be true",
+        )
+    context = _workspace_context(
+        session,
+        workspace_id,
+        session_token,
+        csrf_token,
+        mutation=True,
+    )
+    try:
+        require_permission(context.role, Permission.MANAGE_MODELS)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    key = get_settings().model_secret_encryption_key.get_secret_value()
+    service = ModelConfigService(session, context, cipher=SecretCipher(key))
+    config = session.scalar(
+        select(ModelConfig).where(
+            ModelConfig.id == config_id,
+            ModelConfig.workspace_id == workspace_id,
+        )
+    )
+    if config is None:
+        raise HTTPException(status_code=404, detail="model config not found")
+    checked_at = datetime.now(UTC)
+    if config.provider != "qianwen":
+        service.record_native_web_search_result(
+            config_id,
+            status=NativeWebSearchStatus.UNSUPPORTED,
+            contract_version="native-search-not-adapted-v1",
+            checked_at=checked_at,
+            safe_error_code="NATIVE_WEB_SEARCH_NOT_ADAPTED",
+        )
+        session.commit()
+        return NativeWebSearchVerificationRead(
+            model_config_id=config.id,
+            status=NativeWebSearchStatus.UNSUPPORTED,
+            checked_at=checked_at,
+            contract_version=None,
+            source_count=0,
+            source_hosts=(),
+            safe_error_code="NATIVE_WEB_SEARCH_NOT_ADAPTED",
+            real_model_invoked=False,
+        )
+    if config.region is None:
+        raise HTTPException(status_code=409, detail="model region is missing")
+    configuration_version = model_configuration_version(config)
+    governor = create_model_usage_governor(
+        session_factory=SessionFactory,
+        redis_url=get_settings().redis_url,
+        workspace_id=workspace_id,
+        model_config=config,
+        actor_id=context.member_id,
+        task_id=uuid7(),
+        capability=Capability.TEXT,
+        operation=ProviderOperation.NATIVE_WEB_SEARCH,
+        contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
+        configuration_version=configuration_version,
+    )
+    provider = QianwenNativeWebSearchProvider(
+        api_key=service.decrypt_key(config_id),
+        region=QianwenRegion(config.region),
+        provider_workspace_id=config.provider_workspace_id,
+        model_id=config.model_id,
+        usage_governor=governor,
+    )
+    session.commit()
+    try:
+        result = await provider.search(
+            "搜索阿里云百炼官方联网搜索文档，并概括该能力的用途。"
+        )
+    except ModelProviderError as error:
+        checked_at = datetime.now(UTC)
+        service.record_native_web_search_result(
+            config_id,
+            status=NativeWebSearchStatus.FAILED,
+            contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
+            checked_at=checked_at,
+            safe_error_code=error.code.value,
+        )
+        session.commit()
+        return NativeWebSearchVerificationRead(
+            model_config_id=config.id,
+            status=NativeWebSearchStatus.FAILED,
+            checked_at=checked_at,
+            contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
+            source_count=0,
+            source_hosts=(),
+            safe_error_code=error.code.value,
+            real_model_invoked=True,
+        )
+    checked_at = datetime.now(UTC)
+    service.record_native_web_search_result(
+        config_id,
+        status=NativeWebSearchStatus.SUPPORTED,
+        contract_version=result.contract_version,
+        checked_at=checked_at,
+        safe_error_code=None,
+    )
+    session.commit()
+    hosts = tuple(dict.fromkeys(source.host for source in result.sources))
+    return NativeWebSearchVerificationRead(
+        model_config_id=config.id,
+        status=NativeWebSearchStatus.SUPPORTED,
+        checked_at=checked_at,
+        contract_version=result.contract_version,
+        source_count=len(result.sources),
+        source_hosts=hosts,
+        safe_error_code=None,
+        real_model_invoked=True,
+    )
 
 
 class ModelUsagePolicyRead(ModelUsagePolicyInput):
@@ -493,8 +661,7 @@ def get_model_usage_summary(
         ).where(
             ModelUsageReservation.workspace_id == workspace_id,
             ModelUsageReservation.created_at >= start,
-            ModelUsageReservation.status
-            == ModelUsageReservationStatus.UNKNOWN,
+            ModelUsageReservation.status == ModelUsageReservationStatus.UNKNOWN,
         )
     )
     return ModelUsageSummaryRead(
@@ -509,12 +676,8 @@ def get_model_usage_summary(
             row.settled_cost_microunits or 0 for row in attempts
         ),
         unknown_reserved_cost_microunits=int(unknown_reserved or 0),
-        unknown_pricing_attempts=sum(
-            1 for row in attempts if not row.cost_known
-        ),
-        sample_status=(
-            "available" if len(attempts) >= 10 else "insufficient_sample"
-        ),
+        unknown_pricing_attempts=sum(1 for row in attempts if not row.cost_known),
+        sample_status=("available" if len(attempts) >= 10 else "insufficient_sample"),
     )
 
 
@@ -561,9 +724,7 @@ def create_model_validation(
         csrf_token,
         mutation=True,
     )
-    cipher = SecretCipher(
-        get_settings().model_secret_encryption_key.get_secret_value()
-    )
+    cipher = SecretCipher(get_settings().model_secret_encryption_key.get_secret_value())
     config_service = ModelConfigService(session, context, cipher=cipher)
 
     def connection_probe(config: ModelConfig) -> str | None:

@@ -7,25 +7,16 @@ from pydantic import BaseModel, ConfigDict
 from app.modules.models.capabilities import AdapterStatus, Capability
 
 
-QIANWEN_TEXT_MODEL_ID: Literal["qwen3.5-plus-2026-04-20"] = (
-    "qwen3.5-plus-2026-04-20"
-)
-QIANWEN_OCR_MODEL_ID: Literal["qwen-vl-ocr-2025-11-20"] = (
-    "qwen-vl-ocr-2025-11-20"
-)
-QIANWEN_EMBEDDING_MODEL_ID: Literal["text-embedding-v4"] = (
-    "text-embedding-v4"
-)
-QIANWEN_EMBEDDING_CONTRACT_VERSION = (
-    "qianwen-text-embedding-v4-d1024-v1"
-)
+QIANWEN_TEXT_MODEL_ID: Literal["qwen3.5-plus-2026-04-20"] = "qwen3.5-plus-2026-04-20"
+QIANWEN_OCR_MODEL_ID: Literal["qwen-vl-ocr-2025-11-20"] = "qwen-vl-ocr-2025-11-20"
+QIANWEN_EMBEDDING_MODEL_ID: Literal["text-embedding-v4"] = "text-embedding-v4"
+QIANWEN_EMBEDDING_CONTRACT_VERSION = "qianwen-text-embedding-v4-d1024-v1"
 QIANWEN_EMBEDDING_DIMENSION = 1024
 QIANWEN_IMAGE_MODEL_ID: Literal["qwen-image-2.0-pro-2026-06-22"] = (
     "qwen-image-2.0-pro-2026-06-22"
 )
-QIANWEN_IMAGE_CONTRACT_VERSION = (
-    "qianwen-image-2.0-pro-2026-06-22-cover-layer-v1"
-)
+QIANWEN_IMAGE_CONTRACT_VERSION = "qianwen-image-2.0-pro-2026-06-22-cover-layer-v1"
+QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION = "qianwen-responses-native-search-v1"
 QIANWEN_PLATFORM_COMPATIBLE_BASE_URL = (
     "https://dashscope.aliyuncs.com/compatible-mode/v1"
 )
@@ -94,9 +85,7 @@ _QIANWEN_OCR = ProviderCatalogEntry(
     min_pixels=3_072,
     max_pixels=8_388_608,
     max_image_bytes=7 * 1024 * 1024,
-    supported_mime_types=frozenset(
-        {"image/png", "image/jpeg", "image/webp"}
-    ),
+    supported_mime_types=frozenset({"image/png", "image/jpeg", "image/webp"}),
     confidence_available=False,
     max_output_tokens=4_096,
 )
@@ -131,9 +120,7 @@ _QIANWEN_IMAGE = ProviderCatalogEntry(
     min_pixels=512 * 512,
     max_pixels=2048 * 2048,
     max_image_bytes=10 * 1024 * 1024,
-    supported_mime_types=frozenset(
-        {"image/png", "image/jpeg", "image/webp"}
-    ),
+    supported_mime_types=frozenset({"image/png", "image/jpeg", "image/webp"}),
     upstream_snapshot_immutable=True,
     max_reference_images=3,
     max_output_images=1,
@@ -191,6 +178,23 @@ def build_qianwen_endpoint(
     return (
         f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
         "compatible-mode/v1/chat/completions"
+    )
+
+
+def build_qianwen_responses_endpoint(
+    region: QianwenRegion,
+    provider_workspace_id: str | None,
+) -> str:
+    try:
+        safe_region = QianwenRegion(region)
+    except ValueError as error:
+        raise ValueError("unsupported Qianwen region") from error
+    if provider_workspace_id is None:
+        return f"{QIANWEN_PLATFORM_COMPATIBLE_BASE_URL}/responses"
+    safe_workspace_id = validate_provider_workspace_id(provider_workspace_id)
+    return (
+        f"https://{safe_workspace_id}.{safe_region.value}.maas.aliyuncs.com/"
+        "compatible-mode/v1/responses"
     )
 
 

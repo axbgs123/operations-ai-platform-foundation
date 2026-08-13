@@ -17,6 +17,7 @@ import {
   saveModelConfig,
   saveModelUsagePolicy,
   updateModelConfigStatus,
+  verifyNativeWebSearch,
   type ModelCatalog,
   type ModelConfig,
 } from "@/lib/model-api";
@@ -271,6 +272,52 @@ export function ModelConfigForm({
     }
   }
 
+  async function validateNativeSearch(config: ModelConfig) {
+    const confirmed = window.confirm(
+      "这会真实调用一次模型自带的联网搜索，费用由你的模型供应商收取。是否继续？",
+    );
+    if (!confirmed) return;
+    setPending(true);
+    setMessage("");
+    try {
+      const result = await verifyNativeWebSearch(
+        workspaceId,
+        config.id,
+        sessionStorage.getItem("workspace_csrf") ?? "",
+      );
+      setConfigs((current) =>
+        current.map((item) =>
+          item.id === config.id
+            ? {
+                ...item,
+                native_web_search_status: result.status,
+                native_web_search_checked_at: result.checked_at,
+                native_web_search_contract_version: result.contract_version,
+                native_web_search_safe_error_code: result.safe_error_code,
+              }
+            : item,
+        ),
+      );
+      if (result.status === "supported") {
+        setMessage(
+          `模型联网可用：已收到 ${result.source_count} 个可验证来源。`,
+        );
+      } else if (result.status === "unsupported") {
+        setMessage("当前模型接入方式还没有适配原生联网搜索。");
+      } else {
+        setMessage(
+          `模型联网检测失败：${result.safe_error_code
+            ? modelSafeErrorLabel(result.safe_error_code, copyMode)
+            : "请检查模型权限和网络后重试"}`,
+        );
+      }
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "联网检测发起失败");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[var(--text-primary)] sm:p-8">
       <GuidedPageHeader
@@ -289,6 +336,7 @@ export function ModelConfigForm({
       <div className="mt-6">
         <ModelStatus
           configs={configs}
+          onNativeSearchValidate={canManage ? validateNativeSearch : undefined}
           pending={pending}
           onStatusChange={canManage ? changeStatus : undefined}
           onValidate={canManage ? validate : undefined}

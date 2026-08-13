@@ -14,6 +14,7 @@ from app.main import app
 from app.modules.models.capabilities import AdapterStatus, Capability
 from app.modules.models.config_service import ModelConfigService, SecretCipher
 from app.modules.models.models import ModelConfig
+from app.modules.models.models import NativeWebSearchStatus
 from app.modules.workspace.models import Workspace
 from app.modules.workspace.router import invite_attempts
 
@@ -67,6 +68,10 @@ def test_openai_compatible_config_hides_key_and_full_endpoint() -> None:
     assert "synthetic-compatible-key-never-real" not in serialized
     assert "https://api.example.com/v1" not in serialized
     assert "encrypted_api_key" not in serialized
+    assert public["native_web_search_status"] == NativeWebSearchStatus.UNSUPPORTED.value
+    assert (
+        public["native_web_search_safe_error_code"] == "NATIVE_WEB_SEARCH_NOT_ADAPTED"
+    )
     session.close()
 
 

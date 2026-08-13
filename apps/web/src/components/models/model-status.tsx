@@ -34,6 +34,14 @@ const easySafeErrors: Record<string, string> = {
   MODEL_ENDPOINT_UNSAFE: "服务地址不安全，请使用公开的 HTTPS 地址",
   MODEL_NOT_FOUND: "服务可以连接，但没有找到填写的模型名称",
   provider_outcome_unknown: "模型服务结果暂时无法确认，请勿直接重复提交",
+  NATIVE_WEB_SEARCH_NOT_ADAPTED: "当前接入方式还不能使用模型自带的联网搜索",
+};
+
+const nativeSearchStates: Record<string, string> = {
+  failed: "检测失败",
+  supported: "可用",
+  unknown: "尚未检测",
+  unsupported: "当前接入方式不支持",
 };
 
 export function modelStateLabel(value: string, mode: CopyMode): string {
@@ -57,11 +65,13 @@ export function modelSafeErrorLabel(value: string, mode: CopyMode): string {
 
 export function ModelStatus({
   configs,
+  onNativeSearchValidate,
   onStatusChange,
   onValidate,
   pending = false,
 }: {
   configs: ModelConfig[];
+  onNativeSearchValidate?: (config: ModelConfig) => void;
   onStatusChange?: (config: ModelConfig) => void;
   onValidate?: (config: ModelConfig) => void;
   pending?: boolean;
@@ -106,23 +116,52 @@ export function ModelStatus({
               {copyMode === "simple" ? "连接状态" : "Connection status"}：
               {modelValidationLabel(config.last_validation_status, copyMode)}
             </div>
+            <div>
+              {copyMode === "simple" ? "模型联网" : "Native web search"}：
+              {copyMode === "professional"
+                ? config.native_web_search_status
+                : nativeSearchStates[config.native_web_search_status] ?? "尚未检测"}
+            </div>
           </dl>
+          {config.native_web_search_safe_error_code ? (
+            <p className="mt-3 text-xs text-[var(--text-secondary)]">
+              {copyMode === "simple" ? "联网提示" : "Native search status code"}：
+              {modelSafeErrorLabel(
+                config.native_web_search_safe_error_code,
+                copyMode,
+              )}
+            </p>
+          ) : null}
           {config.safe_error_code ? (
             <p className="mt-3 text-xs text-[var(--text-secondary)]">
               {copyMode === "simple" ? "连接提示" : "状态码"}：
               {modelSafeErrorLabel(config.safe_error_code, copyMode)}
             </p>
           ) : null}
-          {onValidate ? (
+          {onValidate || onNativeSearchValidate ? (
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"
-                disabled={pending}
-                onClick={() => onValidate(config)}
-                type="button"
-              >
-                测试连接（不调用模型）
-              </button>
+              {onValidate ? (
+                <button
+                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"
+                  disabled={pending}
+                  onClick={() => onValidate(config)}
+                  type="button"
+                >
+                  测试连接（不调用模型）
+                </button>
+              ) : null}
+              {onNativeSearchValidate
+                && config.provider === "qianwen"
+                && config.capability === "text" ? (
+                  <button
+                    className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"
+                    disabled={pending || config.status === "incompatible"}
+                    onClick={() => onNativeSearchValidate(config)}
+                    type="button"
+                  >
+                    测试模型联网（会真实调用）
+                  </button>
+                ) : null}
               {onStatusChange ? (
                 <button
                   className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text-primary)] hover:border-[var(--brand)]"

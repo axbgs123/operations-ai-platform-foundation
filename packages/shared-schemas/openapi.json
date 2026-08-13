@@ -8624,6 +8624,43 @@
             "title": "Model Id",
             "type": "string"
           },
+          "native_web_search_checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Native Web Search Checked At"
+          },
+          "native_web_search_contract_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Native Web Search Contract Version"
+          },
+          "native_web_search_safe_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Native Web Search Safe Error Code"
+          },
+          "native_web_search_status": {
+            "$ref": "#/components/schemas/NativeWebSearchStatus"
+          },
           "provider": {
             "title": "Provider",
             "type": "string"
@@ -8669,7 +8706,11 @@
           "contract_version",
           "last_validation_status",
           "last_validated_at",
-          "safe_error_code"
+          "safe_error_code",
+          "native_web_search_status",
+          "native_web_search_checked_at",
+          "native_web_search_contract_version",
+          "native_web_search_safe_error_code"
         ],
         "title": "ModelConfigRead",
         "type": "object"
@@ -9305,6 +9346,97 @@
           "completed_at"
         ],
         "title": "ModelValidationRead",
+        "type": "object"
+      },
+      "NativeWebSearchStatus": {
+        "enum": [
+          "unknown",
+          "supported",
+          "unsupported",
+          "failed"
+        ],
+        "title": "NativeWebSearchStatus",
+        "type": "string"
+      },
+      "NativeWebSearchVerificationRead": {
+        "additionalProperties": false,
+        "properties": {
+          "checked_at": {
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "contract_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Version"
+          },
+          "model_config_id": {
+            "format": "uuid",
+            "title": "Model Config Id",
+            "type": "string"
+          },
+          "real_model_invoked": {
+            "title": "Real Model Invoked",
+            "type": "boolean"
+          },
+          "safe_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safe Error Code"
+          },
+          "source_count": {
+            "title": "Source Count",
+            "type": "integer"
+          },
+          "source_hosts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Hosts",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/NativeWebSearchStatus"
+          }
+        },
+        "required": [
+          "model_config_id",
+          "status",
+          "checked_at",
+          "contract_version",
+          "source_count",
+          "source_hosts",
+          "safe_error_code",
+          "real_model_invoked"
+        ],
+        "title": "NativeWebSearchVerificationRead",
+        "type": "object"
+      },
+      "NativeWebSearchVerificationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm_real_call": {
+            "title": "Confirm Real Call",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "confirm_real_call"
+        ],
+        "title": "NativeWebSearchVerificationRequest",
         "type": "object"
       },
       "NextExperiment": {
@@ -24409,6 +24541,101 @@
           }
         },
         "summary": "Update Model Config Status",
+        "tags": [
+          "model-configs"
+        ]
+      }
+    },
+    "/v1/workspaces/{workspace_id}/model-configs/{config_id}/native-web-search-verification": {
+      "post": {
+        "operationId": "verify_native_web_search_v1_workspaces__workspace_id__model_configs__config_id__native_web_search_verification_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "config_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Config Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Csrf-Token"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeWebSearchVerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeWebSearchVerificationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Native Web Search",
         "tags": [
           "model-configs"
         ]

@@ -47,6 +47,7 @@ class ProviderOperation(StrEnum):
     EMBEDDING_QUERY = "embedding_query"
     COVER_TEXT_TO_IMAGE = "cover_text_to_image"
     COVER_IMAGE_EDIT = "cover_image_edit"
+    NATIVE_WEB_SEARCH = "native_web_search"
 
 
 ReservationStatus = ModelUsageReservationStatus
@@ -462,9 +463,7 @@ class InMemoryUsageLeaseBackend:
             now = self._clock()
             leases = self._leases.setdefault(key, {})
             self._leases[key] = {
-                token: expiry
-                for token, expiry in leases.items()
-                if expiry > now
+                token: expiry for token, expiry in leases.items() if expiry > now
             }
             if len(self._leases[key]) >= limit:
                 return None
@@ -652,9 +651,7 @@ class ModelUsageGovernor:
                 configuration_version=self._configuration_version,
                 policy_version=policy.version,
                 pricing_version=(
-                    PRICING_VERSION
-                    if self._cost_known
-                    else UNKNOWN_PRICING_VERSION
+                    PRICING_VERSION if self._cost_known else UNKNOWN_PRICING_VERSION
                 ),
                 cost_known=self._cost_known,
                 estimated_usage=estimate.model_dump(),
@@ -729,8 +726,7 @@ class ModelUsageGovernor:
         now = _aware(self._clock())
         safe_request_id = (
             provider_request_id
-            if provider_request_id
-            and _SAFE_REQUEST_ID.fullmatch(provider_request_id)
+            if provider_request_id and _SAFE_REQUEST_ID.fullmatch(provider_request_id)
             else None
         )
         with self._factory() as session:
@@ -741,8 +737,7 @@ class ModelUsageGovernor:
             if (
                 reservation is None
                 or reservation.workspace_id != self._workspace_id
-                or reservation.status
-                is not ModelUsageReservationStatus.RESERVED
+                or reservation.status is not ModelUsageReservationStatus.RESERVED
             ):
                 raise UsageGovernanceError("MODEL_USAGE_RESERVATION_STALE")
             duplicate = session.scalar(
@@ -800,9 +795,7 @@ class ModelUsageGovernor:
                     contract_version=self._contract_version,
                     configuration_version=self._configuration_version,
                     pricing_version=(
-                        PRICING_VERSION
-                        if self._cost_known
-                        else UNKNOWN_PRICING_VERSION
+                        PRICING_VERSION if self._cost_known else UNKNOWN_PRICING_VERSION
                     ),
                     cost_known=self._cost_known,
                     usage_basis=usage_basis,
@@ -811,12 +804,9 @@ class ModelUsageGovernor:
                     output_tokens=usage.output_tokens,
                     total_tokens=usage.input_tokens + usage.output_tokens,
                     image_inputs=usage.input_images + usage.ocr_images,
-                    image_outputs=usage.output_images
-                    + usage.generated_images,
+                    image_outputs=usage.output_images + usage.generated_images,
                     embedding_inputs=usage.embedding_tokens,
-                    estimated_cost_microunits=(
-                        handle.estimated_cost_microunits
-                    ),
+                    estimated_cost_microunits=(handle.estimated_cost_microunits),
                     settled_cost_microunits=settled_cost,
                     currency="CNY",
                     latency_ms=max(0, latency_ms),
@@ -885,8 +875,7 @@ class ModelUsageGovernor:
             reservation = session.get(ModelUsageReservation, reservation_id)
             if (
                 reservation is not None
-                and reservation.status
-                is ModelUsageReservationStatus.RESERVED
+                and reservation.status is ModelUsageReservationStatus.RESERVED
             ):
                 reservation.status = ModelUsageReservationStatus.RELEASED
                 reservation.settled_at = now
@@ -918,24 +907,19 @@ class ModelUsageGovernor:
         ).all()
         totals = UsageEstimate(
             input_tokens=sum(
-                int(row.estimated_usage.get("input_tokens", 0))
-                for row in rows
+                int(row.estimated_usage.get("input_tokens", 0)) for row in rows
             ),
             output_tokens=sum(
-                int(row.estimated_usage.get("output_tokens", 0))
-                for row in rows
+                int(row.estimated_usage.get("output_tokens", 0)) for row in rows
             ),
             embedding_tokens=sum(
-                int(row.estimated_usage.get("embedding_tokens", 0))
-                for row in rows
+                int(row.estimated_usage.get("embedding_tokens", 0)) for row in rows
             ),
             ocr_images=sum(
-                int(row.estimated_usage.get("ocr_images", 0))
-                for row in rows
+                int(row.estimated_usage.get("ocr_images", 0)) for row in rows
             ),
             generated_images=sum(
-                int(row.estimated_usage.get("generated_images", 0))
-                for row in rows
+                int(row.estimated_usage.get("generated_images", 0)) for row in rows
             ),
         )
         checks = [
@@ -967,8 +951,7 @@ class ModelUsageGovernor:
         if self._cost_known:
             checks.append(
                 (
-                    sum(row.reserved_cost_microunits for row in rows)
-                    + estimated_cost,
+                    sum(row.reserved_cost_microunits for row in rows) + estimated_cost,
                     policy.daily_cost_limit_microunits,
                 )
             )
@@ -1019,20 +1002,15 @@ class ControlledValidationService:
             or expected_region != request.region
             or request.capability
             not in (
-                catalog.capabilities
-                if catalog is not None
-                else configured_capabilities
+                catalog.capabilities if catalog is not None else configured_capabilities
             )
         ):
             raise ValueError("validation target does not match model config")
         if self._real_calls_authorized and self._connection_probe is None:
-            raise UsageGovernanceError(
-                "CONTROLLED_VALIDATION_RUNNER_REQUIRED"
-            )
+            raise UsageGovernanceError("CONTROLLED_VALIDATION_RUNNER_REQUIRED")
         safe_error_code = (
             self._connection_probe(config)
-            if self._real_calls_authorized
-            and self._connection_probe is not None
+            if self._real_calls_authorized and self._connection_probe is not None
             else "explicit_user_authorization_missing"
         )
         was_probed = self._real_calls_authorized
@@ -1100,9 +1078,7 @@ def _current_policy(
         )
         .limit(1)
     )
-    return session.scalar(
-        statement.with_for_update() if for_update else statement
-    )
+    return session.scalar(statement.with_for_update() if for_update else statement)
 
 
 def _aware(value: datetime) -> datetime:
