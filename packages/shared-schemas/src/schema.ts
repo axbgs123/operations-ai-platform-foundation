@@ -1792,6 +1792,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/hotspots/captures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Hotspot Capture */
+        post: operations["create_hotspot_capture_v1_workspaces__workspace_id__hotspots_captures_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/hotspots/captures/{capture_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Hotspot Capture */
+        get: operations["read_hotspot_capture_v1_workspaces__workspace_id__hotspots_captures__capture_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/hotspots/captures/{capture_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Hotspot Capture */
+        post: operations["confirm_hotspot_capture_v1_workspaces__workspace_id__hotspots_captures__capture_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/hotspots/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Hotspot Snapshots */
+        get: operations["list_hotspot_snapshots_v1_workspaces__workspace_id__hotspots_snapshots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/imports/history": {
         parameters: {
             query?: never;
@@ -3849,6 +3917,11 @@ export interface components {
          */
         Capability: "text" | "vision" | "image" | "embedding";
         /**
+         * CaptureCompleteness
+         * @enum {string}
+         */
+        CaptureCompleteness: "visible" | "full_page_complete" | "full_page_partial";
+        /**
          * CaptureMode
          * @enum {string}
          */
@@ -5821,6 +5894,162 @@ export interface components {
             mapping: {
                 [key: string]: string;
             };
+        };
+        /** HotspotCaptureCreate */
+        HotspotCaptureCreate: {
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            completeness: components["schemas"]["CaptureCompleteness"];
+            /** Page Title */
+            page_title: string;
+            /** Screenshot Data Url */
+            screenshot_data_url: string;
+            /** Source Url */
+            source_url: string;
+            target_platform: components["schemas"]["Platform"];
+        };
+        /** HotspotCaptureRead */
+        HotspotCaptureRead: {
+            /** Candidates */
+            candidates: components["schemas"]["HotspotEntryCandidate"][];
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            completeness: components["schemas"]["CaptureCompleteness"];
+            /** Confirmed Snapshot Id */
+            confirmed_snapshot_id: string | null;
+            /** Contract Version */
+            contract_version: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Model Id */
+            model_id: string;
+            /** Page Title */
+            page_title: string;
+            /** Provider Mode */
+            provider_mode: string;
+            /** Source Host */
+            source_host: string;
+            /** Source Url */
+            source_url: string;
+            /** Status */
+            status: string;
+            target_platform: components["schemas"]["Platform"];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
+        };
+        /** HotspotConfirmation */
+        HotspotConfirmation: {
+            /** Entries */
+            entries: components["schemas"]["HotspotEntryConfirm"][];
+        };
+        /** HotspotEntryCandidate */
+        HotspotEntryCandidate: {
+            /** Heat */
+            heat?: string | null;
+            /** Ocr Text Index */
+            ocr_text_index?: number | null;
+            /** Position */
+            position: number;
+            /** Rank */
+            rank?: number | null;
+            /** Topic */
+            topic: string;
+        };
+        /** HotspotEntryConfirm */
+        HotspotEntryConfirm: {
+            /** Heat */
+            heat?: string | null;
+            /** Rank */
+            rank?: number | null;
+            /**
+             * Selected
+             * @default true
+             */
+            selected: boolean;
+            /** Topic */
+            topic: string;
+        };
+        /** HotspotEntryRead */
+        HotspotEntryRead: {
+            /** Heat */
+            heat?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /** Rank */
+            rank?: number | null;
+            /**
+             * Selected
+             * @default true
+             */
+            selected: boolean;
+            /** Topic */
+            topic: string;
+        };
+        /** HotspotSnapshotRead */
+        HotspotSnapshotRead: {
+            /**
+             * Capture Task Id
+             * Format: uuid
+             */
+            capture_task_id: string;
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            completeness: components["schemas"]["CaptureCompleteness"];
+            /**
+             * Confirmed At
+             * Format: date-time
+             */
+            confirmed_at: string;
+            /** Entries */
+            entries: components["schemas"]["HotspotEntryRead"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ocr Contract Version */
+            ocr_contract_version: string;
+            /** Ocr Model Id */
+            ocr_model_id: string;
+            /** Page Title */
+            page_title: string;
+            /** Source Host */
+            source_host: string;
+            /** Source Url */
+            source_url: string;
+            target_platform: components["schemas"]["Platform"];
+            /**
+             * Workspace Id
+             * Format: uuid
+             */
+            workspace_id: string;
         };
         /** ImportBatchRead */
         ImportBatchRead: {
@@ -12694,6 +12923,155 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TextGenerationRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_hotspot_capture_v1_workspaces__workspace_id__hotspots_captures_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotCaptureCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotCaptureRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_hotspot_capture_v1_workspaces__workspace_id__hotspots_captures__capture_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+                capture_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotCaptureRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_hotspot_capture_v1_workspaces__workspace_id__hotspots_captures__capture_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                capture_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HotspotConfirmation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotSnapshotRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_hotspot_snapshots_v1_workspaces__workspace_id__hotspots_snapshots_get: {
+        parameters: {
+            query?: {
+                target_platform?: components["schemas"]["Platform"] | null;
+            };
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HotspotSnapshotRead"][];
                 };
             };
             /** @description Validation Error */

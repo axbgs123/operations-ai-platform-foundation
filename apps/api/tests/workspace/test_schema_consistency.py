@@ -20,6 +20,12 @@ AGENT_TABLES = {
     "agent_events",
 }
 
+HOTSPOT_TABLES = {
+    "hotspot_capture_tasks",
+    "hotspot_snapshots",
+    "hotspot_entries",
+}
+
 
 def _database_with_version(*, include_required_tables: bool):
     engine = create_engine("sqlite+pysqlite:///:memory:")
@@ -99,6 +105,10 @@ def _database_with_version(*, include_required_tables: bool):
                 connection.execute(
                     text(f'CREATE TABLE "{table_name}" (id VARCHAR)')
                 )
+            for table_name in HOTSPOT_TABLES:
+                connection.execute(
+                    text(f'CREATE TABLE "{table_name}" (id VARCHAR)')
+                )
     return engine
 
 
@@ -136,6 +146,7 @@ def test_head_version_without_required_tables_fails_schema_consistency() -> None
                     "model_usage_attempts",
                     "model_contract_validation_runs",
                     *AGENT_TABLES,
+                    *HOTSPOT_TABLES,
                 },
             )
 
@@ -155,20 +166,21 @@ def test_head_version_with_required_tables_passes_schema_consistency() -> None:
                 "extension_pairing_codes",
                 "export_jobs",
                 "restore_jobs",
-                    "knowledge_index_rebuilds",
-                    "retention_policies",
-                    "managed_objects",
-                    "workspace_deletion_confirmations",
-                    "workspace_deletion_jobs",
-                    "deletion_audits",
-                    "product_event_outbox",
-                    "task_operation_events",
-                    "cover_generation_runs",
-                    "cover_artifact_attempts",
-                    "model_usage_policies",
-                    "model_usage_reservations",
-                    "model_usage_attempts",
-                    "model_contract_validation_runs",
-                    *AGENT_TABLES,
-                },
+                "knowledge_index_rebuilds",
+                "retention_policies",
+                "managed_objects",
+                "workspace_deletion_confirmations",
+                "workspace_deletion_jobs",
+                "deletion_audits",
+                "product_event_outbox",
+                "task_operation_events",
+                "cover_generation_runs",
+                "cover_artifact_attempts",
+                "model_usage_policies",
+                "model_usage_reservations",
+                "model_usage_attempts",
+                "model_contract_validation_runs",
+                *AGENT_TABLES,
+                *HOTSPOT_TABLES,
+            },
         )
