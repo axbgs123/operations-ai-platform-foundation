@@ -5,6 +5,14 @@ export type StartCaptureMessage = {
   mode: CaptureMode;
   captureSessionId?: string;
 };
+export type StartHotspotCaptureMessage = {
+  type: "START_HOTSPOT_CAPTURE";
+  targetPlatform: "douyin" | "xiaohongshu";
+};
+export type SetHotspotContextMessage = {
+  type: "SET_HOTSPOT_CONTEXT";
+  targetPlatform: "douyin" | "xiaohongshu";
+};
 export type CaptureContext = {
   platform: "douyin" | "xiaohongshu";
   pageVersion: string;
@@ -58,10 +66,25 @@ export type PollCaptureTaskMessage = {
   type: "POLL_CAPTURE_TASK";
   taskId: string;
 } & CaptureContext;
+export type UploadHotspotCaptureMessage = {
+  type: "UPLOAD_HOTSPOT_CAPTURE";
+  screenshotDataUrl: string;
+  idempotencyKey: string;
+  collectedAt: string;
+  sourceUrl: string;
+  pageTitle: string;
+  captureMetadata: CaptureCompletionMetadata;
+} & CaptureContext;
+export type PollHotspotCaptureMessage = {
+  type: "POLL_HOTSPOT_CAPTURE";
+  captureId: string;
+} & CaptureContext;
 
 export type RuntimeMessage =
   | GetPageStatusMessage
   | StartCaptureMessage
+  | StartHotspotCaptureMessage
+  | SetHotspotContextMessage
   | StartSafeCaptureMessage
   | GetCaptureBindingMessage
   | ClearCaptureBindingMessage
@@ -73,7 +96,9 @@ export type RuntimeMessage =
   | GetSessionBindingMessage
   | UnlinkSessionMessage
   | UploadCaptureTaskMessage
-  | PollCaptureTaskMessage;
+  | PollCaptureTaskMessage
+  | UploadHotspotCaptureMessage
+  | PollHotspotCaptureMessage;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -131,6 +156,20 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
       ...(typeof value.captureSessionId === "string" ? { captureSessionId: value.captureSessionId } : {}),
     };
   }
+  if (
+    value.type === "START_HOTSPOT_CAPTURE" &&
+    hasExactKeys(value, ["type", "targetPlatform"]) &&
+    (value.targetPlatform === "douyin" || value.targetPlatform === "xiaohongshu")
+  ) {
+    return { type: "START_HOTSPOT_CAPTURE", targetPlatform: value.targetPlatform };
+  }
+  if (
+    value.type === "SET_HOTSPOT_CONTEXT" &&
+    hasExactKeys(value, ["type", "targetPlatform"]) &&
+    (value.targetPlatform === "douyin" || value.targetPlatform === "xiaohongshu")
+  ) {
+    return { type: "SET_HOTSPOT_CONTEXT", targetPlatform: value.targetPlatform };
+  }
   if (value.type === "GET_SESSION_BINDING" && hasExactKeys(value, ["type"])) return { type: "GET_SESSION_BINDING" };
   if (value.type === "UNLINK_SESSION" && hasExactKeys(value, ["type"])) return { type: "UNLINK_SESSION" };
   if (
@@ -168,6 +207,49 @@ export function parseRuntimeMessage(value: unknown): RuntimeMessage | null {
       pageVersion: value.pageVersion,
       pageSignature: value.pageSignature,
       taskId: value.taskId,
+    };
+  }
+  if (
+    value.type === "UPLOAD_HOTSPOT_CAPTURE" &&
+    hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature", "screenshotDataUrl", "idempotencyKey", "collectedAt", "sourceUrl", "pageTitle", "captureMetadata"]) &&
+    validCaptureContext(value) &&
+    value.pageVersion === "hotspot-public-page-v1" &&
+    typeof value.screenshotDataUrl === "string" &&
+    value.screenshotDataUrl.startsWith("data:image/png;base64,") &&
+    value.screenshotDataUrl.length <= 14_000_000 &&
+    typeof value.idempotencyKey === "string" && /^[A-Za-z0-9._:-]{1,160}$/.test(value.idempotencyKey) &&
+    typeof value.collectedAt === "string" && value.collectedAt.length <= 64 && Number.isFinite(Date.parse(value.collectedAt)) &&
+    typeof value.sourceUrl === "string" && value.sourceUrl.startsWith("https://") && value.sourceUrl.length <= 2_000 &&
+    typeof value.pageTitle === "string" && value.pageTitle.trim().length > 0 && value.pageTitle.length <= 300 &&
+    validCaptureMetadata(value.captureMetadata)
+  ) {
+    return {
+      type: "UPLOAD_HOTSPOT_CAPTURE",
+      platform: value.platform,
+      pageVersion: value.pageVersion,
+      pageSignature: value.pageSignature,
+      screenshotDataUrl: value.screenshotDataUrl,
+      idempotencyKey: value.idempotencyKey,
+      collectedAt: value.collectedAt,
+      sourceUrl: value.sourceUrl,
+      pageTitle: value.pageTitle,
+      captureMetadata: value.captureMetadata,
+    };
+  }
+  if (
+    value.type === "POLL_HOTSPOT_CAPTURE" &&
+    hasExactKeys(value, ["type", "platform", "pageVersion", "pageSignature", "captureId"]) &&
+    validCaptureContext(value) &&
+    value.pageVersion === "hotspot-public-page-v1" &&
+    typeof value.captureId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.captureId)
+  ) {
+    return {
+      type: "POLL_HOTSPOT_CAPTURE",
+      platform: value.platform,
+      pageVersion: value.pageVersion,
+      pageSignature: value.pageSignature,
+      captureId: value.captureId,
     };
   }
   if (value.type === "END_FULL_PAGE_CAPTURE" && hasExactKeys(value, ["type", "captureSessionId"]) && typeof value.captureSessionId === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value.captureSessionId)) {

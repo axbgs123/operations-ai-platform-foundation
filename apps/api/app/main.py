@@ -40,7 +40,10 @@ from app.modules.risk_rag.router import (
 from app.modules.style_facts.style_router import router as style_profiles_router
 from app.modules.style_facts.fact_router import router as fact_sources_router
 from app.modules.generation.router import router as generation_router
-from app.modules.hotspots.router import router as hotspots_router
+from app.modules.hotspots.router import (
+    extension_router as extension_hotspots_router,
+    router as hotspots_router,
+)
 from app.modules.workspace.router import router as workspace_router
 from app.modules.workbench.router import router as workbench_router
 
@@ -91,6 +94,7 @@ app.include_router(analysis_router)
 app.include_router(analytics_router)
 app.include_router(generation_router)
 app.include_router(hotspots_router)
+app.include_router(extension_hotspots_router)
 app.include_router(risk_documents_router)
 app.include_router(risk_scans_router)
 app.include_router(feedback_scan_router)

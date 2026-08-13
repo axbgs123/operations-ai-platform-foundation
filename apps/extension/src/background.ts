@@ -4,6 +4,7 @@ import { createLocalDeviceRegistrationStore } from "./auth/device-registration-s
 import { createSessionManager, sessionRenewalErrorCode } from "./auth/session-renewal";
 import { pollCaptureTask as pollCaptureTaskRequest, type CaptureTaskRead } from "./capture/task-status";
 import { uploadPreview, type CaptureTaskResponse } from "./capture/upload";
+import { pollHotspotCapture, uploadHotspotCapture } from "./capture/hotspot";
 import { detectSupportedPage } from "./content/page-support";
 import { CaptureState } from "./content/overlay";
 import { parseRuntimeMessage } from "./runtime/messages";
@@ -26,7 +27,7 @@ type PageStatus = CaptureContext & {
 };
 
 export interface CaptureCoordinator {
-  startCapture(mode: CaptureMode, tab: SupportedTab): Promise<void>;
+  startCapture(mode: CaptureMode, tab: SupportedTab, options?: { allowHotspot?: boolean }): Promise<void>;
   cancel(reason: string): Promise<void>;
   finishCapture?(tabId: number, captureSessionId: string): void;
 }
@@ -65,8 +66,10 @@ export function createCaptureCoordinator(dependencies: CaptureCoordinatorDepende
   };
 
   return {
-    async startCapture(mode, tab) {
-      if (!isSupportedTab(tab)) throw new Error("inactive-or-unsupported-tab");
+    async startCapture(mode, tab, options) {
+      if (!isSupportedTab(tab) && !(options?.allowHotspot && isPublicHttpsTab(tab))) {
+        throw new Error("inactive-or-unsupported-tab");
+      }
       const generation = nextGeneration(tab.id);
       const previousSession = fullPageSessions.get(tab.id);
       const session = mode === "full-page" ? { captureSessionId: uuid(), generation } : null;
@@ -197,6 +200,8 @@ type BackgroundDependencies = {
   ensureSessionBinding?(): Promise<ExtensionBinding>;
   unlinkSession?(): Promise<void>;
   captureCoordinator?: CaptureCoordinator;
+  ensureContentScript?(tabId: number): Promise<void>;
+  setHotspotContext?(tabId: number, platform: "douyin" | "xiaohongshu"): Promise<unknown>;
   uploadCaptureTask?(args: {
     serverOrigin: string;
     accessToken: string;
@@ -217,6 +222,17 @@ type BackgroundDependencies = {
     platform: "douyin" | "xiaohongshu";
     pageVersion: string;
     onRebindRequired(): Promise<void>;
+  }): Promise<CaptureTaskRead>;
+  uploadHotspotCapture?(args: {
+    serverOrigin: string; webOrigin: string; accessToken: string; workspaceId: string;
+    platform: "douyin" | "xiaohongshu"; screenshotDataUrl: string; idempotencyKey: string;
+    collectedAt: string; sourceUrl: string; pageTitle: string;
+    complete: boolean; captureMode: "full-page" | "visible" | "region";
+    onRebindRequired(): Promise<void>;
+  }): Promise<CaptureTaskRead>;
+  pollHotspotCapture?(args: {
+    serverOrigin: string; webOrigin: string; accessToken: string; workspaceId: string;
+    captureId: string; onRebindRequired(): Promise<void>;
   }): Promise<CaptureTaskRead>;
 };
 
@@ -241,6 +257,16 @@ const armLifetimeMs = 30_000;
 const fullPageLifetimeMs = 20_000;
 const minimumSliceIntervalMs = 500;
 
+const isPublicHttpsTab = (tab: BrowserTab): tab is SupportedTab => {
+  if (!Number.isSafeInteger(tab.id) || !Number.isSafeInteger(tab.windowId) || typeof tab.url !== "string") return false;
+  try { return new URL(tab.url).protocol === "https:"; } catch { return false; }
+};
+
+const isCaptureTab = (candidate: BrowserTab, active: BrowserTab, pageVersion?: string) =>
+  pageVersion === "hotspot-public-page-v1"
+    ? isPublicHttpsTab(candidate) && candidate.id === active.id && candidate.url === active.url
+    : isActiveSupportedTab(candidate, active);
+
 const isActiveSupportedTab = (candidate: BrowserTab, active: BrowserTab) =>
   candidate.id !== undefined &&
   candidate.id === active.id &&
@@ -255,7 +281,8 @@ const matchesCaptureContext = (
   active: BrowserTab,
 ) => {
   const tab = sender.tab;
-  if (!tab || !isActiveSupportedTab(tab, active)) return false;
+  if (!tab || !isCaptureTab(tab, active, message.pageVersion)) return false;
+  if (message.pageVersion === "hotspot-public-page-v1") return true;
   const detected = detectSupportedPage(tab.url!);
   return detected.supported && detected.platform === message.platform &&
     detected.pageVersion === message.pageVersion;
@@ -302,7 +329,8 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       return { ok: true };
     }
 
-    if (message.type === "UPLOAD_CAPTURE_TASK" || message.type === "POLL_CAPTURE_TASK") {
+    if (message.type === "UPLOAD_CAPTURE_TASK" || message.type === "POLL_CAPTURE_TASK" ||
+        message.type === "UPLOAD_HOTSPOT_CAPTURE" || message.type === "POLL_HOTSPOT_CAPTURE") {
       const active = await dependencies.queryActiveTab();
       if (!matchesCaptureContext(message, sender, active)) {
         return { ok: false, error: "inactive-or-unsupported-tab" };
@@ -321,6 +349,26 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
         await dependencies.clearSessionBinding?.();
       };
       try {
+        if (message.type === "UPLOAD_HOTSPOT_CAPTURE") {
+          const task = await dependencies.uploadHotspotCapture?.({
+            serverOrigin: binding.serverOrigin, webOrigin: binding.webOrigin,
+            accessToken: binding.accessToken, workspaceId: binding.workspaceId,
+            platform: message.platform, screenshotDataUrl: message.screenshotDataUrl,
+            idempotencyKey: message.idempotencyKey, collectedAt: message.collectedAt,
+            sourceUrl: message.sourceUrl, pageTitle: message.pageTitle,
+            complete: message.captureMetadata.complete, captureMode: message.captureMetadata.capture_mode,
+            onRebindRequired,
+          });
+          return task ? { ok: true, task } : { ok: false, error: "capture-request-failed" };
+        }
+        if (message.type === "POLL_HOTSPOT_CAPTURE") {
+          const task = await dependencies.pollHotspotCapture?.({
+            serverOrigin: binding.serverOrigin, webOrigin: binding.webOrigin,
+            accessToken: binding.accessToken, workspaceId: binding.workspaceId,
+            captureId: message.captureId, onRebindRequired,
+          });
+          return task ? { ok: true, task } : { ok: false, error: "capture-request-failed" };
+        }
         if (message.type === "UPLOAD_CAPTURE_TASK") {
           const task = await dependencies.uploadCaptureTask?.({
             serverOrigin: binding.serverOrigin,
@@ -353,6 +401,17 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       }
     }
 
+    if (message.type === "START_HOTSPOT_CAPTURE") {
+      if (sender.tab || !dependencies.captureCoordinator) return { ok: false, error: "unsupported-message" };
+      const active = await dependencies.queryActiveTab();
+      if (!isPublicHttpsTab(active)) return { ok: false, error: "hotspot-page-must-use-https" };
+      await dependencies.ensureContentScript?.(active.id);
+      const context = await dependencies.setHotspotContext?.(active.id, message.targetPlatform);
+      if (!isOk(context)) return { ok: false, error: "hotspot-context-failed" };
+      await dependencies.captureCoordinator.startCapture("full-page", active, { allowHotspot: true });
+      return { ok: true };
+    }
+
     if (message.type === "START_CAPTURE") {
       if (sender.tab || !dependencies.captureCoordinator) return { ok: false, error: "unsupported-message" };
       const active = await dependencies.queryActiveTab();
@@ -370,10 +429,12 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       if (latestArmGenerations.get(message.tabId) !== message.armGeneration) {
         return { ok: false, error: "capture-replaced" };
       }
-      const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
+      const detected = message.pageVersion === "hotspot-public-page-v1"
+        ? { platform: message.platform, pageVersion: message.pageVersion }
+        : (typeof active.url === "string" ? detectSupportedPage(active.url) : null);
       if (
         active.id !== message.tabId ||
-        !isActiveSupportedTab(active, active) ||
+        !isCaptureTab(active, active, message.pageVersion) ||
         !detected ||
         detected.platform !== message.platform ||
         detected.pageVersion !== message.pageVersion
@@ -403,7 +464,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       const detected = typeof active.url === "string" ? detectSupportedPage(active.url) : null;
       if (
         active.id !== message.tabId ||
-        !isActiveSupportedTab(active, active) ||
+        !isCaptureTab(active, active, message.pageVersion) ||
         !detected ||
         detected.platform !== message.platform ||
         detected.pageVersion !== message.pageVersion ||
@@ -442,7 +503,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       const tab = sender.tab;
       if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
       const active = await dependencies.queryActiveTab();
-      if (!isActiveSupportedTab(tab, active)) {
+      if (!isCaptureTab(tab, active, armedFullPageTabs.get(tab.id!)?.pageVersion ?? armedTabs.get(tab.id!)?.pageVersion)) {
         if (tab.id !== undefined) armedFullPageTabs.delete(tab.id);
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
@@ -453,7 +514,9 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       }
       if (armed.captureSessionId !== message.captureSessionId) return { ok: false, error: "capture-session-mismatch" };
       if (armed.nextSequence !== message.sequence) return { ok: false, error: "capture-sequence-mismatch" };
-      const detected = detectSupportedPage(tab.url!);
+      const detected = armed?.pageVersion === "hotspot-public-page-v1"
+        ? { platform: message.platform, pageVersion: message.pageVersion }
+        : detectSupportedPage(tab.url!);
       if (
         armed.platform !== message.platform || armed.pageVersion !== message.pageVersion ||
         armed.pageSignature !== message.pageSignature || armed.url !== message.url || tab.url !== message.url ||
@@ -497,7 +560,7 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       const tab = sender.tab;
       if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
       const active = await dependencies.queryActiveTab();
-      if (!isActiveSupportedTab(tab, active)) {
+      if (!isCaptureTab(tab, active, message.pageVersion)) {
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
       const fullPageArmed = armedFullPageTabs.get(tab.id!);
@@ -551,9 +614,11 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       const tab = sender.tab;
       if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
       const active = await dependencies.queryActiveTab();
-      const detected = typeof tab.url === "string" ? detectSupportedPage(tab.url) : null;
+      const detected = message.pageVersion === "hotspot-public-page-v1"
+        ? { platform: message.platform, pageVersion: message.pageVersion }
+        : (typeof tab.url === "string" ? detectSupportedPage(tab.url) : null);
       if (
-        !isActiveSupportedTab(tab, active) ||
+        !isCaptureTab(tab, active, message.pageVersion) ||
         !detected ||
         detected.platform !== message.platform ||
         detected.pageVersion !== message.pageVersion
@@ -568,16 +633,18 @@ export function createBackgroundMessageHandler(dependencies: BackgroundDependenc
       const tab = sender.tab;
       if (!tab) return { ok: false, error: "inactive-or-unsupported-tab" };
       const active = await dependencies.queryActiveTab();
-      if (!isActiveSupportedTab(tab, active)) {
+      const armed = armedTabs.get(tab.id!);
+      if (!isCaptureTab(tab, active, armed?.pageVersion)) {
         if (tab.id !== undefined) armedTabs.delete(tab.id);
         return { ok: false, error: "inactive-or-unsupported-tab" };
       }
-      const armed = armedTabs.get(tab.id!);
       armedTabs.delete(tab.id!);
       if (armed === undefined || armed.expiresAt <= now()) {
         return { ok: false, error: "capture-not-armed" };
       }
-      const detected = detectSupportedPage(tab.url!);
+      const detected = armed.pageVersion === "hotspot-public-page-v1"
+        ? { platform: armed.platform, pageVersion: armed.pageVersion }
+        : detectSupportedPage(tab.url!);
       if (
         armed.platform !== detected.platform ||
         armed.pageVersion !== detected.pageVersion ||
@@ -626,6 +693,9 @@ declare const chrome: {
     captureVisibleTab(windowId: number, options: { format: "png" }): Promise<string>;
     sendMessage(tabId: number, message: unknown): Promise<unknown>;
   };
+  scripting: {
+    executeScript(options: { target: { tabId: number }; files: string[] }): Promise<unknown>;
+  };
 };
 
 if (typeof chrome !== "undefined") {
@@ -672,6 +742,19 @@ if (typeof chrome !== "undefined") {
       onRebindRequired: args.onRebindRequired,
     }),
     pollCaptureTask: (args) => pollCaptureTaskRequest(args),
+    ensureContentScript: async (tabId) => {
+      try {
+        await chrome.tabs.sendMessage(tabId, { type: "GET_PAGE_STATUS" });
+      } catch {
+        await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+      }
+    },
+    setHotspotContext: (tabId, platform) => chrome.tabs.sendMessage(tabId, {
+      type: "SET_HOTSPOT_CONTEXT",
+      targetPlatform: platform,
+    }),
+    uploadHotspotCapture: (args) => uploadHotspotCapture(args),
+    pollHotspotCapture: (args) => pollHotspotCapture(args),
     captureCoordinator: coordinator,
   });
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

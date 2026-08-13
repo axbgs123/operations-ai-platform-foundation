@@ -5,11 +5,14 @@ import type {
   CaptureCompletionMetadata,
   CaptureContext,
   PollCaptureTaskMessage,
+  PollHotspotCaptureMessage,
   UploadCaptureTaskMessage,
+  UploadHotspotCaptureMessage,
 } from "../runtime/messages";
 
 type CaptureTask = components["schemas"]["ExtensionCaptureTaskRead"];
 type SendMessage = (message: UploadCaptureTaskMessage | PollCaptureTaskMessage) => Promise<unknown>;
+type HotspotSendMessage = (message: UploadHotspotCaptureMessage | PollHotspotCaptureMessage) => Promise<unknown>;
 
 type UploadController = {
   state: CaptureState;
@@ -86,5 +89,46 @@ export async function pollCaptureThroughBackground(args: {
     pageVersion: args.pageVersion,
     pageSignature: args.pageSignature,
     taskId: args.taskId,
+  }));
+}
+
+export async function uploadHotspotThroughBackground(args: {
+  controller: UploadController;
+  collectedAt: string;
+  idempotencyKey: string;
+  sourceUrl: string;
+  pageTitle: string;
+  captureMetadata: CaptureCompletionMetadata;
+  sendMessage: HotspotSendMessage;
+} & CaptureContext): Promise<CaptureTask> {
+  if (!args.controller.canUpload() || args.controller.state !== "preview_ready") {
+    throw new Error("preview_ready is required before upload");
+  }
+  const screenshotDataUrl = args.controller.preview?.imageData;
+  if (!screenshotDataUrl) throw new Error("final preview is unavailable");
+  return taskFromResponse(await args.sendMessage({
+    type: "UPLOAD_HOTSPOT_CAPTURE",
+    platform: args.platform,
+    pageVersion: args.pageVersion,
+    pageSignature: args.pageSignature,
+    screenshotDataUrl,
+    collectedAt: args.collectedAt,
+    idempotencyKey: args.idempotencyKey,
+    sourceUrl: args.sourceUrl,
+    pageTitle: args.pageTitle,
+    captureMetadata: args.captureMetadata,
+  }));
+}
+
+export async function pollHotspotThroughBackground(args: {
+  captureId: string;
+  sendMessage: HotspotSendMessage;
+} & CaptureContext): Promise<CaptureTask> {
+  return taskFromResponse(await args.sendMessage({
+    type: "POLL_HOTSPOT_CAPTURE",
+    platform: args.platform,
+    pageVersion: args.pageVersion,
+    pageSignature: args.pageSignature,
+    captureId: args.captureId,
   }));
 }

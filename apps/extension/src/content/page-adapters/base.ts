@@ -18,19 +18,46 @@ export type PageDetection = {
   reason?: string;
 };
 
-export type DetectionInput = { url: string; document: Document };
+export type DetectionInput = {
+  url: string;
+  document: Document;
+  hotspotTargetPlatform?: Platform | null;
+};
 
 export interface PageAdapter {
   readonly platform: Platform;
   detect(input: DetectionInput): PageDetection;
 }
 
+import { stableFingerprint } from "./utils";
 export { parseRect, stableFingerprint, unsupported } from "./utils";
 
 export const detectPage = (input: DetectionInput): PageDetection => {
   for (const adapter of adapters) {
     const result = adapter.detect(input);
     if (result.supported || result.reason !== "unsupported-url") return result;
+  }
+  if (input.hotspotTargetPlatform) {
+    try {
+      const parsed = new URL(input.url);
+      if (parsed.protocol === "https:") {
+        return {
+          supported: true,
+          platform: input.hotspotTargetPlatform,
+          pageVersion: "hotspot-public-page-v1",
+          signature: `${input.hotspotTargetPlatform}:hotspot:${stableFingerprint([
+            parsed.origin,
+            parsed.pathname,
+            parsed.search,
+            input.document.title.slice(0, 300),
+          ])}`,
+          captureRegion: null,
+          sensitiveRegions: [],
+        };
+      }
+    } catch {
+      // Invalid or restricted URLs remain unsupported.
+    }
   }
   return {
     supported: false,

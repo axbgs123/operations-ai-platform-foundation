@@ -5,7 +5,7 @@ import { createSessionBindingStore, type BindingStore, type ExtensionBinding } f
 import { extensionVersion } from "../build-metadata";
 import { createPersistedTrustStore } from "../capture/trust-state";
 import { detectSupportedPage } from "../content/page-support";
-import type { CaptureContext, StartCaptureMessage, StartSafeCaptureMessage } from "../runtime/messages";
+import type { CaptureContext, StartCaptureMessage, StartHotspotCaptureMessage, StartSafeCaptureMessage } from "../runtime/messages";
 
 declare const chrome: {
   storage: {
@@ -30,7 +30,7 @@ declare const chrome: {
     sendMessage(tabId: number, message: { type: "START_SAFE_CAPTURE" }): Promise<unknown>;
   };
   runtime: {
-    sendMessage(message: StartSafeCaptureMessage | StartCaptureMessage | { type: "GET_SESSION_BINDING" } | { type: "UNLINK_SESSION" }): Promise<unknown>;
+    sendMessage(message: StartSafeCaptureMessage | StartCaptureMessage | StartHotspotCaptureMessage | { type: "GET_SESSION_BINDING" } | { type: "UNLINK_SESSION" }): Promise<unknown>;
   };
   commands: {
     getAll(): Promise<Array<{ name: string; shortcut: string }>>;
@@ -57,6 +57,7 @@ export type PopupDependencies = {
   revoke(): Promise<void>;
   getPageStatus(): Promise<PageStatus>;
   startSafeCapture(message: StartCaptureMessage): Promise<unknown>;
+  startHotspotCapture?(platform: "douyin" | "xiaohongshu"): Promise<unknown>;
   getShortcut?(): Promise<string | null>;
   ensureFreshBinding?(): Promise<ExtensionBinding>;
   now?(): number;
@@ -80,6 +81,9 @@ type PopupElements = {
   start: HTMLButtonElement | null;
   visible: HTMLButtonElement | null;
   region: HTMLButtonElement | null;
+  hotspotSection: HTMLElement | null;
+  hotspotDouyin: HTMLButtonElement | null;
+  hotspotXiaohongshu: HTMLButtonElement | null;
   unbind: HTMLButtonElement | null;
 };
 
@@ -119,6 +123,9 @@ export function createPopupController(
     start: root.querySelector("#start-safe-capture"),
     visible: root.querySelector("#start-visible-capture"),
     region: root.querySelector("#start-region-capture"),
+    hotspotSection: root.querySelector("#hotspot-capture"),
+    hotspotDouyin: root.querySelector("#capture-hotspot-douyin"),
+    hotspotXiaohongshu: root.querySelector("#capture-hotspot-xiaohongshu"),
     unbind: root.querySelector("#unbind"),
   };
   const now = dependencies.now ?? Date.now;
@@ -145,6 +152,7 @@ export function createPopupController(
     if (elements.start) elements.start.hidden = true;
     if (elements.visible) elements.visible.hidden = true;
     if (elements.region) elements.region.hidden = true;
+    if (elements.hotspotSection) elements.hotspotSection.hidden = true;
     if (elements.unbind) elements.unbind.hidden = true;
   };
 
@@ -170,6 +178,7 @@ export function createPopupController(
     if (elements.start) elements.start.hidden = !pageStatus.supported;
     if (elements.visible) elements.visible.hidden = !pageStatus.supported;
     if (elements.region) elements.region.hidden = !pageStatus.supported;
+    if (elements.hotspotSection) elements.hotspotSection.hidden = false;
     if (elements.unbind) elements.unbind.hidden = false;
   };
 
@@ -279,6 +288,8 @@ export function createPopupController(
   elements.start?.addEventListener("click", () => void start());
   elements.visible?.addEventListener("click", () => void start("visible"));
   elements.region?.addEventListener("click", () => void start("region"));
+  elements.hotspotDouyin?.addEventListener("click", () => void dependencies.startHotspotCapture?.("douyin"));
+  elements.hotspotXiaohongshu?.addEventListener("click", () => void dependencies.startHotspotCapture?.("xiaohongshu"));
   elements.unbind?.addEventListener("click", () => void unbind());
 
   return { render, submit, start, unbind };
@@ -377,6 +388,12 @@ if (typeof chrome !== "undefined") {
     },
     getPageStatus: getChromePageStatus,
     startSafeCapture: startChromeSafeCapture,
+    startHotspotCapture: async (targetPlatform) => {
+      const response = await chrome.runtime.sendMessage({ type: "START_HOTSPOT_CAPTURE", targetPlatform });
+      if (!response || typeof response !== "object" || !("ok" in response) || response.ok !== true) {
+        throw new Error("hotspot-capture-start-failed");
+      }
+    },
     getShortcut: async () => (await chrome.commands.getAll()).find((command) => command.name === "capture-full-page")?.shortcut ?? null,
     onUnbound: async () => {
       await chrome.runtime.sendMessage({ type: "UNLINK_SESSION" });

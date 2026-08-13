@@ -103,6 +103,25 @@ describe("platform page adapters", () => {
     });
   });
 
+  it("allows an arbitrary public HTTPS page only after an explicit hotspot target is selected", () => {
+    const document = new JSDOM("<!doctype html><title>今日热榜</title>").window.document;
+    expect(detectPage({ url: "https://example.com/trending", document }).supported).toBe(false);
+    expect(detectPage({
+      url: "https://example.com/trending",
+      document,
+      hotspotTargetPlatform: "douyin",
+    })).toMatchObject({
+      supported: true,
+      platform: "douyin",
+      pageVersion: "hotspot-public-page-v1",
+    });
+    expect(detectPage({
+      url: "http://example.com/trending",
+      document,
+      hotspotTargetPlatform: "douyin",
+    }).supported).toBe(false);
+  });
+
   it.each([
     ["douyin", createDouyinAdapter, "https://creator.douyin.com/creator-micro/content/manage?tab=all"],
     ["xiaohongshu", createXiaohongshuAdapter, "https://creator.xiaohongshu.com/publish/publish-manage?tab=all"],

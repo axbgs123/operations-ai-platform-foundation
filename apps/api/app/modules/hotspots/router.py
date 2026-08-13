@@ -32,6 +32,8 @@ from app.modules.hotspots.service import (
 )
 from app.modules.hotspots.tasks import get_hotspot_enqueuer
 from app.modules.imports.vision_binding import resolve_vision_binding
+from app.modules.imports.extension_auth import AuthenticatedExtension, ExtensionTokenService
+from app.modules.imports.models import ExtensionTokenScope
 from app.modules.metrics.models import ContentType
 from app.modules.models.config_service import SecretCipher
 from app.modules.workspace.auth import InviteAuthService
@@ -45,6 +47,10 @@ from app.modules.workspace.permissions import (
 router = APIRouter(
     prefix="/v1/workspaces/{workspace_id}/hotspots",
     tags=["hotspots"],
+)
+extension_router = APIRouter(
+    prefix="/v1/extension/workspaces/{workspace_id}/hotspots",
+    tags=["extension-hotspots"],
 )
 DatabaseSession = Annotated[Session, Depends(get_session)]
 ObjectStorage = Annotated[Storage, Depends(get_storage)]
@@ -214,6 +220,28 @@ def _snapshot_read(session: Session, snapshot: HotspotSnapshot) -> HotspotSnapsh
     )
 
 
+def _extension_token(
+    session: Session,
+    authorization: str | None,
+    *,
+    workspace_id: UUID,
+    required_scope: ExtensionTokenScope,
+) -> AuthenticatedExtension:
+    if authorization is None or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="invalid extension token")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token or " " in token:
+        raise HTTPException(status_code=401, detail="invalid extension token")
+    authenticated = ExtensionTokenService(session).authenticate(
+        token,
+        required_scope=required_scope,
+        workspace_id=workspace_id,
+    )
+    if authenticated is None:
+        raise HTTPException(status_code=401, detail="invalid extension token")
+    return authenticated
+
+
 @router.post("/captures", response_model=HotspotCaptureRead, status_code=202)
 def create_hotspot_capture(
     workspace_id: UUID,
@@ -279,6 +307,103 @@ def create_hotspot_capture(
     session.commit()
     if binding.provider != "mock":
         background_tasks.add_task(enqueuer, task.id)
+    return _capture_read(task)
+
+
+@extension_router.post(
+    "/captures",
+    response_model=HotspotCaptureRead,
+    status_code=202,
+)
+def create_extension_hotspot_capture(
+    workspace_id: UUID,
+    data: HotspotCaptureCreate,
+    background_tasks: BackgroundTasks,
+    session: DatabaseSession,
+    storage: ObjectStorage,
+    enqueuer=Depends(get_hotspot_enqueuer),
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> HotspotCaptureRead:
+    authenticated = _extension_token(
+        session,
+        authorization,
+        workspace_id=workspace_id,
+        required_scope=ExtensionTokenScope.CAPTURE_CREATE,
+    )
+    if ExtensionTokenScope.CAPTURE_UPLOAD.value not in authenticated.scopes:
+        raise HTTPException(status_code=403, detail="extension scope denied")
+    if not idempotency_key or len(idempotency_key) > 160:
+        raise HTTPException(status_code=400, detail="Idempotency-Key required")
+    settings = get_settings()
+    try:
+        binding = resolve_vision_binding(
+            session,
+            authenticated.context,
+            platform=data.target_platform,
+            content_type=ContentType.VIDEO,
+            cipher=SecretCipher(
+                settings.model_secret_encryption_key.get_secret_value()
+            ),
+            mock_mode=settings.app_mock_mode,
+        )
+        task = create_capture(
+            session,
+            workspace_id=workspace_id,
+            member_id=authenticated.member_id,
+            target_platform=data.target_platform,
+            source_url=data.source_url,
+            page_title=data.page_title,
+            collected_at=data.collected_at,
+            completeness=data.completeness,
+            idempotency_key=idempotency_key,
+            screenshot_data_url=data.screenshot_data_url,
+            binding=binding,
+            storage=None if binding.provider == "mock" else storage,
+        )
+    except LookupError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "MODEL_CONFIGURATION_REQUIRED",
+                "message": "请联系管理员配置图片文字识别模型",
+            },
+        ) from error
+    except HotspotConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    session.commit()
+    if binding.provider != "mock":
+        background_tasks.add_task(enqueuer, task.id)
+    return _capture_read(task)
+
+
+@extension_router.get(
+    "/captures/{capture_id}",
+    response_model=HotspotCaptureRead,
+)
+def read_extension_hotspot_capture(
+    workspace_id: UUID,
+    capture_id: UUID,
+    session: DatabaseSession,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> HotspotCaptureRead:
+    authenticated = _extension_token(
+        session,
+        authorization,
+        workspace_id=workspace_id,
+        required_scope=ExtensionTokenScope.CAPTURE_READ,
+    )
+    task = session.scalar(
+        select(HotspotCaptureTask).where(
+            HotspotCaptureTask.id == capture_id,
+            HotspotCaptureTask.workspace_id == workspace_id,
+            HotspotCaptureTask.member_id == authenticated.member_id,
+        )
+    )
+    if task is None:
+        raise HTTPException(status_code=404, detail="hotspot capture not found")
     return _capture_read(task)
 
 

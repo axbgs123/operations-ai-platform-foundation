@@ -1,7 +1,9 @@
 import { normalizeServerOrigin } from "./auth/server";
 import {
   pollCaptureThroughBackground,
+  pollHotspotThroughBackground,
   uploadCaptureThroughBackground,
+  uploadHotspotThroughBackground,
 } from "./capture/background-transport";
 import type { CaptureTaskRead } from "./capture/task-status";
 import { CaptureOverlay, type CaptureBinding } from "./content/capture-overlay";
@@ -14,6 +16,7 @@ import { parseRuntimeMessage, type CaptureMode } from "./runtime/messages";
 
 type ContentDependencies = {
   detect(): PageDetection;
+  setHotspotContext?(platform: "douyin" | "xiaohongshu"): void;
   startCapture(mode?: CaptureMode, captureSessionId?: string): Promise<void>;
 };
 
@@ -38,6 +41,11 @@ export function createContentMessageHandler(dependencies: ContentDependencies) {
           url: window.location.href,
         } : {}),
       };
+    }
+    if (message.type === "SET_HOTSPOT_CONTEXT") {
+      dependencies.setHotspotContext?.(message.targetPlatform);
+      const result = dependencies.detect();
+      return { ok: result.supported, pageVersion: result.pageVersion };
     }
     if (message.type === "START_SAFE_CAPTURE" && !("tabId" in message)) {
       await dependencies.startCapture("region");
@@ -126,7 +134,12 @@ const parseCaptureBindingResponse = (value: unknown): CaptureBindingResponse | n
   }
 };
 
-const currentDetection = () => detectPage({ url: window.location.href, document });
+let hotspotTargetPlatform: "douyin" | "xiaohongshu" | null = null;
+const currentDetection = () => detectPage({
+  url: window.location.href,
+  document,
+  hotspotTargetPlatform,
+});
 
 export function fullPageFailureDisclosure(
   result: { slices: readonly unknown[]; stopReason: string; partialReason?: string },
@@ -247,7 +260,14 @@ function mountChromeCapture(
       void endFullPage();
     },
     upload: (dataUrl, idempotencyKey) =>
-      uploadCaptureThroughBackground({
+      initial.pageVersion === "hotspot-public-page-v1" ? uploadHotspotThroughBackground({
+        controller: finalPreviewController(dataUrl),
+        platform: initial.platform!, pageVersion: initial.pageVersion, pageSignature: initial.signature,
+        collectedAt: new Date().toISOString(), idempotencyKey,
+        sourceUrl: window.location.href, pageTitle: document.title || "公开热点页面",
+        captureMetadata: overlay.captureMetadata(),
+        sendMessage: (message) => chrome.runtime.sendMessage(message),
+      }) : uploadCaptureThroughBackground({
         controller: finalPreviewController(dataUrl),
         platform: initial.platform!,
         pageVersion: initial.pageVersion,
@@ -258,7 +278,11 @@ function mountChromeCapture(
         sendMessage: (message) => chrome.runtime.sendMessage(message),
       }),
     poll: (task: CaptureTaskRead) =>
-      pollCaptureThroughBackground({
+      initial.pageVersion === "hotspot-public-page-v1" ? pollHotspotThroughBackground({
+        captureId: task.task_id,
+        platform: initial.platform!, pageVersion: initial.pageVersion, pageSignature: initial.signature,
+        sendMessage: (message) => chrome.runtime.sendMessage(message),
+      }) : pollCaptureThroughBackground({
         taskId: task.task_id,
         platform: initial.platform!,
         pageVersion: initial.pageVersion,
@@ -279,6 +303,9 @@ if (typeof window !== "undefined" && typeof document !== "undefined" && typeof c
   document.documentElement.dataset.operationsCaptureSignature = detection.signature;
   const handler = createContentMessageHandler({
     detect: currentDetection,
+    setHotspotContext: (platform) => {
+      hotspotTargetPlatform = platform;
+    },
     startCapture: async (mode = "region", captureSessionId) => {
       const captureDetection = currentDetection();
       const response = parseCaptureBindingResponse(

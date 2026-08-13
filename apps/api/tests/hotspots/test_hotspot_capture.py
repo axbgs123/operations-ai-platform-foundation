@@ -14,6 +14,8 @@ from app.core.database import Base, get_session
 from app.main import app
 from app.modules.hotspots.models import HotspotCaptureTask
 from app.modules.hotspots.service import extract_candidates, normalize_source_url
+from app.modules.imports.extension_auth import ExtensionTokenService
+from app.modules.workspace.models import WorkspaceMember
 from app.modules.workspace.router import invite_attempts
 
 
@@ -257,3 +259,51 @@ def test_hotspot_capture_rejects_non_https_source() -> None:
             json=_payload(source_url="http://127.0.0.1/private"),
         )
         assert response.status_code == 422
+
+
+def test_extension_can_stage_but_cannot_confirm_hotspot_capture() -> None:
+    with _client() as (client, engine):
+        workspace_id, csrf = _login_admin(client, "热点扩展工作区")
+        with Session(engine, expire_on_commit=False) as session:
+            member = session.scalar(
+                select(WorkspaceMember).where(
+                    WorkspaceMember.workspace_id == UUID(workspace_id)
+                )
+            )
+            assert member is not None
+            issued = ExtensionTokenService(session).issue(
+                workspace_id=member.workspace_id,
+                member_id=member.id,
+                client_id="hotspot-extension-test",
+            )
+            session.commit()
+
+        staged = client.post(
+            f"/v1/extension/workspaces/{workspace_id}/hotspots/captures",
+            headers={
+                "Authorization": f"Bearer {issued.access_token}",
+                "Idempotency-Key": "extension-hotspot-1",
+            },
+            json=_payload(),
+        )
+        assert staged.status_code == 202, staged.text
+        capture_id = staged.json()["id"]
+        polled = client.get(
+            f"/v1/extension/workspaces/{workspace_id}/hotspots/captures/{capture_id}",
+            headers={"Authorization": f"Bearer {issued.access_token}"},
+        )
+        assert polled.status_code == 200
+        assert polled.json()["status"] == "review_ready"
+
+        extension_confirmation = client.post(
+            f"/v1/extension/workspaces/{workspace_id}/hotspots/captures/{capture_id}/confirm",
+            headers={"Authorization": f"Bearer {issued.access_token}"},
+            json={"entries": [{"topic": "不得由扩展确认"}]},
+        )
+        assert extension_confirmation.status_code == 404
+        web_confirmation = client.post(
+            f"/v1/workspaces/{workspace_id}/hotspots/captures/{capture_id}/confirm",
+            headers={"X-CSRF-Token": csrf},
+            json={"entries": [{"topic": "由 Web 人工确认"}]},
+        )
+        assert web_confirmation.status_code == 200

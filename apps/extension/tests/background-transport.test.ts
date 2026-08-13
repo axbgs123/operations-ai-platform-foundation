@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   pollCaptureThroughBackground,
+  uploadHotspotThroughBackground,
   uploadCaptureThroughBackground,
 } from "../src/capture/background-transport";
 import { CaptureState } from "../src/content/overlay";
@@ -91,5 +92,28 @@ describe("background capture transport", () => {
       sendMessage,
     })).rejects.toThrow("preview_ready");
     expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("sends hotspot page metadata without credentials", async () => {
+    const sendMessage = vi.fn().mockResolvedValue({
+      ok: true,
+      task: { task_id: "00000000-0000-0000-0000-000000000003", status: "queued" },
+    });
+    await uploadHotspotThroughBackground({
+      controller: {
+        state: CaptureState.PreviewReady,
+        preview: { imageData: "data:image/png;base64,SYNTHETIC", maskedRegions: [] },
+        canUpload: () => true,
+      },
+      platform: "douyin", pageVersion: "hotspot-public-page-v1", pageSignature: "douyin:hotspot:test",
+      collectedAt: "2030-01-01T00:00:00.000Z", idempotencyKey: "hotspot-1",
+      sourceUrl: "https://example.com/trending", pageTitle: "今日热榜",
+      captureMetadata: { capture_mode: "full-page", complete: true, stop_reason: "bottom", slice_count: 2 },
+      sendMessage,
+    });
+    expect(sendMessage.mock.calls[0]?.[0]).toMatchObject({
+      type: "UPLOAD_HOTSPOT_CAPTURE", sourceUrl: "https://example.com/trending", pageTitle: "今日热榜",
+    });
+    expect(JSON.stringify(sendMessage.mock.calls[0]?.[0])).not.toContain("accessToken");
   });
 });
