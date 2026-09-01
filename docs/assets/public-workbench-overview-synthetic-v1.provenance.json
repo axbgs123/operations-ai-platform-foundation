@@ -1,0 +1,14 @@
+{
+  "schema": "operations-ai-public-screenshot/v1",
+  "image": "public-workbench-overview-synthetic-v1.png",
+  "sha256": "651655473f0cca6abd10a7a7194ada4ae263e9147b0284ac821fff81fc1209b9",
+  "capture": {
+    "mode": "isolated-compose-mock",
+    "route": "/workspaces/{synthetic_workspace_id}",
+    "synthetic": true,
+    "renderer": "Playwright Chromium",
+    "source_test": "tests/e2e/workbench-visual.spec.ts",
+    "source_baseline": "tests/e2e/workbench-visual.spec.ts-snapshots/overview-darwin.png",
+    "captured_at": "2026-07-30T00:00:00Z"
+  }
+}

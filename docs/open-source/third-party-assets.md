@@ -4,7 +4,7 @@
 
 | 路径 | 类型/用途 | 来源、许可与发布结论 |
 | --- | --- | --- |
-| `docs/assets/public-demo-synthetic-v1.png` | PNG，README 当前 Demo 截图 | 由隔离 Mock Compose 环境的合成 `/demo` 捕获；相邻 `public-demo-synthetic-v1.provenance.json` 固定 SHA-256、捕获模式、路由和 Playwright 测试来源。CI 对当前截图校验 provenance，并以 `public-demo-screenshot.spec.ts` 真实渲染同一合成 UI 后保存审计截图；这不代表真实平台页面或生产指标。 |
+| `docs/assets/public-workbench-overview-synthetic-v1.png` | PNG，README 当前工作台总览 | 由隔离 Mock Compose 环境和 `workbench-visual.spec.ts` 的合成工作区生成；相邻 provenance 固定 SHA-256、捕获模式、路由模板和视觉基准来源。截图只展示合成账号与 Mock 数据，不代表真实平台页面或生产指标。 |
 | `apps/api/tests/fixtures/golden-covers/template-1080x1080.png` | PNG 回归基准 | `golden-covers/generate.py` 生成的合成封面；见同目录 README，可公开发布。 |
 | `apps/api/tests/fixtures/golden-covers/template-1080x1440.png` | PNG 回归基准 | 同上，合成且仅用于版式回归。 |
 | `apps/api/tests/fixtures/golden-covers/template-1080x1920.png` | PNG 回归基准 | 同上，合成且仅用于版式回归。 |

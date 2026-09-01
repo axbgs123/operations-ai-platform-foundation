@@ -19,7 +19,7 @@ SOURCE_ALLOWED_PATTERNS = tuple(
         r"apps/web/(?:\.gitignore|AGENTS\.md|CLAUDE\.md|README\.md|eslint\.config\.mjs|next\.config\.ts|package\.json|postcss\.config\.mjs|tsconfig\.json|vitest\.config\.mts|vitest\.setup\.ts|src/[A-Za-z0-9_./\[\]-]+\.(?:ts|tsx|css)|src/app/favicon\.ico)",
         r"apps/extension/(?:\.gitignore|PRIVACY\.md|eslint\.config\.mjs|manifest\.json|package\.json|supported-pages\.json|tsconfig\.json|vite\.config\.ts|vitest\.config\.ts|scripts/[A-Za-z0-9_./-]+\.mjs|src/[A-Za-z0-9_./-]+\.(?:ts|html)|tests/[A-Za-z0-9_./-]+\.(?:ts|html|d\.ts))",
         r"docs/(?:acceptance|architecture|handoff|open-source|superpowers/(?:plans|specs))/[A-Za-z0-9._/-]+\.md",
-        r"docs/assets/public-demo-synthetic-v1\.(?:png|provenance\.json)",
+        r"docs/assets/public-workbench-overview-synthetic-v1\.(?:png|provenance\.json)",
         r"infra/docker/(?:api|web|e2e)\.Dockerfile|infra/docker/compose\.yml",
         r"packages/(?:platform-metrics|shared-schemas)/(?:package\.json|openapi\.json|scripts/[A-Za-z0-9_./-]+\.(?:ts|py)|src/[A-Za-z0-9_./-]+\.ts)",
         r"portable/[A-Za-z0-9._\-\u4e00-\u9fff]+\.(?:bat|command|txt)",

@@ -20,7 +20,7 @@
 
 > **AI 分析与风控仅用于辅助判断，不保证内容表现或通过平台审核。** 公开 Demo 使用人工合成数据和 Mock 结果，不代表真实运营效果。
 
-![当前公开 Demo 截图（2026-07-28，隔离 Compose 项目中生成；全部为合成 AI 科技数据与 Mock 结果，不代表真实平台页面或生产指标）](docs/assets/public-demo-synthetic-v1.png)
+![当前工作台总览：两级导航、数据状态、待处理问题、下一步行动与账号状态均使用合成数据展示](docs/assets/public-workbench-overview-synthetic-v1.png)
 
 ## 范围与边界
 

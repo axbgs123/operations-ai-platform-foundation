@@ -474,7 +474,7 @@ def test_exception_verifier_rejects_yaml_null_collection_and_mapping_types(tmp_p
 def test_demo_screenshot_requires_matching_capture_provenance(tmp_path: Path) -> None:
     """A structurally valid PNG alone cannot prove which synthetic UI produced it."""
     screenshot = tmp_path / "demo.png"
-    screenshot.write_bytes((REPO_ROOT / "docs/assets/public-demo-synthetic-v1.png").read_bytes())
+    screenshot.write_bytes((REPO_ROOT / "docs/assets/public-workbench-overview-synthetic-v1.png").read_bytes())
 
     result = run_tool("verify-demo-screenshot", "--path", str(screenshot))
 

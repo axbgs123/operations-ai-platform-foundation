@@ -45,7 +45,7 @@ jobs:
       - name: Enforce documentation and CI policy contracts
         run: |
           uv run --project apps/api python scripts/release-security.py verify-docs --root . --readme README.md --require-compose-config
-          uv run --project apps/api python scripts/release-security.py verify-demo-screenshot --path docs/assets/public-demo-synthetic-v1.png
+          uv run --project apps/api python scripts/release-security.py verify-demo-screenshot --path docs/assets/public-workbench-overview-synthetic-v1.png
           uv run --project apps/api python scripts/release-security.py verify-ci --path .github/workflows/ci.yml
           uv run --project apps/api python scripts/release-security.py verify-exceptions --path .github/security-exceptions.yml
 

@@ -515,10 +515,10 @@ def verify_demo_screenshot(args: argparse.Namespace) -> int:
             required = {"schema", "image", "sha256", "capture"}
             if not isinstance(provenance, dict) or set(provenance) != required:
                 problems.append("demo screenshot capture provenance has an invalid schema")
-            elif provenance["schema"] != "operations-ai-demo-screenshot/v1" or provenance["image"] != args.path.name or provenance["sha256"] != sha256(data).hexdigest():
+            elif provenance["schema"] != "operations-ai-public-screenshot/v1" or provenance["image"] != args.path.name or provenance["sha256"] != sha256(data).hexdigest():
                 problems.append("demo screenshot capture provenance does not match image")
-            elif not isinstance(provenance["capture"], dict) or provenance["capture"].get("mode") != "isolated-compose-mock" or provenance["capture"].get("route") != "/demo" or provenance["capture"].get("synthetic") is not True:
-                problems.append("demo screenshot capture provenance is not a synthetic /demo capture")
+            elif not isinstance(provenance["capture"], dict) or provenance["capture"].get("mode") != "isolated-compose-mock" or provenance["capture"].get("route") != "/workspaces/{synthetic_workspace_id}" or provenance["capture"].get("synthetic") is not True:
+                problems.append("demo screenshot capture provenance is not a synthetic workbench capture")
     return fail("demo_screenshot", problems) if problems else _clean("demo_screenshot")
 
 
