@@ -3,11 +3,8 @@ import Link from "next/link";
 export const SETTINGS_ITEMS = [
   { label: "工作区概览", href: "/settings" },
   { label: "成员与邀请码", href: "/settings/members" },
-  { label: "平台账号配置", href: "/accounts" },
-  { label: "指标、目标与基准", href: "/settings#metrics" },
-  { label: "模型配置与预算", href: "/settings/models" },
-  { label: "保留策略", href: "/settings#retention" },
-  { label: "危险操作", href: "/settings#danger" },
+  { label: "平台账号", href: "/accounts" },
+  { label: "AI 模型连接", href: "/settings/models" },
 ] as const;
 
 export function SettingsNav({ workspaceId }: { workspaceId: string }) {

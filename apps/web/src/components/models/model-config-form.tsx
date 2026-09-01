@@ -6,7 +6,6 @@ import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useExperiencePreferences } from "@/components/workbench/experience-preferences-context";
 import {
   displayText,
-  modelCapabilityCopy,
   modelChoiceCopy,
 } from "@/components/workbench/operator-display-copy";
 import { readOperationsAccess } from "@/lib/operations-api";
@@ -15,7 +14,6 @@ import {
   createModelValidation,
   listModelConfigs,
   saveModelConfig,
-  saveModelUsagePolicy,
   updateModelConfigStatus,
   verifyNativeWebSearch,
   type ModelCatalog,
@@ -35,13 +33,6 @@ const formControlClasses = (
   "mt-2 w-full rounded-xl border border-[var(--border)] "
   + "bg-[var(--surface)] px-4 py-3 text-[var(--text-primary)] "
   + "placeholder:text-[var(--text-secondary)] "
-  + "disabled:cursor-not-allowed disabled:bg-slate-100 "
-  + "disabled:text-[var(--text-secondary)]"
-);
-
-const policyControlClasses = (
-  "mt-1 w-full rounded-lg border border-[var(--border)] "
-  + "bg-[var(--surface)] p-2 text-[var(--text-primary)] "
   + "disabled:cursor-not-allowed disabled:bg-slate-100 "
   + "disabled:text-[var(--text-secondary)]"
 );
@@ -70,9 +61,6 @@ export function ModelConfigForm({
   const [apiKey, setApiKey] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
-  const [policyCapability, setPolicyCapability] = useState<
-    "text" | "vision" | "embedding" | "image"
-  >("text");
 
   useEffect(() => {
     let active = true;
@@ -147,49 +135,6 @@ export function ModelConfigForm({
       setMessage("配置已安全保存；密钥输入已清空，现在可以测试连接");
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : "保存失败");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function savePolicy(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setPending(true);
-    try {
-      await saveModelUsagePolicy(
-        workspaceId,
-        sessionStorage.getItem("workspace_csrf") ?? "",
-        {
-          capability: policyCapability,
-          enabled: true,
-          max_concurrent_calls: Number(form.get("max_concurrent_calls")),
-          max_calls_per_minute: Number(form.get("max_calls_per_minute")),
-          daily_request_limit: Number(form.get("daily_request_limit")),
-          daily_input_token_limit: Number(
-            form.get("daily_input_token_limit"),
-          ),
-          daily_output_token_limit: Number(
-            form.get("daily_output_token_limit"),
-          ),
-          daily_embedding_token_limit: Number(
-            form.get("daily_embedding_token_limit"),
-          ),
-          daily_ocr_image_limit: Number(
-            form.get("daily_ocr_image_limit"),
-          ),
-          daily_generated_image_limit: Number(
-            form.get("daily_generated_image_limit"),
-          ),
-          daily_cost_limit_microunits: Number(
-            form.get("daily_cost_limit_microunits"),
-          ),
-          currency: "CNY",
-        },
-      );
-      setMessage("用量政策已保存；每日边界为 UTC 00:00");
-    } catch (caught) {
-      setMessage(caught instanceof Error ? caught.message : "政策保存失败");
     } finally {
       setPending(false);
     }
@@ -347,7 +292,7 @@ export function ModelConfigForm({
         <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           {role === "demo"
             ? "演示工作区只使用 Mock，不允许保存真实配置。"
-            : "只读状态：只有管理员可以管理凭据和预算。"}
+            : "只读状态：只有管理员可以管理模型连接。"}
         </p>
       ) : (
         <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
@@ -434,7 +379,7 @@ export function ModelConfigForm({
           </label>
           <button
             className="rounded-xl bg-[var(--brand)] px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:col-span-2"
-            disabled={pending || !selected}
+            disabled={pending || (providerMode === "qianwen" && !selected)}
             type="submit"
           >
             {pending
@@ -445,73 +390,6 @@ export function ModelConfigForm({
           </button>
         </form>
       )}
-      {canManage ? (
-        <form
-          className="mt-8 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-[var(--text-primary)]"
-          onSubmit={savePolicy}
-        >
-          <h2 className="text-lg font-semibold">
-            工作区用量政策（UTC 日界线）
-          </h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <label className="text-sm">
-              能力
-              <select
-                className={policyControlClasses}
-                onChange={(event) =>
-                  setPolicyCapability(
-                    event.target.value as typeof policyCapability,
-                  )
-                }
-                value={policyCapability}
-              >
-                {(["text", "vision", "embedding", "image"] as const).map((capability) => (
-                  <option key={capability} value={capability}>
-                    {displayText(modelCapabilityCopy(capability), copyMode)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {[
-              ["max_concurrent_calls", "最大并发", 2],
-              ["max_calls_per_minute", "每分钟调用", 20],
-              ["daily_request_limit", "每日调用", 100],
-              ["daily_input_token_limit", copyMode === "simple" ? "每日输入文字量" : "每日输入 token", 100000],
-              ["daily_output_token_limit", copyMode === "simple" ? "每日输出文字量" : "每日输出 token", 20000],
-              [
-                "daily_embedding_token_limit",
-                copyMode === "simple" ? "每日资料检索文字量" : "每日 Embedding token",
-                100000,
-              ],
-              ["daily_ocr_image_limit", copyMode === "simple" ? "每日图片文字识别数量" : "每日 OCR 图片", 100],
-              ["daily_generated_image_limit", "每日生成图片", 10],
-              [
-                "daily_cost_limit_microunits",
-                copyMode === "simple" ? "每日费用上限（人民币最小计费单位）" : "每日费用上限（CNY microunits）",
-                1000000,
-              ],
-            ].map(([name, label, value]) => (
-              <label className="text-sm" key={String(name)}>
-                {label}
-                <input
-                  className={policyControlClasses}
-                  defaultValue={value}
-                  min="0"
-                  name={String(name)}
-                  type="number"
-                />
-              </label>
-            ))}
-          </div>
-          <button
-            className="mt-4 rounded-xl bg-[var(--brand)] px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={pending}
-            type="submit"
-          >
-            保存用量政策
-          </button>
-        </form>
-      ) : null}
       {message ? (
         <p className="mt-4 text-sm text-[var(--info)]" role="status">
           {message}

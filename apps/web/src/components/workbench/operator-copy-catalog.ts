@@ -108,8 +108,8 @@ export const OPERATOR_COPY_CATALOG: Record<OperatorPageId, OperatorPageCopy> = {
     purpose: copy("保存商品、活动或选题中可以确认的事实，生成时用它减少写错和虚假宣传。", "系统只约束生成内容与已确认资料一致，不证明资料本身客观真实。"),
   },
   exports: {
-    title: "导出与备份",
-    purpose: copy("导出运营数据和分析报告，或备份整个工作区后再恢复。", "所有文件通过异步任务生成；短期下载地址不写入浏览器存储，恢复必须先预览再确认。"),
+    title: "导出数据",
+    purpose: copy("导出运营数据、单条分析报告或工作区结构化数据。", "文件通过任务生成；短期下载地址不写入浏览器存储。"),
   },
   jobs: {
     title: "后台任务",
@@ -125,14 +125,14 @@ export const OPERATOR_COPY_CATALOG: Record<OperatorPageId, OperatorPageCopy> = {
   },
   settings: {
     title: "工作区设置",
-    purpose: copy("管理成员、账号、模型费用限制和工作区安全操作。", "统一展示工作区边界、权限和安全状态；所有变更仍由服务端权限和版本规则决定。"),
+    purpose: copy("管理团队成员、平台账号和 AI 模型连接。", "统一展示工作区边界、成员权限、账号与模型连接状态。"),
   },
   settingsMembers: {
     title: "成员与邀请码",
     purpose: copy("给每个人创建独立邀请码、设置权限，并在成员离开时单独撤销。", "坚持一人一码、一种角色；邀请码只显示一次且不写入 URL 或持久化存储。"),
   },
   settingsModels: {
-    title: "模型配置",
-    purpose: copy("选择千问官方服务，或接入团队自己的兼容文本模型；保存后先测试连接。", "管理固定 Catalog、OpenAI-compatible 文本端点、API Key、用量政策和无 Prompt 连接测试。"),
+    title: "AI 模型连接",
+    purpose: copy("选择千问官方服务，或接入团队自己的兼容文本模型；保存后先测试连接。", "管理固定 Catalog、OpenAI-compatible 文本端点、API Key 和无 Prompt 连接测试。"),
   },
 };

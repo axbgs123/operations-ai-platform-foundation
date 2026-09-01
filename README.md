@@ -14,7 +14,7 @@
 - 生成标题、文案和封面，并在保存前执行事实与风险检查；
 - 通过浏览器扩展采集已登录创作者页面的截图，识别后再由人工确认；
 - 使用自带 API Key 的模型配置和可保存记录的运营智能体；
-- 导出分析结果，或通过 JSON/ZIP 完成工作区备份与恢复。
+- 导出 CSV、单条分析报告和 JSON 结构化数据。
 
 它是帮助运营人员完成判断与执行的工具，不会代替运营人员做最终决策，也不会自动发布内容。
 
@@ -31,31 +31,33 @@
 
 ## 架构与文档
 
-Web（Next.js）只负责体验，FastAPI 集中承载工作区隔离和业务规则；Worker 处理异步任务；PostgreSQL/pgvector、Redis 和 S3 兼容对象存储分别保存数据、队列/缓存和对象。浏览器扩展只采集用户已登录并确认的受支持页面截图。
+推荐的轻量版由 Next.js、FastAPI 和 PostgreSQL/pgvector 三个常驻容器组成。任务在 API 进程内执行，截图和生成文件写入本地 Docker 卷，不需要 Redis、MinIO 或独立 Worker。完整版的队列、对象存储和高级治理代码仍保留，适合后续按需启用。浏览器扩展只采集用户已登录并确认的受支持页面截图。
 
 - [系统架构](docs/architecture/system.md)、[数据模型](docs/architecture/data-model.md)、[模型适配](docs/architecture/model-adapters.md)、[千问配置与用量治理](docs/open-source/qianwen-model-configuration.md)
-- [部署](docs/open-source/deployment.md)、[JSON/ZIP 备份与恢复](docs/open-source/backup-restore.md)、[风控知识治理](docs/open-source/risk-knowledge.md)
+- [轻量部署](docs/open-source/lite-deployment.md)、[完整版部署](docs/open-source/deployment.md)、[备份恢复边界](docs/open-source/backup-restore.md)
 - [扩展安装](docs/open-source/extension-installation.md)、[扩展隐私](docs/open-source/extension-privacy.md)、[真实页面验证状态](docs/open-source/extension-validation-status.md)
 - [许可证决定](docs/open-source/license-decision.md)、[供应链安全](docs/open-source/supply-chain-security.md)、[发布清单](docs/open-source/release-checklist.md)、[第三方资产](docs/open-source/third-party-assets.md)
 
-## Docker Compose 快速开始（Mock）
+## Docker Compose 快速开始（轻量 Mock）
 
-要求：Docker Desktop/Compose v2、至少 6 GB 可用内存和本地空闲端口 3000、8000、55432、9000、9001。无需模型 API Key。
+要求：Docker Desktop/Compose v2、建议至少 2 GB 可用内存和本地空闲端口 3000、8000。无需模型 API Key。
 
 ```bash
 cp .env.example .env
-docker compose -f infra/docker/compose.yml config --quiet
-docker compose -f infra/docker/compose.yml --profile demo up -d --build
+docker compose -f infra/docker/compose.lite.yml config --quiet
+docker compose -f infra/docker/compose.lite.yml build api
+docker compose -f infra/docker/compose.lite.yml build web
+docker compose -f infra/docker/compose.lite.yml up -d --no-build
 curl --fail http://127.0.0.1:8000/health/ready
 ```
 
 在任意浏览器访问公开 Demo 地址 `http://127.0.0.1:3000/demo`。正常停止且保留本地数据：
 
 ```bash
-docker compose -f infra/docker/compose.yml --profile demo down
+docker compose -f infra/docker/compose.lite.yml down
 ```
 
-`docker compose ... down --volumes` 会删除该 Compose 项目的本地数据库、Redis 和对象存储卷；仅在确认不需要恢复本地数据时使用。生产部署、迁移、反向代理、密钥和回滚要求见[部署文档](docs/open-source/deployment.md)。
+`docker compose ... down --volumes` 会删除该 Compose 项目的数据库和本地文件卷；仅在确认不需要恢复数据时使用。轻量版限制和实测资源见[轻量部署文档](docs/open-source/lite-deployment.md)。
 
 ## 贡献披露与许可证
 

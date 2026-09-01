@@ -46,8 +46,7 @@ const { listModelConfigs, saveModelConfig, updateModelConfigStatus } = vi.hoiste
   saveModelConfig: vi.fn(),
   updateModelConfigStatus: vi.fn(),
 }));
-const { saveModelUsagePolicy, createModelValidation, verifyNativeWebSearch } = vi.hoisted(() => ({
-  saveModelUsagePolicy: vi.fn(),
+const { createModelValidation, verifyNativeWebSearch } = vi.hoisted(() => ({
   createModelValidation: vi.fn(),
   verifyNativeWebSearch: vi.fn(),
 }));
@@ -74,10 +73,8 @@ vi.mock("@/lib/model-api", () => ({
     ],
   })),
   listModelConfigs,
-  listModelUsagePolicies: vi.fn(async () => []),
   saveModelConfig,
   updateModelConfigStatus,
-  saveModelUsagePolicy,
   createModelValidation,
   verifyNativeWebSearch,
 }));
@@ -116,7 +113,6 @@ beforeEach(() => {
     native_web_search_contract_version: null,
     native_web_search_safe_error_code: null,
   });
-  saveModelUsagePolicy.mockReset();
   updateModelConfigStatus.mockImplementation(
     async (
       _workspaceId: string,
@@ -139,7 +135,6 @@ beforeEach(() => {
       safe_error_code: "explicit_user_authorization_missing",
     }),
   );
-  saveModelUsagePolicy.mockResolvedValue({ version: 1 });
   createModelValidation.mockReset();
   createModelValidation.mockResolvedValue({
     result: "not_run",
@@ -165,7 +160,7 @@ test("admin keeps the fixed catalog flow and clears the key after save", async (
   localStorage.setItem("operations-ai:copy-mode:member-admin", "professional");
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
-  expect(await screen.findByText("模型配置")).toBeInTheDocument();
+  expect(await screen.findByText("AI 模型连接")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "千问官方" })).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -178,7 +173,7 @@ test("admin keeps the fixed catalog flow and clears the key after save", async (
   expect(screen.getByText("experimental")).toBeInTheDocument();
   expect(screen.getByText(/千问 AI 平台官方固定接口/)).toBeInTheDocument();
   expect(screen.getByText(/调用可能产生费用/)).toBeInTheDocument();
-  expect(screen.getByText("工作区用量政策（UTC 日界线）")).toBeInTheDocument();
+  expect(screen.queryByText("工作区用量政策（UTC 日界线）")).not.toBeInTheDocument();
 
   const key = screen.getByLabelText("API Key");
   expect(key).toHaveAttribute("autocomplete", "new-password");
@@ -211,8 +206,6 @@ test("admin keeps the fixed catalog flow and clears the key after save", async (
     ),
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "保存用量政策" }));
-  await waitFor(() => expect(saveModelUsagePolicy).toHaveBeenCalledOnce());
 });
 
 test("viewer receives safe status without credential controls", async () => {
@@ -221,7 +214,7 @@ test("viewer receives safe status without credential controls", async () => {
     "viewer",
   );
 
-  expect(await screen.findByText("模型配置")).toBeInTheDocument();
+  expect(await screen.findByText("AI 模型连接")).toBeInTheDocument();
   expect(screen.getByText(
     "选择千问官方服务，或接入团队自己的兼容文本模型；保存后先测试连接。",
   )).toBeVisible();
@@ -265,7 +258,7 @@ test("easy mode explains secret storage, real provider cost, and trial status", 
   );
 });
 
-test("uses the shared light form tokens for model credentials and usage policy", async () => {
+test("uses the shared light form tokens for model credentials", async () => {
   const { container } = renderInWorkspace(
     <ModelConfigForm role="admin" workspaceId="workspace-1" />,
   );
@@ -287,14 +280,6 @@ test("uses the shared light form tokens for model credentials and usage policy",
     "placeholder:text-[var(--text-secondary)]",
   );
 
-  const policy = screen.getByRole("heading", {
-    name: "工作区用量政策（UTC 日界线）",
-  }).closest("form");
-  expect(policy).toHaveClass(
-    "border-[var(--border)]",
-    "bg-[var(--surface)]",
-    "text-[var(--text-primary)]",
-  );
   expect(container.querySelectorAll(
     '[class*="bg-slate-950"], [class*="bg-slate-900"]',
   )).toHaveLength(0);
@@ -497,7 +482,7 @@ test("admin can configure and test a self-hosted compatible text model", async (
   });
   renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
 
-  await screen.findByText("模型配置");
+  await screen.findByText("AI 模型连接");
   fireEvent.click(screen.getByRole("button", { name: "OpenAI 兼容" }));
   expect(screen.getByLabelText("配置名称")).toBeVisible();
   expect(screen.getByLabelText("服务地址")).toBeVisible();

@@ -96,7 +96,7 @@ def build_analysis_adapter_for_run(
 
 def enqueue_analysis(run_id: UUID) -> None:
     request_id = current_request_id()
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         analyze_content_task(str(run_id), request_id)
     else:
         analyze_content_task.delay(str(run_id), request_id)

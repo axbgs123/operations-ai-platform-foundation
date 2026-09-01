@@ -384,17 +384,21 @@ async def verify_native_web_search(
     if config.region is None:
         raise HTTPException(status_code=409, detail="model region is missing")
     configuration_version = model_configuration_version(config)
-    governor = create_model_usage_governor(
-        session_factory=SessionFactory,
-        redis_url=get_settings().redis_url,
-        workspace_id=workspace_id,
-        model_config=config,
-        actor_id=context.member_id,
-        task_id=uuid7(),
-        capability=Capability.TEXT,
-        operation=ProviderOperation.NATIVE_WEB_SEARCH,
-        contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
-        configuration_version=configuration_version,
+    governor = (
+        None
+        if get_settings().app_lite_mode
+        else create_model_usage_governor(
+            session_factory=SessionFactory,
+            redis_url=get_settings().redis_url,
+            workspace_id=workspace_id,
+            model_config=config,
+            actor_id=context.member_id,
+            task_id=uuid7(),
+            capability=Capability.TEXT,
+            operation=ProviderOperation.NATIVE_WEB_SEARCH,
+            contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
+            configuration_version=configuration_version,
+        )
     )
     provider = QianwenNativeWebSearchProvider(
         api_key=service.decrypt_key(config_id),

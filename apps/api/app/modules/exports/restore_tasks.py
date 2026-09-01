@@ -20,7 +20,7 @@ from app.modules.exports.zip_restore import process_full_restore_task
 
 def enqueue_restore(task_id: UUID) -> None:
     request_id = current_request_id()
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         restore_workspace_task(str(task_id), request_id)
     else:
         restore_workspace_task.delay(str(task_id), request_id)

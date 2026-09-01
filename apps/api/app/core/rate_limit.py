@@ -278,7 +278,7 @@ def should_skip_rate_limit(path: str, headers: dict[str, str]) -> bool:
 
 def default_rate_limiter() -> RateLimiter:
     settings = get_settings()
-    if settings.app_mock_mode:
+    if settings.app_mock_mode or settings.app_lite_mode:
         return RateLimiter(
             InMemoryAtomicBackend(),
             policies={

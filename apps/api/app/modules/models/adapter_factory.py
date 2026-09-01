@@ -165,7 +165,11 @@ def create_workspace_model_adapter(
             "模型密钥版本不可用，请重新配置。",
         )
     try:
-        if usage_governor is None and usage_context is not None:
+        if (
+            usage_governor is None
+            and usage_context is not None
+            and not get_settings().app_lite_mode
+        ):
             usage_governor = create_model_usage_governor(
                 session_factory=usage_context.session_factory,
                 redis_url=usage_context.redis_url,

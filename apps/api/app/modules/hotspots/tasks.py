@@ -83,7 +83,7 @@ def process_hotspot_capture(task_id: UUID | str) -> None:
                         contract_version=binding.contract_version,
                         configuration_version=binding.config_version,
                     )
-                    if config is not None
+                    if config is not None and not settings.app_lite_mode
                     else None
                 ),
             )
@@ -111,7 +111,10 @@ def process_hotspot_capture(task_id: UUID | str) -> None:
 
 
 def enqueue_hotspot_capture(task_id: UUID) -> None:
-    recognize_hotspot_capture.delay(str(task_id))
+    if get_settings().run_tasks_inline:
+        recognize_hotspot_capture(str(task_id))
+    else:
+        recognize_hotspot_capture.delay(str(task_id))
 
 
 def get_hotspot_enqueuer():

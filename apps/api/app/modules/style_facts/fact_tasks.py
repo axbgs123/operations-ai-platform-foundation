@@ -354,7 +354,7 @@ def enqueue_fact_source_processing(
     source_id: str,
 ) -> None:
     arguments = (workspace_id, member_id, source_id)
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         process_fact_source_task(*arguments)
     else:
         process_fact_source_task.delay(*arguments)

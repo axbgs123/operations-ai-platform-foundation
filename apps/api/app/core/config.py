@@ -1,6 +1,6 @@
 import re
 from functools import lru_cache
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     app_env: str = "development"
     app_mock_mode: bool = True
+    app_lite_mode: bool = False
     demo_seed_enabled: bool = False
     session_signing_secret: SecretStr = SecretStr(DEFAULT_SESSION_SIGNING_SECRET)
     database_url: str = (
@@ -40,6 +41,9 @@ class Settings(BaseSettings):
     s3_bucket: str = "operations-ai"
     s3_access_key: str = "operations-ai"
     s3_secret_key: str = "local-development-only"
+    storage_backend: Literal["s3", "local"] = "s3"
+    local_storage_path: str = "/data/objects"
+    api_public_url: str = "http://localhost:8000"
     storage_signing_secret: str = "local-development-signing-secret-change-me"
     analysis_adapter_url: str | None = None
     analysis_adapter_token: str | None = None
@@ -68,7 +72,7 @@ class Settings(BaseSettings):
             raise ValueError("model secret encryption key must be configured outside development")
         if len(key) < 32:
             raise ValueError("model secret encryption key must be at least 32 characters")
-        if self.s3_secret_key in insecure_values:
+        if self.storage_backend == "s3" and self.s3_secret_key in insecure_values:
             raise ValueError("S3 secret key must be configured outside development")
         if self.storage_signing_secret in insecure_values or len(self.storage_signing_secret) < 32:
             raise ValueError("storage signing secret must be configured outside development")
@@ -80,6 +84,10 @@ class Settings(BaseSettings):
         if "local-development-only" in self.database_url:
             raise ValueError("database password must be configured outside development")
         return self
+
+    @property
+    def run_tasks_inline(self) -> bool:
+        return self.app_mock_mode or self.app_lite_mode
 
 
 @lru_cache

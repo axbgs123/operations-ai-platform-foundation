@@ -383,29 +383,37 @@ class HotspotResearchService:
         catalog = get_catalog_entry(config.provider, config.model_id)
         factory = sessionmaker(bind=self._session.get_bind(), expire_on_commit=False)
         research_id = UUID(hex=fingerprint[:32])
-        search_governor = create_model_usage_governor(
-            session_factory=factory,
-            redis_url=settings.redis_url,
-            workspace_id=self._context.workspace_id,
-            model_config=config,
-            actor_id=self._member_id,
-            task_id=research_id,
-            capability=Capability.TEXT,
-            operation=ProviderOperation.NATIVE_WEB_SEARCH,
-            contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
-            configuration_version=version,
+        search_governor = (
+            None
+            if settings.app_lite_mode
+            else create_model_usage_governor(
+                session_factory=factory,
+                redis_url=settings.redis_url,
+                workspace_id=self._context.workspace_id,
+                model_config=config,
+                actor_id=self._member_id,
+                task_id=research_id,
+                capability=Capability.TEXT,
+                operation=ProviderOperation.NATIVE_WEB_SEARCH,
+                contract_version=QIANWEN_NATIVE_SEARCH_CONTRACT_VERSION,
+                configuration_version=version,
+            )
         )
-        generation_governor = create_model_usage_governor(
-            session_factory=factory,
-            redis_url=settings.redis_url,
-            workspace_id=self._context.workspace_id,
-            model_config=config,
-            actor_id=self._member_id,
-            task_id=research_id,
-            capability=Capability.TEXT,
-            operation=ProviderOperation.TEXT_GENERATION,
-            contract_version=catalog.contract_version,
-            configuration_version=version,
+        generation_governor = (
+            None
+            if settings.app_lite_mode
+            else create_model_usage_governor(
+                session_factory=factory,
+                redis_url=settings.redis_url,
+                workspace_id=self._context.workspace_id,
+                model_config=config,
+                actor_id=self._member_id,
+                task_id=research_id,
+                capability=Capability.TEXT,
+                operation=ProviderOperation.TEXT_GENERATION,
+                contract_version=catalog.contract_version,
+                configuration_version=version,
+            )
         )
         secret = SecretStr(cipher.decrypt(config.encrypted_api_key))
         region = QianwenRegion(config.region)

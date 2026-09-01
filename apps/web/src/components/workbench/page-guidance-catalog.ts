@@ -179,9 +179,9 @@ export const PAGE_GUIDANCE_CATALOG: Record<OperatorPageId, PageGuidanceEntry> = 
     "视觉判断不能证明面料、价格、功效或认证；冲突事实不能用于确定性生成。",
   ),
   exports: guidance(
-    action("write", "创建需要的导出或备份"), action("write", "创建需要的导出或备份"), action("contact", "联系管理员或编辑者创建文件"),
-    ["选择 CSV、报告、JSON 或完整 ZIP。", "创建任务并等待文件生成；恢复时先看预览。", "下载文件或确认恢复前，再核对范围和冲突。"],
-    "恢复前检查发现版本、文件或引用冲突时，正式数据不会被修改。", [sharedConcepts.staged],
+    action("write", "创建需要的导出文件"), action("write", "创建需要的导出文件"), action("contact", "联系管理员或编辑者创建文件"),
+    ["选择 CSV、单条分析报告或 JSON。", "创建任务并等待文件生成。", "生成后在任务历史中下载文件。"],
+    "下载地址只在短时间内有效；过期后可重新获取，不需要重复生成文件。", [sharedConcepts.staged],
   ),
   jobs: guidance(
     action("write", "检查失败任务并按安全建议处理"), action("contact", "查看失败任务并联系管理员处理"), action("contact", "联系管理员或编辑者查看后台任务"),
@@ -199,8 +199,8 @@ export const PAGE_GUIDANCE_CATALOG: Record<OperatorPageId, PageGuidanceEntry> = 
     "超过保留期或因审计要求被保留的内容，不能按普通恢复/删除处理。",
   ),
   settings: guidance(
-    action("write", "检查成员、账号、模型和安全设置"), action("contact", "联系管理员修改工作区设置"), action("contact", "联系管理员修改工作区设置"),
-    ["选择成员、账号、模型、保留策略或危险操作。", "阅读当前权限和安全状态。", "修改前确认影响；删除工作区必须再次确认。"],
+    action("write", "管理成员、账号和模型连接"), action("contact", "联系管理员修改工作区设置"), action("contact", "联系管理员修改工作区设置"),
+    ["查看团队和当前权限。", "管理成员与平台账号。", "需要 AI 功能时连接自己的模型。"],
     "当前角色没有设置权限时，请联系管理员。",
   ),
   settingsMembers: guidance(
@@ -209,8 +209,8 @@ export const PAGE_GUIDANCE_CATALOG: Record<OperatorPageId, PageGuidanceEntry> = 
     "邀请码创建后只显示一次；丢失后只能撤销并重新创建。",
   ),
   settingsModels: guidance(
-    action("write", "配置密钥、测试连接并设置预算"), action("contact", "联系管理员配置模型和费用上限"), action("contact", "联系管理员配置模型和费用上限"),
-    ["选择千问官方服务，或填写团队自有文本模型的服务信息。", "保存密钥后进行一次不发送生成内容的连接测试。", "设置并发、次数和每日文字量上限后，再开始正式使用。"],
+    action("write", "连接模型并测试是否可用"), action("contact", "联系管理员连接 AI 模型"), action("contact", "联系管理员连接 AI 模型"),
+    ["选择千问官方服务，或填写团队自有文本模型的服务信息。", "输入并保存自己的模型密钥。", "进行一次不发送生成内容的连接测试。"],
     "连接测试不发送运营内容；自带模型的费用由对应供应商结算，平台不会猜测价格。",
   ),
 };

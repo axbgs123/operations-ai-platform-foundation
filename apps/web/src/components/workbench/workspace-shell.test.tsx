@@ -132,13 +132,10 @@ describe("canonical navigation and roles", () => {
       "爆款素材库",
       "账号风格",
       "事实资料",
-      "导出与备份",
-      "后台任务",
-      "风控知识库",
-      "回收站",
+      "导出数据",
       "工作区设置",
     ]);
-    expect(new Set(ALL_WORKBENCH_MODULE_LABELS)).toHaveLength(18);
+    expect(new Set(ALL_WORKBENCH_MODULE_LABELS)).toHaveLength(15);
   });
 
   test("applies the approved admin editor and viewer navigation matrix", () => {
@@ -179,8 +176,7 @@ describe("canonical navigation and roles", () => {
       "爆款素材库",
       "账号风格",
       "事实资料",
-      "导出与备份",
-      "后台任务",
+      "导出数据",
     ]);
     expect(visibleNavigationItems("viewer").map((item) => item.label)).toEqual([
       "工作台总览",
@@ -265,24 +261,21 @@ describe("canonical navigation and roles", () => {
     },
   );
 
-  test("marks only the unique primary entry for the current route", () => {
+  test("marks workspace settings for its child routes", () => {
     render(
       <SidebarNav
         collapsed={false}
         onNavigate={() => undefined}
-        pathname="/workspaces/workspace-1/settings/jobs"
+        pathname="/workspaces/workspace-1/settings/models"
         role="admin"
         workspaceId="workspace-1"
       />,
     );
 
-    expect(screen.getByRole("link", { name: "后台任务" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "工作区设置" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(
-      screen.getByRole("link", { name: "工作区设置" }),
-    ).not.toHaveAttribute("aria-current");
   });
 
   test("shows five primary categories and only the active category children", () => {
@@ -566,7 +559,7 @@ describe("workspace shell behavior", () => {
     expect(screen.getByText("管理员")).toBeVisible();
     expect(screen.getByRole("link", { name: "帮助" })).toBeVisible();
     expect(screen.getByRole("button", { name: "连接扩展" })).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("2 个失败任务");
+    expect(screen.getByRole("status")).toHaveTextContent("2 个任务需要重试");
     expect(screen.getByRole("link", { name: "跳转到主内容" })).toHaveAttribute(
       "href",
       "#main-content",

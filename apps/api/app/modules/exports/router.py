@@ -18,6 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
+from app.core.config import get_settings
 from app.core.storage import Storage, get_storage
 from app.modules.exports.models import ExportKind, ExportStatus, ExportTask
 from app.modules.exports.models import (
@@ -252,6 +253,11 @@ def create_export(
     session_token: Annotated[str | None, Cookie(alias="session")] = None,
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
 ) -> ExportTaskRead:
+    if get_settings().app_lite_mode and data.kind == "zip":
+        raise HTTPException(
+            status_code=422,
+            detail="ZIP full backup is unavailable in Lite mode",
+        )
     context = _context(
         session,
         workspace_id,

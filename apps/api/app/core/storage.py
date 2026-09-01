@@ -2,10 +2,12 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
+from pathlib import Path, PurePosixPath
 from typing import Protocol
 from urllib.error import HTTPError
 from urllib.parse import quote, urlencode, urlsplit
@@ -280,6 +282,171 @@ class S3Storage:
         )
 
 
+class LocalStorage:
+    """Small single-node object store used by the Lite deployment."""
+
+    def __init__(
+        self,
+        *,
+        root: Path | str | None = None,
+        public_api_url: str | None = None,
+        token_secret: str | None = None,
+    ) -> None:
+        settings = get_settings()
+        self._root = Path(root or settings.local_storage_path).resolve()
+        self._public_api_url = (
+            public_api_url or settings.api_public_url
+        ).rstrip("/")
+        self._token_secret = (
+            token_secret or settings.storage_signing_secret
+        ).encode()
+
+    def _path(self, object_key: str) -> Path:
+        normalized = PurePosixPath(object_key)
+        if (
+            not object_key
+            or object_key.startswith(("/", "\\"))
+            or "\\" in object_key
+            or any(part in {"", ".", ".."} for part in normalized.parts)
+        ):
+            raise ValueError("invalid local object key")
+        path = (self._root / Path(*normalized.parts)).resolve()
+        if not path.is_relative_to(self._root):
+            raise ValueError("invalid local object key")
+        return path
+
+    def _metadata_path(self, object_key: str) -> Path:
+        path = self._path(object_key)
+        return path.with_name(f"{path.name}.metadata.json")
+
+    def _encode_token(self, metadata: dict) -> str:
+        payload = base64.urlsafe_b64encode(
+            json.dumps(metadata, separators=(",", ":")).encode()
+        ).decode().rstrip("=")
+        signature = hmac.new(
+            self._token_secret,
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+        return f"{payload}.{signature}"
+
+    def _decode_token(self, token: str, *, purpose: str) -> dict:
+        try:
+            payload, signature = token.rsplit(".", 1)
+            expected = hmac.new(
+                self._token_secret,
+                payload.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+            if not hmac.compare_digest(signature, expected):
+                raise InvalidUploadToken
+            padded = payload + "=" * (-len(payload) % 4)
+            metadata = json.loads(base64.urlsafe_b64decode(padded))
+            if metadata.get("purpose") != purpose:
+                raise InvalidUploadToken
+            if int(metadata["expires_at"]) < int(datetime.now(UTC).timestamp()):
+                raise InvalidUploadToken
+            return metadata
+        except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
+            raise InvalidUploadToken from error
+
+    def issue_upload(self, **metadata) -> UploadGrant:
+        expires_at = datetime.now(UTC) + timedelta(minutes=10)
+        safe_name = str(metadata["file_name"]).replace("/", "_").replace("\\", "_")
+        object_key = (
+            f"workspaces/{metadata['workspace_id']}/objects/"
+            f"{secrets.token_hex(12)}-{safe_name}"
+        )
+        token_metadata = {
+            **{key: str(value) for key, value in metadata.items()},
+            "purpose": "upload",
+            "object_key": object_key,
+            "expires_at": int(expires_at.timestamp()),
+        }
+        token = self._encode_token(token_metadata)
+        return UploadGrant(
+            object_key=object_key,
+            upload_url=(
+                f"{self._public_api_url}/v1/local-storage/uploads/"
+                f"{quote(token, safe='')}"
+            ),
+            upload_headers={"Content-Type": str(metadata["mime_type"])},
+            upload_token=token,
+            expires_at=expires_at,
+        )
+
+    def verify_upload_token(self, token: str) -> dict:
+        return self._decode_token(token, purpose="upload")
+
+    def verify_download_token(self, token: str) -> str:
+        metadata = self._decode_token(token, purpose="download")
+        object_key = str(metadata["object_key"])
+        self._path(object_key)
+        return object_key
+
+    def inspect_object(self, object_key: str) -> StoredObject | None:
+        path = self._path(object_key)
+        metadata_path = self._metadata_path(object_key)
+        if not path.is_file() or not metadata_path.is_file():
+            return None
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            return StoredObject(
+                size=path.stat().st_size,
+                mime_type=str(metadata["mime_type"]),
+            )
+        except (OSError, KeyError, TypeError, json.JSONDecodeError):
+            return None
+
+    def put_object(
+        self,
+        object_key: str,
+        content: bytes,
+        *,
+        mime_type: str,
+    ) -> None:
+        path = self._path(object_key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        self._metadata_path(object_key).write_text(
+            json.dumps({"mime_type": mime_type}, separators=(",", ":")),
+            encoding="utf-8",
+        )
+
+    def get_object(self, object_key: str) -> bytes:
+        path = self._path(object_key)
+        if not path.is_file():
+            raise FileNotFoundError(object_key)
+        return path.read_bytes()
+
+    def delete_object(self, object_key: str) -> None:
+        self._path(object_key).unlink(missing_ok=True)
+        self._metadata_path(object_key).unlink(missing_ok=True)
+
+    def presign_download(self, object_key: str) -> tuple[str, datetime]:
+        self._path(object_key)
+        expires_at = datetime.now(UTC) + timedelta(minutes=5)
+        token = self._encode_token(
+            {
+                "purpose": "download",
+                "object_key": object_key,
+                "expires_at": int(expires_at.timestamp()),
+            }
+        )
+        return (
+            f"{self._public_api_url}/v1/local-storage/downloads/"
+            f"{quote(token, safe='')}",
+            expires_at,
+        )
+
+    def check_ready(self) -> None:
+        self._root.mkdir(parents=True, exist_ok=True)
+        if not self._root.is_dir() or not os.access(self._root, os.R_OK | os.W_OK):
+            raise OSError("local storage is unavailable")
+
+
 @lru_cache
 def get_storage() -> Storage:
+    if get_settings().storage_backend == "local":
+        return LocalStorage()
     return S3Storage()

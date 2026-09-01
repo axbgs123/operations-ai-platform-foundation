@@ -101,6 +101,10 @@ const TYPES = [
   },
 ] as const;
 
+// Keep advanced recovery code available to the full edition without exposing
+// it in the operator-first interface used by the lightweight deployment.
+const ADVANCED_RECOVERY_ENABLED = false;
+
 const SECRET_EXCLUSIONS = displayCopy(
   `始终排除：邀请码、会话、Token及哈希、API Key及密文、${
     exportBoundaryCopy("provider_workspace").simple
@@ -127,8 +131,8 @@ const restoreCopy: ModeAwareCopy = {
 };
 
 const exportSafetyCopy: ModeAwareCopy = {
-  simple: "系统会先检查版本、文件和冲突；确认恢复前不会改动正式数据。",
-  professional: "所有文件通过异步任务生成；短期下载地址不写入浏览器存储，恢复必须先预览再确认。",
+  simple: "按需要导出表格、单条分析报告或可迁移的结构化数据。",
+  professional: "导出文件由任务生成；短期下载地址不写入浏览器存储。",
 };
 
 const exportHistoryEmptyCopy: ModeAwareCopy = {
@@ -284,7 +288,9 @@ export function ExportBackupCenter({
         </p>
       </Panel>
       <section className="grid gap-4 lg:grid-cols-2" aria-label="导出和备份类型">
-        {TYPES.map((type) => (
+        {TYPES.filter(
+          (type) => ADVANCED_RECOVERY_ENABLED || type.kind !== "zip",
+        ).map((type) => (
           <Panel description={`包含：${type.includes}`} key={type.kind} title={type.title}>
             <p className="text-sm text-[var(--text-secondary)]">
               排除：{displayText(type.excludes, copyMode)}
@@ -317,7 +323,7 @@ export function ExportBackupCenter({
           </Panel>
         ))}
       </section>
-      <section className="grid gap-4 lg:grid-cols-2">
+      {ADVANCED_RECOVERY_ENABLED ? <section className="grid gap-4 lg:grid-cols-2">
         <Panel
           description="JSON 只恢复允许的结构化数据；未知版本和损坏引用会阻断。"
           title="JSON 恢复预览"
@@ -407,7 +413,7 @@ export function ExportBackupCenter({
             </label>
           ) : null}
         </Panel>
-      </section>
+      </section> : null}
       {error ? <ErrorState description={error} title="数据管理加载失败" /> : null}
       {notice ? <p className="text-sm text-blue-800" role="status">{notice}</p> : null}
       <Panel title="任务历史">

@@ -32,7 +32,7 @@ class RedisWorkspaceCacheCleaner:
 
 def enqueue_workspace_deletion(job_id: UUID) -> None:
     request_id = current_request_id()
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         workspace_deletion_task(str(job_id), request_id)
     else:
         workspace_deletion_task.delay(str(job_id), request_id)

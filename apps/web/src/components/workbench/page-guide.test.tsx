@@ -105,7 +105,7 @@ test("switches to the preserved professional purpose", () => {
 
 test("gives viewers only read or contact guidance", () => {
   renderGuidance("settingsModels", "viewer");
-  expect(screen.getByText("联系管理员配置模型和费用上限")).toBeVisible();
+  expect(screen.getByText("联系管理员连接 AI 模型")).toBeVisible();
   expect(screen.queryByText("配置模型、预算并执行受控验收")).toBeNull();
 });
 
@@ -128,8 +128,8 @@ test("keeps viewer model-setting instructions read-only when expanded", async ()
 
   await user.click(screen.getByRole("button", { name: "查看操作说明" }));
 
-  const guide = screen.getByRole("region", { name: "模型配置操作说明" });
-  expect(within(guide).getByText("联系管理员配置模型和费用上限")).toBeVisible();
+  const guide = screen.getByRole("region", { name: "AI 模型连接操作说明" });
+  expect(within(guide).getByText("联系管理员连接 AI 模型")).toBeVisible();
   expect(within(guide).getByText("查看页面中已有的数据、状态和说明。")).toBeVisible();
   expect(within(guide).getByText("需要新增、修改或确认时，请联系管理员或编辑者。")).toBeVisible();
   expect(screen.queryByText(/输入密钥/)).toBeNull();

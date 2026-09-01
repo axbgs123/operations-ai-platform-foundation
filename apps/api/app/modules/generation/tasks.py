@@ -125,21 +125,25 @@ def build_cover_adapter_for_run(
             region=QianwenRegion(config.region),
             provider_workspace_id=config.provider_workspace_id,
             model_id=config.model_id,
-            usage_governor=create_model_usage_governor(
-                session_factory=SessionFactory,
-                redis_url=get_settings().redis_url,
-                workspace_id=run.workspace_id,
-                model_config=config,
-                actor_id=run.requested_by,
-                task_id=run.id,
-                capability=Capability.IMAGE,
-                operation=(
-                    ProviderOperation.COVER_IMAGE_EDIT
-                    if has_provider_reference
-                    else ProviderOperation.COVER_TEXT_TO_IMAGE
-                ),
-                contract_version=run.contract_version,
-                configuration_version=run.configuration_version,
+            usage_governor=(
+                None
+                if get_settings().app_lite_mode
+                else create_model_usage_governor(
+                    session_factory=SessionFactory,
+                    redis_url=get_settings().redis_url,
+                    workspace_id=run.workspace_id,
+                    model_config=config,
+                    actor_id=run.requested_by,
+                    task_id=run.id,
+                    capability=Capability.IMAGE,
+                    operation=(
+                        ProviderOperation.COVER_IMAGE_EDIT
+                        if has_provider_reference
+                        else ProviderOperation.COVER_TEXT_TO_IMAGE
+                    ),
+                    contract_version=run.contract_version,
+                    configuration_version=run.configuration_version,
+                )
             ),
         )
     except ValueError as error:
@@ -152,7 +156,7 @@ def build_cover_adapter_for_run(
 def enqueue_cover_generation(run_id: UUID) -> None:
     settings = get_settings()
     request_id = current_request_id()
-    if settings.app_mock_mode:
+    if settings.run_tasks_inline:
         generate_cover_task(str(run_id), request_id)
     else:
         generate_cover_task.delay(str(run_id), request_id)
@@ -266,6 +270,7 @@ def generate_cover_task(
                             ),
                         )
                         if not settings.app_mock_mode
+                        and not settings.app_lite_mode
                         and vision_config is not None
                         else None
                     ),
@@ -344,7 +349,7 @@ def build_text_adapter_for_run(
 
 def enqueue_text_generation(run_id: UUID) -> None:
     request_id = current_request_id()
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         generate_text_task(str(run_id), request_id)
     else:
         generate_text_task.delay(str(run_id), request_id)

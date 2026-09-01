@@ -55,7 +55,8 @@ def execute_run(run_id: str) -> dict[str, str]:
     except AgentClaimLost:
         return {"run_id": run_id, "status": "claim_lost"}
     if result.run_status is AgentRunStatus.RUNNING:
-        if get_settings().app_mock_mode:
+        settings = get_settings()
+        if getattr(settings, "run_tasks_inline", settings.app_mock_mode):
             return execute_run(run_id)
         execute_run.delay(run_id)
     return {

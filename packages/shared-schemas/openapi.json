@@ -5278,7 +5278,8 @@
             "enum": [
               "postgresql",
               "redis",
-              "s3"
+              "s3",
+              "local_storage"
             ],
             "title": "Name",
             "type": "string"
@@ -17800,6 +17801,97 @@
         "summary": "Update Import Row",
         "tags": [
           "imports"
+        ]
+      }
+    },
+    "/v1/local-storage/downloads/{token}": {
+      "get": {
+        "operationId": "download_local_object_v1_local_storage_downloads__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Local Object",
+        "tags": [
+          "local-storage"
+        ]
+      }
+    },
+    "/v1/local-storage/uploads/{token}": {
+      "put": {
+        "operationId": "upload_local_object_v1_local_storage_uploads__token__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Content-Type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Content-Type"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Local Object",
+        "tags": [
+          "local-storage"
         ]
       }
     },

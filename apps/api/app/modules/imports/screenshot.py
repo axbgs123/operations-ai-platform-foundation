@@ -137,7 +137,7 @@ def process_screenshot_recognition(
 
 
 def enqueue_screenshot_recognition(batch_id: UUID) -> None:
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         recognize_screenshot_task(str(batch_id))
     else:
         recognize_screenshot_task.delay(str(batch_id))
@@ -204,7 +204,9 @@ def recognize_screenshot_task(batch_id: str) -> None:
                         contract_version=binding.contract_version,
                         configuration_version=binding.config_version,
                     )
-                    if config is not None and not settings.app_mock_mode
+                    if config is not None
+                    and not settings.app_mock_mode
+                    and not settings.app_lite_mode
                     else None
                 ),
             )

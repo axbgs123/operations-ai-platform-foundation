@@ -17,7 +17,7 @@ from app.modules.exports.service import (
 
 def enqueue_export(task_id: UUID) -> None:
     request_id = current_request_id()
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         generate_export_task(str(task_id), request_id)
     else:
         generate_export_task.delay(str(task_id), request_id)

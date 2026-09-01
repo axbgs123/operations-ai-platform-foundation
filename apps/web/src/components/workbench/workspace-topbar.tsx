@@ -83,13 +83,12 @@ export function WorkspaceTopbar({
         scope={scope}
       />
       {context.failed_task_count > 0 ? (
-        <span aria-live="polite" role="status">
-          <Link
-            className="block rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-800"
-            href={`/workspaces/${context.workspace_id}/settings/jobs`}
-          >
-            {context.failed_task_count} 个失败任务
-          </Link>
+        <span
+          aria-label={`${context.failed_task_count} 个任务处理失败，请稍后重试`}
+          className="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-800"
+          role="status"
+        >
+          {context.failed_task_count} 个任务需要重试
         </span>
       ) : null}
       {pendingConfirmationCount > 0 ? (

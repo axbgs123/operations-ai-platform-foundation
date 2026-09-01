@@ -2,6 +2,8 @@ import base64
 import hashlib
 import json
 import secrets
+import threading
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -32,6 +34,32 @@ class RedisChallengeClient(Protocol):
     def set(self, name: str, value: str, *, ex: int, nx: bool) -> object: ...
 
     def eval(self, script: str, numkeys: int, *keys_and_args: str) -> object: ...
+
+
+class InMemoryChallengeClient:
+    """Single-process challenge storage for the Lite deployment."""
+
+    def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._values: dict[str, tuple[str, float]] = {}
+
+    def set(self, name: str, value: str, *, ex: int, nx: bool) -> object:
+        with self._lock:
+            current = self._values.get(name)
+            if current is not None and current[1] > self._clock() and nx:
+                return False
+            self._values[name] = (value, self._clock() + ex)
+            return True
+
+    def eval(self, script: str, numkeys: int, *keys_and_args: str) -> object:
+        del script, numkeys
+        key = keys_and_args[0]
+        with self._lock:
+            current = self._values.pop(key, None)
+            if current is None or current[1] <= self._clock():
+                return False
+            return current[0]
 
 
 class DeviceChallengeUnavailable(ValueError):
@@ -436,4 +464,5 @@ __all__ = [
     "DeviceRegistrationUnavailable",
     "ExtensionDeviceIdentity",
     "ExtensionDeviceService",
+    "InMemoryChallengeClient",
 ]

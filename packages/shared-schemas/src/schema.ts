@@ -676,6 +676,40 @@ export interface paths {
         patch: operations["update_import_row_v1_imports__batch_id__rows__row_id__patch"];
         trace?: never;
     };
+    "/v1/local-storage/downloads/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Local Object */
+        get: operations["download_local_object_v1_local_storage_downloads__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/local-storage/uploads/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upload Local Object */
+        put: operations["upload_local_object_v1_local_storage_uploads__token__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/sessions/current": {
         parameters: {
             query?: never;
@@ -5054,7 +5088,7 @@ export interface components {
              * Name
              * @enum {string}
              */
-            name: "postgresql" | "redis" | "s3";
+            name: "postgresql" | "redis" | "s3" | "local_storage";
             /**
              * Status
              * @enum {string}
@@ -10284,6 +10318,68 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ImportBatchRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_local_object_v1_local_storage_downloads__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_local_object_v1_local_storage_uploads__token__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Content-Type"?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

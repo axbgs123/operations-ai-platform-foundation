@@ -10,10 +10,10 @@ from sqlalchemy import text
 
 from app.core.config import get_settings
 from sqlalchemy import create_engine
-from app.core.storage import S3Storage
+from app.core.storage import LocalStorage, S3Storage
 
 
-DependencyName = Literal["postgresql", "redis", "s3"]
+DependencyName = Literal["postgresql", "redis", "s3", "local_storage"]
 
 
 @dataclass(frozen=True)
@@ -44,8 +44,7 @@ class ReadinessService:
         pool = ThreadPoolExecutor(max_workers=len(self._checks))
         try:
             futures = {name: pool.submit(check) for name, check in self._checks.items()}
-            for name in ("postgresql", "redis", "s3"):
-                future = futures[name]
+            for name, future in futures.items():
                 try:
                     future.result(timeout=self._timeout_seconds)
                 except FutureTimeout:
@@ -121,13 +120,25 @@ def _check_s3() -> None:
     S3Storage().check_ready()
 
 
+def _check_local_storage() -> None:
+    LocalStorage().check_ready()
+
+
 def get_readiness_service() -> ReadinessService:
     settings = get_settings()
-    return ReadinessService(
-        {
+    checks: dict[DependencyName, Callable[[], None]]
+    if settings.app_lite_mode:
+        checks = {
+            "postgresql": _check_postgres,
+            "local_storage": _check_local_storage,
+        }
+    else:
+        checks = {
             "postgresql": _check_postgres,
             "redis": _check_redis,
             "s3": _check_s3,
-        },
+        }
+    return ReadinessService(
+        checks,
         timeout_seconds=settings.readiness_timeout_seconds,
     )

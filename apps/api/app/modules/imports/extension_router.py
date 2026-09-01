@@ -57,6 +57,7 @@ from app.modules.imports.extension_pairing import ExtensionPairingService, Pairi
 from app.modules.imports.extension_devices import (
     DeviceChallengeUnavailable,
     ExtensionDeviceService,
+    InMemoryChallengeClient,
 )
 from app.modules.imports.models import (
     ExtensionDeviceBinding,
@@ -110,6 +111,7 @@ router = APIRouter(
 )
 review_router = APIRouter(tags=["extension-capture-review"])
 DatabaseSession = Annotated[Session, Depends(get_session)]
+_lite_challenges = InMemoryChallengeClient()
 ObjectStorage = Annotated[Storage, Depends(get_storage)]
 binding_attempts: dict[str, deque[datetime]] = defaultdict(deque)
 CAPTURE_EXTENSION_CLIENT = "operations-capture-extension"
@@ -329,7 +331,11 @@ def _pair_response(
 def _extension_devices(session: Session) -> ExtensionDeviceService:
     return ExtensionDeviceService(
         session,
-        redis=Redis.from_url(get_settings().redis_url, decode_responses=True),
+        redis=(
+            _lite_challenges
+            if get_settings().app_lite_mode
+            else Redis.from_url(get_settings().redis_url, decode_responses=True)
+        ),
     )
 
 
@@ -478,7 +484,14 @@ def pair_extension(
             device_public_key_jwk=data.device_public_key_jwk.model_dump(),
             extension_version=data.extension_version,
             device_label=data.device_label,
-            redis=Redis.from_url(get_settings().redis_url, decode_responses=True),
+            redis=(
+                _lite_challenges
+                if get_settings().app_lite_mode
+                else Redis.from_url(
+                    get_settings().redis_url,
+                    decode_responses=True,
+                )
+            ),
         )
         session.commit()
     except PairingCodeUnavailable as error:

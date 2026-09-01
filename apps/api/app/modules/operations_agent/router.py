@@ -92,7 +92,8 @@ IdempotencyKey = Annotated[
 def _enqueue_run(run_id: UUID) -> None:
     from app.modules.operations_agent.tasks import execute_run
 
-    if get_settings().app_mock_mode:
+    settings = get_settings()
+    if getattr(settings, "run_tasks_inline", settings.app_mock_mode):
         execute_run(str(run_id))
     else:
         execute_run.delay(str(run_id))

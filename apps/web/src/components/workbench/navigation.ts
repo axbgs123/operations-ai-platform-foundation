@@ -153,28 +153,10 @@ export const WORKBENCH_NAV_CATEGORIES: readonly WorkbenchNavigationCategory[] = 
     defaultHref: "/data-management/exports",
     items: [
       {
-        label: "导出与备份",
+        label: "导出数据",
         href: "/data-management/exports",
         icon: "exports",
         allowedRoles: EDIT_ROLES,
-      },
-      {
-        label: "后台任务",
-        href: "/settings/jobs",
-        icon: "jobs",
-        allowedRoles: EDIT_ROLES,
-      },
-      {
-        label: "风控知识库",
-        href: "/risk-knowledge",
-        icon: "risk",
-        allowedRoles: ["admin"],
-      },
-      {
-        label: "回收站",
-        href: "/data-management/trash",
-        icon: "trash",
-        allowedRoles: ["admin"],
       },
       {
         label: "工作区设置",
@@ -228,14 +210,8 @@ export function isNavigationItemActive(
   const root = `/workspaces/${workspaceId}`;
   const target = `${root}${item.href}`;
   if (item.href === "") return pathname === root || pathname === `${root}/`;
-  if (item.href === "/settings/jobs") {
-    return pathname === target || pathname.startsWith(`${target}/`);
-  }
   if (item.href === "/settings") {
-    return (
-      (pathname === target || pathname.startsWith(`${target}/`))
-      && !pathname.startsWith(`${root}/settings/jobs`)
-    );
+    return pathname === target || pathname.startsWith(`${target}/`);
   }
   return pathname === target || pathname.startsWith(`${target}/`);
 }

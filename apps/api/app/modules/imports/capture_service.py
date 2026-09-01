@@ -232,7 +232,9 @@ def process_capture_task(
                         contract_version=binding.contract_version,
                         configuration_version=binding.config_version,
                     )
-                    if config is not None and not settings.app_mock_mode
+                    if config is not None
+                    and not settings.app_mock_mode
+                    and not settings.app_lite_mode
                     else None
                 ),
             )
@@ -255,7 +257,7 @@ def process_capture_task(
 
 
 def enqueue_capture_task(task_id: UUID) -> None:
-    if get_settings().app_mock_mode:
+    if get_settings().run_tasks_inline:
         process_capture_task(task_id)
     else:
         recognize_capture_task.delay(str(task_id))

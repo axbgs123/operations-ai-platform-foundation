@@ -1,0 +1,147 @@
+name: operations-ai-platform-lite
+
+x-api-environment: &api-environment
+  APP_ENV: ${APP_ENV:-development}
+  APP_MOCK_MODE: ${APP_MOCK_MODE:-true}
+  APP_LITE_MODE: "true"
+  WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+  API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:8000}
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-operations_ai}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-operations_ai}
+  STORAGE_BACKEND: local
+  LOCAL_STORAGE_PATH: /data/objects
+  STORAGE_SIGNING_SECRET: ${STORAGE_SIGNING_SECRET:-local-development-signing-secret-change-me}
+  MODEL_SECRET_ENCRYPTION_KEY: ${MODEL_SECRET_ENCRYPTION_KEY:-local-development-model-secret-change-me}
+  SESSION_SIGNING_SECRET: ${SESSION_SIGNING_SECRET:-local-development-session-secret-change-me}
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg18-trixie
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-operations_ai}
+      POSTGRES_USER: ${POSTGRES_USER:-operations_ai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks: [backend]
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+
+  migrate:
+    image: operations-ai-platform-api:${IMAGE_TAG:-lite}
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      args:
+        VCS_REF: ${VCS_REF:-unknown}
+    restart: "no"
+    command: ["/app/.venv/bin/alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [backend]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  storage-init:
+    image: operations-ai-platform-api:${IMAGE_TAG:-lite}
+    restart: "no"
+    user: "0:0"
+    command: ["sh", "-c", "mkdir -p /data/objects && chown -R 10001:10001 /data"]
+    volumes:
+      - local-storage-data:/data
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE]
+    security_opt: ["no-new-privileges:true"]
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  api:
+    image: operations-ai-platform-api:${IMAGE_TAG:-lite}
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      args:
+        VCS_REF: ${VCS_REF:-unknown}
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready')"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    ports:
+      - "${API_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8000}:8000"
+    volumes:
+      - local-storage-data:/data
+    networks: [backend, frontend]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+
+  web:
+    image: operations-ai-platform-web:${IMAGE_TAG:-lite}
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/enter').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    ports:
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    networks: [frontend]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+networks:
+  backend:
+    internal: true
+  frontend:
+
+volumes:
+  local-storage-data:
+  postgres-data:
