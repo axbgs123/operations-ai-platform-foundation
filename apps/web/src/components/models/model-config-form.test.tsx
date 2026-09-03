@@ -527,3 +527,55 @@ test("admin can configure and test a self-hosted compatible text model", async (
     "连接成功：密钥、服务地址和模型名称均可用；尚未发送生成内容。",
   )).toBeVisible();
 });
+
+test("admin can configure the official GLM-5.3-Flash preset with only an API key", async () => {
+  saveModelConfig.mockResolvedValueOnce({
+    id: "config-zhipu-glm-5-3-flash",
+    provider: "openai_compatible",
+    display_name: "智谱 GLM-5.3-Flash",
+    endpoint_host: "open.bigmodel.cn",
+    model_id: "glm-5.3-flash",
+    capability: "text",
+    region: null,
+    status: "community",
+    experimental: false,
+    credential_configured: true,
+    credential_updated_at: "2026-09-03T00:00:00Z",
+    configuration_version: "zhipu-glm-5-3-flash-v1",
+    contract_version: "openai-compatible-chat-json-v1",
+    last_validation_status: "not_run",
+    last_validated_at: null,
+    safe_error_code: "explicit_user_authorization_missing",
+    native_web_search_status: "unsupported",
+    native_web_search_checked_at: null,
+    native_web_search_contract_version: null,
+    native_web_search_safe_error_code: "NATIVE_WEB_SEARCH_NOT_ADAPTED",
+  });
+  renderInWorkspace(<ModelConfigForm role="admin" workspaceId="workspace-1" />);
+
+  await screen.findByText("AI 模型连接");
+  fireEvent.click(screen.getByRole("button", { name: "智谱 GLM-5.3-Flash" }));
+
+  expect(screen.queryByLabelText("配置名称")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("服务地址")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("模型名称")).not.toBeInTheDocument();
+  expect(screen.getByText(/只需填写智谱开放平台 API Key/)).toBeVisible();
+  const key = screen.getByLabelText("模型服务密钥");
+  fireEvent.change(key, { target: { value: "synthetic-zhipu-key" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存智谱模型配置" }));
+
+  await waitFor(() => expect(saveModelConfig).toHaveBeenCalledWith(
+    "workspace-1",
+    "csrf-token",
+    expect.objectContaining({
+      provider: "openai_compatible",
+      display_name: "智谱 GLM-5.3-Flash",
+      base_url: "https://open.bigmodel.cn/api/paas/v4",
+      model_id: "glm-5.3-flash",
+      capabilities: ["text"],
+      status: "community",
+      api_key: "synthetic-zhipu-key",
+    }),
+  ));
+  expect(key).toHaveValue("");
+});

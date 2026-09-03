@@ -4,6 +4,25 @@
 购买或部署的文本模型。该入口只支持 OpenAI Chat Completions 与 Models 的基础合同，
 不代表兼容官方 OpenAI 的全部能力，也不支持视觉、OCR、Embedding 或图片生成。
 
+## 智谱 GLM-5.3-Flash 快捷入口
+
+模型配置页提供“智谱 GLM-5.3-Flash”快捷入口。它仍复用本节描述的受控
+OpenAI-compatible 文本合同，但由页面固定以下参数，管理员只需填写智谱开放平台
+API Key：
+
+- 服务地址：`https://open.bigmodel.cn/api/paas/v4`
+- 模型名称：`glm-5.3-flash`
+- 展示名称：`智谱 GLM-5.3-Flash`
+
+该快捷入口面向智谱国内通用 API，不使用 Coding Plan 专用端点。当前仅开放文字生成、
+运营分析和运营智能体对话；模型本身具备的多模态及其他工具能力，需要单独完成输入、
+费用和结果合同验收后才能在平台中开放。连接测试只检查密钥、服务和模型列表，不代表
+生成质量已经验收。
+
+上游合同参考：
+[GLM-5.3-Flash 官方发布说明](https://autoclaw.z.ai/blog/model/glm-5.3-flash/)、
+[BigModel/Z.ai OpenAI 接口配置](https://zcode.z.ai/cn/docs/configuration)。
+
 ## 需要填写什么
 
 - 配置名称：只用于团队成员识别这项配置。

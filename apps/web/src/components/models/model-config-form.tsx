@@ -28,6 +28,13 @@ import {
 
 
 type WorkspaceRole = "admin" | "editor" | "viewer" | "demo";
+type ProviderMode = "qianwen" | "zhipu_glm_5_3_flash" | "openai_compatible";
+
+const ZHIPU_GLM_5_3_FLASH = {
+  displayName: "智谱 GLM-5.3-Flash",
+  baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+  modelId: "glm-5.3-flash",
+} as const;
 
 const formControlClasses = (
   "mt-2 w-full rounded-xl border border-[var(--border)] "
@@ -50,9 +57,7 @@ export function ModelConfigForm({
   );
   const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
   const [configs, setConfigs] = useState<ModelConfig[]>([]);
-  const [providerMode, setProviderMode] = useState<
-    "qianwen" | "openai_compatible"
-  >("qianwen");
+  const [providerMode, setProviderMode] = useState<ProviderMode>("qianwen");
   const [modelId, setModelId] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
@@ -113,6 +118,18 @@ export function ModelConfigForm({
               provider_workspace_id: null,
               capabilities: [selected!.capability],
               status: "experimental",
+              api_key: apiKey,
+            }
+          : providerMode === "zhipu_glm_5_3_flash"
+          ? {
+              provider: "openai_compatible",
+              display_name: ZHIPU_GLM_5_3_FLASH.displayName,
+              base_url: ZHIPU_GLM_5_3_FLASH.baseUrl,
+              model_id: ZHIPU_GLM_5_3_FLASH.modelId,
+              region: null,
+              provider_workspace_id: null,
+              capabilities: ["text"],
+              status: "community",
               api_key: apiKey,
             }
           : {
@@ -298,7 +315,7 @@ export function ModelConfigForm({
         <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={submit}>
           <div
             aria-label="模型接入方式"
-            className="grid grid-cols-2 gap-2 sm:col-span-2"
+            className="grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-3"
             role="group"
           >
             <button
@@ -308,6 +325,14 @@ export function ModelConfigForm({
               type="button"
             >
               千问官方
+            </button>
+            <button
+              aria-pressed={providerMode === "zhipu_glm_5_3_flash"}
+              className={providerMode === "zhipu_glm_5_3_flash" ? "rounded-xl bg-[var(--brand)] px-4 py-3 font-semibold text-white" : "rounded-xl border border-[var(--border)] px-4 py-3 font-semibold"}
+              onClick={() => setProviderMode("zhipu_glm_5_3_flash")}
+              type="button"
+            >
+              智谱 GLM-5.3-Flash
             </button>
             <button
               aria-pressed={providerMode === "openai_compatible"}
@@ -336,7 +361,7 @@ export function ModelConfigForm({
                 </select>
               </label>
             </>
-          ) : (
+          ) : providerMode === "openai_compatible" ? (
             <>
               <label className="text-sm">
                 配置名称
@@ -352,10 +377,19 @@ export function ModelConfigForm({
                 <span className="mt-2 block text-[var(--text-secondary)]">只支持 OpenAI 格式的文本接口；正式环境必须使用 HTTPS。</span>
               </label>
             </>
+          ) : (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-6 text-[var(--text-primary)] sm:col-span-2">
+              <strong className="block">智谱 GLM-5.3-Flash</strong>
+              <span className="mt-1 block text-[var(--text-secondary)]">
+                国内官方服务地址和模型名称已经配置好，只需填写智谱开放平台 API Key。当前按文字模型接入，可用于生成、分析和运营智能体对话。
+              </span>
+            </div>
           )}
           <p className="rounded-xl border border-[var(--border)] bg-slate-50 p-4 text-sm text-[var(--text-secondary)] sm:col-span-2">
             {providerMode === "openai_compatible"
               ? "费用由模型供应商结算，平台只限制调用次数和文字量。"
+              : providerMode === "zhipu_glm_5_3_flash"
+              ? "GLM-5.3-Flash 为新发布模型；连接成功只代表密钥和模型可用，实际费用与额度以智谱开放平台为准。图片和模型原生联网暂未在本平台开放。"
               : copyMode === "simple"
               ? "使用千问 AI 平台官方固定接口，不需要填写业务空间 ID。"
               : "Uses the fixed Qianwen AI Platform endpoint; no Provider Workspace ID or custom Base URL is accepted."}
@@ -384,6 +418,8 @@ export function ModelConfigForm({
           >
             {pending
               ? "正在保存…"
+              : providerMode === "zhipu_glm_5_3_flash"
+                ? "保存智谱模型配置"
               : providerMode === "openai_compatible"
                 ? "保存兼容模型配置"
                 : "保存或替换密钥"}

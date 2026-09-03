@@ -75,6 +75,30 @@ def test_openai_compatible_config_hides_key_and_full_endpoint() -> None:
     session.close()
 
 
+def test_zhipu_glm_5_3_flash_preset_uses_the_controlled_text_contract() -> None:
+    session, service, _ = _service()
+
+    config = service.save(
+        provider="openai_compatible",
+        display_name="智谱 GLM-5.3-Flash",
+        model_id="glm-5.3-flash",
+        base_url="https://open.bigmodel.cn/api/paas/v4",
+        capabilities=frozenset({Capability.TEXT}),
+        status=AdapterStatus.COMMUNITY,
+        api_key="synthetic-zhipu-key-never-real",
+    )
+    public = service.public(config).model_dump(mode="json")
+
+    assert config.endpoint_base_url == "https://open.bigmodel.cn/api/paas/v4"
+    assert public["display_name"] == "智谱 GLM-5.3-Flash"
+    assert public["model_id"] == "glm-5.3-flash"
+    assert public["endpoint_host"] == "open.bigmodel.cn"
+    assert public["capability"] == "text"
+    assert public["native_web_search_status"] == "unsupported"
+    assert "synthetic-zhipu-key-never-real" not in service.public(config).model_dump_json()
+    session.close()
+
+
 @pytest.mark.parametrize(
     ("capabilities", "status"),
     [
