@@ -23,6 +23,7 @@ import {
 } from "@/components/workbench/ui";
 import { GuidedPageHeader } from "@/components/workbench/guided-page-header";
 import { useWorkbenchShellContext } from "@/components/workbench/workspace-shell";
+import { PublicIntelligenceCenter } from "@/components/public-data/public-intelligence-center";
 
 const csrf = () => sessionStorage.getItem("workspace_csrf") ?? "";
 
@@ -36,6 +37,7 @@ export function HotspotReview({ workspaceId }: { workspaceId: string }) {
   const [research, setResearch] = useState<HotspotResearch>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [view, setView] = useState<"hotspots" | "intelligence">("hotspots");
 
   const refreshSnapshots = useCallback(() => loadHotspotSnapshots(workspaceId).then((items) => {
     setSnapshots(items);
@@ -92,6 +94,11 @@ export function HotspotReview({ workspaceId }: { workspaceId: string }) {
 
   return <div className="space-y-5">
     <GuidedPageHeader pageId="hotspots" />
+    <div className="inline-flex rounded-xl border border-[var(--border)] bg-white p-1" aria-label="热点创作功能">
+      <button className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === "hotspots" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)]"}`} onClick={() => setView("hotspots")} type="button">热点截图创作</button>
+      <button className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === "intelligence" ? "bg-[var(--brand)] text-white" : "text-[var(--text-secondary)]"}`} onClick={() => setView("intelligence")} type="button">对标、评论与日报</button>
+    </div>
+    {view === "intelligence" ? <PublicIntelligenceCenter workspaceId={workspaceId} /> : <>
     {error ? <ErrorState title="当前操作没有完成" description={error} /> : null}
 
     {capture ? <Panel title="第一步：确认截图识别结果">
@@ -148,5 +155,6 @@ export function HotspotReview({ workspaceId }: { workspaceId: string }) {
       {research.saved_content_id ? <p className="mt-4"><Link className="text-[var(--brand)] underline" href={`/workspaces/${workspaceId}/contents/${research.saved_content_id}`}>已保存，前往内容详情继续事实核验和发布前检查</Link></p> : null}
       <p className="mt-4 text-sm text-[var(--text-secondary)]">联网结果和生成内容仍需人工核实；保存不等于发布，平台风控以发布前检查为准。</p>
     </Panel> : null}
+    </>}
   </div>;
 }

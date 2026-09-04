@@ -5,6 +5,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 export type PublicProviderConfig = components["schemas"]["ProviderConfigRead"];
 export type PublicContentBinding = components["schemas"]["ContentBindingRead"];
 export type PublicCollectionJob = components["schemas"]["CollectionJobRead"];
+export type CompetitorAccount = components["schemas"]["CompetitorAccountRead"];
+export type CommentDemand = components["schemas"]["CommentDemandRead"];
+export type PublicOperationsReport = components["schemas"]["PublicOperationsReportRead"];
+export type PublicTrendSearch = components["schemas"]["PublicTrendSearchRead"];
 
 class PublicDataApiError extends Error {
   constructor(
@@ -115,6 +119,99 @@ export function collectPublicContentNow(
     {
       method: "POST",
       headers: { "X-CSRF-Token": csrfToken },
+    },
+  );
+}
+
+export function getCompetitorAccounts(workspaceId: string) {
+  return request<CompetitorAccount[]>(
+    `/v1/workspaces/${workspaceId}/public-data/competitors`,
+  );
+}
+
+export function createCompetitorAccount(
+  workspaceId: string,
+  csrfToken: string,
+  input: {
+    platform: "douyin" | "xiaohongshu";
+    name: string;
+    public_url: string;
+    platform_account_id?: string | null;
+    collection_interval_hours: number;
+  },
+) {
+  return request<CompetitorAccount>(
+    `/v1/workspaces/${workspaceId}/public-data/competitors`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function collectCompetitorAccount(
+  workspaceId: string,
+  competitorId: string,
+  csrfToken: string,
+) {
+  return request<CompetitorAccount>(
+    `/v1/workspaces/${workspaceId}/public-data/competitors/${competitorId}/collect`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+    },
+  );
+}
+
+export function getCommentDemands(workspaceId: string) {
+  return request<CommentDemand[]>(
+    `/v1/workspaces/${workspaceId}/public-data/comment-demands`,
+  );
+}
+
+export function analyzeCommentDemands(
+  workspaceId: string,
+  csrfToken: string,
+  input: {
+    platform: "douyin" | "xiaohongshu";
+    public_url: string;
+    platform_content_id?: string | null;
+  },
+) {
+  return request<CommentDemand>(
+    `/v1/workspaces/${workspaceId}/public-data/comment-demands`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function getPublicOperationsReport(workspaceId: string) {
+  return request<PublicOperationsReport>(
+    `/v1/workspaces/${workspaceId}/public-data/daily-report`,
+  );
+}
+
+export function getPublicTrendSearches(workspaceId: string) {
+  return request<PublicTrendSearch[]>(
+    `/v1/workspaces/${workspaceId}/public-data/trend-searches`,
+  );
+}
+
+export function searchPublicTrends(
+  workspaceId: string,
+  csrfToken: string,
+  input: { platform: "douyin" | "xiaohongshu"; keyword: string },
+) {
+  return request<PublicTrendSearch>(
+    `/v1/workspaces/${workspaceId}/public-data/trend-searches`,
+    {
+      method: "POST",
+      headers: { "X-CSRF-Token": csrfToken },
+      body: JSON.stringify(input),
     },
   );
 }

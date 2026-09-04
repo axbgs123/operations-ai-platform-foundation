@@ -117,3 +117,86 @@ def test_tikhub_maps_rate_limits_to_retryable_error() -> None:
 
     assert captured.value.code == "PUBLIC_PROVIDER_RATE_LIMITED"
     assert captured.value.retryable is True
+
+
+def test_tikhub_collects_competitor_posts_and_comments() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("fetch_video_search_v2"):
+            assert request.method == "POST"
+            assert b'"keyword":"AI"' in request.content
+            return httpx.Response(
+                200,
+                json={
+                    "code": 200,
+                    "request_id": "search-1",
+                    "data": {
+                        "items": [
+                            {
+                                "aweme_id": "search-video-1",
+                                "desc": "AI 热点",
+                                "statistics": {"digg_count": 300},
+                            }
+                        ]
+                    },
+                },
+            )
+        if request.url.path.endswith("fetch_user_post_videos"):
+            assert request.url.params["sec_user_id"] == "sec-user-1"
+            return httpx.Response(
+                200,
+                json={
+                    "code": 200,
+                    "request_id": "posts-1",
+                    "data": {
+                        "aweme_list": [
+                            {
+                                "aweme_id": "video-1",
+                                "desc": "运营提效实测",
+                                "statistics": {
+                                    "play_count": 2000,
+                                    "digg_count": 180,
+                                    "comment_count": 20,
+                                    "collect_count": 45,
+                                    "share_count": 9,
+                                },
+                            }
+                        ]
+                    },
+                },
+            )
+        assert request.url.path.endswith("fetch_video_comments")
+        assert request.url.params["aweme_id"] == "video-1"
+        return httpx.Response(
+            200,
+            json={
+                "code": 200,
+                "request_id": "comments-1",
+                "data": {"comments": [{"text": "这个怎么使用？"}]},
+            },
+        )
+
+    provider = TikHubProvider(
+        api_key="test-key",
+        endpoint_region="global",
+        transport=httpx.MockTransport(handler),
+    )
+
+    posts = provider.fetch_account_posts(
+        platform=Platform.DOUYIN,
+        platform_account_id="sec-user-1",
+    )
+    comments = provider.fetch_content_comments(
+        platform=Platform.DOUYIN,
+        locator={"content_id": "video-1"},
+    )
+    search = provider.search_public_content(
+        platform=Platform.DOUYIN,
+        keyword="AI",
+    )
+
+    assert posts.provider_request_id == "posts-1"
+    assert posts.posts[0]["likes"] == 180
+    assert comments.provider_request_id == "comments-1"
+    assert comments.comments == ["这个怎么使用？"]
+    assert search.provider_request_id == "search-1"
+    assert search.results[0]["title"] == "AI 热点"

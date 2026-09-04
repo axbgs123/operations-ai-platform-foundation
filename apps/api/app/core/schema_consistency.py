@@ -58,6 +58,10 @@ RUNTIME_REQUIRED_TABLES = {
     "public_collection_jobs",
     "public_collection_attempts",
     "public_observations",
+    "competitor_accounts",
+    "competitor_observations",
+    "comment_demand_analyses",
+    "public_trend_searches",
 }
 
 
@@ -74,9 +78,7 @@ def assert_schema_consistent(
             ).scalars()
         )
     except Exception as error:
-        raise SchemaConsistencyError(
-            "database is missing alembic_version"
-        ) from error
+        raise SchemaConsistencyError("database is missing alembic_version") from error
     if versions != {expected_head}:
         rendered = ", ".join(sorted(versions)) or "none"
         raise SchemaConsistencyError(

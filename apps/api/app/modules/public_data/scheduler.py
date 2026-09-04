@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from threading import Event, Thread
 
-from app.modules.public_data.service import run_due_collection_jobs
+from app.modules.public_data.service import (
+    run_due_collection_jobs,
+    run_due_competitor_collections,
+)
 
 
 class PublicDataScheduler:
@@ -32,6 +35,7 @@ class PublicDataScheduler:
         while not self._stop.wait(self._interval_seconds):
             try:
                 run_due_collection_jobs()
+                run_due_competitor_collections()
             except Exception:
                 # A later tick retries database/provider outages; request handling
                 # must not be affected by scheduler availability.

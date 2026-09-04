@@ -215,3 +215,119 @@ class PublicObservation(UUIDPrimaryKeyMixin, Base):
     raw_response: Mapped[dict[str, object]] = mapped_column(JSON)
     raw_sha256: Mapped[str] = mapped_column(String(64))
     normalized_metrics: Mapped[dict[str, int | float | None]] = mapped_column(JSON)
+
+
+class CompetitorAccount(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "competitor_accounts"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_id",
+            "platform",
+            "platform_account_id",
+            name="uq_competitor_workspace_platform_account",
+        ),
+        Index("ix_competitor_workspace", "workspace_id", "platform"),
+        Index("ix_competitor_due", "status", "next_collection_at"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    name: Mapped[str] = mapped_column(String(160))
+    public_url: Mapped[str] = mapped_column(String(2048))
+    platform_account_id: Mapped[str] = mapped_column(String(255))
+    next_collection_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    status: Mapped[BindingStatus] = mapped_column(
+        binding_status_enum, default=BindingStatus.ACTIVE
+    )
+    collection_interval_hours: Mapped[int] = mapped_column(Integer, default=24)
+    last_collected_at: Mapped[datetime | None] = mapped_column(
+        UTCDateTime(), default=None
+    )
+    safe_error_code: Mapped[str | None] = mapped_column(String(100), default=None)
+
+
+class CompetitorObservation(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "competitor_observations"
+    __table_args__ = (
+        Index(
+            "ix_competitor_observation_account",
+            "competitor_account_id",
+            "provider_fetched_at",
+        ),
+        Index("ix_competitor_observation_workspace", "workspace_id", "received_at"),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    competitor_account_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("competitor_accounts.id", ondelete="CASCADE"),
+    )
+    provider: Mapped[str] = mapped_column(String(40))
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    endpoint_contract: Mapped[str] = mapped_column(String(160))
+    provider_fetched_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    received_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    raw_response: Mapped[dict[str, object]] = mapped_column(JSON)
+    raw_sha256: Mapped[str] = mapped_column(String(64))
+    follower_count: Mapped[int | None] = mapped_column(Integer, default=None)
+    posts: Mapped[list[dict[str, object]]] = mapped_column(JSON, default_factory=list)
+
+
+class CommentDemandAnalysis(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "comment_demand_analyses"
+    __table_args__ = (
+        Index("ix_comment_demand_workspace", "workspace_id", "received_at"),
+        Index(
+            "ix_comment_demand_content",
+            "workspace_id",
+            "platform",
+            "platform_content_id",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    public_url: Mapped[str] = mapped_column(String(2048))
+    platform_content_id: Mapped[str] = mapped_column(String(255))
+    provider: Mapped[str] = mapped_column(String(40))
+    endpoint_contract: Mapped[str] = mapped_column(String(160))
+    provider_fetched_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    received_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    raw_response: Mapped[dict[str, object]] = mapped_column(JSON)
+    raw_sha256: Mapped[str] = mapped_column(String(64))
+    comment_count: Mapped[int] = mapped_column(Integer)
+    themes: Mapped[list[dict[str, object]]] = mapped_column(JSON, default_factory=list)
+    top_questions: Mapped[list[str]] = mapped_column(JSON, default_factory=list)
+
+
+class PublicTrendSearch(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "public_trend_searches"
+    __table_args__ = (
+        Index("ix_public_trend_search_workspace", "workspace_id", "received_at"),
+        Index(
+            "ix_public_trend_search_lookup",
+            "workspace_id",
+            "platform",
+            "keyword",
+            "received_at",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE")
+    )
+    platform: Mapped[Platform] = mapped_column(platform_type)
+    keyword: Mapped[str] = mapped_column(String(120))
+    provider: Mapped[str] = mapped_column(String(40))
+    endpoint_contract: Mapped[str] = mapped_column(String(160))
+    provider_fetched_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    received_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    raw_response: Mapped[dict[str, object]] = mapped_column(JSON)
+    raw_sha256: Mapped[str] = mapped_column(String(64))
+    results: Mapped[list[dict[str, object]]] = mapped_column(JSON, default_factory=list)

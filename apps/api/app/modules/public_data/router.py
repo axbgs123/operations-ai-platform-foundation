@@ -10,11 +10,18 @@ from app.core.security import WorkspaceContext
 from app.modules.public_data.contracts import PublicProviderError
 from app.modules.public_data.schemas import (
     CollectionJobRead,
+    CommentDemandInput,
+    CommentDemandRead,
+    CompetitorAccountInput,
+    CompetitorAccountRead,
     ContentBindingInput,
     ContentBindingRead,
     ProviderConfigInput,
     ProviderConfigRead,
     ProviderConnectionRead,
+    PublicOperationsReportRead,
+    PublicTrendSearchInput,
+    PublicTrendSearchRead,
 )
 from app.modules.public_data.service import PublicDataService, run_collection_job
 from app.modules.workspace.auth import InviteAuthService
@@ -228,4 +235,189 @@ def collect_now(
     }
     session.commit()
     background_tasks.add_task(run_collection_job, job.id)
+    return payload
+
+
+@router.get("/competitors", response_model=list[CompetitorAccountRead])
+def list_competitors(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> list[dict[str, object]]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, None, mutation=False),
+    )
+    try:
+        return service.list_competitors()
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+
+
+@router.post("/competitors", response_model=CompetitorAccountRead)
+def create_competitor(
+    workspace_id: UUID,
+    data: CompetitorAccountInput,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> dict[str, object]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, csrf_token, mutation=True),
+    )
+    try:
+        account = service.create_competitor(
+            platform=data.platform,
+            name=data.name,
+            public_url=str(data.public_url),
+            platform_account_id=data.platform_account_id,
+            collection_interval_hours=data.collection_interval_hours,
+        )
+        payload = service.competitor_payload(account)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    session.commit()
+    return payload
+
+
+@router.post(
+    "/competitors/{competitor_id}/collect",
+    response_model=CompetitorAccountRead,
+)
+def collect_competitor(
+    workspace_id: UUID,
+    competitor_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> dict[str, object]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, csrf_token, mutation=True),
+    )
+    try:
+        account = service.collect_competitor(competitor_id)
+        payload = service.competitor_payload(account)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except PublicProviderError as error:
+        session.commit()
+        status_code = 429 if "LIMIT" in error.code or "RATE" in error.code else 422
+        raise HTTPException(status_code=status_code, detail=error.code) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    session.commit()
+    return payload
+
+
+@router.get("/comment-demands", response_model=list[CommentDemandRead])
+def list_comment_demands(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> list[dict[str, object]]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, None, mutation=False),
+    )
+    try:
+        return service.list_comment_analyses()
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+
+
+@router.post("/comment-demands", response_model=CommentDemandRead)
+def analyze_comment_demands(
+    workspace_id: UUID,
+    data: CommentDemandInput,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> dict[str, object]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, csrf_token, mutation=True),
+    )
+    try:
+        item = service.analyze_comments(
+            platform=data.platform,
+            public_url=str(data.public_url),
+            platform_content_id=data.platform_content_id,
+        )
+        payload = service.comment_payload(item)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except PublicProviderError as error:
+        status_code = 429 if "LIMIT" in error.code or "RATE" in error.code else 422
+        raise HTTPException(status_code=status_code, detail=error.code) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    session.commit()
+    return payload
+
+
+@router.get("/daily-report", response_model=PublicOperationsReportRead)
+def daily_report(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> dict[str, object]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, None, mutation=False),
+    )
+    try:
+        return service.report_payload()
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+
+
+@router.get("/trend-searches", response_model=list[PublicTrendSearchRead])
+def list_trend_searches(
+    workspace_id: UUID,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+) -> list[dict[str, object]]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, None, mutation=False),
+    )
+    try:
+        return service.list_trend_searches()
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+
+
+@router.post("/trend-searches", response_model=PublicTrendSearchRead)
+def search_trends(
+    workspace_id: UUID,
+    data: PublicTrendSearchInput,
+    session: DatabaseSession,
+    session_token: Annotated[str | None, Cookie(alias="session")] = None,
+    csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
+) -> dict[str, object]:
+    service = PublicDataService(
+        session,
+        _context(session, workspace_id, session_token, csrf_token, mutation=True),
+    )
+    try:
+        item = service.search_trends(platform=data.platform, keyword=data.keyword)
+        payload = service.trend_search_payload(item)
+    except PermissionDenied as error:
+        raise HTTPException(status_code=403, detail="permission denied") from error
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except PublicProviderError as error:
+        status_code = 429 if "LIMIT" in error.code or "RATE" in error.code else 422
+        raise HTTPException(status_code=status_code, detail=error.code) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    session.commit()
     return payload

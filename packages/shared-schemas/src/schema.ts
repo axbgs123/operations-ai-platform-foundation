@@ -2390,6 +2390,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/public-data/comment-demands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Comment Demands */
+        get: operations["list_comment_demands_v1_workspaces__workspace_id__public_data_comment_demands_get"];
+        put?: never;
+        /** Analyze Comment Demands */
+        post: operations["analyze_comment_demands_v1_workspaces__workspace_id__public_data_comment_demands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/public-data/competitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Competitors */
+        get: operations["list_competitors_v1_workspaces__workspace_id__public_data_competitors_get"];
+        put?: never;
+        /** Create Competitor */
+        post: operations["create_competitor_v1_workspaces__workspace_id__public_data_competitors_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/public-data/competitors/{competitor_id}/collect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Collect Competitor */
+        post: operations["collect_competitor_v1_workspaces__workspace_id__public_data_competitors__competitor_id__collect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/public-data/contents/{content_id}/binding": {
         parameters: {
             query?: never;
@@ -2425,6 +2478,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/workspaces/{workspace_id}/public-data/daily-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Daily Report */
+        get: operations["daily_report_v1_workspaces__workspace_id__public_data_daily_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces/{workspace_id}/public-data/provider": {
         parameters: {
             query?: never;
@@ -2454,6 +2524,24 @@ export interface paths {
         put?: never;
         /** Test Provider */
         post: operations["test_provider_v1_workspaces__workspace_id__public_data_provider_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/workspaces/{workspace_id}/public-data/trend-searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Trend Searches */
+        get: operations["list_trend_searches_v1_workspaces__workspace_id__public_data_trend_searches_get"];
+        put?: never;
+        /** Search Trends */
+        post: operations["search_trends_v1_workspaces__workspace_id__public_data_trend_searches_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4274,6 +4362,134 @@ export interface components {
              * @constant
              */
             restore_account_defaults: true;
+        };
+        /** CommentDemandInput */
+        CommentDemandInput: {
+            platform: components["schemas"]["Platform"];
+            /** Platform Content Id */
+            platform_content_id?: string | null;
+            /**
+             * Public Url
+             * Format: uri
+             */
+            public_url: string;
+        };
+        /** CommentDemandRead */
+        CommentDemandRead: {
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /** Comment Count */
+            comment_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Platform Content Id */
+            platform_content_id: string;
+            /** Provider */
+            provider: string;
+            /** Public Url */
+            public_url: string;
+            /** Themes */
+            themes: components["schemas"]["CommentDemandThemeRead"][];
+            /** Top Questions */
+            top_questions: string[];
+        };
+        /** CommentDemandThemeRead */
+        CommentDemandThemeRead: {
+            /** Count */
+            count: number;
+            /** Examples */
+            examples: string[];
+            /** Theme */
+            theme: string;
+        };
+        /** CompetitorAccountInput */
+        CompetitorAccountInput: {
+            /**
+             * Collection Interval Hours
+             * @default 24
+             */
+            collection_interval_hours: number;
+            /** Name */
+            name: string;
+            platform: components["schemas"]["Platform"];
+            /** Platform Account Id */
+            platform_account_id?: string | null;
+            /**
+             * Public Url
+             * Format: uri
+             */
+            public_url: string;
+        };
+        /** CompetitorAccountRead */
+        CompetitorAccountRead: {
+            /** Collection Interval Hours */
+            collection_interval_hours: number;
+            /** Follower Count */
+            follower_count: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Collected At */
+            last_collected_at: string | null;
+            /** Latest Posts */
+            latest_posts: components["schemas"]["CompetitorPostRead"][];
+            /** Name */
+            name: string;
+            /**
+             * Next Collection At
+             * Format: date-time
+             */
+            next_collection_at: string;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Platform Account Id */
+            platform_account_id: string;
+            /** Public Url */
+            public_url: string;
+            /** Safe Error Code */
+            safe_error_code: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "error" | "disabled";
+        };
+        /** CompetitorPostRead */
+        CompetitorPostRead: {
+            /** Comments */
+            comments: number | null;
+            /** Content Id */
+            content_id: string;
+            /** Favorites */
+            favorites: number | null;
+            /** Likes */
+            likes: number | null;
+            /** Public Url */
+            public_url?: string | null;
+            /** Published At */
+            published_at: string | number | null;
+            /** Shares */
+            shares: number | null;
+            /** Title */
+            title: string;
+            /** Views */
+            views: number | null;
         };
         /** CompletenessItem */
         CompletenessItem: {
@@ -7239,6 +7455,25 @@ export interface components {
              */
             role: "admin" | "editor" | "viewer" | "demo";
         };
+        /** OperationsAlertRead */
+        OperationsAlertRead: {
+            /** Detail */
+            detail: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "competitor_viral" | "own_growth";
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Public Url */
+            public_url: string | null;
+            /** Title */
+            title: string;
+        };
         /**
          * Platform
          * @enum {string}
@@ -7460,6 +7695,54 @@ export interface components {
              * @enum {string}
              */
             status: "verified" | "failed";
+        };
+        /** PublicOperationsReportRead */
+        PublicOperationsReportRead: {
+            /** Actions */
+            actions: string[];
+            /** Alerts */
+            alerts: components["schemas"]["OperationsAlertRead"][];
+            /** Comment Analyses 24H */
+            comment_analyses_24h: number;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Monitored Accounts */
+            monitored_accounts: number;
+            /** Own Updates 24H */
+            own_updates_24h: number;
+        };
+        /** PublicTrendSearchInput */
+        PublicTrendSearchInput: {
+            /** Keyword */
+            keyword: string;
+            platform: components["schemas"]["Platform"];
+        };
+        /** PublicTrendSearchRead */
+        PublicTrendSearchRead: {
+            /**
+             * Collected At
+             * Format: date-time
+             */
+            collected_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Keyword */
+            keyword: string;
+            /**
+             * Platform
+             * @enum {string}
+             */
+            platform: "douyin" | "xiaohongshu";
+            /** Provider */
+            provider: string;
+            /** Results */
+            results: components["schemas"]["CompetitorPostRead"][];
         };
         /**
          * QianwenRegion
@@ -14778,6 +15061,186 @@ export interface operations {
             };
         };
     };
+    list_comment_demands_v1_workspaces__workspace_id__public_data_comment_demands_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentDemandRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyze_comment_demands_v1_workspaces__workspace_id__public_data_comment_demands_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentDemandInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentDemandRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_competitors_v1_workspaces__workspace_id__public_data_competitors_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetitorAccountRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_competitor_v1_workspaces__workspace_id__public_data_competitors_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompetitorAccountInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetitorAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    collect_competitor_v1_workspaces__workspace_id__public_data_competitors__competitor_id__collect_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+                competitor_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompetitorAccountRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_binding_v1_workspaces__workspace_id__public_data_contents__content_id__binding_get: {
         parameters: {
             query?: never;
@@ -14888,6 +15351,39 @@ export interface operations {
             };
         };
     };
+    daily_report_v1_workspaces__workspace_id__public_data_daily_report_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOperationsReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_provider_v1_workspaces__workspace_id__public_data_provider_get: {
         parameters: {
             query?: never;
@@ -14982,6 +15478,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProviderConnectionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_trend_searches_v1_workspaces__workspace_id__public_data_trend_searches_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicTrendSearchRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_trends_v1_workspaces__workspace_id__public_data_trend_searches_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-CSRF-Token"?: string | null;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: {
+                session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicTrendSearchInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicTrendSearchRead"];
                 };
             };
             /** @description Validation Error */

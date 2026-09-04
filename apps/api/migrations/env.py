@@ -22,6 +22,7 @@ from app.modules.exports import models as export_models  # noqa: F401
 from app.modules.workspace import models  # noqa: F401
 from app.core import observability as observability_models  # noqa: F401
 from app.modules.operations_agent import models as operations_agent_models  # noqa: F401
+from app.modules.public_data import models as public_data_models  # noqa: F401
 
 
 config = context.config

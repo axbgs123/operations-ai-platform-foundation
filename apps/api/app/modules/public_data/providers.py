@@ -6,9 +6,12 @@ import httpx
 
 from app.modules.content.account_models import Platform
 from app.modules.public_data.contracts import (
+    PublicAccountObservation,
+    PublicCommentObservation,
     PublicDataProvider,
     PublicMetricObservation,
     PublicProviderError,
+    PublicSearchObservation,
     ResolvedPublicContent,
 )
 
@@ -52,6 +55,70 @@ def _count(value: object, *keys: str) -> int | float | None:
     return None
 
 
+def _first_list(value: object, *keys: str) -> list[object]:
+    for item in _walk_dicts(value):
+        for key in keys:
+            candidate = item.get(key)
+            if isinstance(candidate, list):
+                return candidate
+    return []
+
+
+def _normalized_post(value: object, platform: Platform) -> dict[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    content_id = _first_value(value, "aweme_id", "note_id", "noteId")
+    if content_id is None:
+        direct_id = value.get("id")
+        content_id = direct_id if isinstance(direct_id, (str, int)) else None
+    if not isinstance(content_id, (str, int)):
+        return None
+    title = _first_value(value, "desc", "display_title", "displayTitle", "title")
+    published_at = _first_value(value, "create_time", "time", "publish_time")
+    public_url = _first_value(value, "share_url", "note_url", "jump_url", "web_url")
+    if not isinstance(public_url, str) or not public_url.startswith("https://"):
+        public_url = (
+            f"https://www.douyin.com/video/{content_id}"
+            if platform is Platform.DOUYIN
+            else f"https://www.xiaohongshu.com/explore/{content_id}"
+        )
+    return {
+        "content_id": str(content_id),
+        "public_url": public_url,
+        "title": str(title)[:300] if isinstance(title, (str, int)) else "未提供标题",
+        "published_at": published_at
+        if isinstance(published_at, (str, int, float))
+        else None,
+        "views": _count(value, "play_count", "view_count", "viewCount"),
+        "likes": _count(value, "digg_count", "liked_count", "like_count", "likedCount"),
+        "comments": _count(value, "comment_count", "commentCount"),
+        "favorites": _count(
+            value, "collect_count", "collected_count", "collectedCount"
+        ),
+        "shares": _count(value, "share_count", "shareCount"),
+    }
+
+
+def _comment_texts(payload: object) -> list[str]:
+    candidates = _first_list(payload, "comments", "comment_list", "commentList")
+    output: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        text = _first_value(candidate, "text", "content", "comment_text")
+        if not isinstance(text, str):
+            continue
+        normalized = " ".join(text.split()).strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        output.append(normalized[:500])
+        if len(output) >= 100:
+            break
+    return output
+
+
 class TikHubProvider(PublicDataProvider):
     name = "tikhub"
 
@@ -76,9 +143,17 @@ class TikHubProvider(PublicDataProvider):
         self,
         path: str,
         params: dict[str, str | int | float | bool | None] | None = None,
+        *,
+        method: str = "GET",
+        json_body: dict[str, object] | None = None,
     ) -> dict[str, object]:
         try:
-            response = self._client.get(path, params=params)
+            response = self._client.request(
+                method,
+                path,
+                params=params,
+                json=json_body,
+            )
         except (httpx.TimeoutException, httpx.NetworkError) as error:
             raise PublicProviderError(
                 "PUBLIC_PROVIDER_TIMEOUT", retryable=True
@@ -208,6 +283,101 @@ class TikHubProvider(PublicDataProvider):
             metrics=metrics,
         )
 
+    def fetch_account_posts(
+        self,
+        *,
+        platform: Platform,
+        platform_account_id: str,
+    ) -> PublicAccountObservation:
+        if platform is Platform.DOUYIN:
+            path = "/api/v1/douyin/app/v3/fetch_user_post_videos"
+            payload = self._request(
+                path,
+                {"sec_user_id": platform_account_id, "max_cursor": 0, "count": 20},
+            )
+            candidates = _first_list(payload.get("data"), "aweme_list", "items")
+            contract = "tikhub-douyin-app-v3-user-posts-v1"
+        else:
+            path = "/api/v1/xiaohongshu/web_v3/fetch_user_notes"
+            payload = self._request(
+                path,
+                {"user_id": platform_account_id, "cursor": "", "num": 20},
+            )
+            candidates = _first_list(payload.get("data"), "notes", "items")
+            contract = "tikhub-xiaohongshu-web-v3-user-notes-v1"
+        posts = [
+            post for item in candidates if (post := _normalized_post(item, platform))
+        ]
+        request_id = payload.get("request_id")
+        return PublicAccountObservation(
+            endpoint_contract=contract,
+            provider_request_id=request_id if isinstance(request_id, str) else None,
+            fetched_at=datetime.now(UTC),
+            raw_response=payload,
+            follower_count=_count(
+                payload.get("data"), "follower_count", "fans_count", "fans"
+            ),
+            posts=posts,
+        )
+
+    def fetch_content_comments(
+        self,
+        *,
+        platform: Platform,
+        locator: dict[str, str],
+    ) -> PublicCommentObservation:
+        content_id = locator["content_id"]
+        if platform is Platform.DOUYIN:
+            path = "/api/v1/douyin/app/v3/fetch_video_comments"
+            payload = self._request(
+                path, {"aweme_id": content_id, "cursor": 0, "count": 50}
+            )
+            contract = "tikhub-douyin-app-v3-comments-v1"
+        else:
+            path = "/api/v1/xiaohongshu/web_v3/fetch_note_comments"
+            payload = self._request(path, {"note_id": content_id, "cursor": ""})
+            contract = "tikhub-xiaohongshu-web-v3-comments-v1"
+        request_id = payload.get("request_id")
+        return PublicCommentObservation(
+            endpoint_contract=contract,
+            provider_request_id=request_id if isinstance(request_id, str) else None,
+            fetched_at=datetime.now(UTC),
+            raw_response=payload,
+            comments=_comment_texts(payload.get("data")),
+        )
+
+    def search_public_content(
+        self,
+        *,
+        platform: Platform,
+        keyword: str,
+    ) -> PublicSearchObservation:
+        if platform is Platform.DOUYIN:
+            path = "/api/v1/douyin/search/fetch_video_search_v2"
+            payload = self._request(
+                path,
+                method="POST",
+                json_body={"keyword": keyword, "cursor": 0},
+            )
+            candidates = _first_list(payload.get("data"), "aweme_list", "items", "data")
+            contract = "tikhub-douyin-search-v2-v1"
+        else:
+            path = "/api/v1/xiaohongshu/web_v3/fetch_search_notes"
+            payload = self._request(path, {"keyword": keyword, "page": 1})
+            candidates = _first_list(payload.get("data"), "notes", "items")
+            contract = "tikhub-xiaohongshu-web-v3-search-v1"
+        results = [
+            post for item in candidates if (post := _normalized_post(item, platform))
+        ]
+        request_id = payload.get("request_id")
+        return PublicSearchObservation(
+            endpoint_contract=contract,
+            provider_request_id=request_id if isinstance(request_id, str) else None,
+            fetched_at=datetime.now(UTC),
+            raw_response=payload,
+            results=results[:20],
+        )
+
 
 class MockPublicDataProvider(PublicDataProvider):
     name = "mock"
@@ -255,4 +425,113 @@ class MockPublicDataProvider(PublicDataProvider):
                 "data": {"id": locator["content_id"], **metrics},
             },
             metrics=metrics,
+        )
+
+    def fetch_account_posts(
+        self,
+        *,
+        platform: Platform,
+        platform_account_id: str,
+    ) -> PublicAccountObservation:
+        posts = [
+            {
+                "content_id": f"{platform_account_id}-1",
+                "public_url": f"https://example.com/{platform.value}/mock-1",
+                "title": "常规内容 A",
+                "published_at": 1_785_715_200,
+                "views": 900,
+                "likes": 45,
+                "comments": 6,
+                "favorites": 12,
+                "shares": 3,
+            },
+            {
+                "content_id": f"{platform_account_id}-2",
+                "public_url": f"https://example.com/{platform.value}/mock-2",
+                "title": "常规内容 B",
+                "published_at": 1_785_801_600,
+                "views": 1200,
+                "likes": 61,
+                "comments": 8,
+                "favorites": 15,
+                "shares": 5,
+            },
+            {
+                "content_id": f"{platform_account_id}-3",
+                "public_url": f"https://example.com/{platform.value}/mock-3",
+                "title": "高互动内容：运营提效实测",
+                "published_at": 1_785_888_000,
+                "views": 12600,
+                "likes": 980,
+                "comments": 126,
+                "favorites": 340,
+                "shares": 88,
+            },
+        ]
+        return PublicAccountObservation(
+            endpoint_contract=f"mock-{platform.value}-account-posts-v1",
+            provider_request_id="mock-account-posts",
+            fetched_at=datetime.now(UTC),
+            raw_response={
+                "code": 200,
+                "data": {"account_id": platform_account_id, "posts": posts},
+            },
+            follower_count=12500,
+            posts=posts,
+        )
+
+    def fetch_content_comments(
+        self,
+        *,
+        platform: Platform,
+        locator: dict[str, str],
+    ) -> PublicCommentObservation:
+        comments = [
+            "这个工具多少钱，在哪里可以买？",
+            "能不能出一期从下载安装到使用的教程？",
+            "和同类产品相比有什么区别？",
+            "实际使用会不会很复杂？",
+            "希望增加批量导入功能。",
+            "已经试过了，节省时间很明显。",
+        ]
+        return PublicCommentObservation(
+            endpoint_contract=f"mock-{platform.value}-comments-v1",
+            provider_request_id="mock-comments",
+            fetched_at=datetime.now(UTC),
+            raw_response={
+                "code": 200,
+                "data": {
+                    "content_id": locator["content_id"],
+                    "comments": [{"text": item} for item in comments],
+                },
+            },
+            comments=comments,
+        )
+
+    def search_public_content(
+        self,
+        *,
+        platform: Platform,
+        keyword: str,
+    ) -> PublicSearchObservation:
+        results = [
+            {
+                "content_id": f"mock-search-{index}",
+                "public_url": f"https://example.com/{platform.value}/search-{index}",
+                "title": f"{keyword}：公开内容示例 {index}",
+                "published_at": 1_785_888_000 + index,
+                "views": 1000 * index,
+                "likes": 80 * index,
+                "comments": 10 * index,
+                "favorites": 25 * index,
+                "shares": 5 * index,
+            }
+            for index in range(1, 4)
+        ]
+        return PublicSearchObservation(
+            endpoint_contract=f"mock-{platform.value}-search-v1",
+            provider_request_id="mock-search",
+            fetched_at=datetime.now(UTC),
+            raw_response={"code": 200, "data": {"keyword": keyword, "items": results}},
+            results=results,
         )

@@ -63,45 +63,49 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             "risk_chunk_embeddings",
             "risk_scans",
             "risk_scan_feedback",
-                "risk_feedback_events",
-                "extension_tokens",
-                "extension_pairing_codes",
-                "extension_device_bindings",
-                "extension_capture_tasks",
-                "export_jobs",
-                "restore_jobs",
-                "knowledge_index_rebuilds",
-                "retention_policies",
-                "managed_objects",
-                "workspace_deletion_confirmations",
-                "workspace_deletion_jobs",
-                "deletion_audits",
-                "task_operation_events",
-                "cover_generation_runs",
-                "cover_artifact_attempts",
-                "model_usage_policies",
-                "model_usage_reservations",
-                "model_usage_attempts",
-                "model_contract_validation_runs",
-                "agent_briefings",
-                "agent_plans",
-                "agent_runs",
-                "agent_run_steps",
-                "agent_confirmations",
-                "agent_artifacts",
-                "agent_events",
-                "agent_chat_sessions",
-                "agent_chat_messages",
-                "hotspot_capture_tasks",
-                "hotspot_snapshots",
-                "hotspot_entries",
-                "hotspot_research",
-                "public_data_provider_configs",
-                "published_content_bindings",
-                "public_collection_jobs",
-                "public_collection_attempts",
-                "public_observations",
-            } <= tables
+            "risk_feedback_events",
+            "extension_tokens",
+            "extension_pairing_codes",
+            "extension_device_bindings",
+            "extension_capture_tasks",
+            "export_jobs",
+            "restore_jobs",
+            "knowledge_index_rebuilds",
+            "retention_policies",
+            "managed_objects",
+            "workspace_deletion_confirmations",
+            "workspace_deletion_jobs",
+            "deletion_audits",
+            "task_operation_events",
+            "cover_generation_runs",
+            "cover_artifact_attempts",
+            "model_usage_policies",
+            "model_usage_reservations",
+            "model_usage_attempts",
+            "model_contract_validation_runs",
+            "agent_briefings",
+            "agent_plans",
+            "agent_runs",
+            "agent_run_steps",
+            "agent_confirmations",
+            "agent_artifacts",
+            "agent_events",
+            "agent_chat_sessions",
+            "agent_chat_messages",
+            "hotspot_capture_tasks",
+            "hotspot_snapshots",
+            "hotspot_entries",
+            "hotspot_research",
+            "public_data_provider_configs",
+            "published_content_bindings",
+            "public_collection_jobs",
+            "public_collection_attempts",
+            "public_observations",
+            "competitor_accounts",
+            "competitor_observations",
+            "comment_demand_analyses",
+            "public_trend_searches",
+        } <= tables
 
         agent_run_columns = {
             column["name"]
@@ -160,9 +164,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
 
         access_code_columns = {
             column["name"]
-            for column in inspect(migrated_engine).get_columns(
-                "workspace_access_codes"
-            )
+            for column in inspect(migrated_engine).get_columns("workspace_access_codes")
         }
         assert "code_hash" in access_code_columns
         assert "code" not in access_code_columns
@@ -197,9 +199,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         } <= model_config_columns
         analysis_run_columns = {
             column["name"]
-            for column in inspect(migrated_engine).get_columns(
-                "analysis_runs"
-            )
+            for column in inspect(migrated_engine).get_columns("analysis_runs")
         }
         assert {
             "model_config_id",
@@ -300,9 +300,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         } <= risk_chunk_columns
         risk_embedding_columns = {
             column["name"]: column
-            for column in inspect(migrated_engine).get_columns(
-                "risk_chunk_embeddings"
-            )
+            for column in inspect(migrated_engine).get_columns("risk_chunk_embeddings")
         }
         assert {
             "workspace_id",
@@ -322,9 +320,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         } <= risk_embedding_columns.keys()
         risk_scan_columns = {
             column["name"]
-            for column in inspect(migrated_engine).get_columns(
-                "risk_scans"
-            )
+            for column in inspect(migrated_engine).get_columns("risk_scans")
         }
         assert {
             "workspace_id",
@@ -356,9 +352,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         } <= risk_scan_columns
         risk_feedback_columns = {
             column["name"]
-            for column in inspect(migrated_engine).get_columns(
-                "risk_scan_feedback"
-            )
+            for column in inspect(migrated_engine).get_columns("risk_scan_feedback")
         }
         assert {
             "workspace_id",
@@ -380,9 +374,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         } <= risk_feedback_columns
         risk_feedback_event_columns = {
             column["name"]
-            for column in inspect(migrated_engine).get_columns(
-                "risk_feedback_events"
-            )
+            for column in inspect(migrated_engine).get_columns("risk_feedback_events")
         }
         assert {
             "workspace_id",
@@ -393,9 +385,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         } <= risk_feedback_event_columns
         extension_token_columns = {
             column["name"]
-            for column in inspect(migrated_engine).get_columns(
-                "extension_tokens"
-            )
+            for column in inspect(migrated_engine).get_columns("extension_tokens")
         }
         assert {
             "workspace_id",
@@ -432,9 +422,9 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
             )
         }
         assert device_indexes["ix_extension_device_bindings_device_id"]["unique"]
-        assert device_indexes[
-            "ix_extension_device_bindings_public_key_fingerprint"
-        ]["unique"]
+        assert device_indexes["ix_extension_device_bindings_public_key_fingerprint"][
+            "unique"
+        ]
         assert device_indexes["ix_extension_device_bindings_workspace_id"]
         assert device_indexes["ix_extension_device_bindings_member_id"]
         pairing_code_columns = {
@@ -509,20 +499,18 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "agent_runs",
                     "agent_run_steps",
                     "agent_confirmations",
-                        "agent_artifacts",
-                        "agent_events",
-                        "agent_chat_sessions",
-                        "agent_chat_messages",
-                        "hotspot_capture_tasks",
-                        "hotspot_snapshots",
-                        "hotspot_entries",
-                        "hotspot_research",
-                    },
+                    "agent_artifacts",
+                    "agent_events",
+                    "agent_chat_sessions",
+                    "agent_chat_messages",
+                    "hotspot_capture_tasks",
+                    "hotspot_snapshots",
+                    "hotspot_entries",
+                    "hotspot_research",
+                },
             )
             extensions = set(
-                connection.execute(
-                    text("SELECT extname FROM pg_extension")
-                ).scalars()
+                connection.execute(text("SELECT extname FROM pg_extension")).scalars()
             )
             vector_type = connection.scalar(
                 text(

@@ -22,6 +22,34 @@ class PublicMetricObservation:
     metrics: dict[str, int | float | None]
 
 
+@dataclass(frozen=True, slots=True)
+class PublicAccountObservation:
+    endpoint_contract: str
+    provider_request_id: str | None
+    fetched_at: datetime
+    raw_response: dict[str, object]
+    follower_count: int | float | None
+    posts: list[dict[str, object]]
+
+
+@dataclass(frozen=True, slots=True)
+class PublicCommentObservation:
+    endpoint_contract: str
+    provider_request_id: str | None
+    fetched_at: datetime
+    raw_response: dict[str, object]
+    comments: list[str]
+
+
+@dataclass(frozen=True, slots=True)
+class PublicSearchObservation:
+    endpoint_contract: str
+    provider_request_id: str | None
+    fetched_at: datetime
+    raw_response: dict[str, object]
+    results: list[dict[str, object]]
+
+
 class PublicDataProvider(Protocol):
     name: str
 
@@ -41,6 +69,27 @@ class PublicDataProvider(Protocol):
         platform: Platform,
         locator: dict[str, str],
     ) -> PublicMetricObservation: ...
+
+    def fetch_account_posts(
+        self,
+        *,
+        platform: Platform,
+        platform_account_id: str,
+    ) -> PublicAccountObservation: ...
+
+    def fetch_content_comments(
+        self,
+        *,
+        platform: Platform,
+        locator: dict[str, str],
+    ) -> PublicCommentObservation: ...
+
+    def search_public_content(
+        self,
+        *,
+        platform: Platform,
+        keyword: str,
+    ) -> PublicSearchObservation: ...
 
 
 class PublicProviderError(RuntimeError):

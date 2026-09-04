@@ -243,3 +243,84 @@ def test_daily_limit_counts_connection_and_blocks_more_provider_calls() -> None:
         )
         assert blocked.status_code == 429
         assert blocked.json()["detail"] == "PUBLIC_PROVIDER_DAILY_LIMIT_REACHED"
+
+
+def test_competitor_comment_demand_and_daily_report_flow() -> None:
+    with configured_client() as (client, _):
+        workspace_id, csrf, _ = _workspace_account_content(client)
+        headers = {"X-CSRF-Token": csrf}
+
+        created = client.post(
+            f"/v1/workspaces/{workspace_id}/public-data/competitors",
+            headers=headers,
+            json={
+                "platform": "douyin",
+                "name": "同赛道账号",
+                "public_url": "https://www.douyin.com/user/sec-user-1",
+                "collection_interval_hours": 24,
+            },
+        )
+        assert created.status_code == 200
+        assert created.json()["platform_account_id"] == "sec-user-1"
+        assert created.json()["latest_posts"] == []
+
+        collected = client.post(
+            f"/v1/workspaces/{workspace_id}/public-data/competitors/{created.json()['id']}/collect",
+            headers=headers,
+        )
+        assert collected.status_code == 200
+        assert len(collected.json()["latest_posts"]) == 3
+        assert collected.json()["follower_count"] == 12500
+
+        analyzed = client.post(
+            f"/v1/workspaces/{workspace_id}/public-data/comment-demands",
+            headers=headers,
+            json={
+                "platform": "douyin",
+                "public_url": "https://www.douyin.com/video/73000123456789",
+            },
+        )
+        assert analyzed.status_code == 200
+        assert analyzed.json()["comment_count"] == 6
+        assert {item["theme"] for item in analyzed.json()["themes"]} >= {
+            "价格与购买",
+            "教程与使用",
+        }
+        assert analyzed.json()["top_questions"]
+
+        searched = client.post(
+            f"/v1/workspaces/{workspace_id}/public-data/trend-searches",
+            headers=headers,
+            json={"platform": "douyin", "keyword": "AI 工具"},
+        )
+        assert searched.status_code == 200
+        assert searched.json()["keyword"] == "AI 工具"
+        assert len(searched.json()["results"]) == 3
+        search_history = client.get(
+            f"/v1/workspaces/{workspace_id}/public-data/trend-searches"
+        )
+        assert search_history.status_code == 200
+        assert search_history.json()[0]["id"] == searched.json()["id"]
+
+        report = client.get(f"/v1/workspaces/{workspace_id}/public-data/daily-report")
+        assert report.status_code == 200
+        assert report.json()["monitored_accounts"] == 1
+        assert report.json()["comment_analyses_24h"] == 1
+        assert report.json()["alerts"][0]["kind"] == "competitor_viral"
+        assert report.json()["actions"]
+
+
+def test_competitor_requires_matching_public_profile_and_workspace() -> None:
+    with configured_client() as (client, _):
+        workspace_id, csrf, _ = _workspace_account_content(client)
+        rejected = client.post(
+            f"/v1/workspaces/{workspace_id}/public-data/competitors",
+            headers={"X-CSRF-Token": csrf},
+            json={
+                "platform": "douyin",
+                "name": "错误平台",
+                "public_url": "https://www.xiaohongshu.com/user/profile/user-1",
+            },
+        )
+        assert rejected.status_code == 422
+        assert "平台不匹配" in rejected.json()["detail"]

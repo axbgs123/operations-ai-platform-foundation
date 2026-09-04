@@ -108,7 +108,7 @@ export function PublicDataProviderSettings({ workspaceId }: { workspaceId: strin
   return (
     <div className="space-y-6">
       <PageHeader
-        description="接入 TikHub 后，平台会在作品发布后 1 小时、24 小时、3 天和 7 天自动回收公开互动数据。"
+        description="接入 TikHub 后，可自动回收作品数据，也可监测对标账号和分析公开评论。"
         title="公开数据采集"
       />
       <Panel
@@ -198,6 +198,7 @@ export function PublicDataProviderSettings({ workspaceId }: { workspaceId: strin
           <li>打开一条内容，在“数据快照”中粘贴公开作品链接。</li>
           <li>系统按 1 小时、24 小时、3 天、7 天自动采集，也可以随时手动采集。</li>
           <li>采集结果直接进入数据快照，可继续用于内容分析。</li>
+          <li>前往“热点创作 → 对标、评论与日报”，添加对标账号或分析公开评论。</li>
         </ol>
       </Panel>
     </div>
