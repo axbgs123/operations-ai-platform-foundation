@@ -392,7 +392,9 @@ class PublicDataService:
                 PublicCollectionJob(
                     workspace_id=binding.workspace_id,
                     binding_id=binding.id,
-                    target_window=f"late-{uuid7()}",
+                    # Keep the generated label inside the database's VARCHAR(40).
+                    # UUID.hex is still unique for this per-binding recovery job.
+                    target_window=f"late-{uuid7().hex}",
                     due_at=now,
                     next_attempt_at=now,
                 )
@@ -439,7 +441,7 @@ class PublicDataService:
         job = PublicCollectionJob(
             workspace_id=self._context.workspace_id,
             binding_id=binding.id,
-            target_window=f"manual-{uuid7()}",
+            target_window=f"manual-{uuid7().hex}",
             due_at=now,
             next_attempt_at=now,
         )

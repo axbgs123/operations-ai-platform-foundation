@@ -9,6 +9,7 @@ export default defineConfig({
     "backup-restore.spec.ts",
     "demo.spec.ts",
     "operations-agent.spec.ts",
+    "public-intelligence.spec.ts",
   ],
   workers: 1,
   use: {

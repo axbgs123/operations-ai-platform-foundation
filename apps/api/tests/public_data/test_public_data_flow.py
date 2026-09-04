@@ -125,8 +125,29 @@ def test_config_binding_schedule_and_manual_collection(monkeypatch) -> None:
             "72h",
             "7d",
         ]
+        assert all(len(job["target_window"]) <= 40 for job in payload["jobs"])
         usage = client.get(f"/v1/workspaces/{workspace_id}/public-data/provider").json()
         assert usage["daily_requests_used"] == 2
+
+        late_bound = client.put(
+            f"/v1/workspaces/{workspace_id}/public-data/contents/{content['id']}/binding",
+            headers=headers,
+            json={
+                "public_url": "https://www.douyin.com/video/73000123456789",
+                "platform_content_id": "73000123456789",
+                "published_at": (
+                    datetime.now(UTC) - timedelta(hours=2)
+                ).isoformat(),
+            },
+        )
+        assert late_bound.status_code == 200
+        late_labels = [
+            job["target_window"]
+            for job in late_bound.json()["jobs"]
+            if job["target_window"].startswith("late-")
+        ]
+        assert len(late_labels) == 1
+        assert len(late_labels[0]) <= 40
 
         executed: list[UUID] = []
         monkeypatch.setattr(
@@ -139,6 +160,7 @@ def test_config_binding_schedule_and_manual_collection(monkeypatch) -> None:
         )
         assert manual.status_code == 202
         assert manual.json()["target_window"].startswith("manual-")
+        assert len(manual.json()["target_window"]) <= 40
         assert executed == [UUID(manual.json()["id"])]
 
         monkeypatch.setattr("app.modules.public_data.service.SessionFactory", factory)
@@ -181,7 +203,7 @@ def test_config_binding_schedule_and_manual_collection(monkeypatch) -> None:
                         PublicDataProviderConfig.workspace_id == UUID(workspace_id)
                     )
                 )
-                == 3
+                    == 4
             )
 
 

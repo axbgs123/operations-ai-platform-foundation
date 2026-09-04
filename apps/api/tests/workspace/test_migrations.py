@@ -466,7 +466,7 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
         with migrated_engine.connect() as connection:
             assert_schema_consistent(
                 connection,
-                expected_head="20260813_0044",
+                expected_head="20260904_0046",
                 required_tables={
                     "risk_documents",
                     "risk_chunks",
@@ -507,6 +507,15 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                     "hotspot_snapshots",
                     "hotspot_entries",
                     "hotspot_research",
+                    "public_data_provider_configs",
+                    "published_content_bindings",
+                    "public_collection_jobs",
+                    "public_collection_attempts",
+                    "public_observations",
+                    "competitor_accounts",
+                    "competitor_observations",
+                    "comment_demand_analyses",
+                    "public_trend_searches",
                 },
             )
             extensions = set(

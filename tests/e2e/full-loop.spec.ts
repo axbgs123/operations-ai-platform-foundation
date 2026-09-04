@@ -870,7 +870,7 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
       "账号风格": { category: "资产", navigation: "策略资产功能" },
       "生成中心": { category: "创作", navigation: "AI 创作功能" },
       "发布前检查": { category: "创作", navigation: "AI 创作功能" },
-      "导出与备份": { category: "管理", navigation: "工作区管理功能" },
+      "导出数据": { category: "管理", navigation: "工作区管理功能" },
     };
     const openModule = async (label: string, heading: string) => {
       const target = categoryForModule[label];
@@ -939,6 +939,6 @@ test("synthetic Mock Provider full product loop preserves platform and workspace
       ).toHaveAttribute("aria-current", "step");
     }
     await openModule("发布前检查", "发布前检查");
-    await openModule("导出与备份", "导出与备份");
+    await openModule("导出数据", "导出数据");
   });
 });
