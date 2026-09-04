@@ -16,12 +16,16 @@ from app.modules.content.router import (
 from app.modules.demo.router import router as demo_router
 from app.modules.exports.router import router as exports_router
 from app.modules.imports.extension_router import router as extension_router
-from app.modules.imports.extension_router import review_router as extension_review_router
+from app.modules.imports.extension_router import (
+    review_router as extension_review_router,
+)
 from app.modules.imports.router import router as imports_router
 from app.modules.metrics.dashboard_router import router as dashboard_router
 from app.modules.metrics.router import router as metrics_router
 from app.modules.models.router import router as model_configs_router
 from app.modules.operations_agent.router import router as operations_agent_router
+from app.modules.public_data.router import router as public_data_router
+from app.modules.public_data.scheduler import PublicDataScheduler
 from app.modules.risk_rag.router import scan_router as risk_scans_router
 from app.modules.style_facts.style_router import router as style_profiles_router
 from app.modules.style_facts.fact_router import router as fact_sources_router
@@ -32,6 +36,7 @@ from app.modules.hotspots.router import (
 )
 from app.modules.workspace.router import router as workspace_router
 from app.modules.workbench.router import router as workbench_router
+
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     runtime_settings = settings or get_settings()
@@ -63,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(local_storage_router)
     application.include_router(workbench_router)
     application.include_router(operations_agent_router)
+    application.include_router(public_data_router)
     application.include_router(demo_router)
     application.include_router(exports_router)
     application.include_router(imports_router)
@@ -112,6 +118,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @application.get("/healthz")
     def healthcheck() -> dict[str, str]:
         return {"status": "ok"}
+
+    if runtime_settings.public_data_scheduler_enabled:
+        scheduler = PublicDataScheduler(
+            interval_seconds=runtime_settings.public_data_scheduler_interval_seconds
+        )
+
+        @application.on_event("startup")
+        def start_public_data_scheduler() -> None:
+            scheduler.start()
+
+        @application.on_event("shutdown")
+        def stop_public_data_scheduler() -> None:
+            scheduler.stop()
 
     return application
 

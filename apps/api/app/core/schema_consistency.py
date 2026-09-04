@@ -53,6 +53,11 @@ RUNTIME_REQUIRED_TABLES = {
     "hotspot_snapshots",
     "hotspot_research",
     "hotspot_entries",
+    "public_data_provider_configs",
+    "published_content_bindings",
+    "public_collection_jobs",
+    "public_collection_attempts",
+    "public_observations",
 }
 
 

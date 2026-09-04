@@ -32,7 +32,13 @@ class MetricValuesInput(BaseModel):
     values: dict[str, Decimal | None]
 
 
-SnapshotSourceValue = Literal["manual", "tabular_import", "screenshot", "extension"]
+SnapshotSourceValue = Literal[
+    "manual",
+    "tabular_import",
+    "screenshot",
+    "extension",
+    "public_api",
+]
 
 
 class SnapshotMetricInput(BaseModel):

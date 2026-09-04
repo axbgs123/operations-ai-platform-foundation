@@ -88,6 +88,7 @@ _SOURCES: set[object] = {
     "xlsx",
     "screenshot",
     "extension",
+    "public_api",
 }
 _PROPERTY_RULES: dict[EventName, dict[str, set[object] | None]] = {
     EventName.COLLECTION_STARTED: {"source": _SOURCES},

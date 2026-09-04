@@ -13,6 +13,7 @@
 - 将确认过的爆款结构、账号风格和事实资料复用于 AI 创作；
 - 生成标题、文案和封面，并在保存前执行事实与风险检查；
 - 通过浏览器扩展采集已登录创作者页面的截图，识别后再由人工确认；
+- 可选接入 TikHub，在作品发布后定时回收抖音和小红书公开互动数据；
 - 使用自带 API Key 的模型配置和可保存记录的运营智能体；
 - 导出 CSV、单条分析报告和 JSON 结构化数据。
 
@@ -25,7 +26,7 @@
 ## 范围与边界
 
 - 管理内容、运营数据、动态基准、分析、建议、风格、事实资料、生成、风控、截图采集、导出与恢复。
-- 不自动发布平台内容；不保存或代填平台账号密码；不保存 Cookie；不绕过验证码或平台权限；不调用非官方隐藏接口批量抓取数据。
+- 不自动发布平台内容；不保存或代填平台账号密码；不保存 Cookie；不绕过验证码或平台权限。可选 TikHub 适配器仅读取公开作品数据，使用者需自行确认合规性与费用。
 - 默认使用 Mock LLM、Mock OCR/视觉、Mock 封面和固定 Mock Embedding。可选千问适配器仍为 `experimental`，只完成 Mock/Fake 工程合同验证，尚未执行真实 API 验收；默认配置不会访问或计费。
 - 公开 Demo 是独立、只读的合成工作区；真实工作区需要受控成员访问，不能把 Demo 数据、指标或资产混入其中。
 
@@ -35,6 +36,7 @@
 
 - [系统架构](docs/architecture/system.md)、[数据模型](docs/architecture/data-model.md)、[模型适配](docs/architecture/model-adapters.md)、[千问配置与用量治理](docs/open-source/qianwen-model-configuration.md)
 - [轻量部署](docs/open-source/lite-deployment.md)、[完整版部署](docs/open-source/deployment.md)、[备份恢复边界](docs/open-source/backup-restore.md)
+- [TikHub 公开作品数据采集](docs/open-source/public-data-collection.md)
 - [扩展安装](docs/open-source/extension-installation.md)、[扩展隐私](docs/open-source/extension-privacy.md)、[真实页面验证状态](docs/open-source/extension-validation-status.md)
 - [许可证决定](docs/open-source/license-decision.md)、[供应链安全](docs/open-source/supply-chain-security.md)、[发布清单](docs/open-source/release-checklist.md)、[第三方资产](docs/open-source/third-party-assets.md)
 

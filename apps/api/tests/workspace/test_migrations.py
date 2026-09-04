@@ -96,6 +96,11 @@ def test_migrations_upgrade_an_empty_postgres_schema() -> None:
                 "hotspot_snapshots",
                 "hotspot_entries",
                 "hotspot_research",
+                "public_data_provider_configs",
+                "published_content_bindings",
+                "public_collection_jobs",
+                "public_collection_attempts",
+                "public_observations",
             } <= tables
 
         agent_run_columns = {

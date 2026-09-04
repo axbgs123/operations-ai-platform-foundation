@@ -11,6 +11,7 @@ class Permission(StrEnum):
     MANAGE_STYLES = "manage_styles"
     MANAGE_FACTS = "manage_facts"
     MANAGE_RISK_KNOWLEDGE = "manage_risk_knowledge"
+    MANAGE_DATA_PROVIDERS = "manage_data_providers"
 
 
 class PermissionDenied(Exception):

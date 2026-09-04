@@ -5,6 +5,7 @@ export const SETTINGS_ITEMS = [
   { label: "成员与邀请码", href: "/settings/members" },
   { label: "平台账号", href: "/accounts" },
   { label: "AI 模型连接", href: "/settings/models" },
+  { label: "公开数据采集", href: "/settings/public-data" },
 ] as const;
 
 export function SettingsNav({ workspaceId }: { workspaceId: string }) {

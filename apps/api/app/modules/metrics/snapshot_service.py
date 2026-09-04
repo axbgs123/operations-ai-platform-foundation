@@ -166,6 +166,7 @@ class SnapshotService:
                         SnapshotSource.TABULAR_IMPORT: "xlsx",
                         SnapshotSource.SCREENSHOT: "screenshot",
                         SnapshotSource.EXTENSION: "extension",
+                        SnapshotSource.PUBLIC_API: "public_api",
                     }[snapshot.source]
                 },
                 provider_mode="real" if analytics_eligible else "mock",
@@ -290,6 +291,7 @@ class SnapshotService:
                         SnapshotSource.TABULAR_IMPORT: "xlsx",
                         SnapshotSource.SCREENSHOT: "screenshot",
                         SnapshotSource.EXTENSION: "extension",
+                        SnapshotSource.PUBLIC_API: "public_api",
                     }[snapshot.source]
                 },
                 provider_mode=(

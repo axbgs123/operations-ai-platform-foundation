@@ -48,6 +48,7 @@ class SnapshotSource(StrEnum):
     TABULAR_IMPORT = "tabular_import"
     SCREENSHOT = "screenshot"
     EXTENSION = "extension"
+    PUBLIC_API = "public_api"
 
 
 content_type_enum = Enum(

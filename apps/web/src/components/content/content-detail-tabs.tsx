@@ -40,6 +40,7 @@ import {
   taskStatusCopy,
   versionValueCopy,
 } from "@/components/workbench/operator-display-copy";
+import { PublicDataBindingPanel } from "@/components/public-data/content-binding-panel";
 
 
 export type ContentTab =
@@ -236,19 +237,32 @@ function SnapshotsPanel({
   role: "admin" | "editor" | "viewer";
 }): ReactElement {
   const { copyMode } = useExperiencePreferences();
+  const bindingPanel = (
+    <PublicDataBindingPanel
+      contentId={detail.content.id}
+      initialPublishedAt={detail.content.published_at}
+      initialUrl={detail.content.work_url}
+      role={role}
+      workspaceId={detail.content.workspace_id}
+    />
+  );
   if (!detail.snapshots.length) {
     return (
-      <EmptyState
-        description={role === "viewer"
-          ? "这里还没有数据快照；需要补充或确认时，请联系管理员或编辑者。"
-          : "添加并人工确认数据快照后，可查看当前数据；至少两条同口径快照才显示趋势。"}
-        title="还没有数据快照"
-      />
+      <div className="space-y-5">
+        {bindingPanel}
+        <EmptyState
+          description={role === "viewer"
+            ? "这里还没有数据快照；需要补充或确认时，请联系管理员或编辑者。"
+            : "绑定已发布作品可自动采集，也可继续使用手动或截图导入。"}
+          title="还没有数据快照"
+        />
+      </div>
     );
   }
   const trend = detail.snapshot_trend;
   return (
     <div className="space-y-5">
+      {bindingPanel}
       <Panel
         description={trend.reason}
         title={displayText({ simple: "快照展示条件", professional: "快照门禁" }, copyMode)}

@@ -3,6 +3,8 @@ name: operations-ai-platform
 x-api-environment: &api-environment
   APP_ENV: ${APP_ENV:-development}
   APP_MOCK_MODE: ${APP_MOCK_MODE:-true}
+  PUBLIC_DATA_SCHEDULER_ENABLED: "true"
+  PUBLIC_DATA_SCHEDULER_INTERVAL_SECONDS: ${PUBLIC_DATA_SCHEDULER_INTERVAL_SECONDS:-60}
   WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
   DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-operations_ai}:${POSTGRES_PASSWORD:-local-development-only}@postgres:5432/${POSTGRES_DB:-operations_ai}
   REDIS_URL: redis://redis:6379/0

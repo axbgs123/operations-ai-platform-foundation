@@ -3,6 +3,8 @@ name: operations-ai-platform-lite
 x-api-environment: &api-environment
   APP_ENV: ${APP_ENV:-development}
   APP_MOCK_MODE: ${APP_MOCK_MODE:-true}
+  PUBLIC_DATA_SCHEDULER_ENABLED: "true"
+  PUBLIC_DATA_SCHEDULER_INTERVAL_SECONDS: ${PUBLIC_DATA_SCHEDULER_INTERVAL_SECONDS:-60}
   APP_LITE_MODE: "true"
   WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
   API_PUBLIC_URL: ${API_PUBLIC_URL:-http://localhost:8000}
