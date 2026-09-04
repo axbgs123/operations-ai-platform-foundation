@@ -37,6 +37,7 @@
 - [系统架构](docs/architecture/system.md)、[数据模型](docs/architecture/data-model.md)、[模型适配](docs/architecture/model-adapters.md)、[千问配置与用量治理](docs/open-source/qianwen-model-configuration.md)
 - [轻量部署](docs/open-source/lite-deployment.md)、[完整版部署](docs/open-source/deployment.md)、[备份恢复边界](docs/open-source/backup-restore.md)
 - [TikHub 公开作品数据采集](docs/open-source/public-data-collection.md)
+- [当前版本交接提示词](docs/handoff/2026-09-04-lite-public-data-handoff.md)
 - [扩展安装](docs/open-source/extension-installation.md)、[扩展隐私](docs/open-source/extension-privacy.md)、[真实页面验证状态](docs/open-source/extension-validation-status.md)
 - [许可证决定](docs/open-source/license-decision.md)、[供应链安全](docs/open-source/supply-chain-security.md)、[发布清单](docs/open-source/release-checklist.md)、[第三方资产](docs/open-source/third-party-assets.md)
 
